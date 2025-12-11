@@ -117,7 +117,7 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
     // --- NEW LOGIC: 200 Zones & Random Cloud Mixing ---
     private fun generateCloudBitmap(source: Bitmap): Bitmap {
-        // 1. Grid Configuration (Targeting 200 zones: 10 columns x 20 rows)
+        // 1. Grid Configuration
         val cols = 10
         val rows = 20
 
@@ -169,8 +169,8 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
             // Random Jitter: Move center up to 40% of cell size in any direction
             // This breaks the grid structure
-            val shiftX = (rng.nextFloat() - 0.5f) * cellW * 0.8f
-            val shiftY = (rng.nextFloat() - 0.5f) * cellH * 0.8f
+            val shiftX = (rng.nextFloat() - 0.5f) * cellW * 0.9f
+            val shiftY = (rng.nextFloat() - 0.5f) * cellH * 0.9f
 
             // Random Radius: Ensure it covers the cell (0.7) plus random variation (+0.0 to 0.6)
             // Large radius ensures colors bleed into neighbors
