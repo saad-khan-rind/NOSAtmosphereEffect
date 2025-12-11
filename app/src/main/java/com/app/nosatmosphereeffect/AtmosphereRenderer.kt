@@ -114,8 +114,8 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
     // --- FIX: DOUBLE DENSITY GENERATION ---
     private fun generateCloudBitmap(source: Bitmap): Bitmap {
-        val cols = 20
-        val rows = 40
+        val cols = 10
+        val rows = 20
 
         val palette = Bitmap.createScaledBitmap(source, cols, rows, true)
 
@@ -171,8 +171,8 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
             canvas.drawCircle(zone.cx + satShiftX, zone.cy + satShiftY, satRadius, paint)
         }
 
-        // Increased Blur to 60 to melt the double layer together
-        return fastBlur(cloudBitmap, 30)
+        // Increased Blur to 50 to melt the double layer together
+        return fastBlur(cloudBitmap, 50)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {

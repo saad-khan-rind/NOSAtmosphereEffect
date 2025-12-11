@@ -31,11 +31,11 @@ void main() {
 
     // 1. Blur Phase (0.0 to 0.25)
     // 0.0 to 1.0 value representing opacity of the blur
-    float blurMix = smoothstep(0.0, 0.09, t);
+    float blurMix = smoothstep(0.0, 0.1, t);
 
     // 2. Movement Phase (0.25 to 1.0)
     // Starts ONLY after blur is established
-    float moveRaw = smoothstep(0.06, 1.0, t);
+    float moveRaw = smoothstep(0.09, 1.0, t);
 
     // Apply Physics (Deceleration) to the movement
     float movePhysics = easeOutCubic(moveRaw);
