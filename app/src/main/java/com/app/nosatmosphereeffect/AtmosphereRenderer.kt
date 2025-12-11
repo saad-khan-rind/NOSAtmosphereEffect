@@ -1,5 +1,3 @@
-// app/src/main/java/com/app/nosatmosphereeffect/AtmosphereRenderer.kt
-
 package com.app.nosatmosphereeffect
 
 import android.content.Context
@@ -17,7 +15,6 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.util.ArrayList
-import java.util.Collections
 import java.util.Random
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -118,14 +115,14 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         return finalBitmap
     }
 
-    // --- NEW LOGIC: 20 Zones & Random Cloud Mixing ---
+    // --- NEW LOGIC: 200 Zones & Random Cloud Mixing ---
     private fun generateCloudBitmap(source: Bitmap): Bitmap {
-        // 1. Grid Configuration (Targeting 20 zones: 4 columns x 5 rows)
-        val cols = 4
-        val rows = 5
+        // 1. Grid Configuration (Targeting 200 zones: 10 columns x 20 rows)
+        val cols = 10
+        val rows = 20
 
         // 2. Extract Zone Colors
-        // Scaling source to 4x5 uses Android's filter to average the colors in each zone automatically
+        // Scaling source to 10x20 uses Android's filter to average the colors in each zone automatically
         val palette = Bitmap.createScaledBitmap(source, cols, rows, true)
 
         // 3. Prepare Destination (Cloud Texture)
