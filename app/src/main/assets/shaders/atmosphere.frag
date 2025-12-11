@@ -1,3 +1,4 @@
+//File: saad-khan-rind/nosatmosphereeffect/saad-khan-rind-NOSAtmosphereEffect-25c3abbe6645a7e5b9afb4818b31393d421bd482/app/src/main/assets/shaders/atmosphere.frag
 #version 300 es
 precision mediump float;
 
@@ -6,94 +7,85 @@ out vec4 fragColor;
 
 uniform sampler2D uTextureSharp;
 uniform sampler2D uTextureBlur;
-uniform float uBlurStrength; // 0.0 to 1.0
-uniform float uSeed;         // NEW: Random seed (0.0 to 500.0)
+uniform float uBlurStrength;
+uniform float uSeed;
 
-// --- IMPROVED NOISE FUNCTIONS ---
-// High quality hash to prevent grid lines
+// --- UTILS ---
 float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
 }
 
-// Smooth noise
-float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    // Quintic interpolation (smoother than Hermite) - Fixes "blocky" artifacts
-    vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-
-    float a = hash(i + vec2(0.0, 0.0));
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-
-float fbm(vec2 p) {
-    float total = 0.0;
-    float amplitude = 0.5;
-    mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5)); // Rotate octaves to hide grid
-    for (int i = 0; i < 3; i++) {
-        total += noise(p) * amplitude;
-        p = rot * p * 2.0 + 100.0; // Shift domain to avoid origin artifacts
-        amplitude *= 0.5;
-    }
-    return total;
+// 2D Rotation Helper
+vec2 rotate(vec2 v, float a) {
+    float s = sin(a);
+    float c = cos(a);
+    mat2 m = mat2(c, -s, s, c);
+    return m * v;
 }
 
 void main() {
-    // --- STEP 1: RANDOMIZE DIRECTION ---
-    // Use the seed to decide direction (Left vs Right)
-    // If sin(uSeed) > 0, direction is 1.0. Else -1.0.
-    float randomDir = sign(sin(uSeed));
-    if (randomDir == 0.0) randomDir = 1.0;
+    // --- CONFIGURATION ---
+    // Reduced from (10, 20) to (4, 8) for MUCH bigger zones
+    vec2 gridConfig = vec2(4.0, 8.0);
 
-    // --- STEP 2: LIQUID FLOW CALCULATION ---
+    // --- STEP 1: CALCULATE ZONES ---
+    // Scale UVs to grid space
+    vec2 gridUV = vTexCoord * gridConfig;
 
-    // Add Seed to time so waves are different every unlock
-    float fluidTime = (uBlurStrength * 2.0) + uSeed;
+    // "id" is the integer coordinate of the cell
+    vec2 cellId = floor(gridUV);
 
-    vec2 flow;
-    // Offset coordinates by Seed to land in a different part of the noise field
-    flow.x = fbm(vTexCoord * 3.0 + fluidTime);
-    flow.y = fbm(vTexCoord * 3.0 - fluidTime + vec2(10.0, 5.0));
+    // "localUV" is the coordinate INSIDE the cell (-0.5 to 0.5)
+    vec2 localUV = fract(gridUV) - 0.5;
 
-    flow -= 0.5; // Center the flow
+    // --- STEP 2: CONTROL DISTORTION TIMING ---
+    // Start with 0 distortion at 0.4 (locked state).
+    // Ramp up distortion as we unlock.
+    float distortionPhase = smoothstep(0.4, 1.0, uBlurStrength);
 
-    // Apply Random Direction to the flow vector
-    flow *= randomDir;
+    // --- STEP 3: APPLY LOCAL SPIRAL ---
+    // Calculate distance from center OF THE CELL
+    float dist = length(localUV);
 
-    // Distortion strength
-    float distortStrength = 0.3 * uBlurStrength;
+    // Generate a random direction per cell so they don't all spin the same way
+    float cellRandom = sign(sin(dot(cellId, vec2(12.9898, 78.233)) + uSeed));
+    if (cellRandom == 0.0) cellRandom = 1.0;
 
-    // Apply distortion
-    vec2 cloudCoord = vTexCoord + (flow * distortStrength);
+    // Spiral Strength:
+    // Stronger at center of cell (1.0 - dist * 2.0)
+    // Multiplied by phase so it starts at 0.0
+    float twistStrength = distortionPhase * 5.0 * max(0.0, (0.5 - dist));
 
-    // --- STEP 3: EDGE & ZOOM FIX ---
-    // Zoom in (0.75) so we have plenty of room to shake the texture without hitting black edges
-    // Center the zoom around (0.5, 0.5)
-    vec2 centered = cloudCoord - 0.5;
-    cloudCoord = (centered * (1.0 - (0.25 * uBlurStrength))) + 0.5;
+    // Apply rotation to the local UV coordinates
+    vec2 twistedLocalUV = rotate(localUV, twistStrength * cellRandom);
 
-    // Safety Clamp (Just in case)
-    cloudCoord = clamp(cloudCoord, 0.01, 0.99);
+    // --- STEP 4: RECONSTRUCT UVs ---
+    // Convert back from Local (-0.5 to 0.5) to Grid (0 to 1) to Texture (0 to 1)
+    vec2 finalSharpUV = (cellId + twistedLocalUV + 0.5) / gridConfig;
 
-    // --- STEP 4: MIX COLORS ---
+    // --- STEP 5: FETCH COLORS ---
+    vec4 sharpColor = texture(uTextureSharp, finalSharpUV);
 
-    vec4 sharpColor = texture(uTextureSharp, vTexCoord);
-    vec4 cloudColor = texture(uTextureBlur, cloudCoord);
+    // Add a little zoom to the clouds to keep them dynamic
+    vec2 cloudUV = (vTexCoord - 0.5) * (1.0 - (0.1 * uBlurStrength)) + 0.5;
+    vec4 cloudColor = texture(uTextureBlur, cloudUV);
 
-    // --- STEP 5: GRAIN DISSOLVE ---
+    // --- STEP 6: MIXING ---
+    // Grain for texture
+    float grain = hash(gl_FragCoord.xy + uSeed) * 0.1;
 
-    // Generate static grain based on screen pixel coords
-    float grain = hash(gl_FragCoord.xy + uSeed) * 0.15; // Randomize grain pattern too!
+    // CRITICAL FIX: Changed upper limit from 1.0 to 0.8
+    // This ensures that by the time uBlurStrength hits 0.8, we are 100% clouds.
+    // At uBlurStrength 1.0, "mixFactor" will be solidly 1.0 (no wallpaper visible).
+    float mixFactor = smoothstep(0.0, 0.8, uBlurStrength + grain - 0.05);
 
-    float mixFactor = smoothstep(0.0, 1.0, uBlurStrength + grain - 0.05);
-
+    // Final composition
     vec4 finalColor = mix(sharpColor, cloudColor, mixFactor);
-    finalColor.rgb += (grain - 0.5) * 0.03; // Debanding
+
+    // Dithering/Debanding
+    finalColor.rgb += (grain - 0.5) * 0.02;
 
     fragColor = finalColor;
 }
