@@ -102,19 +102,23 @@ class AtmosphereService : GLWallpaperService() {
         private fun playUnlockAnimation() {
             val targetRenderer = myRenderer ?: return
 
-            // New random swirl for this unlock
-            targetRenderer.seed = (Math.random() * 500.0).toFloat()
+            // New seed for dynamic grain
+            targetRenderer.seed = (Math.random() * 1000.0).toFloat()
 
             blurAnimator?.cancel()
 
-            // Force start position (0.4)
-            targetRenderer.blurStrength = 0.4f
+            // Start sharp
+            targetRenderer.blurStrength = 0.0f
             requestRender()
 
-            // 2.0 Second Fluid Animation
-            blurAnimator = ValueAnimator.ofFloat(0.4f, 1.0f).apply {
-                duration = 2000
-                interpolator = PathInterpolator(0.1f, 0.0f, 0.2f, 1.0f) // Fast start, slow settle
+            // Animate 0.0 -> 1.0 over 2 seconds
+            // The shader handles the "Fast Blur" (0.1s) internally using smoothstep.
+            blurAnimator = ValueAnimator.ofFloat(0.0f, 1.0f).apply {
+                duration = 2000 // 2 Seconds total
+
+                // Linear interpolator allows the shader to control the exact timing
+                // of each stage (Blur, Shift, Darken) precisely.
+                interpolator = android.view.animation.LinearInterpolator()
 
                 addUpdateListener { animator ->
                     val value = animator.animatedValue as Float
