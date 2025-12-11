@@ -84,7 +84,6 @@ void main() {
     // Final composition
     vec4 finalColor = mix(sharpColor, cloudColor, mixFactor);
 
-    // Dithering/Debanding
     finalColor.rgb += (grain - 0.5) * 0.02;
 
     fragColor = finalColor;
