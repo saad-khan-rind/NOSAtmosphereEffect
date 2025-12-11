@@ -1,3 +1,5 @@
+// app/src/main/java/com/app/nosatmosphereeffect/AtmosphereRenderer.kt
+
 package com.app.nosatmosphereeffect
 
 import android.content.Context
@@ -14,6 +16,9 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.util.ArrayList
+import java.util.Collections
+import java.util.Random
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.max
@@ -113,21 +118,72 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         return finalBitmap
     }
 
+    // --- NEW LOGIC: 20 Zones & Random Cloud Mixing ---
     private fun generateCloudBitmap(source: Bitmap): Bitmap {
-        // Use 100x100 base size
-        val small = Bitmap.createScaledBitmap(source, 100, 100, true)
+        // 1. Grid Configuration (Targeting 20 zones: 4 columns x 5 rows)
+        val cols = 4
+        val rows = 5
 
-        // Safer call
-        val blurred = try {
-            fastBlur(small, 10)
-        } catch (e: Exception) {
-            small // Fallback
+        // 2. Extract Zone Colors
+        // Scaling source to 4x5 uses Android's filter to average the colors in each zone automatically
+        val palette = Bitmap.createScaledBitmap(source, cols, rows, true)
+
+        // 3. Prepare Destination (Cloud Texture)
+        // 512x512 is sufficient for a blurry background texture
+        val texW = 512
+        val texH = 512
+        val cloudBitmap = Bitmap.createBitmap(texW, texH, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(cloudBitmap)
+
+        // Fill background with black (or could use average of whole image)
+        canvas.drawColor(Color.BLACK)
+
+        val paint = Paint().apply {
+            isAntiAlias = true
+            style = Paint.Style.FILL
         }
 
-        val finalCloud = Bitmap.createScaledBitmap(blurred, 512, 512, true)
-        if (small != blurred) small.recycle()
-        if (blurred != finalCloud) blurred.recycle()
-        return finalCloud
+        val cellW = texW / cols.toFloat()
+        val cellH = texH / rows.toFloat()
+
+        // 4. Create Random "Clouds" from Zones
+        val rng = Random()
+        data class Zone(val color: Int, val cx: Float, val cy: Float)
+        val zones = ArrayList<Zone>()
+
+        // Collect zones
+        for (y in 0 until rows) {
+            for (x in 0 until cols) {
+                val color = palette.getPixel(x, y)
+                // Base center position
+                val cx = (x * cellW) + (cellW / 2)
+                val cy = (y * cellH) + (cellH / 2)
+                zones.add(Zone(color, cx, cy))
+            }
+        }
+        palette.recycle()
+
+        // Shuffle zones to randomize the layering order (z-index mixing)
+        zones.shuffle()
+
+        // Draw zones as overlapping blobs
+        for (zone in zones) {
+            paint.color = zone.color
+
+            // Random Jitter: Move center up to 40% of cell size in any direction
+            // This breaks the grid structure
+            val shiftX = (rng.nextFloat() - 0.5f) * cellW * 0.8f
+            val shiftY = (rng.nextFloat() - 0.5f) * cellH * 0.8f
+
+            // Random Radius: Ensure it covers the cell (0.7) plus random variation (+0.0 to 0.6)
+            // Large radius ensures colors bleed into neighbors
+            val radius = max(cellW, cellH) * (0.7f + rng.nextFloat() * 0.6f)
+
+            canvas.drawCircle(zone.cx + shiftX, zone.cy + shiftY, radius, paint)
+        }
+
+        // 5. Heavy Blur to melt everything into a smooth gradient
+        return fastBlur(cloudBitmap, 80)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -231,11 +287,10 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         val stack = Array(div) { IntArray(3) }
         var stackpointer: Int; var stackstart: Int; var sir: IntArray; var rbs: Int; var r1 = radius + 1; var routsum: Int; var goutsum: Int; var boutsum: Int; var rinsum: Int; var ginsum: Int; var binsum: Int
 
-        // Added MIN/MAX safety clamps to prevent index 4096 error
         for (y in 0 until h) {
             rinsum = 0; ginsum = 0; binsum = 0; routsum = 0; goutsum = 0; boutsum = 0; rsum = 0; gsum = 0; bsum = 0
             for (i in -radius..radius) {
-                p = pix[yi + min(wm, max(i, 0))] // Safety Clamp
+                p = pix[yi + min(wm, max(i, 0))]
                 sir = stack[i + radius]
                 sir[0] = (p and 0xff0000) shr 16
                 sir[1] = (p and 0x00ff00) shr 8
