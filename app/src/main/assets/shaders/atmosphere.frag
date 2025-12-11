@@ -6,46 +6,73 @@ out vec4 fragColor;
 
 uniform sampler2D uTextureSharp;
 uniform sampler2D uTextureBlur;
-uniform float uBlurStrength; // 0.0 to 1.0 (Animation Progress)
+uniform float uBlurStrength; // 0.0 -> 1.0 (Linear Time)
 uniform float uSeed;
 
-// Standard pseudo-random noise generator
-float hash(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
+// Rotate UVs around a center point
+vec2 rotate(vec2 uv, float angle) {
+    vec2 center = vec2(0.5);
+    uv -= center;
+    float s = sin(angle);
+    float c = cos(angle);
+    mat2 rot = mat2(c, -s, s, c);
+    return (uv * rot) + center;
+}
+
+// Cubic Ease Out: Fast Start -> Slow Stop
+float easeOutCubic(float x) {
+    return 1.0 - pow(1.0 - x, 3.0);
 }
 
 void main() {
-    // --- TIMING LOGIC ---
+    float t = uBlurStrength;
 
-    // 1. FAST BLUR (0.0 -> 0.1)
-    // The blur happens instantly (in the first 0.2s of the 2s animation)
-    float blurMix = smoothstep(0.0, 0.1, uBlurStrength);
+    // --- TIMING SEQUENCE ---
 
-    // 2. CLOUD SHIFT/TRAVEL (0.0 -> 1.0)
-    // The cloud texture continuously zooms in slightly over the whole animation.
-    float zoom = 1.0 - (0.1 * uBlurStrength); // 10% Zoom travel
-    vec2 cloudUV = (vTexCoord - 0.5) * zoom + 0.5;
+    // 1. Blur Phase (0.0 to 0.25)
+    // 0.0 to 1.0 value representing opacity of the blur
+    float blurMix = smoothstep(0.0, 0.13, t);
 
-    // 3. DARK OVERLAY (0.0 -> 1.0) --- UPDATED ---
-    // Instead of waiting for 0.6, we now start darkening immediately.
-    // The darkening happens smoothly along with the cloud movement.
-    float darkenFactor = smoothstep(0.0, 1.0, uBlurStrength) * 0.3;
+    // 2. Movement Phase (0.25 to 1.0)
+    // Starts ONLY after blur is established
+    float moveRaw = smoothstep(0.05, 1.0, t);
 
-    // --- COLOR FETCHING ---
+    // Apply Physics (Deceleration) to the movement
+    float movePhysics = easeOutCubic(moveRaw);
+
+
+    // --- MOVEMENT LOGIC ---
+
+    // 1. Zoom (Increase Size)
+    // Only zoom during the movement phase
+    float zoom = 1.0 - (movePhysics * 0.4);
+    vec2 center = vec2(0.5);
+    vec2 zoomedUV = (vTexCoord - center) * zoom + center;
+
+    // 2. Circular / Swirl Movement
+    float randomDir = sign(sin(uSeed));
+    float dist = length(vTexCoord - center);
+
+    // Rotate based on Physics Curve
+    float angle = movePhysics * randomDir * (0.5 + dist);
+
+    vec2 cloudUV = rotate(zoomedUV, angle);
+
+    // 3. Random Destination Shift
+    vec2 drift = vec2(sin(uSeed), cos(uSeed)) * movePhysics * 0.3;
+    cloudUV += drift;
+
+    // --- COMPOSITION ---
 
     vec4 sharpColor = texture(uTextureSharp, vTexCoord);
     vec4 cloudColor = texture(uTextureBlur, cloudUV);
 
-    // --- COMPOSITION ---
-
-    // Mix Sharp and Cloud based on the Fast Blur timing
+    // Mix based on the Blur Phase
     vec3 result = mix(sharpColor.rgb, cloudColor.rgb, blurMix);
 
-    // Apply Dark Mask
-    // This now gradually dims the screen from start to finish
-    result *= (1.0 - darkenFactor);
+    // Darken Overlay (Gradual over whole animation)
+    float darken = smoothstep(0.0, 1.0, t) * 0.4;
+    result *= (1.0 - darken);
 
     fragColor = vec4(result, 1.0);
 }

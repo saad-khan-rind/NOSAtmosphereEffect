@@ -74,23 +74,20 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
     }
 
     private fun loadFixedWallpaper(): Bitmap {
-        // Always look for "wallpaper.jpg"
         val file = File(context.filesDir, "wallpaper.jpg")
-
         var rawBitmap: Bitmap? = null
         if (file.exists()) {
-            rawBitmap = BitmapFactory.decodeFile(file.absolutePath)
+            try {
+                rawBitmap = BitmapFactory.decodeFile(file.absolutePath)
+            } catch (e: Exception) { }
         }
 
-        // --- DEBUG FALLBACKS ---
         if (rawBitmap == null) {
-            // Create a colored placeholder so we know WHY it failed
-            val color = if (!file.exists()) Color.RED else Color.BLUE
+            val color = Color.BLUE
             rawBitmap = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888)
             rawBitmap.eraseColor(color)
         }
 
-        // Center Crop
         val metrics = context.resources.displayMetrics
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
@@ -115,25 +112,20 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         return finalBitmap
     }
 
-    // --- NEW LOGIC: 200 Zones & Random Cloud Mixing ---
+    // --- FIX: DOUBLE DENSITY GENERATION ---
     private fun generateCloudBitmap(source: Bitmap): Bitmap {
-        // 1. Grid Configuration
         val cols = 10
         val rows = 20
 
-        // 2. Extract Zone Colors
-        // Scaling source to 10x20 uses Android's filter to average the colors in each zone automatically
         val palette = Bitmap.createScaledBitmap(source, cols, rows, true)
 
-        // 3. Prepare Destination (Cloud Texture)
-        // 512x512 is sufficient for a blurry background texture
         val texW = 512
         val texH = 512
         val cloudBitmap = Bitmap.createBitmap(texW, texH, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(cloudBitmap)
 
-        // Fill background with black (or could use average of whole image)
-        canvas.drawColor(Color.BLACK)
+        // Base background color
+        canvas.drawColor(palette.getPixel(cols / 2, rows / 2))
 
         val paint = Paint().apply {
             isAntiAlias = true
@@ -143,44 +135,44 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         val cellW = texW / cols.toFloat()
         val cellH = texH / rows.toFloat()
 
-        // 4. Create Random "Clouds" from Zones
         val rng = Random()
         data class Zone(val color: Int, val cx: Float, val cy: Float)
         val zones = ArrayList<Zone>()
 
-        // Collect zones
         for (y in 0 until rows) {
             for (x in 0 until cols) {
                 val color = palette.getPixel(x, y)
-                // Base center position
                 val cx = (x * cellW) + (cellW / 2)
                 val cy = (y * cellH) + (cellH / 2)
                 zones.add(Zone(color, cx, cy))
             }
         }
         palette.recycle()
-
-        // Shuffle zones to randomize the layering order (z-index mixing)
         zones.shuffle()
 
-        // Draw zones as overlapping blobs
         for (zone in zones) {
             paint.color = zone.color
 
-            // Random Jitter: Move center up to 40% of cell size in any direction
-            // This breaks the grid structure
-            val shiftX = (rng.nextFloat() - 0.5f) * cellW * 0.9f
-            val shiftY = (rng.nextFloat() - 0.5f) * cellH * 0.9f
-
-            // Random Radius: Ensure it covers the cell (0.7) plus random variation (+0.0 to 0.6)
-            // Large radius ensures colors bleed into neighbors
-            val radius = max(cellW, cellH) * (0.7f + rng.nextFloat() * 0.6f)
+            // LAYER 1: Main Cloud (Massive Jitter)
+            // Drifts up to 3 cells away. Large size.
+            val shiftX = (rng.nextFloat() - 0.5f) * cellW * 3.0f
+            val shiftY = (rng.nextFloat() - 0.5f) * cellH * 3.0f
+            val radius = max(cellW, cellH) * (1.5f + rng.nextFloat() * 2.0f)
 
             canvas.drawCircle(zone.cx + shiftX, zone.cy + shiftY, radius, paint)
+
+            // LAYER 2: Satellite Cloud (The "Mortar")
+            // This fills the gaps that might open up when the main clouds move.
+            // It has the SAME color but a different random position nearby.
+            val satShiftX = (rng.nextFloat() - 0.5f) * cellW * 4.0f // Drifts even further
+            val satShiftY = (rng.nextFloat() - 0.5f) * cellH * 4.0f
+            val satRadius = radius * 0.6f // Smaller
+
+            canvas.drawCircle(zone.cx + satShiftX, zone.cy + satShiftY, satRadius, paint)
         }
 
-        // 5. Heavy Blur to melt everything into a smooth gradient
-        return fastBlur(cloudBitmap, 80)
+        // Increased Blur to 60 to melt the double layer together
+        return fastBlur(cloudBitmap, 60)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -256,16 +248,13 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         return context.assets.open(path).bufferedReader().use { it.readText() }
     }
 
-    // --- CRASH PROOF BLUR ---
     private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
         val bitmap = sentBitmap.copy(sentBitmap.config, true)
         if (radius < 1) return (null) ?: sentBitmap
-
         val w = bitmap.width
         val h = bitmap.height
         val pix = IntArray(w * h)
         bitmap.getPixels(pix, 0, w, 0, 0, w, h)
-
         val wm = w - 1
         val hm = h - 1
         val wh = w * h
@@ -280,10 +269,8 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         val dv = IntArray(256 * divsum)
         for (i in 0 until 256 * divsum) dv[i] = (i / divsum)
         yw = 0; yi = 0
-
         val stack = Array(div) { IntArray(3) }
         var stackpointer: Int; var stackstart: Int; var sir: IntArray; var rbs: Int; var r1 = radius + 1; var routsum: Int; var goutsum: Int; var boutsum: Int; var rinsum: Int; var ginsum: Int; var binsum: Int
-
         for (y in 0 until h) {
             rinsum = 0; ginsum = 0; binsum = 0; routsum = 0; goutsum = 0; boutsum = 0; rsum = 0; gsum = 0; bsum = 0
             for (i in -radius..radius) {
