@@ -27,8 +27,8 @@ vec2 rotate(vec2 v, float a) {
 
 void main() {
     // --- CONFIGURATION ---
-    // Reduced from (10, 20) to (4, 8) for MUCH bigger zones
-    vec2 gridConfig = vec2(4.0, 8.0);
+    // Reduced from (4, 8) to (3, 6) for fewer, larger zones
+    vec2 gridConfig = vec2(3.0, 6.0);
 
     // --- STEP 1: CALCULATE ZONES ---
     // Scale UVs to grid space
@@ -56,7 +56,8 @@ void main() {
     // Spiral Strength:
     // Stronger at center of cell (1.0 - dist * 2.0)
     // Multiplied by phase so it starts at 0.0
-    float twistStrength = distortionPhase * 5.0 * max(0.0, (0.5 - dist));
+    // Reduced multiplier from 5.0 to 3.0 to make it less aggressive (slower spin)
+    float twistStrength = distortionPhase * 3.0 * max(0.0, (0.5 - dist));
 
     // Apply rotation to the local UV coordinates
     vec2 twistedLocalUV = rotate(localUV, twistStrength * cellRandom);
@@ -76,9 +77,8 @@ void main() {
     // Grain for texture
     float grain = hash(gl_FragCoord.xy + uSeed) * 0.1;
 
-    // CRITICAL FIX: Changed upper limit from 1.0 to 0.8
-    // This ensures that by the time uBlurStrength hits 0.8, we are 100% clouds.
-    // At uBlurStrength 1.0, "mixFactor" will be solidly 1.0 (no wallpaper visible).
+    // Ensure 100% transition to clouds by 0.8 strength
+    // This hides the twisted wallpaper completely at the end
     float mixFactor = smoothstep(0.0, 0.8, uBlurStrength + grain - 0.05);
 
     // Final composition
