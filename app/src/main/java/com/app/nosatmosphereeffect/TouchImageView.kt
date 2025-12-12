@@ -11,7 +11,6 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import androidx.appcompat.widget.AppCompatImageView
 import kotlin.math.max
-import kotlin.math.min
 
 class TouchImageView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null

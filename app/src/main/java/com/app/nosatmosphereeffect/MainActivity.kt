@@ -6,7 +6,7 @@ import android.os.Bundle
 import android.widget.Button
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.color.DynamicColors // Add this import
+import com.google.android.material.color.DynamicColors
 
 class MainActivity : AppCompatActivity() {
 
