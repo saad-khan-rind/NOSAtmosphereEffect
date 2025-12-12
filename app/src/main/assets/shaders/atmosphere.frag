@@ -6,7 +6,7 @@ out vec4 fragColor;
 
 uniform sampler2D uTextureSharp;
 uniform sampler2D uTextureBlur;
-uniform float uBlurStrength; // 0.0 -> 1.0 (Linear Time)
+uniform float uBlurStrength;
 uniform float uSeed;
 
 // Rotate UVs around a center point
@@ -31,7 +31,7 @@ void main() {
 
     // 1. Blur Phase (0.0 to 0.25)
     // 0.0 to 1.0 value representing opacity of the blur
-    float blurMix = smoothstep(0.0, 0.1, t);
+    float blurMix = smoothstep(0.0, 0.11, t);
 
     // 2. Movement Phase (0.25 to 1.0)
     // Starts ONLY after blur is established
@@ -71,7 +71,7 @@ void main() {
     vec3 result = mix(sharpColor.rgb, cloudColor.rgb, blurMix);
 
     // Darken Overlay (Gradual over whole animation)
-    float darken = smoothstep(0.0, 1.0, t) * 0.4;
+    float darken = smoothstep(0.0, 1.0, t) * 0.3;
     result *= (1.0 - darken);
 
     fragColor = vec4(result, 1.0);
