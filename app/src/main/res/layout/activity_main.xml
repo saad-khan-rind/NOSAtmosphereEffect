@@ -6,15 +6,13 @@
     android:orientation="vertical"
     android:gravity="center"
     android:padding="24dp"
-    android:background="@color/black">
-
-    <ImageView
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:src="@drawable/ic_launcher_foreground"
-        app:tint="?attr/colorPrimary"
-        android:contentDescription="@string/app_logo_desc"
-        android:layout_marginBottom="24dp"/>
+    android:background="?attr/colorSurface"> <ImageView
+    android:layout_width="96dp"
+    android:layout_height="96dp"
+    android:src="@drawable/ic_launcher_foreground"
+    app:tint="?attr/colorPrimary"
+    android:contentDescription="@string/app_logo_desc"
+    android:layout_marginBottom="32dp"/>
 
     <TextView
         android:layout_width="wrap_content"
@@ -23,7 +21,8 @@
         android:textAppearance="?attr/textAppearanceDisplayMedium"
         android:textColor="?attr/colorOnSurface"
         android:textAlignment="center"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginBottom="12dp"
+        android:textStyle="bold"/>
 
     <TextView
         android:id="@+id/statusText"
@@ -37,6 +36,7 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnMainAction"
+        style="@style/Widget.Material3.Button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="56dp"
@@ -44,9 +44,7 @@
         android:textSize="16sp"
         app:icon="@android:drawable/ic_menu_gallery"
         app:iconGravity="textStart"
-        app:cornerRadius="28dp"
         android:backgroundTint="?attr/colorPrimary"
-        android:textColor="?attr/colorOnPrimary"
-        style="@style/Widget.Material3.Button"/>
+        android:textColor="?attr/colorOnPrimary" />
 
 </LinearLayout>

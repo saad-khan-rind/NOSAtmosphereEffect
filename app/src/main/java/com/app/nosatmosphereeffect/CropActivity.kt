@@ -4,8 +4,8 @@ import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.ContentUris
 import android.content.ContentValues
-import android.content.Context
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.color.DynamicColors
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -24,12 +24,15 @@ class CropActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        DynamicColors.applyToActivityIfAvailable(this)
+
         setContentView(R.layout.activity_crop)
 
         val cropView = findViewById<TouchImageView>(R.id.cropImageView)
         val btnSave = findViewById<Button>(R.id.btnSaveCrop)
 
-        btnSave.text = "Apply" // Simplified Text
+        btnSave.setText(R.string.action_apply)
 
         val uriString = intent.getStringExtra("IMAGE_URI") ?: return
         val uri = Uri.parse(uriString)
@@ -50,7 +53,7 @@ class CropActivity : AppCompatActivity() {
 
     private fun showApplyDialog(bitmap: Bitmap) {
         val options = arrayOf("Set Static Lock Screen", "Save Copy to Gallery")
-        val checkedItems = booleanArrayOf(true, true) // Both checked by default
+        val checkedItems = booleanArrayOf(true, true)
 
         MaterialAlertDialogBuilder(this)
             .setTitle("Apply Options")
@@ -58,7 +61,6 @@ class CropActivity : AppCompatActivity() {
                 checkedItems[which] = isChecked
             }
             .setPositiveButton("Apply") { _, _ ->
-                // Run the logic based on user choice
                 applyWallpaper(
                     bitmap,
                     setLockScreen = checkedItems[0],
@@ -74,22 +76,18 @@ class CropActivity : AppCompatActivity() {
 
         Thread {
             try {
-                // 1. ALWAYS Save Private Copy (This powers the Home Screen Live Wallpaper)
                 saveFixedWallpaper(bitmap)
 
-                // 2. Optional: Save to Gallery
                 if (saveToGallery) {
                     deleteOldBackups()
                     saveToPublicGallery(bitmap)
                 }
 
-                // 3. Optional: Set Lock Screen
                 if (setLockScreen) {
                     val wm = WallpaperManager.getInstance(this)
                     wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
                 }
 
-                // 4. Update Home Screen (Live Wallpaper)
                 runOnUiThread {
                     if (isServiceActive()) {
                         val intent = Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")

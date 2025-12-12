@@ -1,29 +1,49 @@
 <resources>
     <style name="Theme.NOSAtmosphereEffect" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:colorBackground">@color/black</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorSurfaceContainer">@color/black</item>
+        <item name="colorSurfaceContainerHigh">@color/black</item>
+
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorOnSurfaceVariant">@color/white_alpha_70</item>
+
         <item name="android:alertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
         <item name="materialAlertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
     </style>
 
     <style name="Theme.NOSAtmosphereEffect.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="android:background">#000000</item>
-        <item name="colorSurface">#000000</item>
-        <item name="colorSurfaceContainerHigh">#000000</item> <item name="colorOnSurface">#FFFFFF</item>
-        <item name="android:textColorPrimary">#FFFFFF</item>
-        <item name="android:textColorSecondary">#B3FFFFFF</item> <item name="shapeAppearanceMediumComponent">@style/RoundedDialogShape</item>
+        <item name="android:background">@color/black</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorSurfaceContainerHigh">@color/black</item>
+
+        <item name="colorOnSurface">@color/white</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/white_alpha_70</item>
+
+        <item name="shapeAppearanceMediumComponent">@style/Shape.Expressive.Dialog</item>
+        <item name="shapeAppearanceSmallComponent">@style/Shape.Expressive.Button</item>
 
         <item name="buttonBarPositiveButtonStyle">@style/DialogButton.Apply</item>
         <item name="buttonBarNegativeButtonStyle">@style/DialogButton.Cancel</item>
     </style>
 
-    <style name="RoundedDialogShape" parent="ShapeAppearance.Material3.MediumComponent">
+    <style name="Shape.Expressive.Dialog" parent="ShapeAppearance.Material3.MediumComponent">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">28dp</item>
     </style>
 
+    <style name="Shape.Expressive.Button" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
     <style name="DialogButton.Apply" parent="Widget.Material3.Button.TextButton">
-        <item name="android:textColor">#448AFF</item> <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
     <style name="DialogButton.Cancel" parent="Widget.Material3.Button.TextButton">
-        <item name="android:textColor">#FFFFFF</item> </style>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
 </resources>
