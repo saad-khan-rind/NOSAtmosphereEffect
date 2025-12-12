@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.Button
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.color.DynamicColors // Add this import
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,6 +20,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ENABLE DYNAMIC COLORS HERE
+        DynamicColors.applyToActivityIfAvailable(this)
+
         setContentView(R.layout.activity_main)
 
         findViewById<Button>(R.id.btnMainAction).setOnClickListener {

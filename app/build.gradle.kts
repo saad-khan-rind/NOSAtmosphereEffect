@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.app.nosatmosphereeffect"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.app.nosatmosphereeffect"
-        minSdk = 34 // Android 14+
-        targetSdk = 34
+        minSdk = 36 // Android 14+
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
@@ -24,17 +24,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    buildToolsVersion = "34.0.0"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
 dependencies {
     // Versions
-    val coreKtxVersion = "1.13.1"
-    val lifecycleVersion = "2.8.0"
-    val appcompatVersion = "1.7.0"
-    val materialVersion = "1.12.0"
+    val coreKtxVersion = "1.17.0"
+    val lifecycleVersion = "2.10.0"
+    val appcompatVersion = "1.7.1"
+    val materialVersion = "1.13.0"
 
     // Core Android
     implementation("androidx.core:core-ktx:$coreKtxVersion")

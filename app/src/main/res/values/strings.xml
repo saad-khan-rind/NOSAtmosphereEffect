@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">NOSAtmosphereEffect</string>
+
+    <string name="app_title">Atmosphere Effect</string>
+    <string name="app_logo_desc">App Logo</string>
+    <string name="status_instruction">Select an image to create your\nNothing OS style effect.</string>
+    <string name="action_select_image">Select Image</string>
+    <string name="action_apply_effect">Apply Effect</string>
+    <string name="text_alignment_instructions">Pinch to zoom and drag to adjust</string>
+
 </resources>

@@ -249,7 +249,8 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
     }
 
     private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
-        val bitmap = sentBitmap.copy(sentBitmap.config, true)
+        val config = sentBitmap.config ?: Bitmap.Config.ARGB_8888
+        val bitmap = sentBitmap.copy(config, true)
         if (radius < 1) return (null) ?: sentBitmap
         val w = bitmap.width
         val h = bitmap.height

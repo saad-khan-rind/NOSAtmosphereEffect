@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
@@ -10,25 +11,52 @@
         android:layout_height="match_parent" />
 
     <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_gravity="center"
-        android:background="#33FFFFFF"/>
-    <View
         android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:layout_gravity="center"
-        android:background="#33FFFFFF"/>
+        android:layout_gravity="center_horizontal"
+        android:background="#40FFFFFF"/>
 
-    <Button
-        android:id="@+id/btnSaveCrop"
-        android:layout_width="wrap_content"
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_gravity="center_vertical"
+        android:background="#40FFFFFF"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_gravity="top"
+        android:background="@drawable/gradient_shadow_top" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Set This View"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="48dp"
-        android:backgroundTint="#D71920"
-        android:textColor="#FFFFFF"
-        android:paddingHorizontal="32dp"/>
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSaveCrop"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="56dp"
+            android:text="@string/action_apply_effect"
+            app:icon="@android:drawable/ic_menu_save"
+            android:textColor="?attr/colorOnSecondaryContainer"
+            android:backgroundTint="?attr/colorSecondaryContainer"
+            app:cornerRadius="16dp"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:elevation="6dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/text_alignment_instructions"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp"
+            android:layout_marginTop="16dp"/>
+    </LinearLayout>
 
 </FrameLayout>
