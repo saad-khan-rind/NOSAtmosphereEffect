@@ -15,7 +15,6 @@
         android:layout_height="match_parent"
         android:layout_gravity="center_horizontal"
         android:background="#40FFFFFF"/>
-
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
@@ -53,10 +52,13 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/text_alignment_instructions"
-            android:textColor="#B3FFFFFF"
+            android:text="@string/image_alignment_instructions"
+            android:textColor="#FFFFFF"
             android:textSize="12sp"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp"
+            android:background="@drawable/text_bg_scrim_rounded"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"/>
     </LinearLayout>
 
 </FrameLayout>

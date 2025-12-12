@@ -1,11 +1,11 @@
 package com.app.nosatmosphereeffect
 
-import android.app.AlertDialog // New Import
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -48,12 +48,11 @@ class CropActivity : AppCompatActivity() {
         }
     }
 
-    // --- NEW: OPTIONS DIALOG ---
     private fun showApplyDialog(bitmap: Bitmap) {
         val options = arrayOf("Set Static Lock Screen", "Save Copy to Gallery")
         val checkedItems = booleanArrayOf(true, true) // Both checked by default
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Apply Options")
             .setMultiChoiceItems(options, checkedItems) { _, which, isChecked ->
                 checkedItems[which] = isChecked

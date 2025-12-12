@@ -1,16 +1,29 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.NOSAtmosphereEffect" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/seed_red</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#FFDAD6</item>
-        <item name="colorOnPrimaryContainer">#410002</item>
-
-        <item name="android:colorBackground">#000000</item>
-        <item name="colorSurface">#1C1B1F</item>
-        <item name="colorOnSurface">#E6E1E5</item>
-
-        <item name="android:statusBarColor">#000000</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:alertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
     </style>
+
+    <style name="Theme.NOSAtmosphereEffect.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:background">#000000</item>
+        <item name="colorSurface">#000000</item>
+        <item name="colorSurfaceContainerHigh">#000000</item> <item name="colorOnSurface">#FFFFFF</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#B3FFFFFF</item> <item name="shapeAppearanceMediumComponent">@style/RoundedDialogShape</item>
+
+        <item name="buttonBarPositiveButtonStyle">@style/DialogButton.Apply</item>
+        <item name="buttonBarNegativeButtonStyle">@style/DialogButton.Cancel</item>
+    </style>
+
+    <style name="RoundedDialogShape" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+
+    <style name="DialogButton.Apply" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">#448AFF</item> <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="DialogButton.Cancel" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">#FFFFFF</item> </style>
 </resources>
