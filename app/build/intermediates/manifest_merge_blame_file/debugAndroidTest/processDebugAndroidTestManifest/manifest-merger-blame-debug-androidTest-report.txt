@@ -1,0 +1,34 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.app.nosatmosphereeffect.test" >
+4
+5    <uses-sdk
+5-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:5:5-74
+6        android:minSdkVersion="36"
+6-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:5:15-41
+7        android:targetSdkVersion="36" />
+7-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:5:42-71
+8
+9    <instrumentation
+9-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:11:5-15:77
+10        android:name="android.test.InstrumentationTestRunner"
+10-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:11:22-75
+11        android:functionalTest="false"
+11-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:14:22-52
+12        android:handleProfiling="false"
+12-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:13:22-53
+13        android:label="Tests for com.app.nosatmosphereeffect"
+13-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:15:22-75
+14        android:targetPackage="com.app.nosatmosphereeffect" />
+14-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:12:22-73
+15
+16    <application
+16-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:7:5-9:19
+17        android:debuggable="true"
+18        android:extractNativeLibs="false" >
+19        <uses-library android:name="android.test.runner" />
+19-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:8:9-60
+19-->D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\tmp\manifest\androidTest\debug\tempFile1ProcessTestManifest15466859687630090800.xml:8:23-57
+20    </application>
+21
+22</manifest>

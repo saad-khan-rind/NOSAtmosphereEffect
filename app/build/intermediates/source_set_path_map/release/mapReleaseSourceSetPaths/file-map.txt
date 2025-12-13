@@ -1,0 +1,40 @@
+com.app.nosatmosphereeffect.app-transition-1.5.0-0 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\047722bdf55bb44491a829366d66b3a8\transformed\transition-1.5.0\res
+com.app.nosatmosphereeffect.app-lifecycle-viewmodel-1 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\080478f3c178f0736b857a59329b7293\transformed\lifecycle-viewmodel\res
+com.app.nosatmosphereeffect.app-emoji2-views-helper-1.3.0-2 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\0d83a14e316e427c4b740196334be7c8\transformed\emoji2-views-helper-1.3.0\res
+com.app.nosatmosphereeffect.app-core-runtime-2.2.0-3 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\0e8ac9377ad1494b1418c37cd5e8c0cb\transformed\core-runtime-2.2.0\res
+com.app.nosatmosphereeffect.app-cardview-1.0.0-4 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\1aad9711192d21c92a6670899be2ab2d\transformed\cardview-1.0.0\res
+com.app.nosatmosphereeffect.app-dynamicanimation-1.1.0-5 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\27e5cee32c2f5dc6db391a2ee759c357\transformed\dynamicanimation-1.1.0\res
+com.app.nosatmosphereeffect.app-appcompat-resources-1.7.1-6 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\3001f9b2ec8a105c4cecbce217c7a601\transformed\appcompat-resources-1.7.1\res
+com.app.nosatmosphereeffect.app-constraintlayout-2.1.0-7 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\3467c05c9bdf2bc3120e749fc6b40fec\transformed\constraintlayout-2.1.0\res
+com.app.nosatmosphereeffect.app-fragment-1.5.4-8 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\3a2b5165b5526f94914fdef4f5002199\transformed\fragment-1.5.4\res
+com.app.nosatmosphereeffect.app-core-1.17.0-9 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\4f239d30dd47e3bcc6a5f04710830123\transformed\core-1.17.0\res
+com.app.nosatmosphereeffect.app-coordinatorlayout-1.1.0-10 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\53209b3216f0961f4046c1ed59073991\transformed\coordinatorlayout-1.1.0\res
+com.app.nosatmosphereeffect.app-recyclerview-1.2.1-11 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\536afd98aaa9ca385c5918b1b0e84cb2\transformed\recyclerview-1.2.1\res
+com.app.nosatmosphereeffect.app-lifecycle-livedata-2.10.0-12 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\5438f427dde627843807ff691effa45a\transformed\lifecycle-livedata-2.10.0\res
+com.app.nosatmosphereeffect.app-lifecycle-service-2.10.0-13 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\5568c357ef28fabf0b6f612c16490bea\transformed\lifecycle-service-2.10.0\res
+com.app.nosatmosphereeffect.app-viewpager2-1.0.0-14 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\5b04c642954043b1651b6f42c3c22c06\transformed\viewpager2-1.0.0\res
+com.app.nosatmosphereeffect.app-lifecycle-process-2.10.0-15 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\74c793a8895a55925fbc76665fcebed7\transformed\lifecycle-process-2.10.0\res
+com.app.nosatmosphereeffect.app-emoji2-1.3.0-16 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\76c030cf3278085c4ab58c4190ed7b18\transformed\emoji2-1.3.0\res
+com.app.nosatmosphereeffect.app-lifecycle-livedata-core-ktx-2.10.0-17 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\808728ea7ce08c67386a24e1bca2f9b9\transformed\lifecycle-livedata-core-ktx-2.10.0\res
+com.app.nosatmosphereeffect.app-profileinstaller-1.4.0-18 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\812e9ea859e79ae85932a5da163fb056\transformed\profileinstaller-1.4.0\res
+com.app.nosatmosphereeffect.app-drawerlayout-1.1.1-19 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\88c73510c842468a57d47787182a70b4\transformed\drawerlayout-1.1.1\res
+com.app.nosatmosphereeffect.app-appcompat-1.7.1-20 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\88f7b85f810c1a937a2d273090e01efb\transformed\appcompat-1.7.1\res
+com.app.nosatmosphereeffect.app-lifecycle-livedata-core-2.10.0-21 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\9f6e422a66dd6aba8bae741991e14117\transformed\lifecycle-livedata-core-2.10.0\res
+com.app.nosatmosphereeffect.app-core-viewtree-1.0.0-22 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\a058303a70d29eb7d53d4611b9645ff4\transformed\core-viewtree-1.0.0\res
+com.app.nosatmosphereeffect.app-annotation-experimental-1.4.1-23 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\a62c13e84daa0775ebae4c5b8a9ef3a6\transformed\annotation-experimental-1.4.1\res
+com.app.nosatmosphereeffect.app-savedstate-24 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\b5801df657f444f9f6dcaa433610ffb1\transformed\savedstate\res
+com.app.nosatmosphereeffect.app-lifecycle-runtime-25 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\c08e8667464287b385dba58862c13637\transformed\lifecycle-runtime\res
+com.app.nosatmosphereeffect.app-startup-runtime-1.1.1-26 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\c43328b75e31300c069d2937b534040c\transformed\startup-runtime-1.1.1\res
+com.app.nosatmosphereeffect.app-activity-1.8.0-27 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\c69da892a1073feb7625eaef5194c79f\transformed\activity-1.8.0\res
+com.app.nosatmosphereeffect.app-material-1.13.0-28 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\d48738e2ed3fdd22b00b6c111b5b36a2\transformed\material-1.13.0\res
+com.app.nosatmosphereeffect.app-graphics-shapes-release-29 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\d6a9f959faecaf25b63c847ef08abc28\transformed\graphics-shapes-release\res
+com.app.nosatmosphereeffect.app-tracing-1.2.0-30 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\e45a448eea1dde9f23a53c7be0a14717\transformed\tracing-1.2.0\res
+com.app.nosatmosphereeffect.app-core-ktx-1.17.0-31 C:\Users\Saad Khan\.gradle\caches\8.13\transforms\f63b818b9749ef1c8ff8f1d52291c608\transformed\core-ktx-1.17.0\res
+com.app.nosatmosphereeffect.app-pngs-32 D:\Hobby\NOSAtmosphereEffect\app\build\generated\res\pngs\release
+com.app.nosatmosphereeffect.app-resValues-33 D:\Hobby\NOSAtmosphereEffect\app\build\generated\res\resValues\release
+com.app.nosatmosphereeffect.app-updated_navigation_xml-34 D:\Hobby\NOSAtmosphereEffect\app\build\generated\updated_navigation_xml\release
+com.app.nosatmosphereeffect.app-packageReleaseResources-35 D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\incremental\release\packageReleaseResources\merged.dir
+com.app.nosatmosphereeffect.app-packageReleaseResources-36 D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\incremental\release\packageReleaseResources\stripped.dir
+com.app.nosatmosphereeffect.app-release-37 D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\merged_res\release\mergeReleaseResources
+com.app.nosatmosphereeffect.app-main-38 D:\Hobby\NOSAtmosphereEffect\app\src\main\res
+com.app.nosatmosphereeffect.app-release-39 D:\Hobby\NOSAtmosphereEffect\app\src\release\res

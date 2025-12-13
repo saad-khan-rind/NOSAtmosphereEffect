@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.app.nosatmosphereeffect.app-mergeReleaseResources-35:/layout/activity_main.xml",
+        "source": "com.app.nosatmosphereeffect.app-main-37:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.app.nosatmosphereeffect.app-mergeReleaseResources-35:/layout/activity_crop.xml",
+        "source": "com.app.nosatmosphereeffect.app-main-37:/layout/activity_crop.xml"
+    }
+]

@@ -1,0 +1,4 @@
+#Sat Dec 13 01:51:20 AST 2025
+base.0=D\:\\Hobby\\NOSAtmosphereEffect\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeProjectDexDebugAndroidTest\\0\\classes.dex
+path.0=0/classes.dex
+renamed.0=classes.dex

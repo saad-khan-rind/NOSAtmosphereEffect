@@ -1,0 +1,16 @@
+#Sat Dec 13 23:41:56 AST 2025
+base.0=D\:\\Hobby\\NOSAtmosphereEffect\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
+base.1=D\:\\Hobby\\NOSAtmosphereEffect\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
+base.2=D\:\\Hobby\\NOSAtmosphereEffect\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\13\\classes.dex
+base.3=D\:\\Hobby\\NOSAtmosphereEffect\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\9\\classes.dex
+base.4=D\:\\Hobby\\NOSAtmosphereEffect\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes2.dex
+path.0=classes.dex
+path.1=0/classes.dex
+path.2=13/classes.dex
+path.3=9/classes.dex
+path.4=classes2.dex
+renamed.0=classes.dex
+renamed.1=classes2.dex
+renamed.2=classes3.dex
+renamed.3=classes4.dex
+renamed.4=classes5.dex

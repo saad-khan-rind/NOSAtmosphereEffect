@@ -1,0 +1,5 @@
+com.app.nosatmosphereeffect.test.app-androidTest-0 D:\Hobby\NOSAtmosphereEffect\app\build\generated\res\resValues\androidTest\debug
+com.app.nosatmosphereeffect.test.app-updated_navigation_xml-1 D:\Hobby\NOSAtmosphereEffect\app\build\generated\updated_navigation_xml\debugAndroidTest
+com.app.nosatmosphereeffect.test.app-mergeDebugAndroidTestResources-2 D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.app.nosatmosphereeffect.test.app-mergeDebugAndroidTestResources-3 D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.app.nosatmosphereeffect.test.app-debugAndroidTest-4 D:\Hobby\NOSAtmosphereEffect\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources

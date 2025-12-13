@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#000000</color>
+    <color name="brand_on_primary">#FFFFFF</color>
+    <color name="brand_primary">#7C4DFF</color>
+    <color name="seed_red">#D71920</color>
+    <color name="white">#FFFFFF</color>
+    <color name="white_alpha_70">#B3FFFFFF</color>
+    <string name="action_apply">Apply</string>
+    <string name="action_select_image">Select Image</string>
+    <string name="app_logo_desc">App Logo</string>
+    <string name="app_name">NOSAtmosphereEffect</string>
+    <string name="app_title">Atmosphere Effect</string>
+    <string name="image_alignment_instructions">Pinch to zoom and drag to adjust</string>
+    <string name="status_instruction">Select an image to create your\nNothing OS style effect.</string>
+    <style name="DialogButton.Apply" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="DialogButton.Cancel" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+    <style name="Shape.Expressive.Button" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+    <style name="Shape.Expressive.Dialog" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+    <style name="Theme.NOSAtmosphereEffect" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:colorBackground">@color/black</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorSurfaceContainer">@color/black</item>
+        <item name="colorSurfaceContainerHigh">@color/black</item>
+
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorOnSurfaceVariant">@color/white_alpha_70</item>
+
+        <item name="android:alertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
+    </style>
+    <style name="Theme.NOSAtmosphereEffect.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:background">@color/black</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorSurfaceContainerHigh">@color/black</item>
+
+        <item name="colorOnSurface">@color/white</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/white_alpha_70</item>
+
+        <item name="shapeAppearanceMediumComponent">@style/Shape.Expressive.Dialog</item>
+        <item name="shapeAppearanceSmallComponent">@style/Shape.Expressive.Button</item>
+
+        <item name="buttonBarPositiveButtonStyle">@style/DialogButton.Apply</item>
+        <item name="buttonBarNegativeButtonStyle">@style/DialogButton.Cancel</item>
+    </style>
+</resources>
