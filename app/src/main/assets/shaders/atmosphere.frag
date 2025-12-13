@@ -29,12 +29,10 @@ void main() {
 
     // --- TIMING SEQUENCE ---
 
-    // 1. Blur Phase (0.0 to 0.25)
-    // 0.0 to 1.0 value representing opacity of the blur
+    // 1. Blur Phase (0.0 to 0.11)
     float blurMix = smoothstep(0.0, 0.11, t);
 
-    // 2. Movement Phase (0.25 to 1.0)
-    // Starts ONLY after blur is established
+    // 2. Movement Phase (0.09 to 1.0)
     float moveRaw = smoothstep(0.09, 1.0, t);
 
     // Apply Physics (Deceleration) to the movement
@@ -71,7 +69,7 @@ void main() {
     vec3 result = mix(sharpColor.rgb, cloudColor.rgb, blurMix);
 
     // Darken Overlay (Gradual over whole animation)
-    float darken = smoothstep(0.0, 1.0, t) * 0.3;
+    float darken = smoothstep(0.0, 1.0, t) * 0.32;
     result *= (1.0 - darken);
 
     fragColor = vec4(result, 1.0);

@@ -9,8 +9,6 @@ import com.google.android.material.color.DynamicColors
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -19,6 +17,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
 import java.io.FileOutputStream
+import androidx.core.net.toUri
 
 class CropActivity : AppCompatActivity() {
 
@@ -35,7 +34,7 @@ class CropActivity : AppCompatActivity() {
         btnSave.setText(R.string.action_apply)
 
         val uriString = intent.getStringExtra("IMAGE_URI") ?: return
-        val uri = Uri.parse(uriString)
+        val uri = uriString.toUri()
 
         try {
             val inputStream = contentResolver.openInputStream(uri)
@@ -43,6 +42,7 @@ class CropActivity : AppCompatActivity() {
             inputStream?.close()
             cropView.setInitialImage(bitmap)
         } catch (e: Exception) {
+            e.printStackTrace()
             finish()
         }
 
@@ -121,7 +121,6 @@ class CropActivity : AppCompatActivity() {
     }
 
     private fun deleteOldBackups() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 val projection = arrayOf(MediaStore.Images.Media._ID)
@@ -136,7 +135,7 @@ class CropActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) { e.printStackTrace() }
-        }
+
     }
 
     private fun saveToPublicGallery(bitmap: Bitmap) {
@@ -145,10 +144,9 @@ class CropActivity : AppCompatActivity() {
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
                 put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Atmosphere")
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
-                }
+
             }
 
             val resolver = contentResolver
@@ -160,11 +158,11 @@ class CropActivity : AppCompatActivity() {
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
                     }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
                     contentValues.clear()
                     contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
                     resolver.update(uri, contentValues, null, null)
-                }
+
             }
         } catch (e: Exception) { e.printStackTrace() }
     }
@@ -181,6 +179,7 @@ class CropActivity : AppCompatActivity() {
             intent.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, ComponentName(this, AtmosphereService::class.java))
             startActivity(intent)
         } catch (e: Exception) {
+            e.printStackTrace()
             val intent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
             startActivity(intent)
         }

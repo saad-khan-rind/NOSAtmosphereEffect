@@ -21,7 +21,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ENABLE DYNAMIC COLORS HERE
         DynamicColors.applyToActivityIfAvailable(this)
 
         setContentView(R.layout.activity_main)

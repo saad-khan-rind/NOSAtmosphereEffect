@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import androidx.appcompat.widget.AppCompatImageView
 import kotlin.math.max
+import androidx.core.graphics.createBitmap
 
 class TouchImageView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
@@ -106,7 +107,6 @@ class TouchImageView @JvmOverloads constructor(
             val scaleY = viewHeight / origHeight
 
             // "max" ensures we fill the screen (Center Crop)
-            // "min" would fit inside (Fit Center)
             val scale = max(scaleX, scaleY)
 
             matrixCurrent.setScale(scale, scale)
@@ -128,7 +128,7 @@ class TouchImageView @JvmOverloads constructor(
 
     // 2. Capture exactly what the user sees
     fun getCroppedBitmap(): Bitmap {
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height)
         val canvas = Canvas(bitmap)
         draw(canvas)
         return bitmap

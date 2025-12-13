@@ -20,11 +20,9 @@ abstract class GLWallpaperService : WallpaperService() {
             glSurfaceView?.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         }
 
-        // --- THIS WAS MISSING ---
         fun requestRender() {
             glSurfaceView?.requestRender()
         }
-        // ------------------------
 
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)

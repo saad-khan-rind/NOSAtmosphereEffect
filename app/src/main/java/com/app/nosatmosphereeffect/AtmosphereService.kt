@@ -57,11 +57,7 @@ class AtmosphereService : GLWallpaperService() {
             filter.addAction(Intent.ACTION_USER_PRESENT)
             filter.addAction("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")
 
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(systemEventReceiver, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                registerReceiver(systemEventReceiver, filter)
-            }
+            registerReceiver(systemEventReceiver, filter, Context.RECEIVER_EXPORTED)
         }
 
         override fun onDestroy() {
@@ -93,7 +89,7 @@ class AtmosphereService : GLWallpaperService() {
             requestRender()
 
             blurAnimator = ValueAnimator.ofFloat(0.0f, 1.0f).apply {
-                duration = 3000 // 3 Seconds total
+                duration = 2500 // 2.5 Seconds total
 
                 // LINEAR: We let the Shader handle the "Wait -> Blur -> Move" timing logic
                 interpolator = LinearInterpolator()

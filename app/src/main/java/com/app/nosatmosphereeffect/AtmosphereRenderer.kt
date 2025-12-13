@@ -20,6 +20,10 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.max
 import kotlin.math.min
+import androidx.core.graphics.get
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
+import kotlin.math.abs
 
 class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer {
 
@@ -79,25 +83,27 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         if (file.exists()) {
             try {
                 rawBitmap = BitmapFactory.decodeFile(file.absolutePath)
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
         if (rawBitmap == null) {
             val color = Color.BLUE
-            rawBitmap = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888)
+            rawBitmap = createBitmap(1080, 1920)
             rawBitmap.eraseColor(color)
         }
 
         val metrics = context.resources.displayMetrics
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
-        val width = rawBitmap!!.width
+        val width = rawBitmap.width
         val height = rawBitmap.height
 
         val targetW = screenWidth.coerceAtMost(1440)
         val targetH = (targetW.toFloat() / screenWidth * screenHeight).toInt()
 
-        val finalBitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+        val finalBitmap = createBitmap(targetW, targetH)
         val canvas = Canvas(finalBitmap)
         val matrix = Matrix()
 
@@ -112,20 +118,19 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         return finalBitmap
     }
 
-    // --- FIX: DOUBLE DENSITY GENERATION ---
     private fun generateCloudBitmap(source: Bitmap): Bitmap {
         val cols = 10
         val rows = 20
 
-        val palette = Bitmap.createScaledBitmap(source, cols, rows, true)
+        val palette = source.scale(cols, rows)
 
         val texW = 512
         val texH = 512
-        val cloudBitmap = Bitmap.createBitmap(texW, texH, Bitmap.Config.ARGB_8888)
+        val cloudBitmap = createBitmap(texW, texH)
         val canvas = Canvas(cloudBitmap)
 
         // Base background color
-        canvas.drawColor(palette.getPixel(cols / 2, rows / 2))
+        canvas.drawColor(palette[cols / 2, rows / 2])
 
         val paint = Paint().apply {
             isAntiAlias = true
@@ -141,7 +146,7 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
         for (y in 0 until rows) {
             for (x in 0 until cols) {
-                val color = palette.getPixel(x, y)
+                val color = palette[x, y]
                 val cx = (x * cellW) + (cellW / 2)
                 val cy = (y * cellH) + (cellH / 2)
                 zones.add(Zone(color, cx, cy))
@@ -171,8 +176,7 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
             canvas.drawCircle(zone.cx + satShiftX, zone.cy + satShiftY, satRadius, paint)
         }
 
-        // Increased Blur to 50 to melt the double layer together
-        return fastBlur(cloudBitmap, 50)
+        return fastBlur(cloudBitmap, if (rng.nextInt() % 2 == 0) 50 else 70)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -263,15 +267,16 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
         val r = IntArray(wh)
         val g = IntArray(wh)
         val b = IntArray(wh)
-        var rsum: Int; var gsum: Int; var bsum: Int; var x: Int; var y: Int; var i: Int; var p: Int; var yp: Int; var yi: Int; var yw: Int
+        var rsum: Int; var gsum: Int; var bsum: Int
+        var p: Int; var yp: Int; var yi: Int
         val vmin = IntArray(max(w, h))
         var divsum = (div + 1) shr 1
         divsum *= divsum
         val dv = IntArray(256 * divsum)
         for (i in 0 until 256 * divsum) dv[i] = (i / divsum)
-        yw = 0; yi = 0
+        var yw = 0; yi = 0
         val stack = Array(div) { IntArray(3) }
-        var stackpointer: Int; var stackstart: Int; var sir: IntArray; var rbs: Int; var r1 = radius + 1; var routsum: Int; var goutsum: Int; var boutsum: Int; var rinsum: Int; var ginsum: Int; var binsum: Int
+        var stackpointer: Int; var stackstart: Int; var sir: IntArray; var rbs: Int; val r1 = radius + 1; var routsum: Int; var goutsum: Int; var boutsum: Int; var rinsum: Int; var ginsum: Int; var binsum: Int
         for (y in 0 until h) {
             rinsum = 0; ginsum = 0; binsum = 0; routsum = 0; goutsum = 0; boutsum = 0; rsum = 0; gsum = 0; bsum = 0
             for (i in -radius..radius) {
@@ -280,7 +285,7 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
                 sir[0] = (p and 0xff0000) shr 16
                 sir[1] = (p and 0x00ff00) shr 8
                 sir[2] = (p and 0x0000ff)
-                rbs = r1 - Math.abs(i)
+                rbs = r1 - abs(i)
                 rsum += sir[0] * rbs
                 gsum += sir[1] * rbs
                 bsum += sir[2] * rbs
@@ -314,7 +319,7 @@ class AtmosphereRenderer(private val context: Context) : GLSurfaceView.Renderer 
                 yi = max(0, yp) + x
                 sir = stack[i + radius]
                 sir[0] = r[yi]; sir[1] = g[yi]; sir[2] = b[yi]
-                rbs = r1 - Math.abs(i)
+                rbs = r1 - abs(i)
                 rsum += r[yi] * rbs
                 gsum += g[yi] * rbs
                 bsum += b[yi] * rbs
