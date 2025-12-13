@@ -7,6 +7,7 @@ local.properties
 /captures
 /app/debug
 /app/release
+/app/build
 .externalNativeBuild
 .cxx
 .kotlin
