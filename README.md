@@ -6,7 +6,7 @@
 **Current Testing Status:**
 This application has currently been tested **exclusively on the Samsung Galaxy S25 Ultra**.
 
-While it may work on other Android devices running Android 14+ (API 34), behavior on different manufacturers' skins (Pixel UI, OxygenOS, etc.) is not guaranteed.
+While it may work on other Android devices running Android 16 (API 36), behavior on different manufacturers' skins (Pixel UI, OxygenOS, etc.) is not guaranteed.
 
 ## Usage Guide
 
