@@ -60,3 +60,23 @@ This project is built using Kotlin and Gradle.
 ```bash
 git clone https://github.com/yourusername/NOSAtmosphereEffect.git
 ```
+
+## 👨‍💻 Author
+
+**Saad Ullah Khan**
+📍 Saudi Arabia
+📧 [khansaad45678900@gmail.com](mailto:khansaad45678900@gmail.com)
+🔗 [LinkedIn](https://www.linkedin.com/in/saadullahkhan456)
+💻 [GitHub](https://github.com/saad-khan-rind)
+📄 [Download Resume](https://drive.usercontent.google.com/u/0/uc?id=1tj_Cz6jpkkibTZ4Ed-ReYybzOUu6k4Vw&export=download)
+
+## 🪄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
+
+---
+
+⭐️ **Feel free to fork, star, and use this code!**
+
+---
+
