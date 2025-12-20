@@ -57,16 +57,22 @@ class CropActivity : AppCompatActivity() {
 
         MaterialAlertDialogBuilder(this)
             .setTitle("Apply Options")
-            .setMessage("Note: If prompted next, please select 'Apply to Home Screen' only.")
             .setMultiChoiceItems(options, checkedItems) { _, which, isChecked ->
                 checkedItems[which] = isChecked
             }
             .setPositiveButton("Apply") { _, _ ->
-                applyWallpaper(
-                    bitmap,
-                    setLockScreen = checkedItems[0],
-                    saveToGallery = checkedItems[1]
-                )
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Action Required")
+                    .setMessage("In the next screen, please select:\n\nSet Wallpaper > Home Screen\n\n(Do not select Lock Screen, as it is already set).")
+                    .setPositiveButton("I Understand") { _, _ ->
+                        applyWallpaper(
+                            bitmap,
+                            setLockScreen = checkedItems[0],
+                            saveToGallery = checkedItems[1]
+                        )
+                    }
+                    .setCancelable(false) // Force user to click OK
+                    .show()
             }
             .setNegativeButton("Cancel", null)
             .show()
