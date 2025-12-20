@@ -70,6 +70,7 @@ class CropActivity : AppCompatActivity() {
                             setLockScreen = checkedItems[0],
                             saveToGallery = checkedItems[1]
                         )
+
                     }
                     .setCancelable(false) // Force user to click OK
                     .show()
