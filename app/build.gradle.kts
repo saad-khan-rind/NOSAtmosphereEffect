@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.app.nosatmosphereeffect"
-        minSdk = 36 // Android 14+
+        minSdk = 36 // Android 16+
         targetSdk = 36
         versionCode = 2
         versionName = "1.0.1"
