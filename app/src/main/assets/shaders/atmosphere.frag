@@ -8,6 +8,7 @@ uniform sampler2D uTextureSharp;
 uniform sampler2D uTextureBlur;
 uniform float uBlurStrength;
 uniform float uSeed;
+uniform float uIsSamsung;
 
 // Rotate UVs around a center point
 vec2 rotate(vec2 uv, float angle) {
@@ -29,11 +30,22 @@ void main() {
 
     // --- TIMING SEQUENCE ---
 
-    // 1. Blur Phase (0.0 to 0.11)
-    float blurMix = smoothstep(0.0, 0.11, t);
+    float blurMix;
+    float moveRaw;
 
-    // 2. Movement Phase (0.09 to 1.0)
-    float moveRaw = smoothstep(0.09, 1.0, t);
+    // Check if Samsung (passed from Kotlin as 1.0 or 0.0)
+    if (uIsSamsung > 0.5) {
+        // 1. Blur Phase (0.0 to 0.11)
+        blurMix = smoothstep(0.0, 0.11, t);
+        // 2. Movement Phase (0.09 to 1.0) [Delayed start]
+        moveRaw = smoothstep(0.09, 1.0, t);
+    } else {
+        // Non-Samsung Logic
+        //1. Blur Phase (0.0)
+        blurMix = step(0.001, t);
+        // 2. Movement Phase (0.00 to 1.0) [Immediate start]
+        moveRaw = smoothstep(0.0, 1.0, t);
+    }
 
     // Apply Physics (Deceleration) to the movement
     float movePhysics = easeOutCubic(moveRaw);
@@ -65,12 +77,12 @@ void main() {
     vec4 sharpColor = texture(uTextureSharp, vTexCoord);
     vec4 cloudColor = texture(uTextureBlur, cloudUV);
 
-    // Mix based on the Blur Phase
+    // Mix based on the Blur
     vec3 result = mix(sharpColor.rgb, cloudColor.rgb, blurMix);
 
-    // Darken Overlay (Gradual over whole animation)
     float darken = smoothstep(0.0, 1.0, t) * 0.2;
     result *= (1.0 - darken);
 
     fragColor = vec4(result, 1.0);
+
 }
