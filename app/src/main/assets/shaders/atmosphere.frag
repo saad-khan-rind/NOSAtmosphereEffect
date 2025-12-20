@@ -69,7 +69,7 @@ void main() {
     vec3 result = mix(sharpColor.rgb, cloudColor.rgb, blurMix);
 
     // Darken Overlay (Gradual over whole animation)
-    float darken = smoothstep(0.0, 1.0, t) * 0.32;
+    float darken = smoothstep(0.0, 1.0, t) * 0.2;
     result *= (1.0 - darken);
 
     fragColor = vec4(result, 1.0);
