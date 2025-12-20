@@ -122,7 +122,7 @@ class AtmosphereService : GLWallpaperService() {
         private fun prepareForNextUnlock() {
             val targetRenderer = myRenderer ?: return
             blurAnimator?.cancel()
-            targetRenderer.blurStrength = 0.4f
+            targetRenderer.blurStrength = if (isSamsungDevice) 0.4f else 0.0f
             requestRender()
         }
     }

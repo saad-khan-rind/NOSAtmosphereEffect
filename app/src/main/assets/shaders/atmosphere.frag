@@ -29,7 +29,6 @@ void main() {
     float t = uBlurStrength;
 
     // --- TIMING SEQUENCE ---
-
     float blurMix;
     float moveRaw;
 
@@ -39,17 +38,14 @@ void main() {
         blurMix = smoothstep(0.0, 0.11, t);
         // 2. Movement Phase (0.09 to 1.0) [Delayed start]
         moveRaw = smoothstep(0.09, 1.0, t);
+
     } else {
-        // Non-Samsung Logic
-        //1. Blur Phase (0.0)
-        blurMix = step(0.001, t);
-        // 2. Movement Phase (0.00 to 1.0) [Immediate start]
+        // 1. Movement Phase (0.00 to 1.0) [Immediate start]
         moveRaw = smoothstep(0.0, 1.0, t);
     }
 
     // Apply Physics (Deceleration) to the movement
     float movePhysics = easeOutCubic(moveRaw);
-
 
     // --- MOVEMENT LOGIC ---
 
@@ -78,7 +74,12 @@ void main() {
     vec4 cloudColor = texture(uTextureBlur, cloudUV);
 
     // Mix based on the Blur
-    vec3 result = mix(sharpColor.rgb, cloudColor.rgb, blurMix);
+    vec3 result;
+    if(uIsSamsung > 0.5){
+        result = mix(sharpColor.rgb, cloudColor.rgb, blurMix);
+    } else {
+        result = cloudColor.rgb;
+    }
 
     float darken = smoothstep(0.0, 1.0, t) * 0.2;
     result *= (1.0 - darken);
