@@ -4,9 +4,9 @@
 ## ⚠️ Device Support & Disclaimer
 
 **Current Testing Status:**
-This application has currently been tested **exclusively on the Samsung Galaxy S25 Ultra**.
+This application has currently been tested **exclusively on the Samsung Galaxy S25 Ultra and Pixel 7a**.
 
-While it may work on other Android devices running Android 16 (API 36), behavior on different manufacturers' skins (Pixel UI, OxygenOS, etc.) is not guaranteed.
+While it may work on other Android devices running Android 16 (API 36), behavior on different manufacturers' skins (FuntouchOS, OxygenOS, etc.) is not guaranteed.
 
 ## Usage Guide
 
@@ -44,7 +44,7 @@ Once you confirm the options above, the app will redirect you to the Android Sys
 ## Known Issues
 
   * **Samsung Adaptive Clock:** As mentioned, programmatically setting the lock screen (Option 1) interferes with Samsung's Adaptive Clock.
-  * **Device Compatibility:** Only verified on S25 Ultra.
+  * **Device Compatibility:** Only verified on S25 Ultra and Pixel 7a.
 
 ## Build & Installation
 
