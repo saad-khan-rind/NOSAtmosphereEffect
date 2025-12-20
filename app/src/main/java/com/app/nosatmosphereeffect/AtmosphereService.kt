@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.opengl.GLSurfaceView
 import android.view.animation.LinearInterpolator
+import android.os.Build
+import java.util.Locale
 
 class AtmosphereService : GLWallpaperService() {
 
@@ -23,6 +25,12 @@ class AtmosphereService : GLWallpaperService() {
         private var myRenderer: AtmosphereRenderer? = null
         private var blurAnimator: ValueAnimator? = null
         private var isLocked = true
+        private val isSamsungDevice: Boolean
+            get() {
+                val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
+                val brand = Build.BRAND.lowercase(Locale.ROOT)
+                return manufacturer.contains("samsung") || brand.contains("samsung")
+            }
 
         private val systemEventReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -71,7 +79,7 @@ class AtmosphereService : GLWallpaperService() {
             super.onVisibilityChanged(visible)
             if (visible) {
                 if (isLocked) {
-                    myRenderer?.blurStrength = 0.4f
+                    myRenderer?.blurStrength = if (isSamsungDevice) 0.4f else 0.0f
                     requestRender()
                 } else {
                     snapToHomeState()
@@ -113,7 +121,7 @@ class AtmosphereService : GLWallpaperService() {
         private fun prepareForNextUnlock() {
             val targetRenderer = myRenderer ?: return
             blurAnimator?.cancel()
-            targetRenderer.blurStrength = 0.4f
+            targetRenderer.blurStrength = if (isSamsungDevice) 0.4f else 0.0f
             requestRender()
         }
     }
