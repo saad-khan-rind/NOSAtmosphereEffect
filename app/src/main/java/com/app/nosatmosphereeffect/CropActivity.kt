@@ -57,6 +57,7 @@ class CropActivity : AppCompatActivity() {
 
         MaterialAlertDialogBuilder(this)
             .setTitle("Apply Options")
+            .setMessage("Note: If prompted next, please select 'Apply to Home Screen' only.")
             .setMultiChoiceItems(options, checkedItems) { _, which, isChecked ->
                 checkedItems[which] = isChecked
             }
