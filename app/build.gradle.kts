@@ -8,8 +8,8 @@ android {
 
     defaultConfig {
         applicationId = "com.saad_khan_rind.atmosphere_effect"
-        versionName = "5.8.0"
-        versionCode = 100580
+        versionName = "6.0.0"
+        versionCode = 100600
     }
 
     flavorDimensions += "apiLevel"
@@ -20,20 +20,16 @@ android {
             dimension = "apiLevel"
             minSdk = 36
             targetSdk = 36
-            versionCode = 200580
+            versionCode = 200600
         }
 
         create("v33") {
             dimension = "apiLevel"
             minSdk = 33
             targetSdk = 33
-            versionCode = 100580
+            versionCode = 100600
         }
 
-    }
-
-    buildFeatures {
-        viewBinding = true
     }
 
     compileOptions {
@@ -52,8 +48,6 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
-
-    buildToolsVersion = "35.0.0"
 }
 
 kotlin {
@@ -64,6 +58,15 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.exifinterface)
+
+    // Jetpack Compose Dependencies
+    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
+    implementation(composeBom)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.activity.compose)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 
     // --- Dependencies for v36 (API 36) ---
     // These only apply when building the v36 flavor

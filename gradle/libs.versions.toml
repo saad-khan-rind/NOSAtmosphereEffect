@@ -13,6 +13,11 @@ composeBom = "2023.08.00"
 exifinterface = "1.3.6"
 
 [libraries]
+activity-compose = { module = "androidx.activity:activity-compose" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 gradle = { module = "com.android.tools.build:gradle", version.ref = "agpVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
