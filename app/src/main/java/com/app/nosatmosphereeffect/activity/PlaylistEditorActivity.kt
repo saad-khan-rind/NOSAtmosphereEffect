@@ -4,392 +4,600 @@ import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.Matrix
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
 import androidx.core.view.WindowCompat
 import androidx.exifinterface.media.ExifInterface
 import com.app.nosatmosphereeffect.service.*
+import com.app.nosatmosphereeffect.ui.theme.AtmoTheme
+import com.app.nosatmosphereeffect.ui.theme.BrandPrimary
+import com.app.nosatmosphereeffect.ui.theme.ErrorColor
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
 
-data class PlaylistItem(
-    val originalUri: Uri,
-    var isEdited: Boolean = false,
-    var editedFilePath: String? = null,
-    var matrixState: FloatArray? = null
-)
+class PlaylistEditorActivity : AppCompatActivity() {
 
-class PlaylistEditorActivity : ComponentActivity() {
+    data class PlaylistItem(
+        val originalUri: Uri,
+        var isEdited: Boolean      = false,
+        var editedFilePath: String? = null,
+        var matrixState: FloatArray? = null
+    )
 
+    // ── Compose-observable state ─────────────────────────────────────────
     private val playlistItems = mutableStateListOf<PlaylistItem>()
-    private var effectId: String = "ORIGINAL"
+    private var effectId      by mutableStateOf("ORIGINAL")
     private var editingPosition = -1
-    private var isProcessing by mutableStateOf(false)
 
-    private val pickMultipleImages = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+    // Thumbnails cache: position -> Bitmap
+    private val thumbnails = mutableStateMapOf<Int, Bitmap>()
+    private val thumbExecutor = Executors.newFixedThreadPool(4)
+
+    // ── Activity result launchers (unchanged) ────────────────────────────
+    private val pickMultipleImages = registerForActivityResult(
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
             uris.forEach { playlistItems.add(PlaylistItem(it)) }
             Toast.makeText(this, "${uris.size} images added", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private val editImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    private val editImageLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
         if (result.resultCode == RESULT_OK) {
-            val resultUriString = result.data?.getStringExtra("CROPPED_IMAGE_PATH")
+            val path        = result.data?.getStringExtra("CROPPED_IMAGE_PATH")
             val matrixState = result.data?.getFloatArrayExtra("MATRIX_STATE")
-            if (resultUriString != null && editingPosition != -1 && editingPosition < playlistItems.size) {
-                playlistItems[editingPosition] = playlistItems[editingPosition].copy(
-                    isEdited = true,
-                    editedFilePath = resultUriString,
-                    matrixState = matrixState
+            if (path != null && editingPosition != -1 && editingPosition < playlistItems.size) {
+                val item = playlistItems[editingPosition]
+                playlistItems[editingPosition] = item.copy(
+                    isEdited      = true,
+                    editedFilePath = path,
+                    matrixState   = matrixState
                 )
+                // Refresh thumbnail
+                thumbnails.remove(editingPosition)
+                loadThumbnail(editingPosition, playlistItems[editingPosition])
             }
         }
     }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.attributes.layoutInDisplayCutoutMode =
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
 
         effectId = intent.getStringExtra("EFFECT_ID") ?: "ORIGINAL"
+
         if (intent.getBooleanExtra("EDIT_EXISTING", false)) {
             loadExistingPlaylist()
         } else {
-            intent.getParcelableArrayListExtra<Uri>("IMAGE_URIS")?.forEach {
-                playlistItems.add(PlaylistItem(it))
-            }
+            val uris = intent.getParcelableArrayListExtra("IMAGE_URIS", Uri::class.java)
+            uris?.forEach { playlistItems.add(PlaylistItem(it)) }
         }
 
-        setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    PlaylistScreen(
-                        playlistItems = playlistItems,
-                        onAddMore = { pickMultipleImages.launch("image/*") },
-                        onApply = { showApplyDialog() },
-                        onEdit = { page, item ->
-                            editingPosition = page
-                            launchEditActivity(item)
-                        },
-                        onDelete = { page -> playlistItems.removeAt(page) },
-                        loadPreview = { item -> loadPreview(item) }
-                    )
+        if (savedInstanceState != null) {
+            editingPosition = savedInstanceState.getInt("EDITING_POS", -1)
+        }
 
-                    if (isProcessing) {
-                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.7f)), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
+        // Pre-load thumbnails for initial items
+        playlistItems.forEachIndexed { idx, item -> loadThumbnail(idx, item) }
+
+        setContent {
+            AtmoTheme {
+                PlaylistEditorScreen()
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt("EDITING_POS", editingPosition)
+    }
+
+    // ── Composable UI ─────────────────────────────────────────────────────
+    @Composable
+    private fun PlaylistEditorScreen() {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize()) {
+
+                // Title
+                Text(
+                    text       = "Edit Playlist",
+                    fontSize   = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = BrandPrimary,
+                    modifier   = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
+                )
+
+                // Counter
+                Text(
+                    text     = "${playlistItems.size} Images Selected",
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ── Carousel ──────────────────────────────────────────
+                LazyRow(
+                    modifier            = Modifier
+                        .fillMaxWidth()
+                        .height(520.dp),
+                    contentPadding      = PaddingValues(horizontal = 40.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    itemsIndexed(playlistItems) { index, item ->
+                        PlaylistCard(index = index, item = item)
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // ── Bottom action buttons ─────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick  = { pickMultipleImages.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null,
+                            modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add More Images")
+                    }
+
+                    Button(
+                        onClick  = { showApplyDialog() },
+                        enabled  = playlistItems.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors   = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
+                    ) {
+                        Text(
+                            text  = "Apply Wallpaper",
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
         }
     }
 
-    private fun loadPreview(item: PlaylistItem): Bitmap? {
-        return try {
-            val path = if (item.isEdited) item.editedFilePath else null
-            if (path != null && File(path).exists()) {
-                BitmapFactory.decodeFile(path)
-            } else {
-                contentResolver.openInputStream(item.originalUri)?.use { BitmapFactory.decodeStream(it) }
+    @Composable
+    private fun PlaylistCard(index: Int, item: PlaylistItem) {
+        val bmp = thumbnails[index]
+
+        Card(
+            modifier = Modifier
+                .width(300.dp)
+                .fillMaxHeight()
+                .clickable {
+                    editingPosition = index
+                    launchEditActivity(item)
+                },
+            shape  = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = androidx.compose.ui.graphics.Color(0xFF222222)
+            ),
+            elevation = CardDefaults.cardElevation(8.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+
+                // Thumbnail image
+                if (bmp != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap      = bmp.asImageBitmap(),
+                        contentDescription = "Wallpaper preview",
+                        contentScale = ContentScale.Crop,
+                        modifier    = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color(0xFF111111))
+                    )
+                }
+
+                // Edited overlay
+                if (item.isEdited) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color(0x40000000))
+                    )
+                    Icon(
+                        imageVector        = Icons.Default.Edit,
+                        contentDescription = "Edited",
+                        tint               = BrandPrimary,
+                        modifier           = Modifier
+                            .size(48.dp)
+                            .align(Alignment.Center)
+                    )
+                }
+
+                // Delete button (top-right)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(androidx.compose.ui.graphics.Color(0x99000000))
+                        .clickable {
+                            thumbnails.remove(index)
+                            playlistItems.removeAt(index)
+                            // Shift thumbnail keys
+                            val shifted = thumbnails.entries
+                                .filter { it.key > index }
+                                .associate { (k, v) -> (k - 1) to v }
+                            thumbnails.keys.filter { it >= index }.forEach { thumbnails.remove(it) }
+                            shifted.forEach { (k, v) -> thumbnails[k] = v }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.Close,
+                        contentDescription = "Delete",
+                        tint               = ErrorColor,
+                        modifier           = Modifier.size(20.dp)
+                    )
+                }
             }
-        } catch (e: Exception) { null }
+        }
     }
 
-    private fun launchEditActivity(item: PlaylistItem) {
-        val intent = Intent(this, MultiImageCropActivity::class.java).apply {
-            data = item.originalUri
-            item.matrixState?.let { putExtra("MATRIX_STATE", it) }
+    // ── Thumbnail loading ─────────────────────────────────────────────────
+
+    private fun loadThumbnail(index: Int, item: PlaylistItem) {
+        val uri = if (item.isEdited && item.editedFilePath != null)
+            Uri.parse("file://${item.editedFilePath}")
+        else
+            item.originalUri
+
+        thumbExecutor.execute {
+            try {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, options)
+                }
+                options.inSampleSize    = calcThumbSampleSize(options, 300, 400)
+                options.inJustDecodeBounds = false
+
+                var bmp = contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, options)
+                }
+                if (bmp != null) bmp = handleExifRotation(this, uri, bmp)
+                if (bmp != null) runOnUiThread { thumbnails[index] = bmp }
+            } catch (e: Exception) { e.printStackTrace() }
         }
-        editImageLauncher.launch(intent)
+    }
+
+    private fun calcThumbSampleSize(opts: BitmapFactory.Options, rW: Int, rH: Int): Int {
+        val (h, w) = opts.run { outHeight to outWidth }
+        var s = 1
+        if (h > rH || w > rW) {
+            val hh = h / 2; val hw = w / 2
+            while ((hh / s) >= rH && (hw / s) >= rW) s *= 2
+        }
+        return s
+    }
+
+    // ── Business logic (unchanged) ────────────────────────────────────────
+
+    private fun launchEditActivity(item: PlaylistItem) {
+        val i = Intent(this, MultiImageCropActivity::class.java)
+        i.data = item.originalUri
+        if (item.matrixState != null) i.putExtra("MATRIX_STATE", item.matrixState)
+        editImageLauncher.launch(i)
     }
 
     private fun showApplyDialog() {
-        MaterialAlertDialogBuilder(this@PlaylistEditorActivity)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Apply Wallpaper")
-            .setMessage("Set Wallpaper > Home Screen and Lock Screen in the next menu.")
-            .setPositiveButton("Proceed") { _, _ ->
-                isProcessing = true
-                applyPlaylist()
-            }
+            .setMessage(
+                "In the next screen, please select:\n\nSet Wallpaper > Home Screen and Lock Screen." +
+                        "\n\n(This ensures the lock screen effect works correctly)."
+            )
+            .setPositiveButton("Set Wallpaper") { _, _ -> applyFromDialog() }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
+    private fun applyFromDialog() {
+        if (playlistItems.isEmpty()) {
+            Toast.makeText(this, "Playlist is empty", Toast.LENGTH_SHORT).show()
+        } else {
+            applyPlaylist()
+        }
+    }
+
     private fun applyPlaylist() {
+        val loadingLayout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            setPadding(50, 50, 50, 50)
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(android.widget.ProgressBar(this@PlaylistEditorActivity).apply {
+                isIndeterminate = true
+            })
+            addView(android.widget.TextView(this@PlaylistEditorActivity).apply {
+                text     = "Processing playlist..."
+                textSize = 16f
+                setPadding(40, 0, 0, 0)
+                setTextColor(Color.WHITE)
+            })
+        }
+
+        val progressDialog = MaterialAlertDialogBuilder(this)
+            .setView(loadingLayout)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        val snapshotItems = playlistItems.toList()
+
         Thread {
             try {
-                val tempDir = File(filesDir, "playlist_temp").apply { if (exists()) deleteRecursively(); mkdirs() }
-                val tempOrigs = File(filesDir, "playlist_originals_temp").apply { if (exists()) deleteRecursively(); mkdirs() }
-                File(filesDir, "next_wallpaper.jpg").takeIf { it.exists() }?.delete()
+                val tempDir      = File(filesDir, "playlist_temp")
+                val tempOrigDir  = File(filesDir, "playlist_originals_temp")
+                if (tempDir.exists())     tempDir.deleteRecursively()
+                if (tempOrigDir.exists()) tempOrigDir.deleteRecursively()
+                tempDir.mkdirs(); tempOrigDir.mkdirs()
+
+                File(filesDir, "next_wallpaper.jpg").let { if (it.exists()) it.delete() }
 
                 val metaArray = JSONArray()
 
-                playlistItems.forEachIndexed { index, item ->
-                    val destFile = File(tempDir, "wallpaper_$index.jpg")
-                    val origFile = File(tempOrigs, "original_$index.jpg")
+                snapshotItems.forEachIndexed { index, item ->
+                    val destFile = File(tempDir,     "wallpaper_$index.jpg")
+                    val origFile = File(tempOrigDir, "original_$index.jpg")
 
-                    contentResolver.openInputStream(item.originalUri)?.use { input ->
-                        FileOutputStream(origFile).use { input.copyTo(it) }
-                    }
+                    try {
+                        contentResolver.openInputStream(item.originalUri)?.use { input ->
+                            FileOutputStream(origFile).use { it.write(input.readBytes()) }
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
 
-                    if (item.isEdited && item.editedFilePath != null && File(item.editedFilePath!!).exists()) {
-                        File(item.editedFilePath!!).copyTo(destFile, overwrite = true)
+                    if (item.isEdited && item.editedFilePath != null) {
+                        val srcEdited = File(item.editedFilePath!!)
+                        if (srcEdited.exists() && srcEdited.absolutePath != destFile.absolutePath) {
+                            srcEdited.copyTo(destFile, overwrite = true)
+                        }
                     } else {
-                        decodeCenterCropBitmap(item.originalUri)?.let { bmp ->
-                            FileOutputStream(destFile).use { bmp.compress(Bitmap.CompressFormat.JPEG, 100, it) }
+                        val bmp = decodeCenterCropBitmap(item.originalUri)
+                        if (bmp != null) {
+                            FileOutputStream(destFile).use { out ->
+                                bmp.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                            }
                         }
                     }
 
-                    metaArray.put(JSONObject().apply {
+                    val metaObj = JSONObject().apply {
                         put("original", "original_$index.jpg")
                         put("isEdited", item.isEdited)
-                        item.matrixState?.let { ms -> put("matrix", JSONArray().apply { ms.forEach { put(it.toDouble()) } }) }
-                    })
+                        if (item.matrixState != null) {
+                            val arr = JSONArray()
+                            item.matrixState!!.forEach { arr.put(it.toDouble()) }
+                            put("matrix", arr)
+                        }
+                    }
+                    metaArray.put(metaObj)
                 }
 
                 File(tempDir, "metadata.json").writeText(metaArray.toString())
 
-                File(filesDir, "playlist").apply { if (exists()) deleteRecursively() }
-                tempDir.renameTo(File(filesDir, "playlist"))
-
-                File(filesDir, "playlist_originals").apply { if (exists()) deleteRecursively() }
-                tempOrigs.renameTo(File(filesDir, "playlist_originals"))
-
                 val playlistDir = File(filesDir, "playlist")
-                File(playlistDir, "wallpaper_0.jpg").takeIf { it.exists() }?.copyTo(File(filesDir, "wallpaper.jpg"), overwrite = true)
+                val originalsDir = File(filesDir, "playlist_originals")
+                if (playlistDir.exists())  playlistDir.deleteRecursively()
+                if (originalsDir.exists()) originalsDir.deleteRecursively()
+                tempDir.renameTo(playlistDir)
+                tempOrigDir.renameTo(originalsDir)
 
-                val wpPrefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE).apply { edit().clear().apply() }
+                val firstFile = File(playlistDir, "wallpaper_0.jpg")
+                val activeWallpaper = File(filesDir, "wallpaper.jpg")
+                if (firstFile.exists()) firstFile.copyTo(activeWallpaper, overwrite = true)
+
+                val wpPrefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                wpPrefs.edit().clear().apply()
                 getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit().clear().apply()
 
-                if (playlistItems.size > 1) {
-                    File(playlistDir, "wallpaper_1.jpg").takeIf { it.exists() }?.copyTo(File(filesDir, "next_wallpaper.jpg"), overwrite = true)
+                if (snapshotItems.size > 1) {
+                    val nextFile   = File(filesDir, "next_wallpaper.jpg")
+                    val secondFile = File(playlistDir, "wallpaper_1.jpg")
+                    if (secondFile.exists()) secondFile.copyTo(nextFile, overwrite = true)
                     wpPrefs.edit().putString("last_playlist_image", "wallpaper_1.jpg").apply()
-                } else if (playlistItems.size == 1) {
-                    File(playlistDir, "wallpaper_0.jpg").takeIf { it.exists() }?.copyTo(File(filesDir, "next_wallpaper.jpg"), overwrite = true)
+                } else if (snapshotItems.size == 1) {
+                    val nextFile = File(filesDir, "next_wallpaper.jpg")
+                    if (firstFile.exists()) firstFile.copyTo(nextFile, overwrite = true)
                     wpPrefs.edit().putString("last_playlist_image", "wallpaper_0.jpg").apply()
                 }
 
-                val isNight = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-                wpPrefs.edit().putInt("active_theme_state", if (isNight) 1 else 0).apply()
+                val currentUiMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                val isNightMode   = (currentUiMode == Configuration.UI_MODE_NIGHT_YES)
+                wpPrefs.edit().putInt("active_theme_state", if (isNightMode) 1 else 0).apply()
 
                 runOnUiThread {
-                    isProcessing = false
-                    Toast.makeText(this, "Setup complete!", Toast.LENGTH_LONG).show()
-                    sendBroadcast(Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER").setPackage(packageName))
+                    progressDialog.dismiss()
+                    Toast.makeText(this, "Setup complete! Now lock and unlock the screen to activate.",
+                        Toast.LENGTH_LONG).show()
+                    val i = Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")
+                    i.setPackage(packageName)
+                    sendBroadcast(i)
                     activateService()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    isProcessing = false
+                    progressDialog.dismiss()
                     Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }.start()
     }
 
+    private fun decodeCenterCropBitmap(uri: Uri): Bitmap? {
+        val metrics = windowManager.currentWindowMetrics.bounds
+        val reqW    = metrics.width()
+        val reqH    = metrics.height()
+
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+
+        options.inSampleSize    = calculateInSampleSize(options, reqW, reqH)
+        options.inJustDecodeBounds = false
+
+        var bitmap = contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, options)
+        } ?: return null
+
+        bitmap = handleExifRotation(this, uri, bitmap)
+
+        val bitmapRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+        val screenRatio = reqW.toFloat() / reqH.toFloat()
+
+        val matrix = Matrix()
+        val scale  = if (bitmapRatio > screenRatio) reqH.toFloat() / bitmap.height.toFloat()
+        else                           reqW.toFloat() / bitmap.width.toFloat()
+        matrix.setScale(scale, scale)
+        val scaled = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+
+        val x  = max(0, (scaled.width  - reqW) / 2)
+        val y  = max(0, (scaled.height - reqH) / 2)
+        val fw = min(reqW, scaled.width  - x)
+        val fh = min(reqH, scaled.height - y)
+        return Bitmap.createBitmap(scaled, x, y, fw, fh)
+    }
+
+    private fun handleExifRotation(context: Context, uri: Uri, bitmap: Bitmap): Bitmap {
+        return try {
+            val input       = context.contentResolver.openInputStream(uri) ?: return bitmap
+            val exif        = ExifInterface(input)
+            val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            input.close()
+            val rotation = when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90  -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+            if (rotation == 0f) return bitmap
+            val matrix = Matrix().apply { postRotate(rotation) }
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        } catch (e: Exception) { bitmap }
+    }
+
+    private fun calculateInSampleSize(
+        options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int
+    ): Int {
+        val (h, w) = options.run { outHeight to outWidth }
+        var s = 1
+        if (h > reqHeight || w > reqWidth) {
+            val hh = h / 2; val hw = w / 2
+            while ((hh / s) >= reqHeight && (hw / s) >= reqWidth) s *= 2
+        }
+        return s
+    }
+
     private fun activateService() {
         try {
-            val serviceClass = when(effectId) {
-                "ORIGINAL" -> AtmosphereService::class.java
-                "REVERSE" -> BlurToSharpService::class.java
-                "FROSTED" -> FrostedService::class.java
-                "FROSTED_REVERSE" -> FrostedReverseService::class.java
-                "HALFTONE" -> HalftoneService::class.java
-                "HALFTONE_REVERSE" -> HalftoneReverseService::class.java
-                "COLORFILL" -> ColorFillService::class.java
+            val serviceClass = when (effectId) {
+                "ORIGINAL"          -> AtmosphereService::class.java
+                "REVERSE"           -> BlurToSharpService::class.java
+                "FROSTED"           -> FrostedService::class.java
+                "FROSTED_REVERSE"   -> FrostedReverseService::class.java
+                "HALFTONE"          -> HalftoneService::class.java
+                "HALFTONE_REVERSE"  -> HalftoneReverseService::class.java
+                "COLORFILL"         -> ColorFillService::class.java
                 "COLORFILL_REVERSE" -> ColorFillReverseService::class.java
-                else -> AtmosphereService::class.java
+                else                -> AtmosphereService::class.java
             }
-            startActivity(Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
-                putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, ComponentName(this@PlaylistEditorActivity, serviceClass))
-            })
+            val i = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+            i.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, ComponentName(this, serviceClass))
+            startActivity(i)
         } catch (e: Exception) {
             startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
         } finally { finish() }
     }
 
-    private fun decodeCenterCropBitmap(uri: Uri): Bitmap? {
-        val metrics = windowManager.currentWindowMetrics.bounds
-        val reqW = metrics.width()
-        val reqH = metrics.height()
-        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-
-        var inSampleSize = 1
-        if (options.outHeight > reqH || options.outWidth > reqW) {
-            val halfHeight = options.outHeight / 2
-            val halfWidth = options.outWidth / 2
-            while ((halfHeight / inSampleSize) >= reqH && (halfWidth / inSampleSize) >= reqW) { inSampleSize *= 2 }
-        }
-
-        options.inSampleSize = inSampleSize
-        options.inJustDecodeBounds = false
-        var bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) } ?: return null
-
-        try {
-            val orientation = contentResolver.openInputStream(uri)?.use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) } ?: ExifInterface.ORIENTATION_NORMAL
-            val rotation = when (orientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-                else -> 0f
-            }
-            if (rotation != 0f) bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(rotation) }, true)
-        } catch (e: Exception) {}
-
-        val scale = if (bitmap.width.toFloat() / bitmap.height > reqW.toFloat() / reqH) reqH.toFloat() / bitmap.height else reqW.toFloat() / bitmap.width
-        val scaled = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { setScale(scale, scale) }, true)
-        val x = max(0, (scaled.width - reqW) / 2)
-        val y = max(0, (scaled.height - reqH) / 2)
-        return Bitmap.createBitmap(scaled, x, y, min(reqW, scaled.width - x), min(reqH, scaled.height - y))
-    }
-
     private fun loadExistingPlaylist() {
-        val playlistDir = File(filesDir, "playlist")
+        val playlistDir  = File(filesDir, "playlist")
         val originalsDir = File(filesDir, "playlist_originals")
-        val metaFile = File(playlistDir, "metadata.json")
+        val metaFile     = File(playlistDir, "metadata.json")
 
         if (metaFile.exists()) {
             try {
-                val jsonArray = JSONArray(metaFile.readText())
-                for (i in 0 until jsonArray.length()) {
-                    val obj = jsonArray.getJSONObject(i)
-                    val originalUri = Uri.parse("file://${File(originalsDir, obj.getString("original")).absolutePath}")
+                val json      = JSONArray(metaFile.readText())
+                for (i in 0 until json.length()) {
+                    val obj      = json.getJSONObject(i)
+                    val origName = obj.getString("original")
                     val isEdited = obj.getBoolean("isEdited")
+                    val origFile = File(originalsDir, origName)
+                    val origUri  = Uri.parse("file://${origFile.absolutePath}")
+
                     val editedPath = if (isEdited) File(playlistDir, "wallpaper_$i.jpg").absolutePath else null
-                    var matrixState: FloatArray? = null
+                    var matrix: FloatArray? = null
                     if (obj.has("matrix")) {
                         val arr = obj.getJSONArray("matrix")
-                        matrixState = FloatArray(arr.length()) { arr.getDouble(it).toFloat() }
+                        matrix  = FloatArray(arr.length()) { idx -> arr.getDouble(idx).toFloat() }
                     }
-                    playlistItems.add(PlaylistItem(originalUri, isEdited, editedPath, matrixState))
+                    playlistItems.add(PlaylistItem(origUri, isEdited, editedPath, matrix))
                 }
             } catch (e: Exception) { e.printStackTrace() }
-        }
-    }
-}
-
-// Extracted outside the Activity
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun PlaylistScreen(
-    playlistItems: List<PlaylistItem>,
-    onAddMore: () -> Unit,
-    onApply: () -> Unit,
-    onEdit: (Int, PlaylistItem) -> Unit,
-    onDelete: (Int) -> Unit,
-    loadPreview: (PlaylistItem) -> Bitmap?
-) {
-    val pagerState = rememberPagerState(pageCount = { playlistItems.size })
-
-    Column(modifier = Modifier.fillMaxSize().padding(vertical = 48.dp)) {
-        Text(
-            text = "Playlist Editor",
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            textAlign = TextAlign.Center,
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Text(
-            text = "${playlistItems.size} Images Selected",
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-            color = Color.LightGray
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        if (playlistItems.isNotEmpty()) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 48.dp),
-                pageSpacing = 16.dp
-            ) { page ->
-                val item = playlistItems[page]
-                val bitmap = remember(item) { loadPreview(item) }
-
-                Card(
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(8.dp)
-                ) {
-                    Box {
-                        if (bitmap != null) {
-                            Image(bitmap = bitmap.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        } else {
-                            Box(Modifier.fillMaxSize().background(Color.DarkGray))
-                        }
-
-                        Row(
-                            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(0.5f)).padding(8.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            IconButton(onClick = { onEdit(page, item) }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
-                            }
-
-                            IconButton(onClick = { onDelete(page) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
-                            }
-                        }
-                    }
-                }
-            }
         } else {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No Images Added", color = Color.Gray)
-            }
-        }
-
-        Spacer(Modifier.height(32.dp))
-
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedButton(onClick = onAddMore, modifier = Modifier.weight(1f)) {
-                Text("Add More")
-            }
-            Button(
-                onClick = onApply,
-                enabled = playlistItems.isNotEmpty(),
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Apply Playlist")
+            // Fallback for older playlists
+            val files = playlistDir.listFiles { _, name -> name.endsWith(".jpg") }
+            if (!files.isNullOrEmpty()) {
+                files.sortBy { it.nameWithoutExtension.substringAfter('_').toIntOrNull() ?: 0 }
+                files.forEach { file ->
+                    playlistItems.add(PlaylistItem(Uri.parse("file://${file.absolutePath}")))
+                }
             }
         }
     }

@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -16,258 +16,394 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
+import com.app.nosatmosphereeffect.ui.theme.AtmoTheme
+import com.app.nosatmosphereeffect.ui.theme.BrandPrimary
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
-class AdvancedSettingsActivity : ComponentActivity() {
+class AdvancedSettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val activeEffect = intent.getStringExtra("ACTIVE_EFFECT_TYPE") ?: "ORIGINAL"
-        val isSamsung = intent.getBooleanExtra("IS_SAMSUNG", false)
-        val isPlaylistMode = intent.getBooleanExtra("IS_PLAYLIST_MODE", false)
-
-        val defaultDuration = if (activeEffect == "REVERSE" || activeEffect.contains("COLORFILL")) 1500L else if (activeEffect == "ORIGINAL") 2500L else 500L
-        val defaultPoll = if (isSamsung) 30000L else 50L
-        val defaultDelay = if (isSamsung) 0L else 800L
+        val activeEffect  = intent.getStringExtra("ACTIVE_EFFECT_TYPE") ?: "ORIGINAL"
+        val isSamsung     = intent.getBooleanExtra("IS_SAMSUNG", false)
+        val isPlaylist    = intent.getBooleanExtra("IS_PLAYLIST_MODE", false)
 
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    AdvancedSettingsScreen(
-                        activeEffect = activeEffect,
-                        isPlaylistMode = isPlaylistMode,
-                        defaultDuration = defaultDuration,
-                        defaultPoll = defaultPoll,
-                        defaultDelay = defaultDelay,
-                        onShowInfo = { title, msg -> showInfoDialog(title, msg) },
-                        onFinish = { finish() }
-                    )
-                }
+            AtmoTheme {
+                AdvancedSettingsScreen(activeEffect, isSamsung, isPlaylist)
             }
         }
     }
 
-    private fun showInfoDialog(title: String, message: String) {
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun AdvancedSettingsScreen(
+        activeEffect: String,
+        isSamsung: Boolean,
+        isPlaylistMode: Boolean
+    ) {
+        // ── Defaults ────────────────────────────────────────────────────
+        val defaultDuration = when {
+            activeEffect == "REVERSE" || activeEffect.contains("COLORFILL") -> 1500L
+            activeEffect == "ORIGINAL" -> 2500L
+            else -> 500L
+        }
+        val defaultPoll  = if (isSamsung) 30000L else 50L
+        val defaultDelay = if (isSamsung) 0L     else 800L
+
+        val prefs    = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val wpPrefs  = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+
+        // ── State ────────────────────────────────────────────────────────
+        var pollText      by remember { mutableStateOf(prefs.getLong("poll_interval", defaultPoll).toString()) }
+        var delayText     by remember { mutableStateOf(prefs.getLong("lock_delay", defaultDelay).toString()) }
+        var durationText  by remember { mutableStateOf(prefs.getLong("anim_duration", defaultDuration).toString()) }
+
+        var enableNoise   by remember { mutableStateOf(prefs.getBoolean("enable_noise", false)) }
+        var noiseScale    by remember { mutableStateOf(prefs.getFloat("noise_scale", -1f).let { if (it == -1f) "2000.0" else it.toString() }) }
+        var noiseStrength by remember { mutableStateOf(prefs.getFloat("noise_strength", -1f).let { if (it == -1f) "0.06" else it.toString() }) }
+
+        var dotSize       by remember { mutableStateOf(prefs.getFloat("halftone_dot_size", 12.0f)) }
+        var isGrayscale   by remember { mutableStateOf(prefs.getBoolean("halftone_grayscale", false)) }
+
+        var originX       by remember { mutableStateOf(prefs.getFloat("origin_x", 0.5f)) }
+        var originY       by remember { mutableStateOf(prefs.getFloat("origin_y", 0.8f)) }
+
+        var saturation    by remember { mutableStateOf(prefs.getFloat("blob_saturation", 1.0f)) }
+        var contrast      by remember { mutableStateOf(prefs.getFloat("blob_contrast", 1.0f)) }
+
+        val rotationOptions = listOf(
+            "System Theme (Light/Dark)" to -1L,
+            "Every Lock (Instant)"      to 0L,
+            "1 Minute"                  to 1L,
+            "15 Minutes"                to 15L,
+            "30 Minutes"                to 30L,
+            "1 Hour"                    to 60L,
+            "3 Hours"                   to 180L,
+            "6 Hours"                   to 360L,
+            "12 Hours"                  to 720L,
+            "24 Hours"                  to 1440L
+        )
+        val savedRotation    = wpPrefs.getLong("rotation_interval_minutes", 0L)
+        val defaultRotIdx    = rotationOptions.indexOfFirst { it.second == savedRotation }.takeIf { it >= 0 } ?: 1
+        var selectedRotIdx   by remember { mutableIntStateOf(defaultRotIdx) }
+        var rotationExpanded by remember { mutableStateOf(false) }
+
+        // ─────────────────────────────────────────────────────────────────
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Advanced Settings",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandPrimary
+                )
+
+                // ── Timing section ────────────────────────────────────────
+                SectionCard(title = "Timing") {
+                    // Poll interval
+                    OutlinedTextField(
+                        value         = pollText,
+                        onValueChange = { pollText = it },
+                        label         = { Text("Unlock Check Interval (ms)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier      = Modifier.fillMaxWidth(),
+                        trailingIcon  = {
+                            IconButton(onClick = { showPollHelp() }) {
+                                Icon(Icons.Default.Info, contentDescription = "Help", tint = BrandPrimary)
+                            }
+                        }
+                    )
+
+                    // Lock delay
+                    OutlinedTextField(
+                        value         = delayText,
+                        onValueChange = { delayText = it },
+                        label         = { Text("Lock Delay (ms)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier      = Modifier.fillMaxWidth(),
+                        trailingIcon  = {
+                            IconButton(onClick = { showDelayHelp() }) {
+                                Icon(Icons.Default.Info, contentDescription = "Help", tint = BrandPrimary)
+                            }
+                        }
+                    )
+
+                    // Animation duration
+                    OutlinedTextField(
+                        value         = durationText,
+                        onValueChange = { durationText = it },
+                        label         = { Text("Animation Duration (ms)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier      = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // ── Playlist rotation (only when in playlist mode) ─────────
+                if (isPlaylistMode) {
+                    SectionCard(title = "Playlist Rotation") {
+                        ExposedDropdownMenuBox(
+                            expanded        = rotationExpanded,
+                            onExpandedChange = { rotationExpanded = !rotationExpanded }
+                        ) {
+                            OutlinedTextField(
+                                value           = rotationOptions[selectedRotIdx].first,
+                                onValueChange   = {},
+                                readOnly        = true,
+                                label           = { Text("Rotation Interval") },
+                                trailingIcon    = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = rotationExpanded) },
+                                modifier        = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded        = rotationExpanded,
+                                onDismissRequest = { rotationExpanded = false }
+                            ) {
+                                rotationOptions.forEachIndexed { idx, (label, _) ->
+                                    DropdownMenuItem(
+                                        text    = { Text(label) },
+                                        onClick = {
+                                            selectedRotIdx   = idx
+                                            rotationExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Halftone settings ─────────────────────────────────────
+                if (activeEffect.contains("HALFTONE")) {
+                    SectionCard(title = "Halftone Settings") {
+                        Text("Dot Size: ${"%.1f".format(dotSize)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Slider(
+                            value         = dotSize,
+                            onValueChange = { dotSize = it },
+                            valueRange    = 4f..40f,
+                            modifier      = Modifier.fillMaxWidth(),
+                            colors        = SliderDefaults.colors(thumbColor = BrandPrimary, activeTrackColor = BrandPrimary)
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("Grayscale", color = MaterialTheme.colorScheme.onSurface)
+                            Switch(
+                                checked = isGrayscale,
+                                onCheckedChange = { isGrayscale = it },
+                                colors  = SwitchDefaults.colors(checkedThumbColor = BrandPrimary)
+                            )
+                        }
+                    }
+                }
+
+                // ── Color Fill settings ───────────────────────────────────
+                if (activeEffect.contains("COLORFILL")) {
+                    SectionCard(title = "Color Fill Settings") {
+                        Text("Origin X: ${"%.2f".format(originX)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Slider(
+                            value         = originX,
+                            onValueChange = { originX = it },
+                            valueRange    = 0f..1f,
+                            modifier      = Modifier.fillMaxWidth(),
+                            colors        = SliderDefaults.colors(thumbColor = BrandPrimary, activeTrackColor = BrandPrimary)
+                        )
+                        Text("Origin Y: ${"%.2f".format(originY)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Slider(
+                            value         = originY,
+                            onValueChange = { originY = it },
+                            valueRange    = 0f..1f,
+                            modifier      = Modifier.fillMaxWidth(),
+                            colors        = SliderDefaults.colors(thumbColor = BrandPrimary, activeTrackColor = BrandPrimary)
+                        )
+                    }
+                }
+
+                // ── Blob color settings (ORIGINAL / REVERSE only) ─────────
+                if (activeEffect == "ORIGINAL" || activeEffect == "REVERSE") {
+                    SectionCard(title = "Blob Color") {
+                        Text("Saturation: ${"%.2f".format(saturation)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Slider(
+                            value         = saturation,
+                            onValueChange = { saturation = it },
+                            valueRange    = 0f..3f,
+                            modifier      = Modifier.fillMaxWidth(),
+                            colors        = SliderDefaults.colors(thumbColor = BrandPrimary, activeTrackColor = BrandPrimary)
+                        )
+                        Text("Contrast: ${"%.2f".format(contrast)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Slider(
+                            value         = contrast,
+                            onValueChange = { contrast = it },
+                            valueRange    = 0f..3f,
+                            modifier      = Modifier.fillMaxWidth(),
+                            colors        = SliderDefaults.colors(thumbColor = BrandPrimary, activeTrackColor = BrandPrimary)
+                        )
+                    }
+                }
+
+                // ── Noise settings (not for HALFTONE / COLORFILL) ─────────
+                if (!activeEffect.contains("HALFTONE") && !activeEffect.contains("COLORFILL")) {
+                    SectionCard(title = "Noise") {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("Enable Noise", color = MaterialTheme.colorScheme.onSurface)
+                            Switch(
+                                checked = enableNoise,
+                                onCheckedChange = { enableNoise = it },
+                                colors  = SwitchDefaults.colors(checkedThumbColor = BrandPrimary)
+                            )
+                        }
+                        if (enableNoise) {
+                            OutlinedTextField(
+                                value         = noiseScale,
+                                onValueChange = { noiseScale = it },
+                                label         = { Text("Noise Scale") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier      = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value         = noiseStrength,
+                                onValueChange = { noiseStrength = it },
+                                label         = { Text("Noise Strength") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier      = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+
+                // ── Action buttons ────────────────────────────────────────
+                Button(
+                    onClick = {
+                        val poll     = pollText.toLongOrNull()     ?: defaultPoll
+                        val delay    = delayText.toLongOrNull()    ?: defaultDelay
+                        val duration = durationText.toLongOrNull() ?: defaultDuration
+                        val nsVal    = noiseScale.toFloatOrNull()    ?: 2000f
+                        val nStrVal  = noiseStrength.toFloatOrNull() ?: 0.06f
+
+                        wpPrefs.edit().putLong("rotation_interval_minutes",
+                            rotationOptions[selectedRotIdx].second).apply()
+
+                        prefs.edit {
+                            putLong("poll_interval", poll)
+                            putLong("lock_delay", delay)
+                            putLong("anim_duration", duration)
+                            putBoolean("enable_noise", enableNoise)
+                            putFloat("noise_scale", nsVal)
+                            putFloat("noise_strength", nStrVal)
+                            putFloat("halftone_dot_size", dotSize)
+                            putBoolean("halftone_grayscale", isGrayscale)
+                            putFloat("blob_saturation", saturation)
+                            putFloat("blob_contrast", contrast)
+                            putFloat("origin_x", originX)
+                            putFloat("origin_y", originY)
+                        }
+                        sendUpdateBroadcast()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
+                ) { Text("Apply Settings", color = MaterialTheme.colorScheme.onPrimary) }
+
+                OutlinedButton(
+                    onClick = {
+                        prefs.edit {
+                            remove("poll_interval"); remove("lock_delay"); remove("anim_duration")
+                            remove("enable_noise");  remove("noise_scale"); remove("noise_strength")
+                            remove("halftone_dot_size"); remove("halftone_grayscale")
+                            remove("blob_saturation"); remove("blob_contrast")
+                            remove("origin_x"); remove("origin_y")
+                        }
+                        // Reset local state
+                        pollText      = defaultPoll.toString()
+                        delayText     = defaultDelay.toString()
+                        durationText  = defaultDuration.toString()
+                        enableNoise   = false
+                        noiseScale    = "2000.0"
+                        noiseStrength = "0.06"
+                        dotSize       = 12.0f
+                        isGrayscale   = false
+                        saturation    = 1.0f
+                        contrast      = 1.0f
+                        originX       = 0.5f
+                        originY       = 0.8f
+                        sendUpdateBroadcast()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Reset to Defaults") }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+
+    @Composable
+    private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface)
+                content()
+            }
+        }
+    }
+
+    // ── Business logic (unchanged) ────────────────────────────────────────
+
+    private fun sendUpdateBroadcast() {
+        val i = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
+        i.setPackage(packageName)
+        sendBroadcast(i)
+        Toast.makeText(this, "Settings Applied!", Toast.LENGTH_SHORT).show()
+        finish()
+    }
+
+    private fun showPollHelp() {
         MaterialAlertDialogBuilder(this)
-            .setTitle(title)
-            .setMessage(message)
+            .setTitle("Unlock Check Interval")
+            .setMessage(
+                "Controls how frequently the app checks if the device has been unlocked.\n\n" +
+                        "• What it solves:\nIf you unlock your phone and the animation starts after a delay, lower this value.\n\n" +
+                        "• Recommended:\n30000ms for Samsung and most devices (Saves Battery).\n50ms if you experience delayed animation start."
+            )
             .setPositiveButton("Got it", null)
             .show()
     }
-}
 
-// Extracted completely out of the activity
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AdvancedSettingsScreen(
-    activeEffect: String,
-    isPlaylistMode: Boolean,
-    defaultDuration: Long,
-    defaultPoll: Long,
-    defaultDelay: Long,
-    onShowInfo: (String, String) -> Unit,
-    onFinish: () -> Unit
-) {
-    val context = LocalContext.current
-    val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-    val wpPrefs = context.getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
-
-    var pollInterval by remember { mutableStateOf((prefs.getLong("poll_interval", -1L).takeIf { it != -1L } ?: defaultPoll).toString()) }
-    var lockDelay by remember { mutableStateOf((prefs.getLong("lock_delay", -1L).takeIf { it != -1L } ?: defaultDelay).toString()) }
-    var animDuration by remember { mutableStateOf((prefs.getLong("anim_duration", -1L).takeIf { it != -1L } ?: defaultDuration).toString()) }
-
-    var dotSize by remember { mutableFloatStateOf(prefs.getFloat("halftone_dot_size", 12.0f)) }
-    var isGrayscale by remember { mutableStateOf(prefs.getBoolean("halftone_grayscale", false)) }
-
-    var originX by remember { mutableFloatStateOf(prefs.getFloat("origin_x", 0.5f)) }
-    var originY by remember { mutableFloatStateOf(prefs.getFloat("origin_y", 0.8f)) }
-
-    var sat by remember { mutableFloatStateOf(prefs.getFloat("blob_saturation", 1.0f)) }
-    var con by remember { mutableFloatStateOf(prefs.getFloat("blob_contrast", 1.0f)) }
-
-    var isNoiseEnabled by remember { mutableStateOf(prefs.getBoolean("enable_noise", false)) }
-    var noiseScale by remember { mutableStateOf((prefs.getFloat("noise_scale", -1f).takeIf { it != -1f } ?: 2000.0f).toString()) }
-    var noiseStrength by remember { mutableStateOf((prefs.getFloat("noise_strength", -1f).takeIf { it != -1f } ?: 0.06f).toString()) }
-
-    val rotationOptions = listOf("System Theme (Light/Dark)", "Every Lock (Instant)", "1 Minute", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours", "6 Hours", "12 Hours", "24 Hours")
-    val rotationValues = listOf<Long>(-1, 0, 1, 15, 30, 60, 180, 360, 720, 1440)
-
-    var expandedRotation by remember { mutableStateOf(false) }
-    val savedRotation = wpPrefs.getLong("rotation_interval_minutes", 0)
-    var selectedRotationIndex by remember { mutableIntStateOf(rotationValues.indexOf(savedRotation).takeIf { it >= 0 } ?: 1) }
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("Advanced Settings", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
-
-        if (isPlaylistMode) {
-            ExposedDropdownMenuBox(
-                expanded = expandedRotation,
-                onExpandedChange = { expandedRotation = !expandedRotation }
-            ) {
-                OutlinedTextField(
-                    value = rotationOptions[selectedRotationIndex],
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Rotation Interval") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRotation) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = expandedRotation,
-                    onDismissRequest = { expandedRotation = false }
-                ) {
-                    rotationOptions.forEachIndexed { index, selectionOption ->
-                        DropdownMenuItem(
-                            text = { Text(selectionOption) },
-                            onClick = {
-                                selectedRotationIndex = index
-                                expandedRotation = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        OutlinedTextField(
-            value = pollInterval,
-            onValueChange = { pollInterval = it },
-            label = { Text("Poll Interval (ms)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            trailingIcon = {
-                IconButton(onClick = { onShowInfo("Unlock Check Interval", "Controls how frequently the app checks if the device has been unlocked.\n\n• Recommended:\n30000ms for Samsung\n50ms for others.") }) {
-                    Icon(Icons.Default.Info, contentDescription = "Info")
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = lockDelay,
-            onValueChange = { lockDelay = it },
-            label = { Text("Lock Delay (ms)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            trailingIcon = {
-                IconButton(onClick = { onShowInfo("Lock Delay", "Adds a pause before the wallpaper resets.\n\n• Recommended:\n0ms for Samsung\n500ms - 800ms for others.") }) {
-                    Icon(Icons.Default.Info, contentDescription = "Info")
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = animDuration,
-            onValueChange = { animDuration = it },
-            label = { Text("Animation Duration (ms)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        if (activeEffect.contains("HALFTONE")) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Halftone Settings", color = Color.White, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Dot Size", color = Color.LightGray, fontSize = 12.sp)
-                    Slider(value = dotSize, onValueChange = { dotSize = it }, valueRange = 2f..30f)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Grayscale Effect", modifier = Modifier.weight(1f), color = Color.White)
-                        Switch(checked = isGrayscale, onCheckedChange = { isGrayscale = it })
-                    }
-                }
-            }
-        }
-
-        if (activeEffect.contains("COLORFILL") || activeEffect.contains("HALFTONE")) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Effect Origin (X / Y)", color = Color.White, fontWeight = FontWeight.Bold)
-                    Slider(value = originX, onValueChange = { originX = it }, valueRange = 0f..1f)
-                    Slider(value = originY, onValueChange = { originY = it }, valueRange = 0f..1f)
-                }
-            }
-        }
-
-        if (activeEffect == "ORIGINAL" || activeEffect == "REVERSE") {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Blob Color Tuning", color = Color.White, fontWeight = FontWeight.Bold)
-                    Text("Saturation", color = Color.LightGray, fontSize = 12.sp)
-                    Slider(value = sat, onValueChange = { sat = it }, valueRange = 0f..3f)
-                    Text("Contrast", color = Color.LightGray, fontSize = 12.sp)
-                    Slider(value = con, onValueChange = { con = it }, valueRange = 0f..3f)
-                }
-            }
-        }
-
-        if (!activeEffect.contains("HALFTONE") && !activeEffect.contains("COLORFILL")) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Enable Static Noise", modifier = Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.Bold)
-                        Switch(checked = isNoiseEnabled, onCheckedChange = { isNoiseEnabled = it })
-                    }
-                    if (isNoiseEnabled) {
-                        OutlinedTextField(
-                            value = noiseScale, onValueChange = { noiseScale = it },
-                            label = { Text("Noise Scale") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                        )
-                        OutlinedTextField(
-                            value = noiseStrength, onValueChange = { noiseStrength = it },
-                            label = { Text("Noise Strength") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedButton(
-                onClick = {
-                    prefs.edit { clear() }
-                    onFinish()
-                },
-                modifier = Modifier.weight(1f)
-            ) { Text("Reset Defaults") }
-
-            Button(
-                onClick = {
-                    wpPrefs.edit().putLong("rotation_interval_minutes", rotationValues[selectedRotationIndex]).apply()
-                    prefs.edit {
-                        putLong("poll_interval", pollInterval.toLongOrNull() ?: defaultPoll)
-                        putLong("lock_delay", lockDelay.toLongOrNull() ?: defaultDelay)
-                        putLong("anim_duration", animDuration.toLongOrNull() ?: defaultDuration)
-                        putBoolean("enable_noise", isNoiseEnabled)
-                        putFloat("noise_scale", noiseScale.toFloatOrNull() ?: 2000.0f)
-                        putFloat("noise_strength", noiseStrength.toFloatOrNull() ?: 0.06f)
-                        putFloat("halftone_dot_size", dotSize)
-                        putBoolean("halftone_grayscale", isGrayscale)
-                        putFloat("blob_saturation", sat)
-                        putFloat("blob_contrast", con)
-                        putFloat("origin_x", originX)
-                        putFloat("origin_y", originY)
-                    }
-                    context.sendBroadcast(Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG").setPackage(context.packageName))
-                    Toast.makeText(context, "Settings Applied!", Toast.LENGTH_SHORT).show()
-                    onFinish()
-                },
-                modifier = Modifier.weight(1f)
-            ) { Text("Apply") }
-        }
+    private fun showDelayHelp() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Lock Delay")
+            .setMessage(
+                "Adds a pause before the wallpaper resets when you lock the phone.\n\n" +
+                        "• What it solves:\nIf you see a glimpse of the wallpaper resetting/snapping back before the screen turns fully black, increase this value.\n\n" +
+                        "• Recommended:\n0ms for Samsung/Most devices.\n500ms - 800ms if you experience the glitch.\n\n" +
+                        "⚠️ Note: If this value is too high, unlocking immediately after locking might show the wallpaper in its previous state."
+            )
+            .setPositiveButton("Got it", null)
+            .show()
     }
 }

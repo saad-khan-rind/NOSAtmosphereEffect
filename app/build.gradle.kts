@@ -59,14 +59,16 @@ kotlin {
 dependencies {
     implementation(libs.androidx.exifinterface)
 
-    // Jetpack Compose Dependencies
-    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
-    implementation(composeBom)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.activity.compose)
-    debugImplementation(libs.androidx.compose.ui.tooling)
+    // Compose BOM — controls all compose library versions together
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 
     // --- Dependencies for v36 (API 36) ---
     // These only apply when building the v36 flavor
