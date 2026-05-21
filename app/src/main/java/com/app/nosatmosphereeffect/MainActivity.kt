@@ -63,7 +63,38 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    MainScreen(
+                        activeEffect = activeEffect,
+                        isPlaylistModeActive = isPlaylistModeActive,
+                        dimLevel = dimLevel,
+                        savedDimLevel = savedDimLevel,
+                        blurStrength = blurStrength,
+                        savedBlurStrength = savedBlurStrength,
+                        syncColors = syncColors,
+                        onDimLevelChange = { dimLevel = it },
+                        onBlurStrengthChange = { blurStrength = it },
+                        onSyncColorsChange = { isChecked ->
+                            syncColors = isChecked
+                            getSharedPreferences("app_prefs", MODE_PRIVATE).edit { putBoolean("notify_system_colors", isChecked) }
+                            sendConfigUpdate()
+                        },
+                        onApplyDimness = { applyDimnessUpdate() },
+                        onApplyBlur = { applyBlurUpdate() },
+                        onSelectEffectClick = { startActivity(Intent(this@MainActivity, EffectSelectionActivity::class.java)) },
+                        onChangeEffectClick = {
+                            val intent = Intent(this@MainActivity, EffectSelectionActivity::class.java)
+                            intent.putExtra("UPDATE_EFFECT_ONLY", true)
+                            startActivity(intent)
+                        },
+                        onChangeImageClick = { showImageSelectionDialog() },
+                        onAdvancedSettingsClick = {
+                            val intent = Intent(this@MainActivity, AdvancedSettingsActivity::class.java)
+                            intent.putExtra("ACTIVE_EFFECT_TYPE", activeEffect ?: "ORIGINAL")
+                            intent.putExtra("IS_SAMSUNG", isSamsungDevice())
+                            intent.putExtra("IS_PLAYLIST_MODE", isPlaylistModeActive)
+                            startActivity(intent)
+                        }
+                    )
                 }
             }
         }
@@ -72,170 +103,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         checkWallpaperStatus()
-    }
-
-    @Composable
-    fun MainScreen() {
-        val scrollState = rememberScrollState()
-        // Fix: Removed LocalContext.current. Using this@MainActivity directly bypasses the Compose compiler bug.
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(scrollState),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                contentDescription = "App Logo",
-                modifier = Modifier
-                    .size(96.dp)
-                    .padding(bottom = 32.dp),
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
-            )
-
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            Text(
-                text = if (activeEffect != null) "Wallpaper is active! Customize your experience below."
-                else stringResource(R.string.status_instruction),
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 48.dp)
-            )
-
-            if (activeEffect == null) {
-                Button(
-                    onClick = { startActivity(Intent(this@MainActivity, EffectSelectionActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    Icon(painterResource(id = R.drawable.ic_wallpaper), contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Select Effect & Wallpaper", fontSize = 16.sp)
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    FilledTonalButton(
-                        onClick = {
-                            val intent = Intent(this@MainActivity, EffectSelectionActivity::class.java)
-                            intent.putExtra("UPDATE_EFFECT_ONLY", true)
-                            startActivity(intent)
-                        },
-                        modifier = Modifier.weight(1f).height(56.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(painterResource(id = R.drawable.ic_deblur), contentDescription = null)
-                            Text("Change Effect")
-                        }
-                    }
-                    FilledTonalButton(
-                        onClick = { showImageSelectionDialog() },
-                        modifier = Modifier.weight(1f).height(56.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(painterResource(id = R.drawable.ic_wallpaper), contentDescription = null)
-                            Text("Change Image")
-                        }
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                        .padding(16.dp)
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Black)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Dimness Level", color = Color.White, fontWeight = FontWeight.Bold)
-                            Slider(
-                                value = dimLevel,
-                                onValueChange = { dimLevel = it },
-                                valueRange = 0f..0.8f,
-                                modifier = Modifier.padding(vertical = 16.dp)
-                            )
-                            Button(
-                                onClick = { applyDimnessUpdate() },
-                                enabled = dimLevel != savedDimLevel,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Update Wallpaper Dimness")
-                            }
-                        }
-                    }
-
-                    if (activeEffect?.contains("FROSTED") == true) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.Black)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Blur Strength", color = Color.White, fontWeight = FontWeight.Bold)
-                                Slider(
-                                    value = blurStrength,
-                                    onValueChange = { blurStrength = it },
-                                    valueRange = 0f..400f,
-                                    modifier = Modifier.padding(vertical = 16.dp)
-                                )
-                                Button(
-                                    onClick = { applyBlurUpdate() },
-                                    enabled = blurStrength != savedBlurStrength,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Update Blur Strength")
-                                }
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Sync System Colors", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text("Updates Material You colors. Disable if buggy.", color = Color.Gray, fontSize = 12.sp)
-                        }
-                        Switch(
-                            checked = syncColors,
-                            onCheckedChange = { isChecked ->
-                                syncColors = isChecked
-                                getSharedPreferences("app_prefs", MODE_PRIVATE).edit { putBoolean("notify_system_colors", isChecked) }
-                                sendConfigUpdate()
-                            }
-                        )
-                    }
-
-                    Button(
-                        onClick = {
-                            val intent = Intent(this@MainActivity, AdvancedSettingsActivity::class.java)
-                            intent.putExtra("ACTIVE_EFFECT_TYPE", activeEffect ?: "ORIGINAL")
-                            intent.putExtra("IS_SAMSUNG", isSamsungDevice())
-                            intent.putExtra("IS_PLAYLIST_MODE", isPlaylistModeActive)
-                            startActivity(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Fine Tune Settings")
-                    }
-                }
-            }
-        }
     }
 
     private fun isSamsungDevice(): Boolean = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
@@ -362,5 +229,172 @@ class MainActivity : ComponentActivity() {
             putParcelableArrayListExtra("IMAGE_URIS", uris)
             putExtra("EFFECT_ID", effectId)
         })
+    }
+}
+
+// Extracted entirely outside the class scope
+@Composable
+fun MainScreen(
+    activeEffect: String?,
+    isPlaylistModeActive: Boolean,
+    dimLevel: Float,
+    savedDimLevel: Float,
+    blurStrength: Float,
+    savedBlurStrength: Float,
+    syncColors: Boolean,
+    onDimLevelChange: (Float) -> Unit,
+    onBlurStrengthChange: (Float) -> Unit,
+    onSyncColorsChange: (Boolean) -> Unit,
+    onApplyDimness: () -> Unit,
+    onApplyBlur: () -> Unit,
+    onSelectEffectClick: () -> Unit,
+    onChangeEffectClick: () -> Unit,
+    onChangeImageClick: () -> Unit,
+    onAdvancedSettingsClick: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(scrollState),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            contentDescription = "App Logo",
+            modifier = Modifier
+                .size(96.dp)
+                .padding(bottom = 32.dp),
+            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+        )
+
+        Text(
+            text = stringResource(R.string.app_name),
+            style = MaterialTheme.typography.displayMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Text(
+            text = if (activeEffect != null) "Wallpaper is active! Customize your experience below."
+            else stringResource(R.string.status_instruction),
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 48.dp)
+        )
+
+        if (activeEffect == null) {
+            Button(
+                onClick = onSelectEffectClick,
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Icon(painterResource(id = R.drawable.ic_wallpaper), contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Select Effect & Wallpaper", fontSize = 16.sp)
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onChangeEffectClick,
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(painterResource(id = R.drawable.ic_deblur), contentDescription = null)
+                        Text("Change Effect")
+                    }
+                }
+                FilledTonalButton(
+                    onClick = onChangeImageClick,
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(painterResource(id = R.drawable.ic_wallpaper), contentDescription = null)
+                        Text("Change Image")
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Black)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Dimness Level", color = Color.White, fontWeight = FontWeight.Bold)
+                        Slider(
+                            value = dimLevel,
+                            onValueChange = onDimLevelChange,
+                            valueRange = 0f..0.8f,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                        Button(
+                            onClick = onApplyDimness,
+                            enabled = dimLevel != savedDimLevel,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Update Wallpaper Dimness")
+                        }
+                    }
+                }
+
+                if (activeEffect.contains("FROSTED")) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Black)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Blur Strength", color = Color.White, fontWeight = FontWeight.Bold)
+                            Slider(
+                                value = blurStrength,
+                                onValueChange = onBlurStrengthChange,
+                                valueRange = 0f..400f,
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                            Button(
+                                onClick = onApplyBlur,
+                                enabled = blurStrength != savedBlurStrength,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Update Blur Strength")
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Sync System Colors", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Updates Material You colors. Disable if buggy.", color = Color.Gray, fontSize = 12.sp)
+                    }
+                    Switch(
+                        checked = syncColors,
+                        onCheckedChange = onSyncColorsChange
+                    )
+                }
+
+                Button(
+                    onClick = onAdvancedSettingsClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Fine Tune Settings")
+                }
+            }
+        }
     }
 }

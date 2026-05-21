@@ -96,97 +96,23 @@ class PlaylistEditorActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    PlaylistScreen()
+                    PlaylistScreen(
+                        playlistItems = playlistItems,
+                        onAddMore = { pickMultipleImages.launch("image/*") },
+                        onApply = { showApplyDialog() },
+                        onEdit = { page, item ->
+                            editingPosition = page
+                            launchEditActivity(item)
+                        },
+                        onDelete = { page -> playlistItems.removeAt(page) },
+                        loadPreview = { item -> loadPreview(item) }
+                    )
+
                     if (isProcessing) {
                         Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.7f)), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
                     }
-                }
-            }
-        }
-    }
-
-    @OptIn(ExperimentalFoundationApi::class)
-    @Composable
-    fun PlaylistScreen() {
-        val pagerState = rememberPagerState(pageCount = { playlistItems.size })
-
-        Column(modifier = Modifier.fillMaxSize().padding(vertical = 48.dp)) {
-            Text(
-                text = "Playlist Editor",
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                textAlign = TextAlign.Center,
-                color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "${playlistItems.size} Images Selected",
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
-                color = Color.LightGray
-            )
-
-            Spacer(Modifier.height(32.dp))
-
-            if (playlistItems.isNotEmpty()) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 48.dp),
-                    pageSpacing = 16.dp
-                ) { page ->
-                    val item = playlistItems[page]
-                    val bitmap = remember(item) { loadPreview(item) }
-
-                    Card(
-                        modifier = Modifier.fillMaxSize(),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(8.dp)
-                    ) {
-                        Box {
-                            if (bitmap != null) {
-                                Image(bitmap = bitmap.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                            } else {
-                                Box(Modifier.fillMaxSize().background(Color.DarkGray))
-                            }
-
-                            Row(
-                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(0.5f)).padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                IconButton(onClick = {
-                                    editingPosition = page
-                                    launchEditActivity(item)
-                                }) { Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White) }
-
-                                IconButton(onClick = { playlistItems.removeAt(page) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("No Images Added", color = Color.Gray)
-                }
-            }
-
-            Spacer(Modifier.height(32.dp))
-
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedButton(onClick = { pickMultipleImages.launch("image/*") }, modifier = Modifier.weight(1f)) {
-                    Text("Add More")
-                }
-                Button(
-                    onClick = { showApplyDialog() },
-                    enabled = playlistItems.isNotEmpty(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Apply Playlist")
                 }
             }
         }
@@ -212,7 +138,7 @@ class PlaylistEditorActivity : ComponentActivity() {
     }
 
     private fun showApplyDialog() {
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this@PlaylistEditorActivity)
             .setTitle("Apply Wallpaper")
             .setMessage("Set Wallpaper > Home Screen and Lock Screen in the next menu.")
             .setPositiveButton("Proceed") { _, _ ->
@@ -373,6 +299,98 @@ class PlaylistEditorActivity : ComponentActivity() {
                     playlistItems.add(PlaylistItem(originalUri, isEdited, editedPath, matrixState))
                 }
             } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+}
+
+// Extracted outside the Activity
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PlaylistScreen(
+    playlistItems: List<PlaylistItem>,
+    onAddMore: () -> Unit,
+    onApply: () -> Unit,
+    onEdit: (Int, PlaylistItem) -> Unit,
+    onDelete: (Int) -> Unit,
+    loadPreview: (PlaylistItem) -> Bitmap?
+) {
+    val pagerState = rememberPagerState(pageCount = { playlistItems.size })
+
+    Column(modifier = Modifier.fillMaxSize().padding(vertical = 48.dp)) {
+        Text(
+            text = "Playlist Editor",
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            textAlign = TextAlign.Center,
+            color = Color.White,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            text = "${playlistItems.size} Images Selected",
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            color = Color.LightGray
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        if (playlistItems.isNotEmpty()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 48.dp),
+                pageSpacing = 16.dp
+            ) { page ->
+                val item = playlistItems[page]
+                val bitmap = remember(item) { loadPreview(item) }
+
+                Card(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) {
+                    Box {
+                        if (bitmap != null) {
+                            Image(bitmap = bitmap.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        } else {
+                            Box(Modifier.fillMaxSize().background(Color.DarkGray))
+                        }
+
+                        Row(
+                            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(0.5f)).padding(8.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            IconButton(onClick = { onEdit(page, item) }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
+                            }
+
+                            IconButton(onClick = { onDelete(page) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("No Images Added", color = Color.Gray)
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            OutlinedButton(onClick = onAddMore, modifier = Modifier.weight(1f)) {
+                Text("Add More")
+            }
+            Button(
+                onClick = onApply,
+                enabled = playlistItems.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Apply Playlist")
+            }
         }
     }
 }

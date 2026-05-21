@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -36,6 +37,7 @@ import kotlin.math.min
 
 class CropActivity : ComponentActivity() {
     private var effectId: String = "ORIGINAL"
+    private var isProcessing by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,55 +54,14 @@ class CropActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
-                    CropScreen(uri)
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun CropScreen(uri: Uri) {
-        // Fix: Removed LocalContext.current
-        var touchImageView by remember { mutableStateOf<TouchImageView?>(null) }
-        var isProcessing by remember { mutableStateOf(false) }
-        val coroutineScope = rememberCoroutineScope()
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    TouchImageView(ctx).also {
-                        touchImageView = it
-                        // Load image in background on init
-                        coroutineScope.launch(Dispatchers.IO) {
-                            val bmp = decodeSampledBitmapFromUri(ctx, uri, 4096, 4096)
-                            withContext(Dispatchers.Main) {
-                                if (bmp != null) it.setInitialImage(bmp)
-                                else Toast.makeText(ctx, "Could not load format.", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                }
-            )
-
-            Button(
-                onClick = {
-                    touchImageView?.getCroppedBitmap()?.let {
-                        showApplyDialog(it)
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp)
-                    .fillMaxWidth(),
-                enabled = !isProcessing
-            ) {
-                Text("Apply Wallpaper")
-            }
-
-            if (isProcessing) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.7f)), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
+                    CropScreen(
+                        uri = uri,
+                        isProcessing = isProcessing,
+                        onApply = { bmp ->
+                            showApplyDialog(bmp)
+                        },
+                        decodeBitmap = { ctx, u -> decodeSampledBitmapFromUri(ctx, u, 4096, 4096) }
+                    )
                 }
             }
         }
@@ -142,10 +103,13 @@ class CropActivity : ComponentActivity() {
     }
 
     private fun showApplyDialog(bitmap: Bitmap) {
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this@CropActivity)
             .setTitle("Apply Wallpaper")
             .setMessage("Select 'Set Wallpaper > Home Screen and Lock Screen' in the next menu.")
-            .setPositiveButton("Proceed") { _, _ -> applyWallpaper(bitmap) }
+            .setPositiveButton("Proceed") { _, _ ->
+                isProcessing = true
+                applyWallpaper(bitmap)
+            }
             .setNegativeButton("Cancel", null)
             .show()
     }
@@ -163,11 +127,14 @@ class CropActivity : ComponentActivity() {
                 out.flush(); out.close()
 
                 runOnUiThread {
+                    isProcessing = false
                     Toast.makeText(this, "Setup complete!", Toast.LENGTH_LONG).show()
                     sendBroadcast(Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER").setPackage(packageName))
                     activateService()
                 }
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                runOnUiThread { isProcessing = false }
+            }
         }.start()
     }
 
@@ -185,5 +152,55 @@ class CropActivity : ComponentActivity() {
         } catch (e: Exception) {
             startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
         } finally { finish() }
+    }
+}
+
+// Extracted entirely outside the class scope
+@Composable
+fun CropScreen(
+    uri: Uri,
+    isProcessing: Boolean,
+    onApply: (Bitmap) -> Unit,
+    decodeBitmap: suspend (Context, Uri) -> Bitmap?
+) {
+    val context = LocalContext.current
+    var touchImageView by remember { mutableStateOf<TouchImageView?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                TouchImageView(ctx).also {
+                    touchImageView = it
+                    coroutineScope.launch(Dispatchers.IO) {
+                        val bmp = decodeBitmap(ctx, uri)
+                        withContext(Dispatchers.Main) {
+                            if (bmp != null) it.setInitialImage(bmp)
+                            else Toast.makeText(ctx, "Could not load format.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        )
+
+        Button(
+            onClick = {
+                touchImageView?.getCroppedBitmap()?.let { onApply(it) }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 48.dp, start = 24.dp, end = 24.dp)
+                .fillMaxWidth(),
+            enabled = !isProcessing
+        ) {
+            Text("Apply Wallpaper")
+        }
+
+        if (isProcessing) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.7f)), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        }
     }
 }

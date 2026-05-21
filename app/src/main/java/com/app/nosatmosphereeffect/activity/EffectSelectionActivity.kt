@@ -73,54 +73,6 @@ class EffectSelectionActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    fun EffectSelectionScreen(effects: List<EffectItem>, onEffectClick: (EffectItem) -> Unit) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Choose Effect",
-                style = MaterialTheme.typography.displaySmall,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(effects) { effect ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onEffectClick(effect) },
-                        colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.5f))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = effect.title,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Text(
-                                text = effect.description,
-                                fontSize = 14.sp,
-                                color = Color.LightGray
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private fun showSelectionDialog() {
         val options = arrayOf("Single Image", "Multiple Images (Playlist)")
         MaterialAlertDialogBuilder(this)
@@ -171,5 +123,54 @@ class EffectSelectionActivity : ComponentActivity() {
             putExtra(android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, android.content.ComponentName(this@EffectSelectionActivity, serviceClass))
         })
         finish()
+    }
+}
+
+// Extracted
+@Composable
+fun EffectSelectionScreen(effects: List<EffectItem>, onEffectClick: (EffectItem) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Choose Effect",
+            style = MaterialTheme.typography.displaySmall,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(effects) { effect ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEffectClick(effect) },
+                    colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = effect.title,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            text = effect.description,
+                            fontSize = 14.sp,
+                            color = Color.LightGray
+                        )
+                    }
+                }
+            }
+        }
     }
 }
