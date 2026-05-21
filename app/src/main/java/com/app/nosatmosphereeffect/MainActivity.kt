@@ -21,24 +21,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
-import com.app.nosatmosphereeffect.activity.AdvancedSettingsActivity
-import com.app.nosatmosphereeffect.activity.BlurToSharpCropActivity
-import com.app.nosatmosphereeffect.activity.CropActivity
-import com.app.nosatmosphereeffect.activity.EffectSelectionActivity
-import com.app.nosatmosphereeffect.activity.PlaylistEditorActivity
+import com.app.nosatmosphereeffect.activity.*
 import com.app.nosatmosphereeffect.service.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 
 class MainActivity : ComponentActivity() {
 
-    // Compose States
     private var activeEffect by mutableStateOf<String?>(null)
     private var isPlaylistModeActive by mutableStateOf(false)
     private var dimLevel by mutableFloatStateOf(0.2f)
@@ -65,7 +62,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.surface
+                    color = MaterialTheme.colorScheme.background
                 ) {
                     MainScreen()
                 }
@@ -81,6 +78,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun MainScreen() {
         val scrollState = rememberScrollState()
+        val context = LocalContext.current
 
         Column(
             modifier = Modifier
@@ -99,7 +97,7 @@ class MainActivity : ComponentActivity() {
             )
 
             Text(
-                text = getString(R.string.app_name),
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
@@ -108,7 +106,8 @@ class MainActivity : ComponentActivity() {
             )
 
             Text(
-                text = if (activeEffect != null) "Wallpaper is active! Customize your experience below." else getString(R.string.status_instruction),
+                text = if (activeEffect != null) "Wallpaper is active! Customize your experience below."
+                else stringResource(R.string.status_instruction),
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -117,10 +116,8 @@ class MainActivity : ComponentActivity() {
 
             if (activeEffect == null) {
                 Button(
-                    onClick = { startActivity(Intent(this@MainActivity, EffectSelectionActivity::class.java)) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
+                    onClick = { startActivity(Intent(context, EffectSelectionActivity::class.java)) },
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
                     Icon(painterResource(id = R.drawable.ic_wallpaper), contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -128,20 +125,16 @@ class MainActivity : ComponentActivity() {
                 }
             } else {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     FilledTonalButton(
                         onClick = {
-                            val intent = Intent(this@MainActivity, EffectSelectionActivity::class.java)
+                            val intent = Intent(context, EffectSelectionActivity::class.java)
                             intent.putExtra("UPDATE_EFFECT_ONLY", true)
                             startActivity(intent)
                         },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp)
+                        modifier = Modifier.weight(1f).height(56.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(painterResource(id = R.drawable.ic_deblur), contentDescription = null)
@@ -150,9 +143,7 @@ class MainActivity : ComponentActivity() {
                     }
                     FilledTonalButton(
                         onClick = { showImageSelectionDialog() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp)
+                        modifier = Modifier.weight(1f).height(56.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(painterResource(id = R.drawable.ic_wallpaper), contentDescription = null)
@@ -161,18 +152,14 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Settings Section
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
-                    // Dimness Card
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.Black)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -193,12 +180,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Blur Card (Only visible if FROSTED)
                     if (activeEffect?.contains("FROSTED") == true) {
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.Black)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
@@ -220,37 +204,27 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Sync Colors Switch
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Sync System Colors", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text(
-                                "Updates Material You colors on wallpaper change. Disable if buggy/laggy.",
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
+                            Text("Updates Material You colors. Disable if buggy.", color = Color.Gray, fontSize = 12.sp)
                         }
                         Switch(
                             checked = syncColors,
                             onCheckedChange = { isChecked ->
                                 syncColors = isChecked
-                                getSharedPreferences("app_prefs", MODE_PRIVATE).edit {
-                                    putBoolean("notify_system_colors", isChecked)
-                                }
+                                getSharedPreferences("app_prefs", MODE_PRIVATE).edit { putBoolean("notify_system_colors", isChecked) }
                                 sendConfigUpdate()
                             }
                         )
                     }
 
-                    // Advanced Settings Button
                     Button(
                         onClick = {
-                            val intent = Intent(this@MainActivity, AdvancedSettingsActivity::class.java)
+                            val intent = Intent(context, AdvancedSettingsActivity::class.java)
                             intent.putExtra("ACTIVE_EFFECT_TYPE", activeEffect ?: "ORIGINAL")
                             intent.putExtra("IS_SAMSUNG", isSamsungDevice())
                             intent.putExtra("IS_PLAYLIST_MODE", isPlaylistModeActive)
@@ -265,19 +239,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun isSamsungDevice(): Boolean {
-        return Build.MANUFACTURER.equals("samsung", ignoreCase = true)
-    }
+    private fun isSamsungDevice(): Boolean = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
 
     private fun initializeSmartDefaults() {
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
         if (!prefs.contains("poll_interval")) {
             val isSamsung = isSamsungDevice()
-            val defaultPoll = if (isSamsung) 30000L else 50L
-            val defaultDelay = if (isSamsung) 0L else 800L
             prefs.edit {
-                putLong("poll_interval", defaultPoll)
-                putLong("lock_delay", defaultDelay)
+                putLong("poll_interval", if (isSamsung) 30000L else 50L)
+                putLong("lock_delay", if (isSamsung) 0L else 800L)
             }
         }
     }
@@ -285,7 +255,6 @@ class MainActivity : ComponentActivity() {
     private fun checkWallpaperStatus() {
         val wm = WallpaperManager.getInstance(this)
         val info = wm.wallpaperInfo
-
         activeEffect = if (info != null && info.packageName == packageName) {
             when (info.component.className) {
                 AtmosphereService::class.java.name -> "ORIGINAL"
@@ -302,31 +271,22 @@ class MainActivity : ComponentActivity() {
 
         if (activeEffect != null) {
             val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-
-            // Load Dimness
-            val defaultDim = if (activeEffect!!.contains("HALFTONE")) 0.0f else 0.2f
-            dimLevel = prefs.getFloat("dim_level", defaultDim)
+            dimLevel = prefs.getFloat("dim_level", if (activeEffect!!.contains("HALFTONE")) 0.0f else 0.2f)
             savedDimLevel = dimLevel
 
-            // Load Blur
             if (activeEffect!!.contains("FROSTED")) {
                 blurStrength = prefs.getFloat("frosted_blur_radius", 200f)
                 savedBlurStrength = blurStrength
             }
 
-            // Playlist mode calculation
             val playlistDir = File(filesDir, "playlist")
             isPlaylistModeActive = playlistDir.exists() && playlistDir.isDirectory &&
                     (playlistDir.listFiles { _, name -> name.endsWith(".jpg") }?.size ?: 0) > 1
 
-            // Sync colors logic
-            val lastMode = prefs.getString("last_known_wallpaper_mode", "UNKNOWN")
             val currentMode = if (isPlaylistModeActive) "PLAYLIST" else "SINGLE"
-
-            if (lastMode != currentMode) {
-                val defaultSync = !isPlaylistModeActive
+            if (prefs.getString("last_known_wallpaper_mode", "UNKNOWN") != currentMode) {
                 prefs.edit {
-                    putBoolean("notify_system_colors", defaultSync)
+                    putBoolean("notify_system_colors", !isPlaylistModeActive)
                     putString("last_known_wallpaper_mode", currentMode)
                 }
                 sendConfigUpdate()
@@ -356,72 +316,52 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showImageSelectionDialog() {
-        val options = if (isPlaylistModeActive) {
-            arrayOf("Single Image", "Create New Playlist", "Edit Existing Playlist")
-        } else {
-            arrayOf("Single Image", "Multiple Images (Playlist)")
-        }
+        val options = if (isPlaylistModeActive) arrayOf("Single Image", "Create New Playlist", "Edit Existing Playlist")
+        else arrayOf("Single Image", "Multiple Images (Playlist)")
 
         MaterialAlertDialogBuilder(this)
             .setTitle("Select Wallpaper Mode")
             .setItems(options) { _, which ->
-                if (isPlaylistModeActive) {
-                    when (which) {
-                        0 -> pickSingleImage.launch("image/*")
-                        1 -> pickMultipleImages.launch("image/*")
-                        2 -> launchEditExistingPlaylist()
-                    }
-                } else {
-                    when (which) {
-                        0 -> pickSingleImage.launch("image/*")
-                        1 -> pickMultipleImages.launch("image/*")
-                    }
+                when (which) {
+                    0 -> pickSingleImage.launch("image/*")
+                    1 -> pickMultipleImages.launch("image/*")
+                    2 -> launchEditExistingPlaylist()
                 }
-            }
-            .show()
+            }.show()
     }
 
     private fun launchEditExistingPlaylist() {
         val playlistDir = File(filesDir, "playlist")
         if (!playlistDir.exists()) return
-
         val files = playlistDir.listFiles { _, name -> name.endsWith(".jpg") }
         if (files.isNullOrEmpty()) return
 
-        files.sortBy { it.nameWithoutExtension.substringAfter('_').toIntOrNull() ?: 0 }
-        val uris = ArrayList(files.map { Uri.parse("file://${it.absolutePath}") })
-
-        val intent = Intent(this, PlaylistEditorActivity::class.java).apply {
+        startActivity(Intent(this, PlaylistEditorActivity::class.java).apply {
             putExtra("EDIT_EXISTING", true)
             putExtra("EFFECT_ID", activeEffect ?: "ORIGINAL")
-        }
-        startActivity(intent)
+        })
     }
 
     private fun launchCropActivity(uri: Uri) {
         val effectId = activeEffect ?: "ORIGINAL"
         val intentClass = if (effectId.contains("REVERSE")) BlurToSharpCropActivity::class.java else CropActivity::class.java
-        val intent = Intent(this, intentClass).apply {
+        startActivity(Intent(this, intentClass).apply {
             data = uri
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             putExtra("EFFECT_ID", effectId)
-        }
-        startActivity(intent)
+        })
     }
 
     private fun launchMultiCropActivity(uris: ArrayList<Uri>) {
         val effectId = activeEffect ?: "ORIGINAL"
-        val intent = Intent(this, PlaylistEditorActivity::class.java).apply {
+        startActivity(Intent(this, PlaylistEditorActivity::class.java).apply {
             data = uris[0]
-            val clipData = android.content.ClipData.newUri(contentResolver, "Images", uris[0])
-            for (i in 1 until uris.size) {
-                clipData.addItem(android.content.ClipData.Item(uris[i]))
+            clipData = android.content.ClipData.newUri(contentResolver, "Images", uris[0]).apply {
+                for (i in 1 until uris.size) addItem(android.content.ClipData.Item(uris[i]))
             }
-            this.clipData = clipData
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             putParcelableArrayListExtra("IMAGE_URIS", uris)
             putExtra("EFFECT_ID", effectId)
-        }
-        startActivity(intent)
+        })
     }
 }

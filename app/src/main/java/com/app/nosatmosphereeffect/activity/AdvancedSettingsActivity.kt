@@ -3,251 +3,259 @@ package com.app.nosatmosphereeffect.activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
-import com.app.nosatmosphereeffect.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.slider.Slider
-import com.google.android.material.switchmaterial.SwitchMaterial
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
 
-class AdvancedSettingsActivity : AppCompatActivity() {
+class AdvancedSettingsActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_advanced_settings)
 
-        val halftoneContainer = findViewById<LinearLayout>(R.id.halftoneSettingsContainer)
-        val colorFillContainer = findViewById<LinearLayout>(R.id.colorFillSettingsContainer)
-
-        val sliderDotSize = findViewById<Slider>(R.id.sliderDotSize)
-        val switchGrayscale = findViewById<SwitchMaterial>(R.id.switchGrayscale)
-        val sliderOriginX = findViewById<Slider>(R.id.sliderOriginX)
-        val sliderOriginY = findViewById<Slider>(R.id.sliderOriginY)
-
-        val layoutPoll = findViewById<TextInputLayout>(R.id.layoutPollInterval)
-        val layoutDelay = findViewById<TextInputLayout>(R.id.layoutLockDelay)
-        val inputPoll = findViewById<TextInputEditText>(R.id.inputPollInterval)
-        val inputDelay = findViewById<TextInputEditText>(R.id.inputLockDelay)
-        val inputDuration = findViewById<TextInputEditText>(R.id.inputAnimDuration)
-        val btnApply = findViewById<Button>(R.id.btnApplyAdvanced)
-        val btnReset = findViewById<Button>(R.id.btnResetDefaults)
-        val switchNoise = findViewById<MaterialSwitch>(R.id.switchNoise)
-        val layoutNoise = findViewById<LinearLayout>(R.id.layoutNoiseSettings)
-        val inputNoiseScale = findViewById<TextInputEditText>(R.id.inputNoiseScale)
-        val inputNoiseStrength = findViewById<TextInputEditText>(R.id.inputNoiseStrength)
         val activeEffect = intent.getStringExtra("ACTIVE_EFFECT_TYPE") ?: "ORIGINAL"
-
-        // Handle specific container visibility based on the active effect
-        if (activeEffect.contains("HALFTONE")) {
-            halftoneContainer.visibility = View.VISIBLE
-            colorFillContainer.visibility = View.GONE
-            switchNoise.visibility = View.GONE
-            switchNoise.isChecked = false
-            layoutNoise.visibility = View.GONE
-        } else if (activeEffect.contains("COLORFILL")) {
-            halftoneContainer.visibility = View.GONE
-            colorFillContainer.visibility = View.VISIBLE
-            switchNoise.visibility = View.GONE
-            switchNoise.isChecked = false
-            layoutNoise.visibility = View.GONE
-        } else {
-            halftoneContainer.visibility = View.GONE
-            colorFillContainer.visibility = View.GONE
-            switchNoise.visibility = View.VISIBLE
-        }
-
-        val blobColorContainer = findViewById<LinearLayout>(R.id.blobColorSettingsContainer)
-        val sliderSat = findViewById<Slider>(R.id.sliderSaturation)
-        val sliderCon = findViewById<Slider>(R.id.sliderContrast)
-
-        // Show ONLY for original and reverse original
-        if (activeEffect == "ORIGINAL" || activeEffect == "REVERSE") {
-            blobColorContainer.visibility = View.VISIBLE
-        } else {
-            blobColorContainer.visibility = View.GONE
-        }
-
         val isSamsung = intent.getBooleanExtra("IS_SAMSUNG", false)
+        val isPlaylistMode = intent.getBooleanExtra("IS_PLAYLIST_MODE", false)
+
         val defaultDuration = if (activeEffect == "REVERSE" || activeEffect.contains("COLORFILL")) 1500L else if (activeEffect == "ORIGINAL") 2500L else 500L
         val defaultPoll = if (isSamsung) 30000L else 50L
         val defaultDelay = if (isSamsung) 0L else 800L
-        val layoutRotationContainer = findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.layoutRotationContainer)
-        val isPlaylistMode = intent.getBooleanExtra("IS_PLAYLIST_MODE", false)
 
-        // Hide if not a playlist
-        layoutRotationContainer.visibility = if (isPlaylistMode) View.VISIBLE else View.GONE
-        val dropdownRotation = findViewById<android.widget.AutoCompleteTextView>(R.id.dropdownRotation)
-        val rotationOptions = arrayOf("System Theme (Light/Dark)", "Every Lock (Instant)", "1 Minute", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours", "6 Hours", "12 Hours", "24 Hours")
-        val rotationValues = longArrayOf(-1, 0, 1, 15, 30, 60, 180, 360, 720, 1440)
-
-        val wpPrefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
-        val savedRotation = wpPrefs.getLong("rotation_interval_minutes", 0)
-
-        val adapter = android.widget.ArrayAdapter(this, R.layout.item_dropdown, rotationOptions)
-        dropdownRotation.setAdapter(adapter)
-
-        // Find current selection, default to 'Every Lock' (index 1) if not found
-        val savedIndex = rotationValues.indexOf(savedRotation).takeIf { it >= 0 } ?: 1
-        dropdownRotation.setText(rotationOptions[savedIndex], false)
-
-        var selectedRotationValue = savedRotation
-        dropdownRotation.setOnItemClickListener { _, _, position, _ ->
-            selectedRotationValue = rotationValues[position]
-        }
-
-        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-
-        // Load existing effect-specific values
-        sliderDotSize.value = prefs.getFloat("halftone_dot_size", 12.0f)
-        switchGrayscale.isChecked = prefs.getBoolean("halftone_grayscale", false)
-        sliderOriginX.value = prefs.getFloat("origin_x", 0.5f)
-        sliderOriginY.value = prefs.getFloat("origin_y", 0.8f)
-
-        // Load existing general values or show defaults in placeholder
-        val savedPoll = prefs.getLong("poll_interval", -1L)
-        val savedDelay = prefs.getLong("lock_delay", -1L)
-        val savedDuration = prefs.getLong("anim_duration", -1L)
-        sliderSat.value = prefs.getFloat("blob_saturation", 1.0f)
-        sliderCon.value = prefs.getFloat("blob_contrast", 1.0f)
-
-        inputPoll.setText(if (savedPoll != -1L) savedPoll.toString() else defaultPoll.toString())
-        inputDelay.setText(if (savedDelay != -1L) savedDelay.toString() else defaultDelay.toString())
-
-        // For duration, show what is currently saved, or leave empty/generic if using defaults
-        if (savedDuration != -1L) {
-            inputDuration.setText(savedDuration.toString())
-        } else {
-            inputDuration.setText(defaultDuration.toString())
-        }
-
-        switchNoise.isChecked = prefs.getBoolean("enable_noise", false)
-        val savedNoiseScale = prefs.getFloat("noise_scale", -1f)
-        val savedNoiseStrength = prefs.getFloat("noise_strength", -1f)
-
-        inputNoiseScale.setText(if (savedNoiseScale != -1f) savedNoiseScale.toString() else "2000.0")
-        inputNoiseStrength.setText(if (savedNoiseStrength != -1f) savedNoiseStrength.toString() else "0.06")
-
-        val isNoiseEnabled = prefs.getBoolean("enable_noise", false)
-        switchNoise.isChecked = isNoiseEnabled
-
-        // Hide noise sub-settings if a non-noise effect is active
-        layoutNoise.visibility = if (isNoiseEnabled && (!activeEffect.contains("HALFTONE") && !activeEffect.contains("COLORFILL"))) View.VISIBLE else View.GONE
-
-        switchNoise.setOnCheckedChangeListener { _, isChecked ->
-            layoutNoise.visibility = if (isChecked) View.VISIBLE else View.GONE
-        }
-
-        layoutPoll.setEndIconOnClickListener {
-            MaterialAlertDialogBuilder(this)
-                .setTitle("Unlock Check Interval")
-                .setMessage(
-                    "Controls how frequently the app checks if the device has been unlocked.\n\n" +
-                            "• What it solves:\n" +
-                            "If you unlock your phone and the animation starts after a delay, lower this value.\n\n" +
-                            "• Recommended:\n" +
-                            "30000ms for Samsung and most devices (Saves Battery).\n" +
-                            "50ms if you experience delayed animation start."
-                )
-                .setPositiveButton("Got it", null)
-                .show()
-        }
-
-        layoutDelay.setEndIconOnClickListener {
-            MaterialAlertDialogBuilder(this)
-                .setTitle("Lock Delay")
-                .setMessage(
-                    "Adds a pause before the wallpaper resets when you lock the phone.\n\n" +
-                            "• What it solves:\n" +
-                            "If you see a glimpse of the wallpaper resetting/snapping back before the screen turns fully black, increase this value.\n\n" +
-                            "• Recommended:\n" +
-                            "0ms for Samsung/Most devices.\n" +
-                            "500ms - 800ms if you experience the glitch.\n\n" +
-                            "⚠️ Note: If this value is too high, unlocking immediately after locking might show the wallpaper in its previous state."
-                )
-                .setPositiveButton("Got it", null)
-                .show()
-        }
-
-
-        btnApply.setOnClickListener {
-            val poll = inputPoll.text.toString().toLongOrNull() ?: defaultPoll
-            val delay = inputDelay.text.toString().toLongOrNull() ?: defaultDelay
-            val duration = inputDuration.text.toString().toLongOrNull() ?: defaultDuration
-            val enableNoise = switchNoise.isChecked
-            val noiseScale = inputNoiseScale.text.toString().toFloatOrNull() ?: 2000.0f
-            val noiseStrength = inputNoiseStrength.text.toString().toFloatOrNull() ?: 0.06f
-            val dotSize = sliderDotSize.value
-            val isGrayscale = switchGrayscale.isChecked
-            val originX = sliderOriginX.value
-            val originY = sliderOriginY.value
-
-            wpPrefs.edit().putLong("rotation_interval_minutes", selectedRotationValue).apply()
-
-            prefs.edit {
-                putLong("poll_interval", poll)
-                putLong("lock_delay", delay)
-                putLong("anim_duration", duration)
-                putBoolean("enable_noise", enableNoise)
-                putFloat("noise_scale", noiseScale)
-                putFloat("noise_strength", noiseStrength)
-                putFloat("halftone_dot_size", dotSize)
-                putBoolean("halftone_grayscale", isGrayscale)
-                putFloat("blob_saturation", sliderSat.value)
-                putFloat("blob_contrast", sliderCon.value)
-                putFloat("origin_x", originX)
-                putFloat("origin_y", originY)
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme()) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    AdvancedSettingsScreen(activeEffect, isPlaylistMode, defaultDuration, defaultPoll, defaultDelay)
+                }
             }
-            sendUpdateBroadcast()
-        }
-
-        btnReset.setOnClickListener {
-            // Remove keys to revert to Service-specific hardcoded defaults
-            prefs.edit {
-                remove("poll_interval")
-                remove("lock_delay")
-                remove("anim_duration")
-                remove("enable_noise")
-                remove("noise_scale")
-                remove("noise_strength")
-                remove("halftone_dot_size")
-                remove("halftone_grayscale")
-                remove("blob_saturation")
-                remove("blob_contrast")
-                remove("origin_x")
-                remove("origin_y")
-            }
-
-            // Visual reset
-            inputPoll.setText(defaultPoll.toString())
-            inputDelay.setText(defaultDelay.toString())
-            inputDuration.setText(defaultDuration.toString())
-            switchNoise.isChecked = false
-            layoutNoise.visibility = View.GONE
-            inputNoiseScale.setText("2000.0")
-            inputNoiseStrength.setText("0.06")
-            sliderDotSize.value = 12.0f
-            switchGrayscale.isChecked = false
-            sliderSat.value = 1.0f
-            sliderCon.value = 1.0f
-            sliderOriginX.value = 0.5f
-            sliderOriginY.value = 0.8f
-
-            sendUpdateBroadcast()
         }
     }
 
-    private fun sendUpdateBroadcast() {
-        val intent = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
-        intent.setPackage(packageName)
-        sendBroadcast(intent)
-        Toast.makeText(this, "Settings Applied!", Toast.LENGTH_SHORT).show()
-        finish()
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun AdvancedSettingsScreen(
+        activeEffect: String,
+        isPlaylistMode: Boolean,
+        defaultDuration: Long,
+        defaultPoll: Long,
+        defaultDelay: Long
+    ) {
+        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val wpPrefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+
+        // States
+        var pollInterval by remember { mutableStateOf((prefs.getLong("poll_interval", -1L).takeIf { it != -1L } ?: defaultPoll).toString()) }
+        var lockDelay by remember { mutableStateOf((prefs.getLong("lock_delay", -1L).takeIf { it != -1L } ?: defaultDelay).toString()) }
+        var animDuration by remember { mutableStateOf((prefs.getLong("anim_duration", -1L).takeIf { it != -1L } ?: defaultDuration).toString()) }
+
+        var dotSize by remember { mutableFloatStateOf(prefs.getFloat("halftone_dot_size", 12.0f)) }
+        var isGrayscale by remember { mutableStateOf(prefs.getBoolean("halftone_grayscale", false)) }
+
+        var originX by remember { mutableFloatStateOf(prefs.getFloat("origin_x", 0.5f)) }
+        var originY by remember { mutableFloatStateOf(prefs.getFloat("origin_y", 0.8f)) }
+
+        var sat by remember { mutableFloatStateOf(prefs.getFloat("blob_saturation", 1.0f)) }
+        var con by remember { mutableFloatStateOf(prefs.getFloat("blob_contrast", 1.0f)) }
+
+        var isNoiseEnabled by remember { mutableStateOf(prefs.getBoolean("enable_noise", false)) }
+        var noiseScale by remember { mutableStateOf((prefs.getFloat("noise_scale", -1f).takeIf { it != -1f } ?: 2000.0f).toString()) }
+        var noiseStrength by remember { mutableStateOf((prefs.getFloat("noise_strength", -1f).takeIf { it != -1f } ?: 0.06f).toString()) }
+
+        val rotationOptions = listOf("System Theme (Light/Dark)", "Every Lock (Instant)", "1 Minute", "15 Minutes", "30 Minutes", "1 Hour", "3 Hours", "6 Hours", "12 Hours", "24 Hours")
+        val rotationValues = listOf<Long>(-1, 0, 1, 15, 30, 60, 180, 360, 720, 1440)
+
+        var expandedRotation by remember { mutableStateOf(false) }
+        val savedRotation = wpPrefs.getLong("rotation_interval_minutes", 0)
+        var selectedRotationIndex by remember { mutableIntStateOf(rotationValues.indexOf(savedRotation).takeIf { it >= 0 } ?: 1) }
+
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Advanced Settings", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+
+            if (isPlaylistMode) {
+                ExposedDropdownMenuBox(
+                    expanded = expandedRotation,
+                    onExpandedChange = { expandedRotation = !expandedRotation }
+                ) {
+                    OutlinedTextField(
+                        value = rotationOptions[selectedRotationIndex],
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Rotation Interval") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRotation) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedRotation,
+                        onDismissRequest = { expandedRotation = false }
+                    ) {
+                        rotationOptions.forEachIndexed { index, selectionOption ->
+                            DropdownMenuItem(
+                                text = { Text(selectionOption) },
+                                onClick = {
+                                    selectedRotationIndex = index
+                                    expandedRotation = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = pollInterval,
+                onValueChange = { pollInterval = it },
+                label = { Text("Poll Interval (ms)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                trailingIcon = {
+                    IconButton(onClick = { showInfoDialog("Unlock Check Interval", "Controls how frequently the app checks if the device has been unlocked.\n\n• Recommended:\n30000ms for Samsung\n50ms for others.") }) {
+                        Icon(Icons.Default.Info, contentDescription = "Info")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = lockDelay,
+                onValueChange = { lockDelay = it },
+                label = { Text("Lock Delay (ms)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                trailingIcon = {
+                    IconButton(onClick = { showInfoDialog("Lock Delay", "Adds a pause before the wallpaper resets.\n\n• Recommended:\n0ms for Samsung\n500ms - 800ms for others.") }) {
+                        Icon(Icons.Default.Info, contentDescription = "Info")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = animDuration,
+                onValueChange = { animDuration = it },
+                label = { Text("Animation Duration (ms)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (activeEffect.contains("HALFTONE")) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Halftone Settings", color = Color.White, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Dot Size", color = Color.LightGray, fontSize = 12.sp)
+                        Slider(value = dotSize, onValueChange = { dotSize = it }, valueRange = 2f..30f)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Grayscale Effect", modifier = Modifier.weight(1f), color = Color.White)
+                            Switch(checked = isGrayscale, onCheckedChange = { isGrayscale = it })
+                        }
+                    }
+                }
+            }
+
+            if (activeEffect.contains("COLORFILL") || activeEffect.contains("HALFTONE")) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Effect Origin (X / Y)", color = Color.White, fontWeight = FontWeight.Bold)
+                        Slider(value = originX, onValueChange = { originX = it }, valueRange = 0f..1f)
+                        Slider(value = originY, onValueChange = { originY = it }, valueRange = 0f..1f)
+                    }
+                }
+            }
+
+            if (activeEffect == "ORIGINAL" || activeEffect == "REVERSE") {
+                Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Blob Color Tuning", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Saturation", color = Color.LightGray, fontSize = 12.sp)
+                        Slider(value = sat, onValueChange = { sat = it }, valueRange = 0f..3f)
+                        Text("Contrast", color = Color.LightGray, fontSize = 12.sp)
+                        Slider(value = con, onValueChange = { con = it }, valueRange = 0f..3f)
+                    }
+                }
+            }
+
+            if (!activeEffect.contains("HALFTONE") && !activeEffect.contains("COLORFILL")) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color.DarkGray.copy(0.5f))) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Enable Static Noise", modifier = Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.Bold)
+                            Switch(checked = isNoiseEnabled, onCheckedChange = { isNoiseEnabled = it })
+                        }
+                        if (isNoiseEnabled) {
+                            OutlinedTextField(
+                                value = noiseScale, onValueChange = { noiseScale = it },
+                                label = { Text("Noise Scale") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                            )
+                            OutlinedTextField(
+                                value = noiseStrength, onValueChange = { noiseStrength = it },
+                                label = { Text("Noise Strength") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        prefs.edit { clear() } // Only clears app_prefs specific to tuning
+                        finish()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Reset Defaults") }
+
+                Button(
+                    onClick = {
+                        wpPrefs.edit().putLong("rotation_interval_minutes", rotationValues[selectedRotationIndex]).apply()
+                        prefs.edit {
+                            putLong("poll_interval", pollInterval.toLongOrNull() ?: defaultPoll)
+                            putLong("lock_delay", lockDelay.toLongOrNull() ?: defaultDelay)
+                            putLong("anim_duration", animDuration.toLongOrNull() ?: defaultDuration)
+                            putBoolean("enable_noise", isNoiseEnabled)
+                            putFloat("noise_scale", noiseScale.toFloatOrNull() ?: 2000.0f)
+                            putFloat("noise_strength", noiseStrength.toFloatOrNull() ?: 0.06f)
+                            putFloat("halftone_dot_size", dotSize)
+                            putBoolean("halftone_grayscale", isGrayscale)
+                            putFloat("blob_saturation", sat)
+                            putFloat("blob_contrast", con)
+                            putFloat("origin_x", originX)
+                            putFloat("origin_y", originY)
+                        }
+                        sendBroadcast(Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG").setPackage(packageName))
+                        Toast.makeText(this@AdvancedSettingsActivity, "Settings Applied!", Toast.LENGTH_SHORT).show()
+                        finish()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Apply") }
+            }
+        }
+    }
+
+    private fun showInfoDialog(title: String, message: String) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Got it", null)
+            .show()
     }
 }

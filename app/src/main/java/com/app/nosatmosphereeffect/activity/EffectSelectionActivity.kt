@@ -134,28 +134,24 @@ class EffectSelectionActivity : ComponentActivity() {
 
     private fun launchCropActivity(uri: Uri) {
         val intentClass = if (selectedEffectId.contains("REVERSE")) BlurToSharpCropActivity::class.java else CropActivity::class.java
-        val intent = Intent(this, intentClass).apply {
+        startActivity(Intent(this, intentClass).apply {
             data = uri
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             putExtra("EFFECT_ID", selectedEffectId)
-        }
-        startActivity(intent)
+        })
         finish()
     }
 
     private fun launchMultiCropActivity(uris: ArrayList<Uri>) {
-        val intent = Intent(this, PlaylistEditorActivity::class.java).apply {
+        startActivity(Intent(this, PlaylistEditorActivity::class.java).apply {
             data = uris[0]
-            val clipData = ClipData.newUri(contentResolver, "Images", uris[0])
-            for (i in 1 until uris.size) {
-                clipData.addItem(ClipData.Item(uris[i]))
+            clipData = ClipData.newUri(contentResolver, "Images", uris[0]).apply {
+                for (i in 1 until uris.size) addItem(ClipData.Item(uris[i]))
             }
-            this.clipData = clipData
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             putParcelableArrayListExtra("IMAGE_URIS", uris)
             putExtra("EFFECT_ID", selectedEffectId)
-        }
-        startActivity(intent)
+        })
         finish()
     }
 
@@ -171,9 +167,9 @@ class EffectSelectionActivity : ComponentActivity() {
             "COLORFILL_REVERSE" -> ColorFillReverseService::class.java
             else -> AtmosphereService::class.java
         }
-        val intent = Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-        intent.putExtra(android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, android.content.ComponentName(this, serviceClass))
-        startActivity(intent)
+        startActivity(Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
+            putExtra(android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, android.content.ComponentName(this@EffectSelectionActivity, serviceClass))
+        })
         finish()
     }
 }

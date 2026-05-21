@@ -2,8 +2,6 @@ package com.app.nosatmosphereeffect.activity
 
 import android.app.WallpaperManager
 import android.content.ComponentName
-import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -11,285 +9,183 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
-import android.os.Handler
-import android.os.Looper
-import android.provider.MediaStore
-import android.view.WindowManager
-import android.widget.Button
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.exifinterface.media.ExifInterface
-import com.app.nosatmosphereeffect.MainActivity
-import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.TouchImageView
-import com.app.nosatmosphereeffect.service.AtmosphereService
-import com.app.nosatmosphereeffect.service.ColorFillService
-import com.app.nosatmosphereeffect.service.FrostedService
-import com.app.nosatmosphereeffect.service.HalftoneService
+import com.app.nosatmosphereeffect.service.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import kotlin.math.max
+import kotlin.math.min
 
-class CropActivity : AppCompatActivity() {
-    private var effectId: String = "ORIGINAL" // Default
+class CropActivity : ComponentActivity() {
+    private var effectId: String = "ORIGINAL"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-
-        val windowController = WindowCompat.getInsetsController(window, window.decorView)
-        windowController.isAppearanceLightStatusBars = false
-        windowController.isAppearanceLightNavigationBars = false
-
-        windowController.hide(WindowInsetsCompat.Type.systemBars())
-        windowController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-
-        setContentView(R.layout.activity_crop)
-
         effectId = intent.getStringExtra("EFFECT_ID") ?: "ORIGINAL"
 
-        val cropView = findViewById<TouchImageView>(R.id.cropImageView)
-        val btnSave = findViewById<Button>(R.id.btnSaveCrop)
-
-        btnSave.setText(R.string.action_apply)
-
-        val uri = intent.data ?: run {
+        val uri = intent.data
+        if (uri == null) {
             Toast.makeText(this, "No Image Data Found", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
-        // Use a background thread to load heavy images to prevent UI freeze
-        Thread {
-            try {
-                // Load safely with Downsampling + Rotation
-                val correctedBitmap = decodeSampledBitmapFromUri(this, uri, 4096, 4096)
-
-                runOnUiThread {
-                    if (correctedBitmap != null) {
-                        cropView.setInitialImage(correctedBitmap)
-                    } else {
-                        Toast.makeText(this, "Could not load image format.", Toast.LENGTH_SHORT).show()
-                        finish()
-                    }
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                    finish()
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme()) {
+                Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
+                    CropScreen(uri)
                 }
             }
-        }.start()
-
-        btnSave.setOnClickListener {
-            val cropped = cropView.getCroppedBitmap()
-            showApplyDialog(cropped)
         }
     }
 
-    // --- ROBUST IMAGE LOADER ---
-    // 1. Checks Image Size first (without loading to memory)
-    // 2. Calculates Scale Factor (to prevent OutOfMemory on 200MP photos)
-    // 3. Decodes & Rotates based on Exif (Supports HEIC, WebP, JPG)
-    private fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
-        var inputStream: InputStream? = null
-        try {
-            // A. First pass: Decode dimensions only
-            val options = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
-            inputStream = context.contentResolver.openInputStream(uri)
-            BitmapFactory.decodeStream(inputStream, null, options)
-            inputStream?.close()
+    @Composable
+    fun CropScreen(uri: Uri) {
+        val context = LocalContext.current
+        var touchImageView by remember { mutableStateOf<TouchImageView?>(null) }
+        var isProcessing by remember { mutableStateOf(false) }
+        val coroutineScope = rememberCoroutineScope()
 
-            // B. Calculate inSampleSize (Scale down factor)
-            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    TouchImageView(ctx).also {
+                        touchImageView = it
+                        // Load image in background on init
+                        coroutineScope.launch(Dispatchers.IO) {
+                            val bmp = decodeSampledBitmapFromUri(ctx, uri, 4096, 4096)
+                            withContext(Dispatchers.Main) {
+                                if (bmp != null) it.setInitialImage(bmp)
+                                else Toast.makeText(ctx, "Could not load format.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+            )
+
+            Button(
+                onClick = {
+                    touchImageView?.getCroppedBitmap()?.let {
+                        showApplyDialog(it)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp)
+                    .fillMaxWidth(),
+                enabled = !isProcessing
+            ) {
+                Text("Apply Wallpaper")
+            }
+
+            if (isProcessing) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.7f)), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color.White)
+                }
+            }
+        }
+    }
+
+    private fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+        return try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+
+            val maxImageDimension = max(options.outHeight, options.outWidth)
+            val maxTextureSize = min(reqWidth, reqHeight)
+            var inSampleSize = 1
+            if (maxImageDimension > maxTextureSize) {
+                val factor = maxImageDimension.toFloat() / maxTextureSize.toFloat()
+                while (inSampleSize < factor) { inSampleSize *= 2 }
+            }
+
+            options.inSampleSize = inSampleSize
             options.inJustDecodeBounds = false
-            // Preferred config for high quality but lower memory than HARDWARE
             options.inPreferredConfig = Bitmap.Config.ARGB_8888
 
-            // C. Decode bitmap with inSampleSize
-            inputStream = context.contentResolver.openInputStream(uri)
-            val rawBitmap = BitmapFactory.decodeStream(inputStream, null, options)
-            inputStream?.close()
-
-            if (rawBitmap == null) return null
-
-            // D. Handle Rotation (HEIC/Samsung often needs this)
-            return handleExifRotation(context, uri, rawBitmap)
-
-        } catch (e: Exception) {
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-            return null
-        } finally {
-            try { inputStream?.close() } catch (e: Exception) {Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()}
-        }
+            val rawBitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) } ?: return null
+            handleExifRotation(context, uri, rawBitmap)
+        } catch (e: Exception) { null }
     }
 
     private fun handleExifRotation(context: Context, uri: Uri, bitmap: Bitmap): Bitmap {
-        var inputStream: InputStream? = null
-        try {
-            inputStream = context.contentResolver.openInputStream(uri)
-            if (inputStream == null) return bitmap
-
-            // Use ExifInterface (Supports HEIC on API 28+)
-            val exifInterface = ExifInterface(inputStream)
-            val orientation = exifInterface.getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_NORMAL
-            )
-
+        return try {
+            val orientation = context.contentResolver.openInputStream(uri)?.use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) } ?: ExifInterface.ORIENTATION_NORMAL
             val rotationInDegrees = when (orientation) {
                 ExifInterface.ORIENTATION_ROTATE_90 -> 90f
                 ExifInterface.ORIENTATION_ROTATE_180 -> 180f
                 ExifInterface.ORIENTATION_ROTATE_270 -> 270f
                 else -> 0f
             }
-
-            // If no rotation needed, return original
-            if (rotationInDegrees == 0f) return bitmap
-
-            // Create rotated bitmap
-            val matrix = Matrix()
-            matrix.postRotate(rotationInDegrees)
-            val rotatedBitmap = Bitmap.createBitmap(
-                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
-            )
-
-            if (rotatedBitmap != bitmap) {
-                bitmap.recycle() // Clean up old memory
-            }
-            return rotatedBitmap
-
-        } catch (e: Exception) {
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-            return bitmap
-        } finally {
-            inputStream?.close()
-        }
-    }
-
-    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val (height: Int, width: Int) = options.run { outHeight to outWidth }
-        var inSampleSize = 1
-
-        // 1. Find the largest dimension of the original image
-        val maxImageDimension = kotlin.math.max(height, width)
-
-        // 2. Find the texture limit (e.g., 4096)
-        // Take the min of reqWidth/Height to ensure we stay within the strictest limit provided
-        val maxTextureSize = kotlin.math.min(reqWidth, reqHeight)
-
-        // 3. Only scale if the image is actually larger than the limit
-        if (maxImageDimension > maxTextureSize) {
-
-            // 4. Calculate the Factor: How many times larger is the image?
-            val factor = maxImageDimension.toFloat() / maxTextureSize.toFloat()
-
-            // 5. Find the nearest Power of 2 that covers this factor
-            while (inSampleSize < factor) {
-                inSampleSize *= 2
-            }
-        }
-
-        return inSampleSize
+            if (rotationInDegrees == 0f) bitmap else Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(rotationInDegrees) }, true)
+        } catch (e: Exception) { bitmap }
     }
 
     private fun showApplyDialog(bitmap: Bitmap) {
         MaterialAlertDialogBuilder(this)
             .setTitle("Apply Wallpaper")
-            .setMessage("In the next screen, please select:\n\nSet Wallpaper > Home Screen and Lock Screen.\n\n(This ensures the lock screen effect works correctly).")
-            .setPositiveButton("Set Wallpaper") { _, _ ->
-                applyWallpaper(bitmap)
-            }
+            .setMessage("Select 'Set Wallpaper > Home Screen and Lock Screen' in the next menu.")
+            .setPositiveButton("Proceed") { _, _ -> applyWallpaper(bitmap) }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun applyWallpaper(bitmap: Bitmap) {
-        Toast.makeText(this, "Applying...", Toast.LENGTH_SHORT).show()
-
         Thread {
             try {
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().clear().apply()
+                getSharedPreferences("wallpaper_prefs", MODE_PRIVATE).edit().clear().apply()
+                File(filesDir, "playlist").apply { if (exists()) deleteRecursively() }
+                File(filesDir, "next_wallpaper.jpg").apply { if (exists()) delete() }
 
-                getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .clear()
-                    .apply()
-
-                getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .clear()
-                    .apply()
-
-                val playlistDir = File(filesDir, "playlist")
-                if (playlistDir.exists()) playlistDir.deleteRecursively()
-
-                val nextWallpaper = File(filesDir, "next_wallpaper.jpg")
-                if (nextWallpaper.exists()) nextWallpaper.delete()
-
-                saveFixedWallpaper(bitmap)
+                val out = FileOutputStream(File(filesDir, "wallpaper.jpg").apply { if (exists()) delete() })
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                out.flush(); out.close()
 
                 runOnUiThread {
-                    Toast.makeText(this, "Setup complete! Now lock and unlock the screen to activate.", Toast.LENGTH_LONG).show()
-                    val intent = Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")
-                    intent.setPackage(packageName)
-                    sendBroadcast(intent)
-
-                    Toast.makeText(this, "Setup complete! Now lock and unlock the screen to activate.", Toast.LENGTH_LONG).show()
-
+                    Toast.makeText(this, "Setup complete!", Toast.LENGTH_LONG).show()
+                    sendBroadcast(Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER").setPackage(packageName))
                     activateService()
                 }
-
-            } catch (e: Exception) {
-                runOnUiThread {
-                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
+            } catch (e: Exception) {}
         }.start()
     }
 
-    private fun saveFixedWallpaper(bitmap: Bitmap) {
-        val file = File(filesDir, "wallpaper.jpg")
-        if (file.exists()) file.delete()
-        val out = FileOutputStream(file)
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-        out.flush()
-        out.close()
-    }
     private fun activateService() {
-        try {
-            val serviceClass = if (effectId == "FROSTED") {
-                FrostedService::class.java
-            } else if (effectId == "HALFTONE"){
-                HalftoneService::class.java
-            } else if (effectId == "COLORFILL"){
-                ColorFillService::class.java
-            } else {
-                AtmosphereService::class.java
-            }
-
-            val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-            intent.putExtra(
-                WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                ComponentName(this, serviceClass)
-            )
-            startActivity(intent)
-        } catch (e: Exception) {
-            val intent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-            startActivity(intent)
-        } finally {
-            finish()
+        val serviceClass = when(effectId) {
+            "FROSTED" -> FrostedService::class.java
+            "HALFTONE" -> HalftoneService::class.java
+            "COLORFILL" -> ColorFillService::class.java
+            else -> AtmosphereService::class.java
         }
+        try {
+            startActivity(Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
+                putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, ComponentName(this@CropActivity, serviceClass))
+            })
+        } catch (e: Exception) {
+            startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
+        } finally { finish() }
     }
 }
