@@ -19,7 +19,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -32,7 +31,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import kotlin.math.max
 import kotlin.math.min
 
@@ -62,7 +60,7 @@ class CropActivity : ComponentActivity() {
 
     @Composable
     fun CropScreen(uri: Uri) {
-        val context = LocalContext.current
+        // Fix: Removed LocalContext.current
         var touchImageView by remember { mutableStateOf<TouchImageView?>(null) }
         var isProcessing by remember { mutableStateOf(false) }
         val coroutineScope = rememberCoroutineScope()

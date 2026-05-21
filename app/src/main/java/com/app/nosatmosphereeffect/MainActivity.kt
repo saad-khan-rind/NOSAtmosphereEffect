@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -78,7 +77,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun MainScreen() {
         val scrollState = rememberScrollState()
-        val context = LocalContext.current
+        // Fix: Removed LocalContext.current. Using this@MainActivity directly bypasses the Compose compiler bug.
 
         Column(
             modifier = Modifier
@@ -116,7 +115,7 @@ class MainActivity : ComponentActivity() {
 
             if (activeEffect == null) {
                 Button(
-                    onClick = { startActivity(Intent(context, EffectSelectionActivity::class.java)) },
+                    onClick = { startActivity(Intent(this@MainActivity, EffectSelectionActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
                     Icon(painterResource(id = R.drawable.ic_wallpaper), contentDescription = null)
@@ -130,7 +129,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     FilledTonalButton(
                         onClick = {
-                            val intent = Intent(context, EffectSelectionActivity::class.java)
+                            val intent = Intent(this@MainActivity, EffectSelectionActivity::class.java)
                             intent.putExtra("UPDATE_EFFECT_ONLY", true)
                             startActivity(intent)
                         },
@@ -224,7 +223,7 @@ class MainActivity : ComponentActivity() {
 
                     Button(
                         onClick = {
-                            val intent = Intent(context, AdvancedSettingsActivity::class.java)
+                            val intent = Intent(this@MainActivity, AdvancedSettingsActivity::class.java)
                             intent.putExtra("ACTIVE_EFFECT_TYPE", activeEffect ?: "ORIGINAL")
                             intent.putExtra("IS_SAMSUNG", isSamsungDevice())
                             intent.putExtra("IS_PLAYLIST_MODE", isPlaylistModeActive)
