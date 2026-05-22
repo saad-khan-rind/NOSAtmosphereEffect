@@ -1,10 +1,11 @@
 plugins {
     id("com.android.application")
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.app.nosatmosphereeffect"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.saad_khan_rind.atmosphere_effect"
@@ -30,6 +31,10 @@ android {
             versionCode = 100600
         }
 
+    }
+
+    buildFeatures {
+        compose = true
     }
 
     compileOptions {
@@ -58,6 +63,7 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.exifinterface)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Compose BOM — controls all compose library versions together
     implementation(platform(libs.androidx.compose.bom))
@@ -69,6 +75,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+
 
     // --- Dependencies for v36 (API 36) ---
     // These only apply when building the v36 flavor
