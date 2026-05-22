@@ -13,6 +13,7 @@ import android.view.WindowManager
 import androidx.appcompat.widget.AppCompatImageView
 import kotlin.math.abs
 import kotlin.math.max
+import androidx.core.graphics.createBitmap
 
 class TouchImageView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
@@ -152,7 +153,7 @@ class TouchImageView @JvmOverloads constructor(
     }
 
     fun getCroppedBitmap(): Bitmap {
-        val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(targetWidth, targetHeight)
         val canvas = Canvas(bitmap)
         draw(canvas)
         return bitmap

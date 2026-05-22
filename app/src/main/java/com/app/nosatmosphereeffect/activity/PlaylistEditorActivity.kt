@@ -18,30 +18,59 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.core.view.WindowCompat
 import androidx.exifinterface.media.ExifInterface
-import com.app.nosatmosphereeffect.service.*
+import com.app.nosatmosphereeffect.service.AtmosphereService
+import com.app.nosatmosphereeffect.service.BlurToSharpService
+import com.app.nosatmosphereeffect.service.ColorFillReverseService
+import com.app.nosatmosphereeffect.service.ColorFillService
+import com.app.nosatmosphereeffect.service.FrostedReverseService
+import com.app.nosatmosphereeffect.service.FrostedService
+import com.app.nosatmosphereeffect.service.HalftoneReverseService
+import com.app.nosatmosphereeffect.service.HalftoneService
 import com.app.nosatmosphereeffect.ui.theme.AtmoTheme
 import com.app.nosatmosphereeffect.ui.theme.BrandPrimary
 import com.app.nosatmosphereeffect.ui.theme.ErrorColor
@@ -53,6 +82,8 @@ import java.io.FileOutputStream
 import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
+import androidx.core.net.toUri
+import androidx.core.content.edit
 
 class PlaylistEditorActivity : AppCompatActivity() {
 
@@ -61,7 +92,29 @@ class PlaylistEditorActivity : AppCompatActivity() {
         var isEdited: Boolean      = false,
         var editedFilePath: String? = null,
         var matrixState: FloatArray? = null
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as PlaylistItem
+
+            if (isEdited != other.isEdited) return false
+            if (originalUri != other.originalUri) return false
+            if (editedFilePath != other.editedFilePath) return false
+            if (!matrixState.contentEquals(other.matrixState)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = isEdited.hashCode()
+            result = 31 * result + originalUri.hashCode()
+            result = 31 * result + (editedFilePath?.hashCode() ?: 0)
+            result = 31 * result + (matrixState?.contentHashCode() ?: 0)
+            return result
+        }
+    }
 
     // ── Compose-observable state ─────────────────────────────────────────
     private val playlistItems = mutableStateListOf<PlaylistItem>()
@@ -122,7 +175,7 @@ class PlaylistEditorActivity : AppCompatActivity() {
             editingPosition = savedInstanceState.getInt("EDITING_POS", -1)
         }
 
-        // Pre-load thumbnails for initial items
+        // Preload thumbnails for initial items
         playlistItems.forEachIndexed { idx, item -> loadThumbnail(idx, item) }
 
         setContent {
@@ -300,7 +353,7 @@ class PlaylistEditorActivity : AppCompatActivity() {
 
     private fun loadThumbnail(index: Int, item: PlaylistItem) {
         val uri = if (item.isEdited && item.editedFilePath != null)
-            Uri.parse("file://${item.editedFilePath}")
+            "file://${item.editedFilePath}".toUri()
         else
             item.originalUri
 
@@ -446,24 +499,24 @@ class PlaylistEditorActivity : AppCompatActivity() {
                 val activeWallpaper = File(filesDir, "wallpaper.jpg")
                 if (firstFile.exists()) firstFile.copyTo(activeWallpaper, overwrite = true)
 
-                val wpPrefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
-                wpPrefs.edit().clear().apply()
-                getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+                val wpPrefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
+                wpPrefs.edit { clear() }
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit { clear() }
 
                 if (snapshotItems.size > 1) {
                     val nextFile   = File(filesDir, "next_wallpaper.jpg")
                     val secondFile = File(playlistDir, "wallpaper_1.jpg")
                     if (secondFile.exists()) secondFile.copyTo(nextFile, overwrite = true)
-                    wpPrefs.edit().putString("last_playlist_image", "wallpaper_1.jpg").apply()
+                    wpPrefs.edit { putString("last_playlist_image", "wallpaper_1.jpg") }
                 } else if (snapshotItems.size == 1) {
                     val nextFile = File(filesDir, "next_wallpaper.jpg")
                     if (firstFile.exists()) firstFile.copyTo(nextFile, overwrite = true)
-                    wpPrefs.edit().putString("last_playlist_image", "wallpaper_0.jpg").apply()
+                    wpPrefs.edit { putString("last_playlist_image", "wallpaper_0.jpg") }
                 }
 
                 val currentUiMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
                 val isNightMode   = (currentUiMode == Configuration.UI_MODE_NIGHT_YES)
-                wpPrefs.edit().putInt("active_theme_state", if (isNightMode) 1 else 0).apply()
+                wpPrefs.edit { putInt("active_theme_state", if (isNightMode) 1 else 0) }
 
                 runOnUiThread {
                     progressDialog.dismiss()
@@ -531,7 +584,7 @@ class PlaylistEditorActivity : AppCompatActivity() {
             if (rotation == 0f) return bitmap
             val matrix = Matrix().apply { postRotate(rotation) }
             Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        } catch (e: Exception) { bitmap }
+        } catch (_: Exception) { bitmap }
     }
 
     private fun calculateInSampleSize(
@@ -562,7 +615,7 @@ class PlaylistEditorActivity : AppCompatActivity() {
             val i = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
             i.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, ComponentName(this, serviceClass))
             startActivity(i)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
         } finally { finish() }
     }
@@ -580,7 +633,7 @@ class PlaylistEditorActivity : AppCompatActivity() {
                     val origName = obj.getString("original")
                     val isEdited = obj.getBoolean("isEdited")
                     val origFile = File(originalsDir, origName)
-                    val origUri  = Uri.parse("file://${origFile.absolutePath}")
+                    val origUri  = "file://${origFile.absolutePath}".toUri()
 
                     val editedPath = if (isEdited) File(playlistDir, "wallpaper_$i.jpg").absolutePath else null
                     var matrix: FloatArray? = null
@@ -597,7 +650,7 @@ class PlaylistEditorActivity : AppCompatActivity() {
             if (!files.isNullOrEmpty()) {
                 files.sortBy { it.nameWithoutExtension.substringAfter('_').toIntOrNull() ?: 0 }
                 files.forEach { file ->
-                    playlistItems.add(PlaylistItem(Uri.parse("file://${file.absolutePath}")))
+                    playlistItems.add(PlaylistItem("file://${file.absolutePath}".toUri()))
                 }
             }
         }

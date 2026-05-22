@@ -18,6 +18,7 @@ import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.activity.PlaylistEditorActivity
 import java.io.InputStream
 import java.util.concurrent.Executors
+import androidx.core.net.toUri
 
 class PlaylistAdapter(
     private val context: Context,
@@ -29,7 +30,7 @@ class PlaylistAdapter(
     private val executor = Executors.newFixedThreadPool(4)
     private val handler = Handler(Looper.getMainLooper())
 
-    inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imgThumbnail: ImageView = view.findViewById(R.id.imgThumbnail)
         val btnDelete: FrameLayout = view.findViewById(R.id.btnDelete)
         val iconEdited: View = view.findViewById(R.id.iconEdited)
@@ -49,7 +50,7 @@ class PlaylistAdapter(
         holder.imgThumbnail.setImageBitmap(null)
 
         val uriToLoad = if (item.isEdited && item.editedFilePath != null) {
-            Uri.parse("file://${item.editedFilePath}")
+            "file://${item.editedFilePath}".toUri()
         } else {
             item.originalUri
         }
@@ -116,7 +117,7 @@ class PlaylistAdapter(
             val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
             if (rotated != bitmap) bitmap.recycle()
             return rotated
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return bitmap
         } finally {
             inputStream?.close()

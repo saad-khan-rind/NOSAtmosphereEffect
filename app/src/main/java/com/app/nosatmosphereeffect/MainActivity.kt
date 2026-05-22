@@ -1,20 +1,40 @@
 package com.app.nosatmosphereeffect
 
 import android.app.WallpaperManager
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,7 +45,14 @@ import com.app.nosatmosphereeffect.activity.BlurToSharpCropActivity
 import com.app.nosatmosphereeffect.activity.CropActivity
 import com.app.nosatmosphereeffect.activity.EffectSelectionActivity
 import com.app.nosatmosphereeffect.activity.PlaylistEditorActivity
-import com.app.nosatmosphereeffect.service.*
+import com.app.nosatmosphereeffect.service.AtmosphereService
+import com.app.nosatmosphereeffect.service.BlurToSharpService
+import com.app.nosatmosphereeffect.service.ColorFillReverseService
+import com.app.nosatmosphereeffect.service.ColorFillService
+import com.app.nosatmosphereeffect.service.FrostedReverseService
+import com.app.nosatmosphereeffect.service.FrostedService
+import com.app.nosatmosphereeffect.service.HalftoneReverseService
+import com.app.nosatmosphereeffect.service.HalftoneService
 import com.app.nosatmosphereeffect.ui.theme.AtmoTheme
 import com.app.nosatmosphereeffect.ui.theme.BrandPrimary
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -36,10 +63,10 @@ class MainActivity : AppCompatActivity() {
     // ── Compose-observable state ───────────────────────────────────────────
     private var statusMessage      by mutableStateOf("")
     private var wallpaperActive    by mutableStateOf(false)
-    private var dimnessValue       by mutableStateOf(0.2f)
+    private var dimnessValue       by mutableFloatStateOf(0.2f)
     private var dimnessEnabled     by mutableStateOf(false)
     private var showBlurCard       by mutableStateOf(false)
-    private var blurValue          by mutableStateOf(200f)
+    private var blurValue          by mutableFloatStateOf(200f)
     private var blurEnabled        by mutableStateOf(false)
     private var notifyColors       by mutableStateOf(true)
 

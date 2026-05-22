@@ -1,19 +1,50 @@
 package com.app.nosatmosphereeffect.activity
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +89,7 @@ class AdvancedSettingsActivity : AppCompatActivity() {
         val defaultDelay = if (isSamsung) 0L     else 800L
 
         val prefs    = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        val wpPrefs  = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+        val wpPrefs  = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
 
         // ── State ────────────────────────────────────────────────────────
         var pollText      by remember { mutableStateOf(prefs.getLong("poll_interval", defaultPoll).toString()) }
@@ -69,14 +100,14 @@ class AdvancedSettingsActivity : AppCompatActivity() {
         var noiseScale    by remember { mutableStateOf(prefs.getFloat("noise_scale", -1f).let { if (it == -1f) "2000.0" else it.toString() }) }
         var noiseStrength by remember { mutableStateOf(prefs.getFloat("noise_strength", -1f).let { if (it == -1f) "0.06" else it.toString() }) }
 
-        var dotSize       by remember { mutableStateOf(prefs.getFloat("halftone_dot_size", 12.0f)) }
+        var dotSize       by remember { mutableFloatStateOf(prefs.getFloat("halftone_dot_size", 12.0f)) }
         var isGrayscale   by remember { mutableStateOf(prefs.getBoolean("halftone_grayscale", false)) }
 
-        var originX       by remember { mutableStateOf(prefs.getFloat("origin_x", 0.5f)) }
-        var originY       by remember { mutableStateOf(prefs.getFloat("origin_y", 0.8f)) }
+        var originX       by remember { mutableFloatStateOf(prefs.getFloat("origin_x", 0.5f)) }
+        var originY       by remember { mutableFloatStateOf(prefs.getFloat("origin_y", 0.8f)) }
 
-        var saturation    by remember { mutableStateOf(prefs.getFloat("blob_saturation", 1.0f)) }
-        var contrast      by remember { mutableStateOf(prefs.getFloat("blob_contrast", 1.0f)) }
+        var saturation    by remember { mutableFloatStateOf(prefs.getFloat("blob_saturation", 1.0f)) }
+        var contrast      by remember { mutableFloatStateOf(prefs.getFloat("blob_contrast", 1.0f)) }
 
         val rotationOptions = listOf(
             "System Theme (Light/Dark)" to -1L,
@@ -300,8 +331,12 @@ class AdvancedSettingsActivity : AppCompatActivity() {
                         val nsVal    = noiseScale.toFloatOrNull()    ?: 2000f
                         val nStrVal  = noiseStrength.toFloatOrNull() ?: 0.06f
 
-                        wpPrefs.edit().putLong("rotation_interval_minutes",
-                            rotationOptions[selectedRotIdx].second).apply()
+                        wpPrefs.edit {
+                            putLong(
+                                "rotation_interval_minutes",
+                                rotationOptions[selectedRotIdx].second
+                            )
+                        }
 
                         prefs.edit {
                             putLong("poll_interval", poll)

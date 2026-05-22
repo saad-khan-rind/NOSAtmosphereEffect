@@ -14,6 +14,7 @@ import android.view.animation.LinearInterpolator
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.renderer.FrostedRenderer
 import java.io.File
+import androidx.core.content.edit
 
 class FrostedService : GLWallpaperService() {
 
@@ -78,7 +79,7 @@ class FrostedService : GLWallpaperService() {
 
                 if (playlistFiles == null || playlistFiles.size <= 1) return@Thread
 
-                val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                 val intervalMinutes = prefs.getLong("rotation_interval_minutes", 0)
 
                 // --- FEATURE: THEME SYNC ---
@@ -90,7 +91,7 @@ class FrostedService : GLWallpaperService() {
                         // Only rotate if the theme actually flipped
                         // (prevents duplicate triggers from screen rotations etc.)
                         if (savedTheme != newThemeState) {
-                            prefs.edit().putInt("active_theme_state", newThemeState).apply()
+                            prefs.edit { putInt("active_theme_state", newThemeState) }
                             executeRotationRingBuffer(prefs)
                         }
                     }
@@ -134,7 +135,12 @@ class FrostedService : GLWallpaperService() {
                         nextFile.renameTo(activeFile)
 
                         cachedColors = null
-                        prefs.edit().putLong("last_rotation_timestamp", System.currentTimeMillis()).apply()
+                        prefs.edit {
+                            putLong(
+                                "last_rotation_timestamp",
+                                System.currentTimeMillis()
+                            )
+                        }
                         notifyColorsChanged()
                     }
                 } catch (e: Exception) {
@@ -155,7 +161,7 @@ class FrostedService : GLWallpaperService() {
 
                         if (!files.isNullOrEmpty() && files.size > 1) {
                             // 1. Get the last used image name from Prefs
-                            val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                            val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                             val lastUsedName = prefs.getString("last_playlist_image", "")
 
                             // 2. Filter the list to EXCLUDE the last used image
@@ -167,7 +173,7 @@ class FrostedService : GLWallpaperService() {
                             val randomFile = validFiles.random()
 
                             // 4. Save THIS file's name as the new "last used"
-                            prefs.edit().putString("last_playlist_image", randomFile.name).apply()
+                            prefs.edit { putString("last_playlist_image", randomFile.name) }
 
                             // 5. Copy to next_wallpaper.jpg
                             val nextFile = File(filesDir, "next_wallpaper.jpg")
@@ -205,12 +211,12 @@ class FrostedService : GLWallpaperService() {
                         return cachedColors
                     }
                 }
-            } catch (e: Exception) { }
+            } catch (_: Exception) { }
             return super.onComputeColors()
         }
         private val unlockChecker = object : Runnable {
             override fun run() {
-                val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
                 if (!keyguardManager.isKeyguardLocked) {
                     isLocked = false
                     playUnlockAnimation()
@@ -282,19 +288,19 @@ class FrostedService : GLWallpaperService() {
                 addAction("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")
                 addAction("com.app.nosatmosphereeffect.UPDATE_CONFIG")
             }
-            registerReceiver(systemEventReceiver, filter, Context.RECEIVER_EXPORTED)
+            registerReceiver(systemEventReceiver, filter, RECEIVER_EXPORTED)
         }
 
         override fun onDestroy() {
             super.onDestroy()
             activeEngines.remove(this)
-            try { unregisterReceiver(systemEventReceiver) } catch (e: Exception) { }
+            try { unregisterReceiver(systemEventReceiver) } catch (_: Exception) { }
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
             if (visible) {
-                val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                val km = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
                 if (!km.isKeyguardLocked) isLocked = false
 
                 if (isLocked) {
@@ -335,7 +341,7 @@ class FrostedService : GLWallpaperService() {
         }
 
         private fun updateRendererConfig() {
-            val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             myRenderer?.dimLevel = prefs.getFloat("dim_level", 0.2f)
             myRenderer?.enableNoise = prefs.getBoolean("enable_noise", false)
             myRenderer?.noiseScale = prefs.getFloat("noise_scale", 2000.0f)

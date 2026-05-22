@@ -18,6 +18,7 @@
             android:id="@+id/imgThumbnail"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:contentDescription="@string/thumbnail"
             android:scaleType="centerCrop"
             android:background="#111111" />
 
@@ -32,6 +33,7 @@
             android:id="@+id/iconEdited"
             android:layout_width="48dp"
             android:layout_height="48dp"
+            android:contentDescription="@string/edit_icon"
             android:src="@android:drawable/ic_menu_crop"
             android:layout_centerInParent="true"
             app:tint="@color/brand_primary"
@@ -49,6 +51,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
+                android:contentDescription="@string/images"
                 android:src="@android:drawable/ic_menu_delete"
                 android:layout_gravity="center"
                 app:tint="#FF4444"/>

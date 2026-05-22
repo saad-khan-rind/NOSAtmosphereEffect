@@ -44,10 +44,10 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSetupWallpaper"
             style="@style/Widget.Material3.Button"
-            android:layout_width="match_parent"
+            android:layout_width="300dp"
             android:layout_height="wrap_content"
             android:minHeight="56dp"
-            android:text="Select Effect &amp; Wallpaper"
+            android:text="@string/select_effect_amp_wallpaper"
             android:textSize="16sp"
             app:icon="@drawable/ic_wallpaper"
             app:iconGravity="textStart"
@@ -71,7 +71,7 @@
                 android:layout_height="wrap_content"
                 android:minHeight="56dp"
                 android:layout_marginEnd="8dp"
-                android:text="Change Effect"
+                android:text="@string/change_effect"
                 android:textAlignment="center"
                 app:icon="@drawable/ic_deblur"
                 app:iconGravity="top"/>
@@ -84,7 +84,7 @@
                 android:layout_height="wrap_content"
                 android:minHeight="56dp"
                 android:layout_marginStart="8dp"
-                android:text="Change Image"
+                android:text="@string/change_image"
                 android:textAlignment="center"
                 app:icon="@drawable/ic_wallpaper"
                 app:iconGravity="top"/>
@@ -169,7 +169,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Blur Strength"
+                        android:text="@string/blur_strength"
                         android:textColor="?attr/colorOnSurface"
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="4dp"
@@ -190,7 +190,7 @@
                         style="@style/Widget.Material3.Button"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Update Blur Strength"
+                        android:text="@string/update_blur_strength"
                         android:backgroundTint="@color/btn_update_selector"
                         android:textColor="@color/text_update_selector"/>
                 </LinearLayout>
@@ -216,7 +216,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Sync System Colors"
+                        android:text="@string/sync_system_colors"
                         android:textColor="@color/white"
                         android:textSize="16sp"
                         android:textStyle="bold" />
@@ -224,7 +224,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Updates Material You colors on wallpaper change. Disable if buggy/laggy (in playlist mode especially)."
+                        android:text="@string/updates_material_you_colors_on_wallpaper_change_disable_if_buggy_laggy_in_playlist_mode_especially"
                         android:textColor="#B0B0B0"
                         android:textSize="12sp" />
                 </LinearLayout>

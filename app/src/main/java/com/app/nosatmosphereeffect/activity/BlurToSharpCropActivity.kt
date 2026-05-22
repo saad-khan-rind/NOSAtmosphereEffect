@@ -40,6 +40,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import androidx.core.content.edit
 
 class BlurToSharpCropActivity : AppCompatActivity() {
 
@@ -217,8 +218,8 @@ class BlurToSharpCropActivity : AppCompatActivity() {
         Toast.makeText(this, "Applying...", Toast.LENGTH_SHORT).show()
         Thread {
             try {
-                getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit().clear().apply()
-                getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit { clear() }
+                getSharedPreferences("wallpaper_prefs", MODE_PRIVATE).edit { clear() }
 
                 File(filesDir, "playlist").let { if (it.exists()) it.deleteRecursively() }
                 File(filesDir, "next_wallpaper.jpg").let { if (it.exists()) it.delete() }
@@ -263,7 +264,7 @@ class BlurToSharpCropActivity : AppCompatActivity() {
             val i = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
             i.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, ComponentName(this, serviceClass))
             startActivity(i)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
         } finally { finish() }
     }

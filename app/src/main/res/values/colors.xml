@@ -13,5 +13,8 @@
     <color name="seed_red">#D71920</color>
     <color name="button_inactive">#8E8E8E</color>
 
+    <color name="brand_primary_accessible">#D0BCFF</color>
+    <color name="surface_variant_accessible">#D0BCFF</color>
+
 
 </resources>

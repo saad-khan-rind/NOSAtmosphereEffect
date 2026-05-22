@@ -150,6 +150,6 @@ class MultiImageCropActivity : AppCompatActivity() {
             if (rotation == 0f) return bitmap
             val matrix = Matrix().apply { postRotate(rotation) }
             return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        } catch (e: Exception) { return bitmap }
+        } catch (_: Exception) { return bitmap }
     }
 }

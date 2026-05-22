@@ -19,6 +19,7 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.pow
+import androidx.core.graphics.get
 
 class BlurToSharpRenderer(private val context: Context) : GLSurfaceView.Renderer {
 
@@ -71,15 +72,49 @@ class BlurToSharpRenderer(private val context: Context) : GLSurfaceView.Renderer
         var startSize: Float,
         var endSize: Float,
         val massScale: Float
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
 
-    private val MAX_BLOBS = 16
+            other as BlobPhysics
+
+            if (startX != other.startX) return false
+            if (startY != other.startY) return false
+            if (p1x != other.p1x) return false
+            if (p1y != other.p1y) return false
+            if (endX != other.endX) return false
+            if (endY != other.endY) return false
+            if (startSize != other.startSize) return false
+            if (endSize != other.endSize) return false
+            if (massScale != other.massScale) return false
+            if (!color.contentEquals(other.color)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = startX.hashCode()
+            result = 31 * result + startY.hashCode()
+            result = 31 * result + p1x.hashCode()
+            result = 31 * result + p1y.hashCode()
+            result = 31 * result + endX.hashCode()
+            result = 31 * result + endY.hashCode()
+            result = 31 * result + startSize.hashCode()
+            result = 31 * result + endSize.hashCode()
+            result = 31 * result + massScale.hashCode()
+            result = 31 * result + color.contentHashCode()
+            return result
+        }
+    }
+
+    private val maxBlobs = 16
     private var blobs = mutableListOf<BlobPhysics>()
     private val random = Random()
 
-    private val blobColorsBuffer = FloatArray(MAX_BLOBS * 3)
-    private val blobPosBuffer = FloatArray(MAX_BLOBS * 2)
-    private val blobSizesBuffer = FloatArray(MAX_BLOBS)
+    private val blobColorsBuffer = FloatArray(maxBlobs * 3)
+    private val blobPosBuffer = FloatArray(maxBlobs * 2)
+    private val blobSizesBuffer = FloatArray(maxBlobs)
     private val vertices = floatArrayOf(
         -1f, -1f,  0f, 1f,
         1f, -1f,  1f, 1f,
@@ -300,7 +335,7 @@ class BlurToSharpRenderer(private val context: Context) : GLSurfaceView.Renderer
         var idx = 0
 
         for (b in blobs) {
-            if (idx >= MAX_BLOBS) break
+            if (idx >= maxBlobs) break
             val u = 1.0f - progress
             val tt = progress * progress
             val uu = u * u
@@ -462,7 +497,7 @@ class BlurToSharpRenderer(private val context: Context) : GLSurfaceView.Renderer
         val step = 10
         for (y in 0 until h step step) {
             for (x in 0 until w step step) {
-                samples.add(ColorPoint(blurred.getPixel(x, y), x, y))
+                samples.add(ColorPoint(blurred[x, y], x, y))
             }
         }
         val colorBuckets = medianCut(samples, targetColors)

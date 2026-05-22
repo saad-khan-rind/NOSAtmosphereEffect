@@ -32,9 +32,6 @@ class FrostedRenderer(private val context: Context) : GLSurfaceView.Renderer {
     // -------------------------
 
     var blurStrength: Float = 0.0f
-        set(value) {
-            field = value
-        }
     @Volatile var dimLevel: Float = 0.2f
     @Volatile private var needsReload: Boolean = false
     @Volatile var enableNoise: Boolean = false

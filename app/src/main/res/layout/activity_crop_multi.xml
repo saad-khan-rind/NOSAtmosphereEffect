@@ -41,7 +41,7 @@
             style="@style/Widget.Material3.Button"
             android:layout_width="wrap_content"
             android:layout_height="56dp"
-            android:text="Done"
+            android:text="@string/done"
             android:backgroundTint="@color/brand_primary"
             android:textColor="@color/brand_on_primary"
             app:cornerRadius="28dp"

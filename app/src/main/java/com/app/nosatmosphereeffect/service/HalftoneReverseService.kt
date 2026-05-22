@@ -14,6 +14,7 @@ import android.view.animation.LinearInterpolator
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderer
 import java.io.File
+import androidx.core.content.edit
 
 class HalftoneReverseService : GLWallpaperService(){
 
@@ -69,7 +70,7 @@ class HalftoneReverseService : GLWallpaperService(){
                 val playlistFiles = playlistDir.listFiles { _, name -> name.endsWith(".jpg") }
                 if (playlistFiles == null || playlistFiles.size <= 1) return@Thread
 
-                val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                 val intervalMinutes = prefs.getLong("rotation_interval_minutes", 0)
 
                 if (isThemeChange) {
@@ -77,7 +78,7 @@ class HalftoneReverseService : GLWallpaperService(){
                         val savedTheme = prefs.getInt("active_theme_state", -1)
                         val newThemeState = if (currentNightMode) 1 else 0
                         if (savedTheme != newThemeState) {
-                            prefs.edit().putInt("active_theme_state", newThemeState).apply()
+                            prefs.edit { putInt("active_theme_state", newThemeState) }
                             executeRotationRingBuffer(prefs)
                         }
                     }
@@ -109,7 +110,12 @@ class HalftoneReverseService : GLWallpaperService(){
                         if (activeFile.exists()) activeFile.delete()
                         nextFile.renameTo(activeFile)
                         cachedColors = null
-                        prefs.edit().putLong("last_rotation_timestamp", System.currentTimeMillis()).apply()
+                        prefs.edit {
+                            putLong(
+                                "last_rotation_timestamp",
+                                System.currentTimeMillis()
+                            )
+                        }
                         notifyColorsChanged()
                     }
                 } catch (e: Exception) { e.printStackTrace() }
@@ -126,12 +132,12 @@ class HalftoneReverseService : GLWallpaperService(){
                     if (playlistDir.exists() && playlistDir.isDirectory) {
                         val files = playlistDir.listFiles { _, name -> name.endsWith(".jpg") }
                         if (!files.isNullOrEmpty() && files.size > 1) {
-                            val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                            val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                             val lastUsedName = prefs.getString("last_playlist_image", "")
                             val candidates = files.filter { it.name != lastUsedName }
                             val validFiles = candidates.ifEmpty { files.toList() }
                             val randomFile = validFiles.random()
-                            prefs.edit().putString("last_playlist_image", randomFile.name).apply()
+                            prefs.edit { putString("last_playlist_image", randomFile.name) }
                             val nextFile = File(filesDir, "next_wallpaper.jpg")
                             randomFile.copyTo(nextFile, overwrite = true)
                         }
@@ -157,13 +163,13 @@ class HalftoneReverseService : GLWallpaperService(){
                         return cachedColors
                     }
                 }
-            } catch (e: Exception) { }
+            } catch (_: Exception) { }
             return super.onComputeColors()
         }
 
         private val unlockChecker = object : Runnable {
             override fun run() {
-                val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
                 if (!keyguardManager.isKeyguardLocked) {
                     isLocked = false
                     playUnlockAnimation()
@@ -235,19 +241,19 @@ class HalftoneReverseService : GLWallpaperService(){
                 addAction("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")
                 addAction("com.app.nosatmosphereeffect.UPDATE_CONFIG")
             }
-            registerReceiver(systemEventReceiver, filter, Context.RECEIVER_EXPORTED)
+            registerReceiver(systemEventReceiver, filter, RECEIVER_EXPORTED)
         }
 
         override fun onDestroy() {
             super.onDestroy()
             activeEngines.remove(this)
-            try { unregisterReceiver(systemEventReceiver) } catch (e: Exception) { }
+            try { unregisterReceiver(systemEventReceiver) } catch (_: Exception) { }
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
             if (visible) {
-                val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                val km = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
                 if (!km.isKeyguardLocked) isLocked = false
 
                 if (isLocked) {
@@ -288,7 +294,7 @@ class HalftoneReverseService : GLWallpaperService(){
         }
 
         private fun updateRendererConfig() {
-            val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
             myRenderer?.dimLevel = prefs.getFloat("dim_level", 0.0f)
             enableSystemColorUpdate = prefs.getBoolean("notify_system_colors", false)
             myRenderer?.dotSize = prefs.getFloat("halftone_dot_size", 12.0f)

@@ -8,16 +8,10 @@
     android:gravity="center"
     android:background="@color/black">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center_horizontal">
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Choose Effect"
+            android:text="@string/choose_effect"
             android:textAppearance="?attr/textAppearanceDisplaySmall"
             android:textColor="@color/white"
             android:layout_marginBottom="32dp"
@@ -32,5 +26,3 @@
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
 
     </LinearLayout>
-
-</LinearLayout>

@@ -17,6 +17,7 @@ import android.view.animation.LinearInterpolator
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderer
 import java.io.File
+import androidx.core.content.edit
 
 class AtmosphereService : GLWallpaperService() {
 
@@ -81,7 +82,7 @@ class AtmosphereService : GLWallpaperService() {
 
                 if (playlistFiles == null || playlistFiles.size <= 1) return@Thread
 
-                val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                 val intervalMinutes = prefs.getLong("rotation_interval_minutes", 0)
 
                 // --- FEATURE: THEME SYNC ---
@@ -93,7 +94,7 @@ class AtmosphereService : GLWallpaperService() {
                         // Only rotate if the theme actually flipped
                         // (prevents duplicate triggers from screen rotations etc.)
                         if (savedTheme != newThemeState) {
-                            prefs.edit().putInt("active_theme_state", newThemeState).apply()
+                            prefs.edit { putInt("active_theme_state", newThemeState) }
                             executeRotationRingBuffer(prefs)
                         }
                     }
@@ -137,7 +138,12 @@ class AtmosphereService : GLWallpaperService() {
                         nextFile.renameTo(activeFile)
 
                         cachedColors = null
-                        prefs.edit().putLong("last_rotation_timestamp", System.currentTimeMillis()).apply()
+                        prefs.edit {
+                            putLong(
+                                "last_rotation_timestamp",
+                                System.currentTimeMillis()
+                            )
+                        }
                         notifyColorsChanged()
                     }
                 } catch (e: Exception) {
@@ -158,7 +164,7 @@ class AtmosphereService : GLWallpaperService() {
 
                         if (!files.isNullOrEmpty() && files.size > 1) {
                             // 1. Get the last used image name from Prefs
-                            val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                            val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                             val lastUsedName = prefs.getString("last_playlist_image", "")
 
                             // 2. Filter the list to EXCLUDE the last used image
@@ -170,7 +176,7 @@ class AtmosphereService : GLWallpaperService() {
                             val randomFile = validFiles.random()
 
                             // 4. Save THIS file's name as the new "last used"
-                            prefs.edit().putString("last_playlist_image", randomFile.name).apply()
+                            prefs.edit { putString("last_playlist_image", randomFile.name) }
 
                             // 5. Copy to next_wallpaper.jpg
                             val nextFile = File(filesDir, "next_wallpaper.jpg")
@@ -208,7 +214,7 @@ class AtmosphereService : GLWallpaperService() {
                         return cachedColors
                     }
                 }
-            } catch (e: Exception) { }
+            } catch (_: Exception) { }
             return super.onComputeColors()
         }
         private val unlockChecker = object : Runnable {
@@ -304,7 +310,7 @@ class AtmosphereService : GLWallpaperService() {
             activeEngines.remove(this)
             try {
                 unregisterReceiver(systemEventReceiver)
-            } catch (e: Exception) { }
+            } catch (_: Exception) { }
         }
 
         override fun onVisibilityChanged(visible: Boolean) {

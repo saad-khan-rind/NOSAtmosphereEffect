@@ -21,7 +21,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Fine Tuning"
+                android:text="@string/fine_tuning"
                 android:textColor="@color/white"
                 android:textSize="24sp"
                 android:textStyle="bold"
@@ -32,7 +32,7 @@
                 android:id="@+id/layoutPollInterval"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Unlock Check Interval (ms)"
+                android:hint="@string/unlock_check_interval_ms"
                 app:helperText="Recommended for\nOthers: 50ms | Samsung: 30000ms"
                 app:helperTextTextColor="@color/white_alpha_70"
                 app:endIconMode="custom"
@@ -43,7 +43,7 @@
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/inputPollInterval"
-                    android:layout_width="match_parent"
+                    android:layout_width="300dp"
                     android:layout_height="wrap_content"
                     android:inputType="number"
                     android:textColor="@color/white"/>
@@ -53,7 +53,7 @@
                 android:id="@+id/layoutLockDelay"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Lock Delay (ms)"
+                android:hint="@string/lock_delay_ms"
                 app:helperText="Recommended for\nOthers: 800ms | Samsung: 0ms"
                 app:helperTextTextColor="@color/white_alpha_70"
                 app:endIconMode="custom"
@@ -64,7 +64,7 @@
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/inputLockDelay"
-                    android:layout_width="match_parent"
+                    android:layout_width="300dp"
                     android:layout_height="wrap_content"
                     android:inputType="number"
                     android:textColor="@color/white"/>
@@ -73,14 +73,14 @@
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Animation Duration (ms)"
+                android:hint="@string/animation_duration_ms"
                 app:helperText="Recommended for\nOriginal: 2500ms | Reverse: 1500ms | Others: 500ms"
                 app:helperTextTextColor="@color/white_alpha_70"
                 android:layout_marginBottom="32dp"
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/inputAnimDuration"
-                    android:layout_width="match_parent"
+                    android:layout_width="300dp"
                     android:layout_height="wrap_content"
                     android:inputType="number"
                     android:textColor="@color/white"/>
@@ -91,18 +91,19 @@
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Playlist Rotation Mode"
+                android:hint="@string/playlist_rotation_mode"
                 app:helperText="Intervals, or sync Image 1(Light)/Image 2(Dark)"
                 app:helperTextTextColor="@color/white_alpha_70"
                 android:layout_marginBottom="24dp">
 
                 <AutoCompleteTextView
                     android:id="@+id/dropdownRotation"
-                    android:layout_width="match_parent"
+                    android:layout_width="300dp"
                     android:layout_height="wrap_content"
                     android:inputType="none"
                     android:popupBackground="@color/black"
-                    android:textColor="@color/white"/>
+                    android:textColor="@color/white"
+                    android:hint="@string/either_select_any_time_option_or_theme_option"/>
             </com.google.android.material.textfield.TextInputLayout>
 
             <LinearLayout
@@ -115,7 +116,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Halftone Pixel Size"
+                    android:text="@string/halftone_pixel_size"
                     android:textColor="@color/white"
                     android:textStyle="bold" />
 
@@ -132,7 +133,7 @@
                     android:id="@+id/switchGrayscale"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Black &amp; White Effect"
+                    android:text="@string/black_amp_white_effect"
                     android:textColor="@color/white"
                     android:textStyle="bold"
                     android:layout_marginTop="8dp"/>
@@ -148,7 +149,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Fingerprint Position (Horizontal)"
+                    android:text="@string/fingerprint_position_horizontal"
                     android:textColor="@color/white"
                     android:textStyle="bold" />
 
@@ -164,7 +165,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Fingerprint Position (Vertical)"
+                    android:text="@string/fingerprint_position_vertical"
                     android:textColor="@color/white"
                     android:textStyle="bold"
                     android:layout_marginTop="8dp"/>
@@ -182,14 +183,15 @@
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/switchNoise"
-                android:layout_width="match_parent"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:text="Enable Blur Noise (Film Grain)"
+                android:text="@string/enable_blur_noise_film_grain"
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 android:layout_marginBottom="32dp"
                 app:thumbTint="@color/brand_primary"
-                app:trackTint="@color/brand_on_primary"/>
+                app:trackTint="@color/brand_on_primary"
+                />
 
             <LinearLayout
                 android:id="@+id/layoutNoiseSettings"
@@ -201,7 +203,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Noise Scale (Grain Size)"
+                    android:hint="@string/noise_scale_grain_size"
                     app:helperText="Lower = Larger Grains. Recommended: 2000"
                     app:helperTextTextColor="@color/white_alpha_70"
                     android:layout_marginBottom="24dp"
@@ -217,7 +219,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Noise Strength (Intensity)"
+                    android:hint="@string/noise_strength_intensity"
                     app:helperText="0.0 to 1.0. Recommended: 0.06"
                     app:helperTextTextColor="@color/white_alpha_70"
                     android:layout_marginBottom="32dp"
@@ -241,7 +243,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Blob Saturation"
+                    android:text="@string/blob_saturation"
                     android:textColor="@color/white"
                     android:textStyle="bold" />
 
@@ -257,7 +259,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Blob Contrast"
+                    android:text="@string/blob_contrast"
                     android:textColor="@color/white"
                     android:textStyle="bold" />
 
@@ -274,10 +276,10 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnApplyAdvanced"
-                android:layout_width="match_parent"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
                 android:minHeight="56dp"
-                android:text="Save &amp; Apply"
+                android:text="@string/save_amp_apply"
                 android:layout_marginBottom="16dp"
                 app:cornerRadius="28dp"
                 android:backgroundTint="@color/brand_primary"
@@ -286,10 +288,10 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnResetDefaults"
                 style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
                 android:minHeight="56dp"
-                android:text="Reset to Recommended"
+                android:text="@string/reset_to_recommended"
                 app:cornerRadius="28dp"
                 android:textColor="@color/white"
                 app:strokeColor="@color/white_alpha_70"/>

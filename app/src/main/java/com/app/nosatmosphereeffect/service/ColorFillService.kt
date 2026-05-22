@@ -17,6 +17,7 @@ import android.view.animation.LinearInterpolator
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderer
 import java.io.File
+import androidx.core.content.edit
 
 class ColorFillService : GLWallpaperService() {
 
@@ -78,7 +79,7 @@ class ColorFillService : GLWallpaperService() {
 
                 if (playlistFiles == null || playlistFiles.size <= 1) return@Thread
 
-                val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                 val intervalMinutes = prefs.getLong("rotation_interval_minutes", 0)
 
                 if (isThemeChange) {
@@ -87,7 +88,7 @@ class ColorFillService : GLWallpaperService() {
                         val newThemeState = if (currentNightMode) 1 else 0
 
                         if (savedTheme != newThemeState) {
-                            prefs.edit().putInt("active_theme_state", newThemeState).apply()
+                            prefs.edit { putInt("active_theme_state", newThemeState) }
                             executeRotationRingBuffer(prefs)
                         }
                     }
@@ -126,7 +127,12 @@ class ColorFillService : GLWallpaperService() {
                         nextFile.renameTo(activeFile)
 
                         cachedColors = null
-                        prefs.edit().putLong("last_rotation_timestamp", System.currentTimeMillis()).apply()
+                        prefs.edit {
+                            putLong(
+                                "last_rotation_timestamp",
+                                System.currentTimeMillis()
+                            )
+                        }
                         notifyColorsChanged()
                     }
                 } catch (e: Exception) {
@@ -146,14 +152,14 @@ class ColorFillService : GLWallpaperService() {
                         val files = playlistDir.listFiles { _, name -> name.endsWith(".jpg") }
 
                         if (!files.isNullOrEmpty() && files.size > 1) {
-                            val prefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+                            val prefs = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
                             val lastUsedName = prefs.getString("last_playlist_image", "")
 
                             val candidates = files.filter { it.name != lastUsedName }
                             val validFiles = candidates.ifEmpty { files.toList() }
                             val randomFile = validFiles.random()
 
-                            prefs.edit().putString("last_playlist_image", randomFile.name).apply()
+                            prefs.edit { putString("last_playlist_image", randomFile.name) }
 
                             val nextFile = File(filesDir, "next_wallpaper.jpg")
                             randomFile.copyTo(nextFile, overwrite = true)
@@ -190,7 +196,7 @@ class ColorFillService : GLWallpaperService() {
                         return cachedColors
                     }
                 }
-            } catch (e: Exception) { }
+            } catch (_: Exception) { }
             return super.onComputeColors()
         }
 
@@ -281,7 +287,7 @@ class ColorFillService : GLWallpaperService() {
             activeEngines.remove(this)
             try {
                 unregisterReceiver(systemEventReceiver)
-            } catch (e: Exception) { }
+            } catch (_: Exception) { }
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
