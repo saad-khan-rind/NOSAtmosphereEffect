@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="300dp"
+    android:layout_height="500dp"
+    android:layout_margin="8dp"
+    app:cardBackgroundColor="#222222"
+    app:cardCornerRadius="24dp"
+    app:strokeColor="#444444"
+    app:strokeWidth="1dp"
+    app:cardElevation="8dp">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/imgThumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:background="#111111" />
+
+        <View
+            android:id="@+id/overlayEdited"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#40000000"
+            android:visibility="gone"/>
+
+        <ImageView
+            android:id="@+id/iconEdited"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_crop"
+            android:layout_centerInParent="true"
+            app:tint="@color/brand_primary"
+            android:visibility="gone"/>
+
+        <FrameLayout
+            android:id="@+id/btnDelete"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true"
+            android:layout_margin="12dp"
+            android:background="@drawable/text_bg_scrim_rounded">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_delete"
+                android:layout_gravity="center"
+                app:tint="#FF4444"/>
+        </FrameLayout>
+
+    </RelativeLayout>
+</com.google.android.material.card.MaterialCardView>
