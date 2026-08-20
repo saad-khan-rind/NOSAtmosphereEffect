@@ -35,8 +35,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Help
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Brightness6
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Edit
@@ -121,6 +122,7 @@ fun MainScreen(
     onEditExistingPlaylist: () -> Unit,
     onAdvancedSettings: () -> Unit,
     onTitleTap: () -> Unit,
+    onOpenLogs: () -> Unit,
     rendererStatus: RendererStatusUiModel? = null
 ) {
     var showImageSheet by remember { mutableStateOf(false) }
@@ -167,6 +169,15 @@ fun MainScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
+                    AtmoAnimatedIconButton(
+                        imageVector = Icons.Rounded.BugReport,
+                        contentDescription = "View logs",
+                        onClick = onOpenLogs,
+                        motion = AtmoIconMotion.TILT,
+                        filledTonal = true,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
                     AtmoAnimatedIconButton(
                         imageVector = Icons.Rounded.Settings,
                         contentDescription = "Appearance settings",

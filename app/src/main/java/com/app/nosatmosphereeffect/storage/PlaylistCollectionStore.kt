@@ -31,7 +31,11 @@ internal data class PlaylistImageSource(
 
 internal object PlaylistCollectionStore {
     private const val TAG = "PlaylistCollectionStore"
-    private const val STAGED_JPEG_QUALITY = 100
+    // Quality 100 forces libjpeg into a much slower near-lossless encode
+    // path for barely-perceptible gain on a downscaled wallpaper image; 92
+    // is visually indistinguishable at wallpaper viewing distance/zoom and
+    // encodes noticeably faster (and produces a smaller file).
+    private const val STAGED_JPEG_QUALITY = 92
 
     @Throws(IOException::class, SecurityException::class)
     fun stage(

@@ -25,6 +25,8 @@ import com.app.nosatmosphereeffect.activity.PaletteDiagnosticsActivity
 import com.app.nosatmosphereeffect.activity.PlaylistEditorActivity
 import com.app.nosatmosphereeffect.activity.ThemePlaylistEditorActivity
 import com.app.nosatmosphereeffect.activity.WallpaperEffectServices
+import com.app.nosatmosphereeffect.debug.LogViewerActivity
+import com.app.nosatmosphereeffect.debug.LogcatTail
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
@@ -85,6 +87,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LogcatTail.start()
         enableEdgeToEdge()
         initializeSmartDefaults()
         expressiveThemeEnabled = AppearancePreferences.isExpressiveEnabled(this)
@@ -133,7 +136,10 @@ class MainActivity : ComponentActivity() {
                     onPickThemePlaylists = { launchThemePlaylistEditor(editExisting = false) },
                     onEditExistingPlaylist = { launchEditExistingPlaylist() },
                     onAdvancedSettings = { openAdvancedSettings() },
-                    onTitleTap = { handleTitleTap() }
+                    onTitleTap = { handleTitleTap() },
+                    onOpenLogs = {
+                        startActivity(Intent(this, LogViewerActivity::class.java))
+                    }
                 )
             }
         }
@@ -176,6 +182,7 @@ class MainActivity : ComponentActivity() {
 
     private fun checkWallpaperStatus() {
         val activeEffect = getActiveEffectType()
+        Log.d(TAG, "checkWallpaperStatus: resolved activeEffect=$activeEffect")
         if (activeEffect != null) {
             activeEffectId = activeEffect
             wallpaperActive = true
@@ -289,19 +296,43 @@ class MainActivity : ComponentActivity() {
 
     private fun getActiveEffectType(): String? {
         val wm = WallpaperManager.getInstance(this)
+        Log.d(
+            TAG,
+            "getActiveEffectType: device=${Build.MANUFACTURER}/${Build.MODEL} " +
+                "sdk=${Build.VERSION.SDK_INT} ourPackage=$packageName"
+        )
         val homeInfo = try {
             wm.wallpaperInfo
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to inspect the Home screen live wallpaper", failure)
             null
         }
+        Log.d(
+            TAG,
+            "getActiveEffectType: home wallpaperInfo=" +
+                (homeInfo?.let {
+                    "package=${it.packageName} component=${it.component} " +
+                        "serviceName=${it.serviceName}"
+                } ?: "null")
+        )
         if (homeInfo?.packageName == packageName) {
-            return WallpaperEffectServices.effectIdForService(
+            val effectId = WallpaperEffectServices.effectIdForService(
                 homeInfo.component.className
             )
+            Log.d(
+                TAG,
+                "getActiveEffectType: home package matched, " +
+                    "className=${homeInfo.component.className} -> effectId=$effectId"
+            )
+            return effectId
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            Log.d(
+                TAG,
+                "getActiveEffectType: home package did not match and SDK " +
+                    "${Build.VERSION.SDK_INT} is below 34, skipping lock-screen check -> null"
+            )
             return null
         }
         val lockInfo = try {
@@ -310,10 +341,27 @@ class MainActivity : ComponentActivity() {
             Log.w(TAG, "Unable to inspect the Lock screen live wallpaper", failure)
             null
         }
-        if (lockInfo?.packageName != packageName) return null
-        return WallpaperEffectServices.effectIdForService(
+        Log.d(
+            TAG,
+            "getActiveEffectType: lock wallpaperInfo=" +
+                (lockInfo?.let {
+                    "package=${it.packageName} component=${it.component} " +
+                        "serviceName=${it.serviceName}"
+                } ?: "null")
+        )
+        if (lockInfo?.packageName != packageName) {
+            Log.d(TAG, "getActiveEffectType: lock package did not match -> null")
+            return null
+        }
+        val effectId = WallpaperEffectServices.effectIdForService(
             lockInfo.component.className
         )
+        Log.d(
+            TAG,
+            "getActiveEffectType: lock package matched, " +
+                "className=${lockInfo.component.className} -> effectId=$effectId"
+        )
+        return effectId
     }
 
     private fun launchEditExistingPlaylist() {
