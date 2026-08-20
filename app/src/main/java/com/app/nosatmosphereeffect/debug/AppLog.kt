@@ -21,6 +21,12 @@ internal enum class AppLogLevel(val letter: Char) {
 }
 
 internal data class AppLogEntry(
+    // Monotonic and unique per entry, independent of timestamp/content --
+    // used as the LazyColumn item key. Millisecond-timestamp collisions are
+    // common under a burst (multiple lines land in the same millisecond),
+    // and two data-identical lines (e.g. a repeated warning) hash the same
+    // too, so neither timestamp nor content alone is a safe key.
+    val sequence: Long,
     val timestampMillis: Long,
     val level: AppLogLevel,
     val tag: String,
@@ -43,29 +49,52 @@ internal data class AppLogEntry(
 internal object AppLog {
     private const val MAX_ENTRIES = 4000
 
+    // Caps how often the UI-facing snapshot is republished. A burst of
+    // lines arriving faster than this just gets coalesced into the next
+    // snapshot instead of triggering a copy-and-recompose per line -- the
+    // buffer itself (and asPlainText/share/copy) always has every line
+    // immediately regardless of this interval; only how often the Logs
+    // screen repaints is throttled.
+    private const val MIN_EMIT_INTERVAL_MS = 200L
+
     private val lock = Any()
     private val entries = ArrayDeque<AppLogEntry>()
+    private var nextSequence = 0L
+    private var dirty = false
     private val _entriesFlow = MutableStateFlow<List<AppLogEntry>>(emptyList())
     val entriesFlow: StateFlow<List<AppLogEntry>> get() = _entriesFlow
 
-    /** Adds an already-parsed entry (used by [LogcatTail]). */
-    fun add(entry: AppLogEntry) {
+    init {
+        val ticker = Thread({
+            while (true) {
+                Thread.sleep(MIN_EMIT_INTERVAL_MS)
+                flushIfDirty()
+            }
+        }, "AppLogEmitTicker")
+        ticker.isDaemon = true
+        ticker.start()
+    }
+
+    fun add(level: AppLogLevel, tag: String, message: String) {
         synchronized(lock) {
-            entries.addLast(entry)
+            entries.addLast(
+                AppLogEntry(nextSequence++, System.currentTimeMillis(), level, tag, message)
+            )
             while (entries.size > MAX_ENTRIES) entries.removeFirst()
-            _entriesFlow.value = entries.toList()
+            dirty = true
         }
     }
 
     fun clear() {
         synchronized(lock) {
             entries.clear()
-            _entriesFlow.value = emptyList()
+            dirty = false
         }
+        _entriesFlow.value = emptyList()
     }
 
     fun asPlainText(): String {
-        val current = _entriesFlow.value
+        val current = synchronized(lock) { entries.toList() }
         return buildString {
             current.forEach { entry ->
                 append(entry.formattedTime)
@@ -77,5 +106,14 @@ internal object AppLog {
                 appendLine(entry.message)
             }
         }
+    }
+
+    private fun flushIfDirty() {
+        val snapshot: List<AppLogEntry> = synchronized(lock) {
+            if (!dirty) return
+            dirty = false
+            entries.toList()
+        }
+        _entriesFlow.value = snapshot
     }
 }

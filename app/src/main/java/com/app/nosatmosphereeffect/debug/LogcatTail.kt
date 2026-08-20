@@ -1,10 +1,8 @@
 package com.app.nosatmosphereeffect.debug
 
-import android.os.Process
 import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStreamReader
-
 /**
  * Streams this process's own `logcat` output into [AppLog] so it can be
  * shown on-device. Testing/diagnostic aid only.
@@ -27,11 +25,21 @@ internal object LogcatTail {
     fun start() {
         if (process != null) return
         try {
-            val pid = Process.myPid()
+            val pid = android.os.Process.myPid()
             val proc = ProcessBuilder(
                 "logcat",
                 "-v", "time",
-                "--pid=$pid"
+                "--pid=$pid",
+                // INFO and above only. This app's own explicit logging is
+                // sparse and deliberate, but the framework (SurfaceFlinger,
+                // BLASTBufferQueue, Choreographer, OpenGLRenderer, etc.)
+                // logs a large volume of VERBOSE/DEBUG chatter that gets
+                // attributed to our PID purely because a live wallpaper
+                // renders continuously in the background. Capturing that
+                // unfiltered is what flooded the buffer. Anything we
+                // deliberately want visible here should be logged at INFO
+                // or above (see MainActivity's wallpaper-detection logging).
+                "*:I"
             ).redirectErrorStream(true).start()
             process = proc
 
@@ -64,10 +72,9 @@ internal object LogcatTail {
 
     private fun ingest(rawLine: String) {
         val match = lineRegex.matchEntire(rawLine)
-        val entry = if (match != null) {
+        if (match != null) {
             val (levelLetter, tag, message) = match.destructured
-            AppLogEntry(
-                timestampMillis = System.currentTimeMillis(),
+            AppLog.add(
                 level = AppLogLevel.fromLetter(levelLetter.firstOrNull() ?: 'I'),
                 tag = tag.trim(),
                 message = message
@@ -77,13 +84,7 @@ internal object LogcatTail {
             // OEM logcat format we didn't anticipate) -- keep it verbatim
             // rather than dropping it, since a stack trace's later lines
             // are exactly what's useful for a crash report.
-            AppLogEntry(
-                timestampMillis = System.currentTimeMillis(),
-                level = AppLogLevel.INFO,
-                tag = "logcat",
-                message = rawLine
-            )
+            AppLog.add(level = AppLogLevel.INFO, tag = "logcat", message = rawLine)
         }
-        AppLog.add(entry)
     }
 }
