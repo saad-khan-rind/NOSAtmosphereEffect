@@ -104,7 +104,7 @@ internal fun LogViewerScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                items(entries, key = { it.timestampMillis.toString() + it.hashCode() }) { entry ->
+                items(entries, key = { it.sequence }) { entry ->
                     LogLine(entry)
                 }
             }

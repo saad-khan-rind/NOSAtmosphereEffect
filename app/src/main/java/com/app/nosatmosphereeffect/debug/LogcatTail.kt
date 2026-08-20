@@ -18,6 +18,77 @@ internal object LogcatTail {
         """^\S+\s+\S+\s+([VDIWEAF])/([^(]*)\(\s*\d+\):\s?(.*)$"""
     private val lineRegex = Regex(LINE_PATTERN)
 
+    // Every Log tag this app's own code actually uses, gathered by
+    // grepping for `const val TAG = "..."` plus a handful of one-off
+    // string tags across app/src/main, app/src/play and app/src/fdroid.
+    // Kept as an explicit allowlist rather than a priority cutoff: *:I
+    // still let through a lot of Android framework/runtime chatter (ART
+    // GC, ActivityManager, WindowManager, SurfaceFlinger, etc.) that gets
+    // attributed to our PID purely because a live wallpaper renders
+    // continuously -- none of that is "related to the app". Silencing
+    // everything else (`*:S` below) removes it regardless of how chatty
+    // the framework or a given OEM build happens to be.
+    private val APP_TAGS = listOf(
+        // Carries the wallpaper-active-detection diagnostics -- the one
+        // that matters most right now.
+        "MainActivity",
+        "AdvancedSettings",
+        "AtmosphereRenderController",
+        "AtmosphereRenderer",
+        "BaseCropActivity",
+        "BitmapDecoder",
+        "BitmapStore",
+        "BlurToSharpRenderer",
+        "CanvasController",
+        "ColorFillController",
+        "EffectPreferences",
+        "EffectPreviewService",
+        "EffectSelection",
+        "FileTransactions",
+        "FrostedController",
+        "GLWallpaperService",
+        "GlassRenderController",
+        "GlassRenderer",
+        "GraphicsBackendPrefs",
+        "HalftoneController",
+        "HalftoneRenderer",
+        "LogcatTail",
+        "MultiImageCrop",
+        "PlaylistCollectionStore",
+        "PlaylistEditor",
+        "PlaylistEditorScreen",
+        "PlaylistRotation",
+        "RendererRuntimeStatus",
+        "SubjectMaskExtractor",
+        "ThemePlaylistEditor",
+        "UriFiles",
+        "VulkanAtmosphereHost",
+        "VulkanCanvasHost",
+        "VulkanColorFill",
+        "VulkanEffectHost",
+        "VulkanFrostedHost",
+        "VulkanGlassHost",
+        "VulkanSupport",
+        "WallpaperBehavior",
+        "WallpaperEffects",
+        "WallpaperFitHelper",
+        // Concrete live-wallpaper Service classes log under their own
+        // simple class name rather than a shared TAG constant (see
+        // AnimatedEffectWallpaperService.logTag).
+        "AtmosphereService",
+        "BlurToSharpService",
+        "GlassService",
+        "GlassReverseService",
+        "ColorFillService",
+        "ColorFillReverseService",
+        "NeonService",
+        "NeonReverseService",
+        "FrostedService",
+        "FrostedReverseService",
+        "HalftoneService",
+        "HalftoneReverseService"
+    )
+
     @Volatile
     private var process: Process? = null
 
@@ -26,21 +97,16 @@ internal object LogcatTail {
         if (process != null) return
         try {
             val pid = android.os.Process.myPid()
-            val proc = ProcessBuilder(
-                "logcat",
-                "-v", "time",
-                "--pid=$pid",
-                // INFO and above only. This app's own explicit logging is
-                // sparse and deliberate, but the framework (SurfaceFlinger,
-                // BLASTBufferQueue, Choreographer, OpenGLRenderer, etc.)
-                // logs a large volume of VERBOSE/DEBUG chatter that gets
-                // attributed to our PID purely because a live wallpaper
-                // renders continuously in the background. Capturing that
-                // unfiltered is what flooded the buffer. Anything we
-                // deliberately want visible here should be logged at INFO
-                // or above (see MainActivity's wallpaper-detection logging).
-                "*:I"
-            ).redirectErrorStream(true).start()
+            val args = buildList {
+                add("logcat")
+                add("-v")
+                add("time")
+                add("--pid=$pid")
+                APP_TAGS.forEach { add("$it:D") }
+                // Default priority for every tag not listed above: silent.
+                add("*:S")
+            }
+            val proc = ProcessBuilder(args).redirectErrorStream(true).start()
             process = proc
 
             val reader = Thread({
