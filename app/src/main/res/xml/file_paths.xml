@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Scoped to just the shared log export directory - nothing else in
+         cacheDir/filesDir is exposed through this provider. -->
+    <cache-path name="logs" path="logs/" />
+</paths>
