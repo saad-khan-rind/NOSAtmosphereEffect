@@ -132,8 +132,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeCr
     jobject assetManager,
     jboolean reverse
 ) {
-    AAssetManager* assets = AAssetManager_fromJava(env, assetManager);
-    if (assets == nullptr) return 0;
+    if (assetManager == nullptr) return 0;
     const atmo::vulkan::OnePassConfig config{
         "Atmo Atmosphere",
         kVertexShader,
@@ -145,14 +144,14 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeCr
         sizeof(AtmosphereParams)
     };
     atmo::vulkan::OnePassHandle engine =
-        atmo::vulkan::createOnePass(assets, config);
+        atmo::vulkan::createOnePass(env, assetManager, config);
     if (engine == nullptr) return 0;
     auto* handle = new (std::nothrow) AtmosphereHandle{
         engine,
         reverse == JNI_TRUE
     };
     if (handle == nullptr) {
-        atmo::vulkan::destroyOnePass(engine);
+        atmo::vulkan::destroyOnePass(env, engine);
         return 0;
     }
     return static_cast<jlong>(reinterpret_cast<intptr_t>(handle));
@@ -389,12 +388,12 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeDe
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeDestroy(
-    JNIEnv*,
+    JNIEnv* env,
     jobject,
     jlong handle
 ) {
     AtmosphereHandle* atmosphere = fromHandle(handle);
     if (atmosphere == nullptr) return;
-    atmo::vulkan::destroyOnePass(atmosphere->engine);
+    atmo::vulkan::destroyOnePass(env, atmosphere->engine);
     delete atmosphere;
 }

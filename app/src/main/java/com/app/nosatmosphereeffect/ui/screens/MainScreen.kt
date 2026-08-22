@@ -35,8 +35,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Help
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Brightness6
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Edit

@@ -205,9 +205,22 @@ struct TextureResource {
 class OnePassEngineImpl {
 public:
     OnePassEngineImpl(
-        AAssetManager* assets,
+        JNIEnv* env,
+        jobject assetManager,
         const OnePassConfig& config
-    ) : assets_(assets),
+    ) : assets_(AAssetManager_fromJava(env, assetManager)),
+        // A raw AAssetManager* is only guaranteed valid for as long as the
+        // Java AssetManager object backing it is reachable. This engine
+        // reuses assets_ across every setSurface() call for its entire
+        // lifetime (see createPipeline(), called on every swapchain
+        // rebuild) -- so without something keeping that Java object
+        // rooted, it can become eligible for GC shortly after this
+        // constructor returns, leaving assets_ dangling. A JNI global
+        // reference keeps it alive for exactly as long as this engine
+        // needs it; released in releaseAssetManagerRef().
+        assetManagerRef_(
+            assetManager == nullptr ? nullptr : env->NewGlobalRef(assetManager)
+        ),
         label_(config.label == nullptr ? "effect" : config.label),
         vertexShaderAsset_(
             config.vertexShaderAsset == nullptr
@@ -229,6 +242,18 @@ public:
 
     ~OnePassEngineImpl() {
         destroySurface();
+    }
+
+    // Releases the JNI global reference retained in the constructor. Must
+    // be called (with a valid JNIEnv for the calling thread) before this
+    // engine is deleted; the destructor can't do this itself since global
+    // ref deletion requires a JNIEnv, which isn't available there.
+    void releaseAssetManagerRef(JNIEnv* env) {
+        if (assetManagerRef_ != nullptr && env != nullptr) {
+            env->DeleteGlobalRef(assetManagerRef_);
+        }
+        assetManagerRef_ = nullptr;
+        assets_ = nullptr;
     }
 
     bool isConfigured() const {
@@ -1287,14 +1312,16 @@ private:
     }
 
     bool createPipeline() {
-        const auto vertexCode =
-            readShaderAsset(vertexShaderAsset_.c_str());
-        const auto fragmentCode =
-            readShaderAsset(fragmentShaderAsset_.c_str());
+        if (vertexCode_.empty()) {
+            vertexCode_ = readShaderAsset(vertexShaderAsset_.c_str());
+        }
+        if (fragmentCode_.empty()) {
+            fragmentCode_ = readShaderAsset(fragmentShaderAsset_.c_str());
+        }
         const VkShaderModule vertexModule =
-            createShaderModule(vertexCode);
+            createShaderModule(vertexCode_);
         const VkShaderModule fragmentModule =
-            createShaderModule(fragmentCode);
+            createShaderModule(fragmentCode_);
         if (vertexModule == VK_NULL_HANDLE ||
             fragmentModule == VK_NULL_HANDLE) {
             if (vertexModule != VK_NULL_HANDLE) {
@@ -2056,9 +2083,12 @@ private:
     }
 
     AAssetManager* assets_ = nullptr;
+    jobject assetManagerRef_ = nullptr;
     std::string label_;
     std::string vertexShaderAsset_;
     std::string fragmentShaderAsset_;
+    std::vector<uint32_t> vertexCode_;
+    std::vector<uint32_t> fragmentCode_;
     uint32_t optionalTextureMask_ = 0;
     uint32_t uniformBinding_ = kNoUniformBinding;
     std::vector<uint8_t> uniformData_;
@@ -2108,11 +2138,13 @@ uint32_t probeRuntime() {
 }
 
 OnePassHandle createOnePass(
-    AAssetManager* assets,
+    JNIEnv* env,
+    jobject assetManager,
     const OnePassConfig& config
 ) {
-    auto* engine = new OnePassEngineImpl(assets, config);
+    auto* engine = new OnePassEngineImpl(env, assetManager, config);
     if (!engine->isConfigured()) {
+        engine->releaseAssetManagerRef(env);
         delete engine;
         return nullptr;
     }
@@ -2194,8 +2226,12 @@ void destroySurface(OnePassHandle handle) {
     if (engine != nullptr) engine->destroySurface();
 }
 
-void destroyOnePass(OnePassHandle handle) {
-    delete engineFromHandle(handle);
+void destroyOnePass(JNIEnv* env, OnePassHandle handle) {
+    OnePassEngineImpl* engine = engineFromHandle(handle);
+    if (engine != nullptr) {
+        engine->releaseAssetManagerRef(env);
+    }
+    delete engine;
 }
 
 }  // namespace atmo::vulkan
