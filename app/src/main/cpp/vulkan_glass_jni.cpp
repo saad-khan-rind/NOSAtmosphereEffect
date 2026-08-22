@@ -44,8 +44,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanGlassNative_nativeCreate(
     jobject,
     jobject assetManager
 ) {
-    AAssetManager* assets = AAssetManager_fromJava(env, assetManager);
-    if (assets == nullptr) return 0;
+    if (assetManager == nullptr) return 0;
     const atmo::vulkan::OnePassConfig config{
         "Atmo Glass",
         kVertexShader,
@@ -55,7 +54,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanGlassNative_nativeCreate(
         sizeof(GlassParams)
     };
     return static_cast<jlong>(reinterpret_cast<intptr_t>(
-        atmo::vulkan::createOnePass(assets, config)
+        atmo::vulkan::createOnePass(env, assetManager, config)
     ));
 }
 
@@ -205,9 +204,9 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanGlassNative_nativeDestroy
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanGlassNative_nativeDestroy(
-    JNIEnv*,
+    JNIEnv* env,
     jobject,
     jlong handle
 ) {
-    atmo::vulkan::destroyOnePass(fromHandle(handle));
+    atmo::vulkan::destroyOnePass(env, fromHandle(handle));
 }

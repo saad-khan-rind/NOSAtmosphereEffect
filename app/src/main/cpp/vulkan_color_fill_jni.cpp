@@ -54,8 +54,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeCreate(
     jobject assetManager,
     jboolean reverse
 ) {
-    AAssetManager* assets = AAssetManager_fromJava(env, assetManager);
-    if (assets == nullptr) return 0;
+    if (assetManager == nullptr) return 0;
     const atmo::vulkan::OnePassConfig config{
         "Atmo Color Fill",
         kVertexShader,
@@ -65,14 +64,14 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeCreate(
         sizeof(ColorFillParams)
     };
     atmo::vulkan::OnePassHandle engine =
-        atmo::vulkan::createOnePass(assets, config);
+        atmo::vulkan::createOnePass(env, assetManager, config);
     if (engine == nullptr) return 0;
     auto* handle = new (std::nothrow) ColorFillHandle{
         engine,
         reverse == JNI_TRUE
     };
     if (handle == nullptr) {
-        atmo::vulkan::destroyOnePass(engine);
+        atmo::vulkan::destroyOnePass(env, engine);
         return 0;
     }
     return static_cast<jlong>(reinterpret_cast<intptr_t>(handle));
@@ -190,12 +189,12 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeDestroySurfa
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeDestroy(
-    JNIEnv*,
+    JNIEnv* env,
     jobject,
     jlong handle
 ) {
     ColorFillHandle* colorFill = fromHandle(handle);
     if (colorFill == nullptr) return;
-    atmo::vulkan::destroyOnePass(colorFill->engine);
+    atmo::vulkan::destroyOnePass(env, colorFill->engine);
     delete colorFill;
 }

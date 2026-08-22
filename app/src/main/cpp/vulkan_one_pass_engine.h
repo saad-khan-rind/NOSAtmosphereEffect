@@ -28,7 +28,8 @@ using OnePassHandle = void*;
 uint32_t probeRuntime();
 
 OnePassHandle createOnePass(
-    AAssetManager* assets,
+    JNIEnv* env,
+    jobject assetManager,
     const OnePassConfig& config
 );
 
@@ -72,6 +73,6 @@ int render(OnePassHandle handle);
 
 void destroySurface(OnePassHandle handle);
 
-void destroyOnePass(OnePassHandle handle);
+void destroyOnePass(JNIEnv* env, OnePassHandle handle);
 
 }  // namespace atmo::vulkan
