@@ -9,6 +9,8 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.util.Log
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockTextureProvider
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
@@ -104,6 +106,29 @@ class AtmosphereRenderer(
         set(value) {
             field = GlassEffectPolicy.sanitizeLineThickness(value)
         }
+
+    // Depth-composited lock/home clock overlay (Advanced Settings toggle +
+    // ClockAdjustActivity for position/size). GLES-only for now:
+    // VulkanAtmosphereHost does not read this state, so devices on the
+    // Vulkan backend won't show the clock until that path is implemented.
+    @Volatile var clockEnabled: Boolean = false
+    @Volatile var clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeCenterX(value)
+        }
+    @Volatile var clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeTop(value)
+        }
+    @Volatile var clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeHeight(value)
+        }
+    @Volatile var clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeOpacity(value)
+        }
+    private val clockTexture = ClockTextureProvider(context)
 
     private var programId: Int = 0
     private var blurProgramId: Int = 0
@@ -208,6 +233,7 @@ class AtmosphereRenderer(
 
         currentSet.reset()
         nextSet.reset()
+        clockTexture.resetForNewContext()
         subjectMasks.discardPending()
         tempTextureId = 0
         tempTextureWidth = 0
@@ -598,6 +624,38 @@ class AtmosphereRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 2)
+
+        val clockReady = clockEnabled && clockTexture.ensureUpToDate()
+        GLES30.glUniform1f(
+            GLES30.glGetUniformLocation(programId, "uClockEnabled"),
+            if (clockReady) 1f else 0f
+        )
+        if (clockReady) {
+            val clockAspect = if (clockTexture.textureHeight > 0) {
+                clockTexture.textureWidth.toFloat() / clockTexture.textureHeight.toFloat()
+            } else {
+                1f
+            }
+            val heightUv = clockHeight
+            // Convert a screen-height-relative size to UV-space width so the
+            // glyph keeps its true pixel aspect ratio (see derivation in the
+            // renderer's onDrawFrame comment history / PR description).
+            val widthUv = heightUv * clockAspect / aspectRatio
+            GLES30.glUniform4f(
+                GLES30.glGetUniformLocation(programId, "uClockRect"),
+                clockCenterX - widthUv / 2f,
+                clockTop,
+                widthUv,
+                heightUv
+            )
+            GLES30.glUniform1f(
+                GLES30.glGetUniformLocation(programId, "uClockOpacity"),
+                clockOpacity
+            )
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clockTexture.textureId)
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uClockTexture"), 3)
+        }
 
             val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
             val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")

@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.renderer
 
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 
 data class AtmosphereBlobFrame(
@@ -59,6 +60,11 @@ data class AtmosphereRenderState(
     val drawerBlur: Float = 0f,
     val scrollOffsetX: Float = 0.5f,
     val scrollWindowX: Float = 1f,
+    val clockEnabled: Boolean = false,
+    val clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
+    val clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
+    val clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
+    val clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
     val blobs: AtmosphereBlobFrame = AtmosphereBlobFrame()
 ) {
     fun sanitized(): AtmosphereRenderState {
@@ -77,6 +83,10 @@ data class AtmosphereRenderState(
             drawerBlur = drawerBlur.finiteOr(0f).coerceIn(0f, 1f),
             scrollOffsetX = scrollOffsetX.finiteOr(0.5f).coerceIn(0f, 1f),
             scrollWindowX = scrollWindowX.finiteOr(1f).coerceIn(MIN_SCROLL_WINDOW, 1f),
+            clockCenterX = AtmosphereClockPolicy.sanitizeCenterX(clockCenterX),
+            clockTop = AtmosphereClockPolicy.sanitizeTop(clockTop),
+            clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
+            clockOpacity = AtmosphereClockPolicy.sanitizeOpacity(clockOpacity),
             blobs = blobs.sanitized()
         )
     }

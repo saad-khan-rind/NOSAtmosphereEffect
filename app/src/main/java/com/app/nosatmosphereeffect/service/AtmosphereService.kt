@@ -2,6 +2,7 @@ package com.app.nosatmosphereeffect.service
 
 import android.content.SharedPreferences
 import android.graphics.Bitmap
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
@@ -45,7 +46,24 @@ class AtmosphereService :
             contrast = preferences.readFloat("blob_contrast", 1f),
             noiseEnabled = preferences.readBoolean("enable_noise", false),
             noiseScale = preferences.readFloat("noise_scale", 2_000f),
-            noiseStrength = preferences.readFloat("noise_strength", 0.06f)
+            noiseStrength = preferences.readFloat("noise_strength", 0.06f),
+            clockEnabled = preferences.readBoolean(AtmosphereClockPolicy.ENABLED_KEY, false),
+            clockCenterX = preferences.readFloat(
+                AtmosphereClockPolicy.CENTER_X_KEY,
+                AtmosphereClockPolicy.DEFAULT_CENTER_X
+            ),
+            clockTop = preferences.readFloat(
+                AtmosphereClockPolicy.TOP_KEY,
+                AtmosphereClockPolicy.DEFAULT_TOP
+            ),
+            clockHeight = preferences.readFloat(
+                AtmosphereClockPolicy.HEIGHT_KEY,
+                AtmosphereClockPolicy.DEFAULT_HEIGHT
+            ),
+            clockOpacity = preferences.readFloat(
+                AtmosphereClockPolicy.OPACITY_KEY,
+                AtmosphereClockPolicy.DEFAULT_OPACITY
+            )
         )
     }
 

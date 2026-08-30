@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
@@ -97,7 +98,12 @@ class AtmosphereRenderController(
         glassEnabled: Boolean,
         glassLineCount: Int,
         glassLineThickness: Float,
-        glassBackgroundOnly: Boolean
+        glassBackgroundOnly: Boolean,
+        clockEnabled: Boolean = false,
+        clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
+        clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
+        clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
+        clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY
     ) {
         val snapshot = synchronized(lock) {
             configuredGlassEnabled = glassEnabled
@@ -112,7 +118,12 @@ class AtmosphereRenderController(
                 glassEnabled = glassEnabled,
                 glassLineCount = glassLineCount,
                 glassLineThickness = glassLineThickness,
-                glassBackgroundOnly = glassBackgroundOnly
+                glassBackgroundOnly = glassBackgroundOnly,
+                clockEnabled = AtmosphereClockPolicy.resolveEnabled(effectId, clockEnabled),
+                clockCenterX = clockCenterX,
+                clockTop = clockTop,
+                clockHeight = clockHeight,
+                clockOpacity = clockOpacity
             ).sanitized()
             state
         }
@@ -473,6 +484,11 @@ class AtmosphereRenderController(
         glassLineCount = state.glassLineCount
         glassLineThickness = state.glassLineThickness
         configureGlassBackgroundOnly(state.glassBackgroundOnly)
+        clockEnabled = state.clockEnabled
+        clockCenterX = state.clockCenterX
+        clockTop = state.clockTop
+        clockHeight = state.clockHeight
+        clockOpacity = state.clockOpacity
     }
 
     private fun BlurToSharpRenderer.applyState(state: AtmosphereRenderState) {

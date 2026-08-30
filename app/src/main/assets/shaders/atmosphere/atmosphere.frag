@@ -34,6 +34,11 @@ uniform float uScrollWindowX;
 uniform float uBackgroundOnly;
 uniform float uHasSubject;
 
+uniform sampler2D uClockTexture;
+uniform float uClockEnabled;
+uniform vec4 uClockRect;   // x, y, width, height — screen-locked UV (vEffectCoord) space
+uniform float uClockOpacity;
+
 const float TWO_PI = 6.28318530718;
 
 vec3 sampleGlassSoftened(vec2 sampleUv, vec2 texel) {
@@ -232,6 +237,31 @@ void main() {
         float noise = random(grainUV);
         float noiseVisibility = smoothstep(0.4, 1.0, t);
         finalColor += vec3(noise * uNoiseStrength * noiseVisibility);
+    }
+
+    // Depth-composited clock: sits on top of the atmosphere effect but
+    // behind the subject, so the subject visually occludes it — same trick
+    // as uBackgroundOnly above, applied globally instead of only within
+    // the static-glass sub-effect.
+    if (uClockEnabled > 0.5) {
+        vec2 clockUv = (vEffectCoord - uClockRect.xy) / uClockRect.zw;
+        if (
+            clockUv.x >= 0.0 && clockUv.x <= 1.0 &&
+            clockUv.y >= 0.0 && clockUv.y <= 1.0
+        ) {
+            vec4 clockSample = texture(uClockTexture, clockUv);
+            finalColor = mix(
+                finalColor,
+                clockSample.rgb,
+                clockSample.a * uClockOpacity
+            );
+        }
+
+        if (uHasSubject > 0.5) {
+            vec3 subjectSharp = texture(uTextureSharp, vTexCoord).rgb;
+            float subjectCoverage = smoothstep(0.30, 0.72, sampleSubject(vTexCoord));
+            finalColor = mix(finalColor, subjectSharp, subjectCoverage);
+        }
     }
 
     fragColor = vec4(finalColor, 1.0);

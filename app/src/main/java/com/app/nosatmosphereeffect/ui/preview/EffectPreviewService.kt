@@ -14,6 +14,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
@@ -51,7 +52,8 @@ class EffectPreviewService(
     cornerRadiusPx: Float,
     private val settingsMode: EffectPreviewSettingsMode =
         EffectPreviewSettingsMode.SAVED_ACTIVE,
-    private val atmosphereGlassEnabledOverride: Boolean? = null
+    private val atmosphereGlassEnabledOverride: Boolean? = null,
+    private val forceOpenGlEs: Boolean = false
 ) {
     private val appContext = context.applicationContext
     private val released = AtomicBoolean(false)
@@ -92,11 +94,15 @@ class EffectPreviewService(
                     configuredAtmosphereGlassBackgroundOnly
             )
         }
-        val selectedBackend = runCatching {
-            VulkanSupport.selectPreviewBackend(appContext, effectId)
-        }.getOrElse { failure ->
-            Log.w(TAG, "Unable to select the preview graphics backend", failure)
+        val selectedBackend = if (forceOpenGlEs) {
             GraphicsBackend.OPENGL_ES
+        } else {
+            runCatching {
+                VulkanSupport.selectPreviewBackend(appContext, effectId)
+            }.getOrElse { failure ->
+                Log.w(TAG, "Unable to select the preview graphics backend", failure)
+                GraphicsBackend.OPENGL_ES
+            }
         }
         if (selectedBackend == GraphicsBackend.VULKAN) {
             attachVulkan()
@@ -211,6 +217,10 @@ class EffectPreviewService(
                 val glassSettings = previewGlassSettings(prefs)
                 configuredAtmosphereGlassBackgroundOnly =
                     glassEnabled && glassSettings.backgroundOnly
+                val clockEnabled = AtmosphereClockPolicy.resolveEnabled(
+                    effectId,
+                    previewBoolean(prefs, AtmosphereClockPolicy.ENABLED_KEY, false)
+                )
                 EffectPreviewRenderState.Atmosphere(
                     AtmosphereRenderState(
                         dimLevel = previewFloat(prefs, "dim_level", 0.2f),
@@ -223,7 +233,28 @@ class EffectPreviewService(
                         glassLineCount = glassSettings.lineCount,
                         glassLineThickness = glassSettings.lineThickness,
                         glassBackgroundOnly =
-                            configuredAtmosphereGlassBackgroundOnly
+                            configuredAtmosphereGlassBackgroundOnly,
+                        clockEnabled = clockEnabled,
+                        clockCenterX = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.CENTER_X_KEY,
+                            AtmosphereClockPolicy.DEFAULT_CENTER_X
+                        ),
+                        clockTop = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.TOP_KEY,
+                            AtmosphereClockPolicy.DEFAULT_TOP
+                        ),
+                        clockHeight = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.HEIGHT_KEY,
+                            AtmosphereClockPolicy.DEFAULT_HEIGHT
+                        ),
+                        clockOpacity = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.OPACITY_KEY,
+                            AtmosphereClockPolicy.DEFAULT_OPACITY
+                        )
                     ).sanitized()
                 )
             }
@@ -443,6 +474,11 @@ class EffectPreviewService(
                 renderer.glassLineCount = value.glassLineCount
                 renderer.glassLineThickness = value.glassLineThickness
                 renderer.configureGlassBackgroundOnly(value.glassBackgroundOnly)
+                renderer.clockEnabled = value.clockEnabled
+                renderer.clockCenterX = value.clockCenterX
+                renderer.clockTop = value.clockTop
+                renderer.clockHeight = value.clockHeight
+                renderer.clockOpacity = value.clockOpacity
             }
             renderer is BlurToSharpRenderer &&
                 state is EffectPreviewRenderState.Atmosphere -> {

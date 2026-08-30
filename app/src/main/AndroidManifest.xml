@@ -62,6 +62,8 @@
             android:name=".activity.AdvancedSettingsActivity"
             android:windowSoftInputMode="adjustResize"/>
 
+        <activity android:name=".activity.ClockAdjustActivity" />
+
         <activity android:name=".activity.MultiImageCropActivity" />
         <activity android:name=".activity.PlaylistEditorActivity"/>
         <activity android:name=".activity.ThemePlaylistEditorActivity" />

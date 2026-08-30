@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.ui.screens
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -40,8 +41,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.activity.ClockAdjustActivity
 import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
@@ -71,6 +74,8 @@ data class AdvancedConfig(
     val showGlass: Boolean,
     val showAtmosphereGlassToggle: Boolean,
     val atmosphereGlassEnabled: Boolean,
+    val showClockToggle: Boolean,
+    val clockEnabled: Boolean,
     val glassReverse: Boolean,
     val showNoiseSwitch: Boolean,
     val showBlob: Boolean,
@@ -125,6 +130,7 @@ data class AdvancedResult(
     val neonSensitivity: Float,
     val neonLineWidth: Float,
     val atmosphereGlassEnabled: Boolean,
+    val clockEnabled: Boolean,
     val glassLineCount: Int,
     val glassLineThickness: Float,
     val glassTransitionStyle: GlassTransitionStyle,
@@ -171,6 +177,9 @@ fun AdvancedSettingsScreen(
     var neonLineWidth by remember { mutableFloatStateOf(config.neonLineWidth) }
     var atmosphereGlassEnabled by remember {
         mutableStateOf(config.atmosphereGlassEnabled)
+    }
+    var clockEnabled by remember {
+        mutableStateOf(config.clockEnabled)
     }
     var glassLineCount by remember { mutableFloatStateOf(config.glassLineCount.toFloat()) }
     var glassLineThickness by remember {
@@ -253,6 +262,7 @@ fun AdvancedSettingsScreen(
         neonSensitivity = neonSensitivity,
         neonLineWidth = neonLineWidth,
         atmosphereGlassEnabled = atmosphereGlassEnabled,
+        clockEnabled = clockEnabled,
         glassLineCount = GlassEffectPolicy.sanitizeLineCount(glassLineCount),
         glassLineThickness = GlassEffectPolicy.sanitizeLineThickness(glassLineThickness),
         glassTransitionStyle = glassTransitionStyle,
@@ -352,6 +362,8 @@ fun AdvancedSettingsScreen(
                         onAtmosphereGlassEnabledChange = {
                             atmosphereGlassEnabled = it
                         },
+                        clockEnabled = clockEnabled,
+                        onClockEnabledChange = { clockEnabled = it },
                         glassLineCount = glassLineCount,
                         onGlassLineCountChange = { glassLineCount = it },
                         glassLineThickness = glassLineThickness,
@@ -447,6 +459,8 @@ private fun EffectSettings(
     onNeonLineWidthChange: (Float) -> Unit,
     atmosphereGlassEnabled: Boolean,
     onAtmosphereGlassEnabledChange: (Boolean) -> Unit,
+    clockEnabled: Boolean,
+    onClockEnabledChange: (Boolean) -> Unit,
     glassLineCount: Float,
     onGlassLineCountChange: (Float) -> Unit,
     glassLineThickness: Float,
@@ -561,6 +575,34 @@ private fun EffectSettings(
                             onDownloadSubjectModel = onDownloadSubjectModel
                         )
                     }
+                }
+            }
+        }
+
+        if (config.showClockToggle) {
+            SettingsGroup("Clock") {
+                SettingSwitchRow(
+                    title = "Show clock on wallpaper",
+                    checked = clockEnabled,
+                    onCheckedChange = onClockEnabledChange,
+                    subtitle = if (clockEnabled) {
+                        "Drawn behind the subject, like a depth-effect photo. " +
+                            "Hide your device's own lock screen clock to avoid " +
+                            "seeing two."
+                    } else {
+                        "Renders a clock into the wallpaper itself."
+                    }
+                )
+                if (clockEnabled) {
+                    val context = LocalContext.current
+                    AtmoTextButton(
+                        text = "Adjust clock position & size",
+                        onClick = {
+                            context.startActivity(
+                                Intent(context, ClockAdjustActivity::class.java)
+                            )
+                        }
+                    )
                 }
             }
         }
