@@ -2,6 +2,7 @@ package com.app.nosatmosphereeffect.activity
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,23 +22,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,11 +59,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewService
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
+import java.io.File
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Lets the person drag the depth-clock overlay to the right spot and size
@@ -162,6 +171,25 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
     // recreate-on-key-change pattern WallpaperTransitionPreview uses.
     var previewVersion by remember { mutableIntStateOf(0) }
 
+    // The person's actual applied wallpaper photo, not a generic demo image
+    // — the whole point of this screen is calibrating against what they'll
+    // really see, including whether a subject is detected in *their* photo.
+    var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var wallpaperLoadFinished by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        wallpaperBitmap = withContext(Dispatchers.IO) {
+            loadCurrentWallpaperBitmap(context)
+        }
+        wallpaperLoadFinished = true
+    }
+
+    val subjectSeparationEnabled = remember(prefs) {
+        prefs.getBoolean(CanvasSubjectSettings.ENABLED_KEY, false)
+    }
+    val subjectModelReady = remember(prefs) {
+        prefs.getBoolean(CanvasSubjectSettings.MODEL_READY_KEY, false)
+    }
+
     fun persist() {
         centerX = AtmosphereClockPolicy.sanitizeCenterX(centerX)
         top = AtmosphereClockPolicy.sanitizeTop(top)
@@ -188,8 +216,17 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
             val previewWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
             val previewHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
 
-            key(previewVersion) {
-                ClockCalibrationPreview(modifier = Modifier.fillMaxSize())
+            if (wallpaperLoadFinished) {
+                key(previewVersion) {
+                    ClockCalibrationPreview(
+                        wallpaper = wallpaperBitmap,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                }
             }
 
             // Approximate handle aspect (a real "HH:mm" glyph is roughly
@@ -235,6 +272,32 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
             }
         }
 
+        if (wallpaperLoadFinished && wallpaperBitmap == null) {
+            Text(
+                "No wallpaper set yet — showing a sample photo instead of " +
+                    "your own.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (!subjectSeparationEnabled) {
+            Text(
+                "Subject separation is off, so the clock won't be occluded " +
+                    "by anyone in the photo — turn it on in Advanced " +
+                    "Settings to see the depth effect.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else if (!subjectModelReady) {
+            Text(
+                "The subject-detection model isn't ready yet on this " +
+                    "device, so the depth effect may not show here until " +
+                    "it finishes downloading.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Size", style = MaterialTheme.typography.labelLarge)
             Slider(
@@ -269,14 +332,14 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
  * forceOpenGlEs param.
  */
 @Composable
-private fun ClockCalibrationPreview(modifier: Modifier = Modifier) {
+private fun ClockCalibrationPreview(wallpaper: Bitmap?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val preview = remember {
+    val preview = remember(wallpaper) {
         EffectPreviewService(
             context = context,
             effectId = "ORIGINAL",
-            source = null,
+            source = wallpaper,
             cornerRadiusPx = 0f,
             settingsMode = EffectPreviewSettingsMode.SAVED_ACTIVE,
             forceOpenGlEs = true
@@ -303,4 +366,22 @@ private fun ClockCalibrationPreview(modifier: Modifier = Modifier) {
     }
 
     AndroidView(factory = { preview.view }, modifier = modifier)
+}
+
+/**
+ * Loads the same "currently applied wallpaper" file MainActivity previews
+ * elsewhere in the app (files/wallpaper.jpg). Returns null if none is set
+ * yet or it can't be decoded — EffectPreviewService falls back to its own
+ * demo photo in that case.
+ */
+private suspend fun loadCurrentWallpaperBitmap(context: Context): Bitmap? {
+    val file = File(context.filesDir, "wallpaper.jpg")
+    if (!file.exists()) return null
+    return try {
+        BitmapDecoder.decodePreview(file)
+    } catch (failure: java.io.IOException) {
+        null
+    } catch (failure: RuntimeException) {
+        null
+    }
 }
