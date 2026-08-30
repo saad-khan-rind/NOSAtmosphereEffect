@@ -87,17 +87,26 @@ class ClockAdjustActivity : ComponentActivity() {
 private fun ClockAdjustScreen(onDone: () -> Unit) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Adjust clock") },
-                navigationIcon = {
-                    IconButton(onClick = onDone) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Done"
-                        )
-                    }
+            // Replaced TopAppBar with a standard Row to avoid ExperimentalMaterial3Api
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDone) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Done"
+                    )
                 }
-            )
+                Text(
+                    text = "Adjust clock",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -109,8 +118,8 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         ) {
             Text(
                 "Drag the clock to where your device hides its own lock " +
-                    "screen clock, and resize it to taste. Changes apply to " +
-                    "the wallpaper immediately.",
+                        "screen clock, and resize it to taste. Changes apply to " +
+                        "the wallpaper immediately.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
