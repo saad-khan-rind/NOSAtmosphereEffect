@@ -117,6 +117,14 @@ class ClockTextureProvider(private val context: Context) {
     }
 
     private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int): Int {
+        // Drain any GL errors left over from earlier, unrelated calls this
+        // frame (e.g. a blob-array overflow elsewhere in onDrawFrame) —
+        // otherwise the check() below can misattribute a stray error to
+        // this upload and throw, silently disabling the clock every time
+        // something upstream leaves an unchecked error queued.
+        while (GLES30.glGetError() != GLES30.GL_NO_ERROR) {
+            // intentionally empty: just flushing the error queue
+        }
         val isNewTexture = existingTextureId == 0
         val textureId = if (isNewTexture) {
             val generated = IntArray(1)

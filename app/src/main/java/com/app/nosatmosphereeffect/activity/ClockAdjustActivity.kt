@@ -7,40 +7,33 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.edit
@@ -60,24 +54,30 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.image.BitmapDecoder
-import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewService
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * Lets the person drag the depth-clock overlay to the right spot and size
- * against a live (GLES-forced) preview of the Atmosphere effect, since
- * there is no public API to read a device's real lock-screen clock
- * position — see PR discussion in AtmosphereClockPolicy / AtmosphereRenderer.
+ * Full-screen calibration for the Atmosphere depth-clock overlay — pinch to
+ * resize, drag to reposition, against a live preview of the person's actual
+ * applied wallpaper. Modeled on the app's crop screen rather than a settings
+ * card, since the whole point is judging placement against the real photo
+ * edge-to-edge.
  *
- * Only reachable from Advanced Settings when the clock toggle is on for
- * the original Atmosphere effect (see AdvancedSettingsScreen).
+ * There is no public API to read a device's real lock-screen clock position
+ * (see AtmosphereClockPolicy/AtmosphereRenderer for the longer version of
+ * why), so this is the substitute: let the person eyeball it, live.
+ *
+ * Only reachable from Advanced Settings when the clock toggle is on for the
+ * original Atmosphere effect (see AdvancedSettingsScreen).
  */
 class ClockAdjustActivity : ComponentActivity() {
 
@@ -94,52 +94,6 @@ class ClockAdjustActivity : ComponentActivity() {
 
 @Composable
 private fun ClockAdjustScreen(onDone: () -> Unit) {
-    Scaffold(
-        topBar = {
-            // Replaced TopAppBar with a standard Row to avoid ExperimentalMaterial3Api
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onDone) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Done"
-                    )
-                }
-                Text(
-                    text = "Adjust clock",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(start = 12.dp)
-                )
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            Text(
-                "Drag the clock to where your device hides its own lock " +
-                        "screen clock, and resize it to taste. Changes apply to " +
-                        "the wallpaper immediately.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            ClockCalibrationCard(modifier = Modifier.fillMaxWidth())
-        }
-    }
-}
-
-@Composable
-private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = remember(context) {
         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -166,14 +120,16 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
             )
         )
     }
-    // Bumped after every committed change (drag release / slider settle) so
-    // the preview below recreates against the new saved values — same
-    // recreate-on-key-change pattern WallpaperTransitionPreview uses.
-    var previewVersion by remember { mutableIntStateOf(0) }
 
-    // The person's actual applied wallpaper photo, not a generic demo image
-    // — the whole point of this screen is calibrating against what they'll
-    // really see, including whether a subject is detected in *their* photo.
+    // The live preview instance, once created — used to push geometry
+    // straight to the running renderer on every gesture tick, so dragging
+    // feels immediate instead of waiting on a debounce + rebuild.
+    var activePreview by remember { mutableStateOf<EffectPreviewService?>(null) }
+
+    fun pushLive() {
+        activePreview?.setAtmosphereClockGeometry(centerX, top, heightFraction)
+    }
+
     var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var wallpaperLoadFinished by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -183,8 +139,11 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
         wallpaperLoadFinished = true
     }
 
-    val subjectSeparationEnabled = remember(prefs) {
-        prefs.getBoolean(CanvasSubjectSettings.ENABLED_KEY, false)
+    val subjectMaskDrivingKeyEnabled = remember(prefs) {
+        // For Atmosphere, subject-mask computation (which the clock's depth
+        // occlusion depends on) is driven by "background only", not a
+        // separate general subject-separation switch.
+        prefs.getBoolean(GlassEffectPolicy.BACKGROUND_ONLY_KEY, false)
     }
     val subjectModelReady = remember(prefs) {
         prefs.getBoolean(CanvasSubjectSettings.MODEL_READY_KEY, false)
@@ -202,125 +161,153 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
         val update = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
         update.setPackage(context.packageName)
         context.sendBroadcast(update)
-        previewVersion++
     }
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        BoxWithConstraints(
-            Modifier
-                .fillMaxWidth()
-                .aspectRatio(9f / 19.5f)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color.Black)
-        ) {
-            val previewWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
-            val previewHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
+    // The on-screen preview updates instantly via pushLive() on every
+    // gesture tick; this debounce only covers writing to prefs + telling
+    // the real wallpaper, so we're not hammering SharedPreferences/sending
+    // a broadcast on every pixel of movement.
+    LaunchedEffect(centerX, top, heightFraction) {
+        delay(400)
+        persist()
+    }
 
-            if (wallpaperLoadFinished) {
-                key(previewVersion) {
-                    ClockCalibrationPreview(
-                        wallpaper = wallpaperBitmap,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                }
+    var containerSizePx by remember { mutableStateOf(IntSize.Zero) }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .onSizeChanged { containerSizePx = it }
+    ) {
+        if (wallpaperLoadFinished) {
+            ClockCalibrationPreview(
+                wallpaper = wallpaperBitmap,
+                onPreviewCreated = { activePreview = it },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
             }
+        }
 
-            // Approximate handle aspect (a real "HH:mm" glyph is roughly
-            // this wide relative to its height); the live preview under it
-            // renders the true glyph, this box is just the drag target.
+        if (containerSizePx.width > 0 && containerSizePx.height > 0) {
+            val containerWidthPx = containerSizePx.width.toFloat()
+            val containerHeightPx = containerSizePx.height.toFloat()
             val handleAspect = 3.2f
-            val handleHeightPx = heightFraction * previewHeightPx
+            val handleHeightPx = heightFraction * containerHeightPx
             val handleWidthPx = handleHeightPx * handleAspect
-            val handleXPx = centerX * previewWidthPx - handleWidthPx / 2f
-            val handleYPx = top * previewHeightPx
+            val handleXPx = centerX * containerWidthPx - handleWidthPx / 2f
+            val handleYPx = top * containerHeightPx
 
             Box(
                 modifier = Modifier
-                    .offset {
-                        IntOffset(handleXPx.roundToInt(), handleYPx.roundToInt())
-                    }
-                    .width(with(LocalDensity.current) { handleWidthPx.toDp() })
-                    .height(with(LocalDensity.current) { handleHeightPx.toDp() })
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.08f))
-                    .pointerInput(previewWidthPx, previewHeightPx) {
-                        detectDragGestures(
-                            onDragEnd = { persist() },
-                            onDragCancel = { persist() }
-                        ) { change, dragAmount ->
-                            change.consume()
-                            centerX = (centerX + dragAmount.x / previewWidthPx)
+                    .fillMaxSize()
+                    .pointerInput(containerWidthPx, containerHeightPx) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            centerX = (centerX + pan.x / containerWidthPx)
                                 .coerceIn(0.05f, 0.95f)
-                            top = (top + dragAmount.y / previewHeightPx)
+                            top = (top + pan.y / containerHeightPx)
                                 .coerceIn(0.02f, 0.85f)
+                            if (zoom != 1f) {
+                                heightFraction = AtmosphereClockPolicy.sanitizeHeight(
+                                    heightFraction * zoom
+                                )
+                            }
+                            pushLive()
                         }
-                    },
-                contentAlignment = Alignment.Center
+                    }
             ) {
                 Box(
-                    Modifier
-                        .fillMaxSize()
-                        .border(
-                            BorderStroke(2.dp, Color.Yellow),
-                            RoundedCornerShape(8.dp)
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(handleXPx.roundToInt(), handleYPx.roundToInt())
+                        }
+                        .size(
+                            with(LocalDensity.current) { handleWidthPx.toDp() },
+                            with(LocalDensity.current) { handleHeightPx.toDp() }
                         )
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(2.dp, Color.Yellow, RoundedCornerShape(8.dp))
                 )
             }
         }
 
-        if (wallpaperLoadFinished && wallpaperBitmap == null) {
-            Text(
-                "No wallpaper set yet — showing a sample photo instead of " +
-                    "your own.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (!subjectSeparationEnabled) {
-            Text(
-                "Subject separation is off, so the clock won't be occluded " +
-                    "by anyone in the photo — turn it on in Advanced " +
-                    "Settings to see the depth effect.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else if (!subjectModelReady) {
-            Text(
-                "The subject-detection model isn't ready yet on this " +
-                    "device, so the depth effect may not show here until " +
-                    "it finishes downloading.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Size", style = MaterialTheme.typography.labelLarge)
-            Slider(
-                value = heightFraction,
-                onValueChange = { heightFraction = it },
-                onValueChangeFinished = { persist() },
-                valueRange = 0.04f..0.32f
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+        // Top scrim bar, overlaid rather than pushing the image down —
+        // matches the crop screen's full-bleed feel.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .background(Color.Black.copy(alpha = 0.35f))
+                .align(Alignment.TopStart)
         ) {
-            AtmoTextButton(
-                text = "Reset to default",
-                onClick = {
-                    centerX = AtmosphereClockPolicy.DEFAULT_CENTER_X
-                    top = AtmosphereClockPolicy.DEFAULT_TOP
-                    heightFraction = AtmosphereClockPolicy.DEFAULT_HEIGHT
-                    persist()
+            Box(Modifier.fillMaxWidth().padding(4.dp)) {
+                IconButton(onClick = onDone, modifier = Modifier.align(Alignment.CenterStart)) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Done",
+                        tint = Color.White
+                    )
                 }
-            )
+                Text(
+                    "Pinch to resize, drag to move",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                IconButton(
+                    onClick = {
+                        centerX = AtmosphereClockPolicy.DEFAULT_CENTER_X
+                        top = AtmosphereClockPolicy.DEFAULT_TOP
+                        heightFraction = AtmosphereClockPolicy.DEFAULT_HEIGHT
+                        pushLive()
+                    },
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = "Reset", tint = Color.White)
+                }
+            }
+        }
+
+        // Bottom hint strip — only shown when it explains something the
+        // person can't see for themselves (no wallpaper yet, depth effect
+        // won't show yet).
+        val hints = buildList {
+            if (wallpaperLoadFinished && wallpaperBitmap == null) {
+                add("No wallpaper set yet — showing a sample photo.")
+            }
+            if (!subjectMaskDrivingKeyEnabled) {
+                add(
+                    "\"Background only\" is off for the Glass effect, so " +
+                        "nothing will occlude the clock — it was turned on " +
+                        "automatically when you enabled the clock; if you " +
+                        "turned it back off, re-enable it to see the depth " +
+                        "effect."
+                )
+            } else if (!subjectModelReady) {
+                add(
+                    "The subject-detection model isn't ready on this " +
+                        "device yet, so occlusion may not show here until " +
+                        "it finishes downloading."
+                )
+            }
+        }
+        if (hints.isNotEmpty()) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomStart)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(16.dp)
+            ) {
+                Text(
+                    hints.joinToString("\n\n"),
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }
@@ -329,10 +316,15 @@ private fun ClockCalibrationCard(modifier: Modifier = Modifier) {
  * A minimal live preview of the Atmosphere effect, forced onto the GLES
  * backend (the only one the clock overlay is implemented on) regardless of
  * the device's normal Vulkan/OpenGL ES preference — see EffectPreviewService's
- * forceOpenGlEs param.
+ * forceOpenGlEs param. Reports the created instance back via
+ * [onPreviewCreated] so the caller can push live geometry updates to it.
  */
 @Composable
-private fun ClockCalibrationPreview(wallpaper: Bitmap?, modifier: Modifier = Modifier) {
+private fun ClockCalibrationPreview(
+    wallpaper: Bitmap?,
+    onPreviewCreated: (EffectPreviewService) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val preview = remember(wallpaper) {
@@ -358,6 +350,7 @@ private fun ClockCalibrationPreview(wallpaper: Bitmap?, modifier: Modifier = Mod
         lifecycle.addObserver(observer)
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) preview.resume()
         preview.setAppliedState(effectApplied = false) // lock-screen endpoint
+        onPreviewCreated(preview)
 
         onDispose {
             lifecycle.removeObserver(observer)

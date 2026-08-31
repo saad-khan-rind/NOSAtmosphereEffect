@@ -363,7 +363,15 @@ fun AdvancedSettingsScreen(
                             atmosphereGlassEnabled = it
                         },
                         clockEnabled = clockEnabled,
-                        onClockEnabledChange = { clockEnabled = it },
+                        onClockEnabledChange = {
+                            clockEnabled = it
+                            // The clock's depth occlusion needs subject-mask
+                            // computation running, which for Atmosphere is
+                            // driven by "background only" (not a generic
+                            // subject-separation toggle) — turn it on so the
+                            // depth effect actually has something to show.
+                            if (it) glassBackgroundOnly = true
+                        },
                         glassLineCount = glassLineCount,
                         onGlassLineCountChange = { glassLineCount = it },
                         glassLineThickness = glassLineThickness,

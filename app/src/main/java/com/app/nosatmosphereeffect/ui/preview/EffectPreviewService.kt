@@ -144,6 +144,29 @@ class EffectPreviewService(
         )
     }
 
+    /**
+     * Pushes clock geometry straight to the live GLES renderer, bypassing
+     * the state/prefs machinery entirely — for interactive dragging in
+     * ClockAdjustActivity, where recreating the whole preview per pointer
+     * event would be too janky. Call [setRendererProgress]'s normal path
+     * (or just rely on the next full state rebuild) for anything else.
+     */
+    fun setAtmosphereClockGeometry(centerX: Float, top: Float, height: Float) {
+        if (released.get() || activeBackend != GraphicsBackend.OPENGL_ES) return
+        val surface = openGlSurface
+        val renderer = openGlRenderer
+        if (surface != null && renderer is AtmosphereRenderer) {
+            surface.queueEvent {
+                if (!released.get() && openGlRenderer === renderer) {
+                    renderer.clockCenterX = centerX
+                    renderer.clockTop = top
+                    renderer.clockHeight = height
+                }
+            }
+            requestActiveRender()
+        }
+    }
+
     private fun setRendererProgress(
         rendererProgress: Float,
         atmosphereGlassEnabled: Boolean
