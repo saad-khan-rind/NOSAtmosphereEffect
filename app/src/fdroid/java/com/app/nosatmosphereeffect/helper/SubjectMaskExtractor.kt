@@ -59,7 +59,7 @@ class SubjectMaskExtractor(
 
         val inputBitmap = try {
             makeInputBitmap(bitmap)
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
             if (!closed) onResult(requestId, null)
             return
@@ -69,7 +69,12 @@ class SubjectMaskExtractor(
             worker.execute {
                 val mask = try {
                     if (closed) null else inferMask(inputBitmap)
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
+                    // Throwable, not Exception: a large/malformed wallpaper
+                    // can push the bundled TFLite model into OutOfMemoryError
+                    // on lower-end devices, which is an Error, not an
+                    // Exception — this is a best-effort visual feature, so
+                    // degrade to "no mask" instead of crashing the app.
                     Log.w(TAG, "Bundled subject segmentation failed", error)
                     null
                 } finally {

@@ -281,10 +281,11 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             if (!subjectMaskDrivingKeyEnabled) {
                 add(
                     "\"Background only\" is off for the Glass effect, so " +
-                        "nothing will occlude the clock — it was turned on " +
-                        "automatically when you enabled the clock; if you " +
-                        "turned it back off, re-enable it to see the depth " +
-                        "effect."
+                        "nothing will occlude the clock — turn it on in " +
+                        "Advanced Settings to see the depth effect. Note: " +
+                        "this is a shared setting also used by the Glass " +
+                        "effect itself, so check that toggling it doesn't " +
+                        "cause problems there on your device first."
                 )
             } else if (!subjectModelReady) {
                 add(

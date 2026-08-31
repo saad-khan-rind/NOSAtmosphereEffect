@@ -45,7 +45,7 @@ class SubjectMaskExtractor(
         if (closed || bitmap.width <= 0 || bitmap.height <= 0) return
         val inputBitmap = try {
             makeInputBitmap(bitmap)
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
             if (!closed) onResult(requestId, null)
             return
@@ -147,7 +147,7 @@ class SubjectMaskExtractor(
                                     Bitmap.Config.ARGB_8888
                                 )
                             }
-                        } catch (error: Exception) {
+                        } catch (error: Throwable) {
                             Log.w(TAG, "Could not create a subject mask", error)
                             null
                         }
@@ -166,7 +166,7 @@ class SubjectMaskExtractor(
                 .addOnCompleteListener {
                     inputBitmap.recycle()
                 }
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             Log.w(TAG, "Could not start subject segmentation", error)
             inputBitmap.recycle()
             if (!closed) onResult(requestId, null)

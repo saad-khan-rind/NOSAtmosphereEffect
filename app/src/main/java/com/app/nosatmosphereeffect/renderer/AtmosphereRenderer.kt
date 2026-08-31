@@ -174,13 +174,21 @@ class AtmosphereRenderer(
     }
 
     fun configureGlassBackgroundOnly(enabled: Boolean) {
-        val changed = subjectMasks.configure(enabled)
-        if (
-            enabled &&
-            currentSet.isValid() &&
-            (changed || !currentSet.hasSubject)
-        ) {
-            needsReload = true
+        try {
+            val changed = subjectMasks.configure(enabled)
+            if (
+                enabled &&
+                currentSet.isValid() &&
+                (changed || !currentSet.hasSubject)
+            ) {
+                needsReload = true
+            }
+        } catch (failure: Exception) {
+            // Best-effort visual feature — never let a failure here take
+            // down the caller (this runs on the main thread via the
+            // preferences broadcast receiver, so an uncaught exception
+            // here would crash the whole app, not just this effect).
+            Log.w(TAG, "Could not configure background-only mode", failure)
         }
     }
 
@@ -625,7 +633,8 @@ class AtmosphereRenderer(
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 2)
 
-        val clockReady = clockEnabled && clockTexture.ensureUpToDate()
+        val clockLockFade = (1f - blurStrength / CLOCK_LOCK_FADE_RANGE).coerceIn(0f, 1f)
+        val clockReady = clockEnabled && clockLockFade > 0f && clockTexture.ensureUpToDate()
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uClockEnabled"),
             if (clockReady) 1f else 0f
@@ -650,7 +659,7 @@ class AtmosphereRenderer(
             )
             GLES30.glUniform1f(
                 GLES30.glGetUniformLocation(programId, "uClockOpacity"),
-                clockOpacity
+                clockOpacity * clockLockFade
             )
             GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clockTexture.textureId)
@@ -1008,5 +1017,10 @@ class AtmosphereRenderer(
     private companion object {
         const val TAG = "AtmosphereRenderer"
         const val MAX_RENDER_RETRIES = 3
+        // "ORIGINAL" maps blurStrength 0 -> lock screen, 1 -> home screen
+        // (see EffectStatePolicy.endpoints). The clock is a lock-screen
+        // feature, so fade it out over the first slice of the unlock
+        // transition rather than showing it on the home screen too.
+        const val CLOCK_LOCK_FADE_RANGE = 0.25f
     }
 }
