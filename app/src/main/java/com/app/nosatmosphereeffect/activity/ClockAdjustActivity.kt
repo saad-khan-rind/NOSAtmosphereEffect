@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewService
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
@@ -147,6 +148,18 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
     val subjectModelReady = remember(prefs) {
         prefs.getBoolean(CanvasSubjectSettings.MODEL_READY_KEY, false)
+    }
+
+    // SubjectMaskDiagnostics is a plain in-memory holder (not Compose
+    // state), written from a background thread doing mask computation —
+    // poll it instead of trying to observe it directly, so a real failure
+    // reason shows up here without needing adb/logcat.
+    var lastMaskFailure by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            lastMaskFailure = SubjectMaskDiagnostics.lastFailure
+            delay(500)
+        }
     }
 
     fun persist() {
@@ -293,6 +306,11 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                         "device yet, so occlusion may not show here until " +
                         "it finishes downloading."
                 )
+            } else if (lastMaskFailure != null) {
+                // "Background only" is on and the model's ready, but the
+                // most recent attempt failed or was rejected — show why,
+                // straight from the code that tried, no adb needed.
+                add("No depth effect yet: $lastMaskFailure")
             }
         }
         if (hints.isNotEmpty()) {

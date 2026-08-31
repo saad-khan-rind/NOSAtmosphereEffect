@@ -61,6 +61,7 @@ class SubjectMaskExtractor(
             makeInputBitmap(bitmap)
         } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
+            SubjectMaskDiagnostics.recordFailure("Preparing image (bundled)", error)
             if (!closed) onResult(requestId, null)
             return
         }
@@ -76,10 +77,13 @@ class SubjectMaskExtractor(
                     // Exception — this is a best-effort visual feature, so
                     // degrade to "no mask" instead of crashing the app.
                     Log.w(TAG, "Bundled subject segmentation failed", error)
+                    SubjectMaskDiagnostics.recordFailure("Inference (bundled)", error)
                     null
                 } finally {
                     inputBitmap.recycle()
                 }
+
+                if (mask != null) SubjectMaskDiagnostics.recordSuccess()
 
                 if (closed) {
                     mask?.recycle()
@@ -89,6 +93,7 @@ class SubjectMaskExtractor(
             }
         } catch (error: RejectedExecutionException) {
             Log.w(TAG, "Subject-segmentation request was rejected", error)
+            SubjectMaskDiagnostics.recordFailure("Scheduling (bundled)", error)
             inputBitmap.recycle()
             if (!closed) onResult(requestId, null)
         }

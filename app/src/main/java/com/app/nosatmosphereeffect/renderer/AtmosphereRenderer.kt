@@ -13,6 +13,7 @@ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockTextureProvider
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.io.File
@@ -189,6 +190,7 @@ class AtmosphereRenderer(
             // preferences broadcast receiver, so an uncaught exception
             // here would crash the whole app, not just this effect).
             Log.w(TAG, "Could not configure background-only mode", failure)
+            SubjectMaskDiagnostics.recordFailure("Enabling background-only", failure)
         }
     }
 
@@ -847,6 +849,7 @@ class AtmosphereRenderer(
             currentSet.hasSubject = true
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to upload the Atmosphere subject mask", failure)
+            SubjectMaskDiagnostics.recordFailure("Uploading mask texture", failure)
             deleteMaskTexture(currentSet)
         } finally {
             if (!pending.bitmap.isRecycled) {
@@ -860,6 +863,7 @@ class AtmosphereRenderer(
             subjectMasks.request(bitmap, generation)
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to request the Atmosphere subject mask", failure)
+            SubjectMaskDiagnostics.recordFailure("Requesting mask", failure)
         }
     }
 
