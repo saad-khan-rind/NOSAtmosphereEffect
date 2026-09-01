@@ -20,6 +20,8 @@ class SubjectMaskExtractor(
     private val onResult: (requestId: Long, mask: Bitmap?) -> Unit
 ) : Closeable {
 
+    private val appContext = context.applicationContext
+
     private companion object {
         const val TAG = "SubjectMaskExtractor"
         const val MAX_INPUT_SIDE = 1024
@@ -75,6 +77,11 @@ class SubjectMaskExtractor(
     }
 
     private fun processInput(inputBitmap: Bitmap, requestId: Long) {
+        if (!SegmentationCrashGuard.beginAttempt(appContext)) {
+            inputBitmap.recycle()
+            if (!closed) onResult(requestId, null)
+            return
+        }
         try {
             segmenter.process(InputImage.fromBitmap(inputBitmap, 0))
                 .addOnSuccessListener { result ->
@@ -183,6 +190,7 @@ class SubjectMaskExtractor(
 
                     if (mask != null) SubjectMaskDiagnostics.recordSuccess()
 
+                    SegmentationCrashGuard.endAttempt(appContext)
                     if (closed) {
                         mask?.recycle()
                     } else {
@@ -192,6 +200,7 @@ class SubjectMaskExtractor(
                 .addOnFailureListener { error ->
                     Log.w(TAG, "Subject segmentation failed", error)
                     SubjectMaskDiagnostics.recordFailure("Segmentation", error)
+                    SegmentationCrashGuard.endAttempt(appContext)
                     if (!closed) onResult(requestId, null)
                 }
                 .addOnCompleteListener {
@@ -200,6 +209,7 @@ class SubjectMaskExtractor(
         } catch (error: Throwable) {
             Log.w(TAG, "Could not start subject segmentation", error)
             SubjectMaskDiagnostics.recordFailure("Starting segmentation", error)
+            SegmentationCrashGuard.endAttempt(appContext)
             inputBitmap.recycle()
             if (!closed) onResult(requestId, null)
         }

@@ -29,6 +29,10 @@ internal object VulkanAtmosphereNative {
 
     external fun nativeClearMask(handle: Long): Boolean
 
+    external fun nativeUploadClock(handle: Long, bitmap: Bitmap): Boolean
+
+    external fun nativeClearClock(handle: Long): Boolean
+
     external fun nativeSetState(
         handle: Long,
         progress: Float,
@@ -46,6 +50,12 @@ internal object VulkanAtmosphereNative {
         backgroundOnly: Boolean,
         hasSubject: Boolean,
         drawerBlur: Float,
+        clockCenterX: Float,
+        clockTop: Float,
+        clockHeightFraction: Float,
+        clockTextureAspect: Float,
+        clockOpacity: Float,
+        clockEnabled: Boolean,
         blobColors: FloatArray,
         blobPositions: FloatArray,
         blobSizes: FloatArray,
@@ -119,6 +129,12 @@ internal class VulkanAtmosphereBridge(
             backgroundOnly = safe.glassBackgroundOnly,
             hasSubject = safe.hasSubject,
             drawerBlur = safe.drawerBlur,
+            clockCenterX = safe.clockCenterX,
+            clockTop = safe.clockTop,
+            clockHeightFraction = safe.clockHeight,
+            clockTextureAspect = safe.clockTextureAspect,
+            clockOpacity = safe.clockOpacity,
+            clockEnabled = safe.clockEnabled,
             blobColors = safe.blobs.colors,
             blobPositions = safe.blobs.positions,
             blobSizes = safe.blobs.sizes,

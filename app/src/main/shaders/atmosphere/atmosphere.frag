@@ -7,8 +7,9 @@ layout(location = 0) out vec4 fragColor;
 layout(set = 0, binding = 0) uniform sampler2D sharpTexture;
 layout(set = 0, binding = 1) uniform sampler2D blurredTexture;
 layout(set = 0, binding = 2) uniform sampler2D subjectMask;
+layout(set = 0, binding = 3) uniform sampler2D clockTexture;
 
-layout(std140, set = 0, binding = 3) uniform AtmosphereParams {
+layout(std140, set = 0, binding = 4) uniform AtmosphereParams {
     vec4 render;
     vec4 noise;
     vec4 glass;
@@ -17,6 +18,11 @@ layout(std140, set = 0, binding = 3) uniform AtmosphereParams {
     ivec4 blobMeta;
     vec4 blobColors[16];
     vec4 blobPositionsAndSizes[16];
+    // x: centerX, y: top, z: heightFraction, w: textureAspect — all in the
+    // screen-locked vEffectCoord space.
+    vec4 clockRect;
+    // x: opacity, y: enabled, z/w: unused.
+    vec4 clockMeta;
 } params;
 
 const float TWO_PI = 6.28318530718;
@@ -196,5 +202,51 @@ void main() {
     float drawerBlur =
         params.misc.x > 0.5 ? clamp(params.misc.y, 0.0, 1.0) : 0.0;
     finalColor = mix(finalColor, frosted, drawerBlur);
+
+    // Depth-composited clock: sits on top of the atmosphere effect but
+    // behind the subject, so the subject visually occludes it — same
+    // trick as the static-glass background-coverage logic above, applied
+    // globally instead of only within that sub-effect. Faded out toward
+    // the home screen (progress -> 1): the clock is a lock-screen feature
+    // (see AtmosphereRenderer.CLOCK_LOCK_FADE_RANGE for the GLES twin of
+    // this same logic).
+    if (params.clockMeta.y > 0.5) {
+        float clockLockFade = 1.0 - clamp(progress / 0.25, 0.0, 1.0);
+        if (clockLockFade > 0.0) {
+            float clockHeightUv = params.clockRect.z;
+            float clockWidthUv =
+                clockHeightUv * params.clockRect.w / aspectRatio;
+            vec2 clockOrigin = vec2(
+                params.clockRect.x - clockWidthUv * 0.5,
+                params.clockRect.y
+            );
+            vec2 clockUv =
+                (vEffectCoord - clockOrigin) / vec2(clockWidthUv, clockHeightUv);
+            if (
+                clockUv.x >= 0.0 && clockUv.x <= 1.0 &&
+                clockUv.y >= 0.0 && clockUv.y <= 1.0
+            ) {
+                vec4 clockSample = texture(clockTexture, clockUv);
+                finalColor = mix(
+                    finalColor,
+                    clockSample.rgb,
+                    clockSample.a * params.clockMeta.x * clockLockFade
+                );
+            }
+
+            // Reuses the same isolate-background-and-has-subject signal
+            // the glass ribs use (params.viewport.w) rather than a
+            // separate flag, since GLES's AtmosphereRenderState.sanitized()
+            // already forces glassBackgroundOnly false whenever glassEnabled
+            // is false — the two backends agree on this gating already.
+            if (params.viewport.w > 0.5) {
+                vec3 subjectSharp = texture(sharpTexture, vTexCoord).rgb;
+                float subjectCoverage =
+                    smoothstep(0.30, 0.72, sampleSubject(vTexCoord));
+                finalColor = mix(finalColor, subjectSharp, subjectCoverage);
+            }
+        }
+    }
+
     fragColor = vec4(finalColor, 1.0);
 }

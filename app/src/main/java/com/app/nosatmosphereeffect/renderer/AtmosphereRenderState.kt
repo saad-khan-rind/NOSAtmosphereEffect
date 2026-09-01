@@ -65,6 +65,12 @@ data class AtmosphereRenderState(
     val clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
     val clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
     val clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
+    // Vulkan-only, dynamic (like hasSubject/blobs below): the clock
+    // bitmap's width/height ratio, refreshed whenever a fresh minute is
+    // rendered, so the shader can size the clock quad without a native
+    // round-trip. Unused on the GLES path (AtmosphereRenderer computes this
+    // itself from ClockTextureProvider directly).
+    val clockTextureAspect: Float = 1f,
     val blobs: AtmosphereBlobFrame = AtmosphereBlobFrame()
 ) {
     fun sanitized(): AtmosphereRenderState {
@@ -87,6 +93,7 @@ data class AtmosphereRenderState(
             clockTop = AtmosphereClockPolicy.sanitizeTop(clockTop),
             clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
             clockOpacity = AtmosphereClockPolicy.sanitizeOpacity(clockOpacity),
+            clockTextureAspect = clockTextureAspect.finiteOr(1f).coerceIn(0.05f, 20f),
             blobs = blobs.sanitized()
         )
     }

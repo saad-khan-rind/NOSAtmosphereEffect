@@ -37,6 +37,7 @@ internal class VulkanAtmosphereHost(
     private val subjectMasks = SubjectMaskCoordinator(appContext) {
         requestRender()
     }
+    private val clockTexture = VulkanClockTextureUploader(appContext)
 
     init {
         subjectMasks.configure(
@@ -56,6 +57,7 @@ internal class VulkanAtmosphereHost(
         updateEffectState {
             safe.copy(
                 hasSubject = if (isolationEnabled) current.hasSubject else false,
+                clockTextureAspect = current.clockTextureAspect,
                 blobs = blobPlanner.frame(safe.progress)
             )
         }
@@ -114,27 +116,53 @@ internal class VulkanAtmosphereHost(
         handle: Long,
         textureGeneration: Long
     ): Boolean {
-        val pending = subjectMasks.takePending() ?: return true
-        try {
-            if (
-                pending.generation != textureGeneration ||
-                !subjectMasks.enabled
-            ) {
-                return true
+        var success = true
+
+        val pending = subjectMasks.takePending()
+        if (pending != null) {
+            try {
+                if (pending.generation == textureGeneration && subjectMasks.enabled) {
+                    val uploaded = VulkanAtmosphereNative.nativeUploadMask(
+                        handle,
+                        pending.bitmap
+                    )
+                    updateEffectState { it.copy(hasSubject = uploaded) }
+                    success = uploaded
+                }
+            } finally {
+                pending.bitmap.recycleSafely()
             }
-            val uploaded = VulkanAtmosphereNative.nativeUploadMask(
-                handle,
-                pending.bitmap
-            )
-            updateEffectState { it.copy(hasSubject = uploaded) }
-            return uploaded
-        } finally {
-            pending.bitmap.recycleSafely()
         }
+
+        if (success && currentEffectState().clockEnabled) {
+            val bitmap = clockTexture.renderIfMinuteChanged()
+            if (bitmap != null) {
+                try {
+                    if (VulkanAtmosphereNative.nativeUploadClock(handle, bitmap)) {
+                        val aspect = if (clockTexture.textureHeight > 0) {
+                            clockTexture.textureWidth.toFloat() /
+                                clockTexture.textureHeight.toFloat()
+                        } else {
+                            1f
+                        }
+                        updateEffectState { it.copy(clockTextureAspect = aspect) }
+                    } else {
+                        // Non-fatal: the clock is a nice-to-have overlay,
+                        // not worth failing the whole frame over.
+                        Log.w(TAG, "Unable to upload the Vulkan Atmosphere clock texture")
+                    }
+                } finally {
+                    bitmap.recycleSafely()
+                }
+            }
+        }
+
+        return success
     }
 
     override fun onSurfaceResetOnWorker() {
         subjectMasks.discardPending()
+        clockTexture.reset()
         updateEffectState {
             it.copy(
                 hasSubject = false,

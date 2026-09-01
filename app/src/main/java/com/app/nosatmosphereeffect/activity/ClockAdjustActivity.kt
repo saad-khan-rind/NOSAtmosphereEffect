@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,8 +56,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
 import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
 import com.app.nosatmosphereeffect.image.BitmapDecoder
+import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewService
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
@@ -287,11 +290,18 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         // Bottom hint strip — only shown when it explains something the
         // person can't see for themselves (no wallpaper yet, depth effect
         // won't show yet).
+        val segmentationDisabled = SegmentationCrashGuard.isDisabled(context)
         val hints = buildList {
             if (wallpaperLoadFinished && wallpaperBitmap == null) {
                 add("No wallpaper set yet — showing a sample photo.")
             }
-            if (!subjectMaskDrivingKeyEnabled) {
+            if (segmentationDisabled) {
+                add(
+                    "Subject detection was disabled after crashing the app " +
+                        "repeatedly (a crash inside a system component, not " +
+                        "this app) — tap Reset below to try again."
+                )
+            } else if (!subjectMaskDrivingKeyEnabled) {
                 add(
                     "\"Background only\" is off for the Glass effect, so " +
                         "nothing will occlude the clock — turn it on in " +
@@ -314,7 +324,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             }
         }
         if (hints.isNotEmpty()) {
-            Box(
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomStart)
@@ -326,6 +336,12 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                     color = Color.White,
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (segmentationDisabled) {
+                    AtmoTextButton(
+                        text = "Reset",
+                        onClick = { SegmentationCrashGuard.reset(context) }
+                    )
+                }
             }
         }
     }

@@ -17,7 +17,8 @@ constexpr char kFragmentShader[] =
 constexpr uint32_t kSharpBinding = 0;
 constexpr uint32_t kBlurredBinding = 1;
 constexpr uint32_t kSubjectMaskBinding = 2;
-constexpr uint32_t kUniformBinding = 3;
+constexpr uint32_t kClockBinding = 3;
+constexpr uint32_t kUniformBinding = 4;
 constexpr int32_t kMaximumBlobs = 16;
 
 struct alignas(16) AtmosphereParams {
@@ -29,6 +30,13 @@ struct alignas(16) AtmosphereParams {
     int32_t blobMeta[4]{};
     float blobColors[kMaximumBlobs][4]{};
     float blobPositionsAndSizes[kMaximumBlobs][4]{};
+    // clockRect: centerX, top, heightFraction, textureAspect (all in the
+    // screen-locked vEffectCoord space the shader already uses for glass
+    // ribs — see atmosphere.frag). clockMeta: opacity, enabled, unused,
+    // unused. Appended at the end, after the existing static_assert'd
+    // layout, so none of the offsets above shift.
+    float clockRect[4]{};
+    float clockMeta[4]{};
 };
 
 static_assert(offsetof(AtmosphereParams, render) == 0);
@@ -41,7 +49,9 @@ static_assert(offsetof(AtmosphereParams, blobColors) == 96);
 static_assert(
     offsetof(AtmosphereParams, blobPositionsAndSizes) == 352
 );
-static_assert(sizeof(AtmosphereParams) == 608);
+static_assert(offsetof(AtmosphereParams, clockRect) == 608);
+static_assert(offsetof(AtmosphereParams, clockMeta) == 624);
+static_assert(sizeof(AtmosphereParams) == 640);
 
 struct AtmosphereHandle {
     atmo::vulkan::OnePassHandle engine = nullptr;
@@ -137,8 +147,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeCr
         "Atmo Atmosphere",
         kVertexShader,
         kFragmentShader,
-        3,
-        1U << kSubjectMaskBinding,
+        4,
+        (1U << kSubjectMaskBinding) | (1U << kClockBinding),
         0,
         kUniformBinding,
         sizeof(AtmosphereParams)
@@ -286,6 +296,41 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeCl
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeUploadClock(
+    JNIEnv* env,
+    jobject,
+    jlong handle,
+    jobject bitmap
+) {
+    AtmosphereHandle* atmosphere = fromHandle(handle);
+    return atmosphere != nullptr &&
+        atmo::vulkan::uploadBitmap(
+            atmosphere->engine,
+            env,
+            bitmap,
+            kClockBinding
+        )
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeClearClock(
+    JNIEnv*,
+    jobject,
+    jlong handle
+) {
+    AtmosphereHandle* atmosphere = fromHandle(handle);
+    return atmosphere != nullptr &&
+        atmo::vulkan::clearTexture(
+            atmosphere->engine,
+            kClockBinding
+        )
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSetState(
     JNIEnv* env,
     jobject,
@@ -305,6 +350,12 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSe
     jboolean backgroundOnly,
     jboolean hasSubject,
     jfloat drawerBlur,
+    jfloat clockCenterX,
+    jfloat clockTop,
+    jfloat clockHeightFraction,
+    jfloat clockTextureAspect,
+    jfloat clockOpacity,
+    jboolean clockEnabled,
     jfloatArray blobColors,
     jfloatArray blobPositions,
     jfloatArray blobSizes,
@@ -338,6 +389,12 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSe
             : 0.0F;
     params.misc[0] = atmosphere->reverse ? 1.0F : 0.0F;
     params.misc[1] = drawerBlur;
+    params.clockRect[0] = clockCenterX;
+    params.clockRect[1] = clockTop;
+    params.clockRect[2] = clockHeightFraction;
+    params.clockRect[3] = clockTextureAspect;
+    params.clockMeta[0] = clockOpacity;
+    params.clockMeta[1] = clockEnabled == JNI_TRUE ? 1.0F : 0.0F;
 
     if (!readBlobArrays(
             env,
