@@ -32,9 +32,16 @@ struct alignas(16) AtmosphereParams {
     float blobPositionsAndSizes[kMaximumBlobs][4]{};
     // clockRect: centerX, top, heightFraction, textureAspect (all in the
     // screen-locked vEffectCoord space the shader already uses for glass
-    // ribs — see atmosphere.frag). clockMeta: opacity, enabled, unused,
-    // unused. Appended at the end, after the existing static_assert'd
-    // layout, so none of the offsets above shift.
+    // ribs — see atmosphere.frag).
+    //
+    // clockMeta: opacity (with the lock fade already folded in by the host),
+    // "a face has been uploaded", "depth enabled AND a subject mask exists",
+    // unused. The second slot is NOT the user's on/off toggle: unwritten
+    // optional bindings hold an opaque-black clear texture, so the shader
+    // needs to know whether real content has landed yet.
+    //
+    // Appended at the end, after the existing static_assert'd layout, so
+    // none of the offsets above shift.
     float clockRect[4]{};
     float clockMeta[4]{};
 };
@@ -355,7 +362,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSe
     jfloat clockHeightFraction,
     jfloat clockTextureAspect,
     jfloat clockOpacity,
-    jboolean clockEnabled,
+    jboolean clockUploaded,
+    jboolean clockDepth,
     jfloatArray blobColors,
     jfloatArray blobPositions,
     jfloatArray blobSizes,
@@ -394,7 +402,12 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSe
     params.clockRect[2] = clockHeightFraction;
     params.clockRect[3] = clockTextureAspect;
     params.clockMeta[0] = clockOpacity;
-    params.clockMeta[1] = clockEnabled == JNI_TRUE ? 1.0F : 0.0F;
+    params.clockMeta[1] = clockUploaded == JNI_TRUE ? 1.0F : 0.0F;
+    // Depth is the clock's own setting and only needs a subject mask — it is
+    // deliberately not gated on the Glass effect's background-only mode the
+    // way viewport[3] above is.
+    params.clockMeta[2] =
+        clockDepth == JNI_TRUE && hasSubject == JNI_TRUE ? 1.0F : 0.0F;
 
     if (!readBlobArrays(
             env,

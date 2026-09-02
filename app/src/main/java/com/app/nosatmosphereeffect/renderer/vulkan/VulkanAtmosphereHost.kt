@@ -40,10 +40,20 @@ internal class VulkanAtmosphereHost(
     private val clockTexture = VulkanClockTextureUploader(appContext)
 
     init {
-        subjectMasks.configure(
-            initialState.glassEnabled && initialState.glassBackgroundOnly
-        )
+        subjectMasks.configure(initialState.sanitized().needsSubjectMask())
+        applyClockConfiguration(initialState.sanitized())
         startNativeEngine()
+    }
+
+    /**
+     * Face settings (style/seconds/animation) live on the uploader, not in
+     * the uniform buffer, because changing any of them changes the bitmap
+     * rather than how the shader reads it.
+     */
+    private fun applyClockConfiguration(state: AtmosphereRenderState) {
+        clockTexture.style = state.clockStyle
+        clockTexture.showSeconds = state.clockShowSeconds
+        clockTexture.animateDigits = state.clockAnimate
     }
 
     fun updateState(state: AtmosphereRenderState) {
@@ -52,12 +62,16 @@ internal class VulkanAtmosphereHost(
         if (safe.progress == 0f && current.progress != 0f) {
             blobPlanner.rerollTargets()
         }
-        val isolationEnabled = safe.glassEnabled && safe.glassBackgroundOnly
+        // Either Glass's background-only mode or the clock's depth effect
+        // can call for a subject mask, independently of the other.
+        val isolationEnabled = safe.needsSubjectMask()
         val isolationChanged = subjectMasks.configure(isolationEnabled)
+        applyClockConfiguration(safe)
         updateEffectState {
             safe.copy(
                 hasSubject = if (isolationEnabled) current.hasSubject else false,
                 clockTextureAspect = current.clockTextureAspect,
+                clockFaceUploaded = current.clockFaceUploaded && safe.clockEnabled,
                 blobs = blobPlanner.frame(safe.progress)
             )
         }
@@ -135,29 +149,53 @@ internal class VulkanAtmosphereHost(
         }
 
         if (success && currentEffectState().clockEnabled) {
-            val bitmap = clockTexture.renderIfMinuteChanged()
-            if (bitmap != null) {
-                try {
-                    if (VulkanAtmosphereNative.nativeUploadClock(handle, bitmap)) {
-                        val aspect = if (clockTexture.textureHeight > 0) {
-                            clockTexture.textureWidth.toFloat() /
-                                clockTexture.textureHeight.toFloat()
-                        } else {
-                            1f
-                        }
-                        updateEffectState { it.copy(clockTextureAspect = aspect) }
-                    } else {
-                        // Non-fatal: the clock is a nice-to-have overlay,
-                        // not worth failing the whole frame over.
-                        Log.w(TAG, "Unable to upload the Vulkan Atmosphere clock texture")
-                    }
-                } finally {
-                    bitmap.recycleSafely()
-                }
-            }
+            uploadClockFrame(handle)
         }
 
         return success
+    }
+
+    /**
+     * Uploads a clock face when there is one to upload, and keeps the frame
+     * pump running while a digit transition is in flight.
+     *
+     * Failures here are deliberately non-fatal: prepareFrameOnWorker
+     * returning false takes the whole Vulkan backend down permanently (see
+     * VulkanSingleImageHost.drawOnWorker), which is far too heavy a response
+     * to a decorative overlay failing to upload.
+     */
+    private fun uploadClockFrame(handle: Long) {
+        val bitmap = try {
+            clockTexture.renderIfChanged()
+        } catch (failure: RuntimeException) {
+            Log.w(TAG, "Unable to render the Vulkan Atmosphere clock face", failure)
+            null
+        }
+
+        if (bitmap != null) {
+            // The bitmap is owned and reused by the face renderer — do not
+            // recycle it here. The previous version did, which meant every
+            // frame after the first uploaded a recycled bitmap.
+            if (VulkanAtmosphereNative.nativeUploadClock(handle, bitmap)) {
+                clockTexture.markUploaded()
+                val aspect = clockTexture.aspectRatio
+                updateEffectState {
+                    it.copy(
+                        clockTextureAspect = aspect,
+                        clockFaceUploaded = true
+                    )
+                }
+            } else {
+                Log.w(TAG, "Unable to upload the Vulkan Atmosphere clock texture")
+            }
+        }
+
+        // A static wallpaper produces no frames on its own, so without this
+        // the digit animation would freeze part-way and the time would only
+        // change when something unrelated triggered a draw.
+        if (clockTexture.isAnimating()) {
+            requestRender()
+        }
     }
 
     override fun onSurfaceResetOnWorker() {
@@ -166,6 +204,7 @@ internal class VulkanAtmosphereHost(
         updateEffectState {
             it.copy(
                 hasSubject = false,
+                clockFaceUploaded = false,
                 blobs = AtmosphereBlobFrame()
             )
         }
@@ -173,6 +212,17 @@ internal class VulkanAtmosphereHost(
 
     override fun onEffectResourcesReleased() {
         subjectMasks.close()
+        clockTexture.release()
+    }
+
+    /**
+     * Re-reads the system 12/24-hour setting and forces a redraw. Called from
+     * AtmosphereService's time-tick receiver.
+     */
+    fun onTimeChanged() {
+        clockTexture.refreshClockFormatPreference()
+        clockTexture.reset()
+        requestRender()
     }
 
     private fun Bitmap.recycleSafely() {

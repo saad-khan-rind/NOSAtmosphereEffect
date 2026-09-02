@@ -102,6 +102,10 @@ class AdvancedSettingsActivity : ComponentActivity() {
                 activeEffect,
                 prefs.readBoolean(AtmosphereClockPolicy.ENABLED_KEY, false)
             ),
+            clockDepthEnabled = prefs.readBoolean(
+                AtmosphereClockPolicy.DEPTH_KEY,
+                AtmosphereClockPolicy.DEFAULT_DEPTH
+            ),
             showNoiseSwitch = showNoiseSwitch,
             showBlob = showBlob,
             isPlaylistMode = isPlaylistMode,
@@ -260,6 +264,10 @@ class AdvancedSettingsActivity : ComponentActivity() {
             }
             if (updateAtmosphereClock) {
                 putBoolean(AtmosphereClockPolicy.ENABLED_KEY, result.clockEnabled)
+                putBoolean(
+                    AtmosphereClockPolicy.DEPTH_KEY,
+                    result.clockDepthEnabled
+                )
             }
             putInt(
                 GlassEffectPolicy.LINE_COUNT_KEY,
@@ -318,11 +326,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
             remove("neon_sensitivity")
             remove("neon_line_width")
             remove(AtmosphereGlassPolicy.ENABLED_KEY)
-            remove(AtmosphereClockPolicy.ENABLED_KEY)
-            remove(AtmosphereClockPolicy.CENTER_X_KEY)
-            remove(AtmosphereClockPolicy.TOP_KEY)
-            remove(AtmosphereClockPolicy.HEIGHT_KEY)
-            remove(AtmosphereClockPolicy.OPACITY_KEY)
+            AtmosphereClockPolicy.ALL_KEYS.forEach { remove(it) }
             remove(GlassEffectPolicy.LINE_COUNT_KEY)
             remove(GlassEffectPolicy.LINE_THICKNESS_KEY)
             remove(GlassEffectPolicy.TRANSITION_STYLE_KEY)

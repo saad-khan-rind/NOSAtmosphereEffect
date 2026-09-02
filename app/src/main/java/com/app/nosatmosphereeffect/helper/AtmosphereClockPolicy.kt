@@ -1,41 +1,68 @@
 package com.app.nosatmosphereeffect.helper
 
 /**
- * Defines the depth-composited clock overlay, currently supported only by
- * the original Atmosphere effect (blobs/clouds renderer, [AtmosphereRenderer]).
+ * Defines the clock overlay drawn into the wallpaper by the original
+ * Atmosphere effect (blobs/clouds renderer, [AtmosphereRenderer] on GLES and
+ * VulkanAtmosphereHost on Vulkan).
  *
- * Unlike [AtmosphereGlassPolicy], this intentionally excludes "REVERSE":
- * that direction runs through BlurToSharpRenderer, which does not yet
- * implement the clock compositing pass.
+ * Excludes "REVERSE": that direction runs through BlurToSharpRenderer, which
+ * has no clock compositing pass.
  *
  * Geometry is stored as screen-fraction values (matching the shader's
- * screen-locked uEffectCoord space) so the same numbers drive both the
- * live wallpaper and the ClockAdjustActivity preview with no conversion.
+ * screen-locked effect-coordinate space) so the same numbers drive the live
+ * wallpaper, both backends, and the ClockAdjustActivity preview with no
+ * conversion anywhere.
+ *
+ * ## Depth is independent of Glass
+ *
+ * [DEPTH_KEY] is the clock's own switch for "draw the subject back over the
+ * clock so it looks like the clock is behind them". The first version of this
+ * feature piggybacked on the Glass effect's background-only flag, which meant
+ * the depth effect silently did nothing whenever Glass was off. The two are
+ * separate settings now; both feed the same subject-mask machinery, and the
+ * mask is computed when *either* asks for it (see
+ * AtmosphereRenderState.needsSubjectMask).
  */
 object AtmosphereClockPolicy {
     const val ENABLED_KEY = "atmosphere_clock_enabled"
+    const val DEPTH_KEY = "atmosphere_clock_depth"
+    const val STYLE_KEY = "atmosphere_clock_style"
+    const val SECONDS_KEY = "atmosphere_clock_seconds"
+    const val ANIMATE_KEY = "atmosphere_clock_animate"
     const val CENTER_X_KEY = "atmosphere_clock_center_x"
     const val TOP_KEY = "atmosphere_clock_top"
     const val HEIGHT_KEY = "atmosphere_clock_height"
     const val OPACITY_KEY = "atmosphere_clock_opacity"
 
-    // Large-by-default: chosen so the clock is unmissable without on-device
-    // tuning. ClockAdjustActivity lets a user shrink/move it per device.
     const val DEFAULT_CENTER_X = 0.5f
     const val DEFAULT_TOP = 0.14f
     const val DEFAULT_HEIGHT = 0.16f
     const val DEFAULT_OPACITY = 1f
+    const val DEFAULT_DEPTH = true
+    const val DEFAULT_SECONDS = false
+    const val DEFAULT_ANIMATE = true
 
     private const val MIN_CENTER_X = 0.05f
     private const val MAX_CENTER_X = 0.95f
     private const val MIN_TOP = 0.02f
-    private const val MAX_TOP = 0.85f
-    private const val MIN_HEIGHT = 0.04f
-    private const val MAX_HEIGHT = 0.32f
+    private const val MAX_TOP = 0.90f
+    private const val MIN_HEIGHT = 0.03f
+    private const val MAX_HEIGHT = 0.40f
 
-    fun supportsEffect(effectId: String?): Boolean {
-        return effectId == "ORIGINAL"
-    }
+    /** All keys this feature owns, for the Advanced Settings reset path. */
+    val ALL_KEYS: List<String> = listOf(
+        ENABLED_KEY,
+        DEPTH_KEY,
+        STYLE_KEY,
+        SECONDS_KEY,
+        ANIMATE_KEY,
+        CENTER_X_KEY,
+        TOP_KEY,
+        HEIGHT_KEY,
+        OPACITY_KEY
+    )
+
+    fun supportsEffect(effectId: String?): Boolean = effectId == "ORIGINAL"
 
     fun resolveEnabled(effectId: String?, requested: Boolean): Boolean {
         return supportsEffect(effectId) && requested
@@ -59,5 +86,19 @@ object AtmosphereClockPolicy {
     fun sanitizeOpacity(value: Float): Float {
         if (!value.isFinite()) return DEFAULT_OPACITY
         return value.coerceIn(0f, 1f)
+    }
+
+    fun sanitizeStyleId(value: String?): String = ClockStyle.fromId(value).id
+
+    /**
+     * The clock only draws on the lock-screen side of the transition, so it
+     * fades out over the first slice of the unlock animation. Shared by both
+     * backends so they agree on the curve.
+     */
+    const val LOCK_FADE_RANGE = 0.25f
+
+    fun lockFade(progress: Float): Float {
+        if (!progress.isFinite()) return 0f
+        return (1f - progress / LOCK_FADE_RANGE).coerceIn(0f, 1f)
     }
 }

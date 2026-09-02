@@ -17,6 +17,7 @@ import androidx.core.graphics.createBitmap
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
@@ -151,16 +152,46 @@ class EffectPreviewService(
      * event would be too janky. Call [setRendererProgress]'s normal path
      * (or just rely on the next full state rebuild) for anything else.
      */
-    fun setAtmosphereClockGeometry(centerX: Float, top: Float, height: Float) {
+    fun setAtmosphereClockGeometry(
+        centerX: Float,
+        top: Float,
+        height: Float,
+        opacity: Float
+    ) {
+        withLiveAtmosphereRenderer { renderer ->
+            renderer.clockCenterX = centerX
+            renderer.clockTop = top
+            renderer.clockHeight = height
+            renderer.clockOpacity = opacity
+        }
+    }
+
+    /**
+     * Pushes face settings (style, seconds, animation) straight to the live
+     * renderer. Separate from the geometry call because these change the
+     * rendered bitmap rather than how the shader places it.
+     */
+    fun setAtmosphereClockFace(
+        styleId: String,
+        showSeconds: Boolean,
+        animate: Boolean
+    ) {
+        withLiveAtmosphereRenderer { renderer ->
+            renderer.clockEnabled = true
+            renderer.clockStyle = ClockStyle.fromId(styleId)
+            renderer.clockShowSeconds = showSeconds
+            renderer.clockAnimate = animate
+        }
+    }
+
+    private fun withLiveAtmosphereRenderer(block: (AtmosphereRenderer) -> Unit) {
         if (released.get() || activeBackend != GraphicsBackend.OPENGL_ES) return
         val surface = openGlSurface
         val renderer = openGlRenderer
         if (surface != null && renderer is AtmosphereRenderer) {
             surface.queueEvent {
                 if (!released.get() && openGlRenderer === renderer) {
-                    renderer.clockCenterX = centerX
-                    renderer.clockTop = top
-                    renderer.clockHeight = height
+                    block(renderer)
                 }
             }
             requestActiveRender()
@@ -258,6 +289,26 @@ class EffectPreviewService(
                         glassBackgroundOnly =
                             configuredAtmosphereGlassBackgroundOnly,
                         clockEnabled = clockEnabled,
+                        clockDepthEnabled = previewBoolean(
+                            prefs,
+                            AtmosphereClockPolicy.DEPTH_KEY,
+                            AtmosphereClockPolicy.DEFAULT_DEPTH
+                        ),
+                        clockStyleId = previewString(
+                            prefs,
+                            AtmosphereClockPolicy.STYLE_KEY,
+                            ClockStyle.DEFAULT.id
+                        ),
+                        clockShowSeconds = previewBoolean(
+                            prefs,
+                            AtmosphereClockPolicy.SECONDS_KEY,
+                            AtmosphereClockPolicy.DEFAULT_SECONDS
+                        ),
+                        clockAnimate = previewBoolean(
+                            prefs,
+                            AtmosphereClockPolicy.ANIMATE_KEY,
+                            AtmosphereClockPolicy.DEFAULT_ANIMATE
+                        ),
                         clockCenterX = previewFloat(
                             prefs,
                             AtmosphereClockPolicy.CENTER_X_KEY,
@@ -496,8 +547,13 @@ class EffectPreviewService(
                 renderer.atmosphereGlassEnabled = value.glassEnabled
                 renderer.glassLineCount = value.glassLineCount
                 renderer.glassLineThickness = value.glassLineThickness
-                renderer.configureGlassBackgroundOnly(value.glassBackgroundOnly)
+                renderer.glassBackgroundOnly = value.glassBackgroundOnly
+                renderer.configureSubjectIsolation(value.needsSubjectMask())
                 renderer.clockEnabled = value.clockEnabled
+                renderer.clockDepthEnabled = value.clockDepthEnabled
+                renderer.clockStyle = value.clockStyle
+                renderer.clockShowSeconds = value.clockShowSeconds
+                renderer.clockAnimate = value.clockAnimate
                 renderer.clockCenterX = value.clockCenterX
                 renderer.clockTop = value.clockTop
                 renderer.clockHeight = value.clockHeight
@@ -654,6 +710,19 @@ class EffectPreviewService(
         if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
         return try {
             preferences.getFloat(key, defaultValue)
+        } catch (_: ClassCastException) {
+            defaultValue
+        }
+    }
+
+    private fun previewString(
+        preferences: SharedPreferences,
+        key: String,
+        defaultValue: String
+    ): String {
+        if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
+        return try {
+            preferences.getString(key, defaultValue) ?: defaultValue
         } catch (_: ClassCastException) {
             defaultValue
         }

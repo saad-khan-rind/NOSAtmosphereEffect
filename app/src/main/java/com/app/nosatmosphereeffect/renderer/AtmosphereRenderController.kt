@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
@@ -100,6 +101,10 @@ class AtmosphereRenderController(
         glassLineThickness: Float,
         glassBackgroundOnly: Boolean,
         clockEnabled: Boolean = false,
+        clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
+        clockStyleId: String = ClockStyle.DEFAULT.id,
+        clockShowSeconds: Boolean = AtmosphereClockPolicy.DEFAULT_SECONDS,
+        clockAnimate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
         clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
         clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
         clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
@@ -120,6 +125,10 @@ class AtmosphereRenderController(
                 glassLineThickness = glassLineThickness,
                 glassBackgroundOnly = glassBackgroundOnly,
                 clockEnabled = AtmosphereClockPolicy.resolveEnabled(effectId, clockEnabled),
+                clockDepthEnabled = clockDepthEnabled,
+                clockStyleId = clockStyleId,
+                clockShowSeconds = clockShowSeconds,
+                clockAnimate = clockAnimate,
                 clockCenterX = clockCenterX,
                 clockTop = clockTop,
                 clockHeight = clockHeight,
@@ -459,8 +468,24 @@ class AtmosphereRenderController(
                 applyState(snapshot)
                 onRenderRetryRequested = engine::requestRender
                 onSubjectMaskUpdated = engine::requestRender
+                onAnimationFrameRequested = engine::requestRender
             }
         }
+    }
+
+    /**
+     * Forwarded from AtmosphereService when the system reports a minute
+     * tick, a manual time change or a timezone change. Without this the
+     * clock only refreshes when something else happens to request a frame,
+     * which on a static wallpaper (transitions off) is essentially never.
+     */
+    fun onSystemTimeChanged() {
+        val targets = synchronized(lock) {
+            Pair(openGlAtmosphere, vulkanHost)
+        }
+        targets.first?.onTimeChanged()
+        targets.second?.onTimeChanged()
+        synchronized(lock) { engine }?.requestRender()
     }
 
     private fun applyState(snapshot: AtmosphereRenderState) {
@@ -483,8 +508,13 @@ class AtmosphereRenderController(
         atmosphereGlassEnabled = state.glassEnabled
         glassLineCount = state.glassLineCount
         glassLineThickness = state.glassLineThickness
-        configureGlassBackgroundOnly(state.glassBackgroundOnly)
+        glassBackgroundOnly = state.glassBackgroundOnly
+        configureSubjectIsolation(state.needsSubjectMask())
         clockEnabled = state.clockEnabled
+        clockDepthEnabled = state.clockDepthEnabled
+        clockStyle = state.clockStyle
+        clockShowSeconds = state.clockShowSeconds
+        clockAnimate = state.clockAnimate
         clockCenterX = state.clockCenterX
         clockTop = state.clockTop
         clockHeight = state.clockHeight

@@ -35,9 +35,17 @@ uniform float uBackgroundOnly;
 uniform float uHasSubject;
 
 uniform sampler2D uClockTexture;
+// 1.0 only once a real clock face has been uploaded. Independent of the
+// user's toggle: the texture starts out as unwritten storage, and sampling
+// that would paint a rectangle of garbage where the clock belongs.
 uniform float uClockEnabled;
 uniform vec4 uClockRect;   // x, y, width, height — screen-locked UV (vEffectCoord) space
 uniform float uClockOpacity;
+// The clock's own depth switch, ANDed with "a subject mask exists" by the
+// renderer. Deliberately not uHasSubject: that one is gated on the Glass
+// effect's background-only mode, which used to make the clock's depth effect
+// silently do nothing whenever Glass was off.
+uniform float uClockDepth;
 
 const float TWO_PI = 6.28318530718;
 
@@ -239,12 +247,11 @@ void main() {
         finalColor += vec3(noise * uNoiseStrength * noiseVisibility);
     }
 
-    // Depth-composited clock: sits on top of the atmosphere effect but
-    // behind the subject, so the subject visually occludes it — same trick
-    // as uBackgroundOnly above, applied globally instead of only within
-    // the static-glass sub-effect.
-    if (uClockEnabled > 0.5) {
-        vec2 clockUv = (vEffectCoord - uClockRect.xy) / uClockRect.zw;
+    // Clock overlay. Composited after everything else so the effect never
+    // washes it out, then — when depth is on — the sharp subject is drawn
+    // back over the top, which is what sells "the clock is behind them".
+    if (uClockEnabled > 0.5 && uClockOpacity > 0.0) {
+        vec2 clockUv = (vEffectCoord - uClockRect.xy) / max(uClockRect.zw, vec2(1e-5));
         if (
             clockUv.x >= 0.0 && clockUv.x <= 1.0 &&
             clockUv.y >= 0.0 && clockUv.y <= 1.0
@@ -257,10 +264,12 @@ void main() {
             );
         }
 
-        if (uHasSubject > 0.5) {
+        if (uClockDepth > 0.5) {
             vec3 subjectSharp = texture(uTextureSharp, vTexCoord).rgb;
             float subjectCoverage = smoothstep(0.30, 0.72, sampleSubject(vTexCoord));
-            finalColor = mix(finalColor, subjectSharp, subjectCoverage);
+            // Fades with the clock itself, so the subject is not re-sharpened
+            // over a blurred background once the clock has faded away.
+            finalColor = mix(finalColor, subjectSharp, subjectCoverage * uClockOpacity);
         }
     }
 

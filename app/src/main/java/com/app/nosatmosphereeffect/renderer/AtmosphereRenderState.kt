@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.renderer
 
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 
 data class AtmosphereBlobFrame(
@@ -61,16 +62,28 @@ data class AtmosphereRenderState(
     val scrollOffsetX: Float = 0.5f,
     val scrollWindowX: Float = 1f,
     val clockEnabled: Boolean = false,
+    /**
+     * The clock's own depth switch. Independent of [glassBackgroundOnly]:
+     * both request a subject mask, but either can ask for one on its own.
+     */
+    val clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
+    val clockStyleId: String = ClockStyle.DEFAULT.id,
+    val clockShowSeconds: Boolean = AtmosphereClockPolicy.DEFAULT_SECONDS,
+    val clockAnimate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
     val clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
     val clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
     val clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
     val clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
     // Vulkan-only, dynamic (like hasSubject/blobs below): the clock
-    // bitmap's width/height ratio, refreshed whenever a fresh minute is
+    // bitmap's width/height ratio, refreshed whenever a fresh face is
     // rendered, so the shader can size the clock quad without a native
-    // round-trip. Unused on the GLES path (AtmosphereRenderer computes this
-    // itself from ClockTextureProvider directly).
+    // round-trip. Unused on the GLES path (AtmosphereRenderer reads this
+    // from ClockTextureProvider directly).
     val clockTextureAspect: Float = 1f,
+    // Vulkan-only, dynamic: set once the worker has uploaded a real clock
+    // face. Until then the shader must not sample the clock binding — see
+    // clockMeta.y in vulkan_atmosphere_jni.cpp.
+    val clockFaceUploaded: Boolean = false,
     val blobs: AtmosphereBlobFrame = AtmosphereBlobFrame()
 ) {
     fun sanitized(): AtmosphereRenderState {
@@ -89,6 +102,7 @@ data class AtmosphereRenderState(
             drawerBlur = drawerBlur.finiteOr(0f).coerceIn(0f, 1f),
             scrollOffsetX = scrollOffsetX.finiteOr(0.5f).coerceIn(0f, 1f),
             scrollWindowX = scrollWindowX.finiteOr(1f).coerceIn(MIN_SCROLL_WINDOW, 1f),
+            clockStyleId = AtmosphereClockPolicy.sanitizeStyleId(clockStyleId),
             clockCenterX = AtmosphereClockPolicy.sanitizeCenterX(clockCenterX),
             clockTop = AtmosphereClockPolicy.sanitizeTop(clockTop),
             clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
@@ -97,6 +111,20 @@ data class AtmosphereRenderState(
             blobs = blobs.sanitized()
         )
     }
+
+    /**
+     * Whether anything on screen needs the subject mask. Glass's
+     * background-only mode and the clock's depth effect are separate user
+     * settings that happen to share the same expensive input, so the mask is
+     * computed when either wants it and skipped when neither does.
+     */
+    fun needsSubjectMask(): Boolean {
+        return (glassEnabled && glassBackgroundOnly) ||
+            (clockEnabled && clockDepthEnabled)
+    }
+
+    val clockStyle: ClockStyle
+        get() = ClockStyle.fromId(clockStyleId)
 
     private fun Float.finiteOr(fallback: Float): Float {
         return if (isFinite()) this else fallback

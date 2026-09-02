@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.view.Surface
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 
@@ -55,7 +56,8 @@ internal object VulkanAtmosphereNative {
         clockHeightFraction: Float,
         clockTextureAspect: Float,
         clockOpacity: Float,
-        clockEnabled: Boolean,
+        clockUploaded: Boolean,
+        clockDepth: Boolean,
         blobColors: FloatArray,
         blobPositions: FloatArray,
         blobSizes: FloatArray,
@@ -133,8 +135,15 @@ internal class VulkanAtmosphereBridge(
             clockTop = safe.clockTop,
             clockHeightFraction = safe.clockHeight,
             clockTextureAspect = safe.clockTextureAspect,
-            clockOpacity = safe.clockOpacity,
-            clockEnabled = safe.clockEnabled,
+            // The lock fade is applied here rather than in the shader so
+            // both backends share AtmosphereClockPolicy's single curve.
+            clockOpacity = if (safe.clockEnabled) {
+                safe.clockOpacity * AtmosphereClockPolicy.lockFade(safe.progress)
+            } else {
+                0f
+            },
+            clockUploaded = safe.clockEnabled && safe.clockFaceUploaded,
+            clockDepth = safe.clockEnabled && safe.clockDepthEnabled,
             blobColors = safe.blobs.colors,
             blobPositions = safe.blobs.positions,
             blobSizes = safe.blobs.sizes,

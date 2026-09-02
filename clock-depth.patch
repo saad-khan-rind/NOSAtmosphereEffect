@@ -1,0 +1,3199 @@
+--- a/app/src/main/assets/shaders/atmosphere/atmosphere.frag
++++ b/app/src/main/assets/shaders/atmosphere/atmosphere.frag
+@@ -35,9 +35,17 @@
+ uniform float uHasSubject;
+ 
+ uniform sampler2D uClockTexture;
++// 1.0 only once a real clock face has been uploaded. Independent of the
++// user's toggle: the texture starts out as unwritten storage, and sampling
++// that would paint a rectangle of garbage where the clock belongs.
+ uniform float uClockEnabled;
+ uniform vec4 uClockRect;   // x, y, width, height — screen-locked UV (vEffectCoord) space
+ uniform float uClockOpacity;
++// The clock's own depth switch, ANDed with "a subject mask exists" by the
++// renderer. Deliberately not uHasSubject: that one is gated on the Glass
++// effect's background-only mode, which used to make the clock's depth effect
++// silently do nothing whenever Glass was off.
++uniform float uClockDepth;
+ 
+ const float TWO_PI = 6.28318530718;
+ 
+@@ -239,12 +247,11 @@
+         finalColor += vec3(noise * uNoiseStrength * noiseVisibility);
+     }
+ 
+-    // Depth-composited clock: sits on top of the atmosphere effect but
+-    // behind the subject, so the subject visually occludes it — same trick
+-    // as uBackgroundOnly above, applied globally instead of only within
+-    // the static-glass sub-effect.
+-    if (uClockEnabled > 0.5) {
+-        vec2 clockUv = (vEffectCoord - uClockRect.xy) / uClockRect.zw;
++    // Clock overlay. Composited after everything else so the effect never
++    // washes it out, then — when depth is on — the sharp subject is drawn
++    // back over the top, which is what sells "the clock is behind them".
++    if (uClockEnabled > 0.5 && uClockOpacity > 0.0) {
++        vec2 clockUv = (vEffectCoord - uClockRect.xy) / max(uClockRect.zw, vec2(1e-5));
+         if (
+             clockUv.x >= 0.0 && clockUv.x <= 1.0 &&
+             clockUv.y >= 0.0 && clockUv.y <= 1.0
+@@ -257,10 +264,12 @@
+             );
+         }
+ 
+-        if (uHasSubject > 0.5) {
++        if (uClockDepth > 0.5) {
+             vec3 subjectSharp = texture(uTextureSharp, vTexCoord).rgb;
+             float subjectCoverage = smoothstep(0.30, 0.72, sampleSubject(vTexCoord));
+-            finalColor = mix(finalColor, subjectSharp, subjectCoverage);
++            // Fades with the clock itself, so the subject is not re-sharpened
++            // over a blurred background once the clock has faded away.
++            finalColor = mix(finalColor, subjectSharp, subjectCoverage * uClockOpacity);
+         }
+     }
+ 
+--- a/app/src/main/cpp/vulkan_atmosphere_jni.cpp
++++ b/app/src/main/cpp/vulkan_atmosphere_jni.cpp
+@@ -32,9 +32,16 @@
+     float blobPositionsAndSizes[kMaximumBlobs][4]{};
+     // clockRect: centerX, top, heightFraction, textureAspect (all in the
+     // screen-locked vEffectCoord space the shader already uses for glass
+-    // ribs — see atmosphere.frag). clockMeta: opacity, enabled, unused,
+-    // unused. Appended at the end, after the existing static_assert'd
+-    // layout, so none of the offsets above shift.
++    // ribs — see atmosphere.frag).
++    //
++    // clockMeta: opacity (with the lock fade already folded in by the host),
++    // "a face has been uploaded", "depth enabled AND a subject mask exists",
++    // unused. The second slot is NOT the user's on/off toggle: unwritten
++    // optional bindings hold an opaque-black clear texture, so the shader
++    // needs to know whether real content has landed yet.
++    //
++    // Appended at the end, after the existing static_assert'd layout, so
++    // none of the offsets above shift.
+     float clockRect[4]{};
+     float clockMeta[4]{};
+ };
+@@ -355,7 +362,8 @@
+     jfloat clockHeightFraction,
+     jfloat clockTextureAspect,
+     jfloat clockOpacity,
+-    jboolean clockEnabled,
++    jboolean clockUploaded,
++    jboolean clockDepth,
+     jfloatArray blobColors,
+     jfloatArray blobPositions,
+     jfloatArray blobSizes,
+@@ -394,7 +402,12 @@
+     params.clockRect[2] = clockHeightFraction;
+     params.clockRect[3] = clockTextureAspect;
+     params.clockMeta[0] = clockOpacity;
+-    params.clockMeta[1] = clockEnabled == JNI_TRUE ? 1.0F : 0.0F;
++    params.clockMeta[1] = clockUploaded == JNI_TRUE ? 1.0F : 0.0F;
++    // Depth is the clock's own setting and only needs a subject mask — it is
++    // deliberately not gated on the Glass effect's background-only mode the
++    // way viewport[3] above is.
++    params.clockMeta[2] =
++        clockDepth == JNI_TRUE && hasSubject == JNI_TRUE ? 1.0F : 0.0F;
+ 
+     if (!readBlobArrays(
+             env,
+--- a/app/src/main/java/com/app/nosatmosphereeffect/activity/AdvancedSettingsActivity.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/activity/AdvancedSettingsActivity.kt
+@@ -101,6 +101,10 @@
+             clockEnabled = AtmosphereClockPolicy.resolveEnabled(
+                 activeEffect,
+                 prefs.readBoolean(AtmosphereClockPolicy.ENABLED_KEY, false)
++            ),
++            clockDepthEnabled = prefs.readBoolean(
++                AtmosphereClockPolicy.DEPTH_KEY,
++                AtmosphereClockPolicy.DEFAULT_DEPTH
+             ),
+             showNoiseSwitch = showNoiseSwitch,
+             showBlob = showBlob,
+@@ -260,6 +264,10 @@
+             }
+             if (updateAtmosphereClock) {
+                 putBoolean(AtmosphereClockPolicy.ENABLED_KEY, result.clockEnabled)
++                putBoolean(
++                    AtmosphereClockPolicy.DEPTH_KEY,
++                    result.clockDepthEnabled
++                )
+             }
+             putInt(
+                 GlassEffectPolicy.LINE_COUNT_KEY,
+@@ -318,11 +326,7 @@
+             remove("neon_sensitivity")
+             remove("neon_line_width")
+             remove(AtmosphereGlassPolicy.ENABLED_KEY)
+-            remove(AtmosphereClockPolicy.ENABLED_KEY)
+-            remove(AtmosphereClockPolicy.CENTER_X_KEY)
+-            remove(AtmosphereClockPolicy.TOP_KEY)
+-            remove(AtmosphereClockPolicy.HEIGHT_KEY)
+-            remove(AtmosphereClockPolicy.OPACITY_KEY)
++            AtmosphereClockPolicy.ALL_KEYS.forEach { remove(it) }
+             remove(GlassEffectPolicy.LINE_COUNT_KEY)
+             remove(GlassEffectPolicy.LINE_THICKNESS_KEY)
+             remove(GlassEffectPolicy.TRANSITION_STYLE_KEY)
+--- a/app/src/main/java/com/app/nosatmosphereeffect/activity/ClockAdjustActivity.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/activity/ClockAdjustActivity.kt
+@@ -1,34 +1,46 @@
+ package com.app.nosatmosphereeffect.activity
+ 
+ import android.content.Context
+-import android.content.Intent
+ import android.graphics.Bitmap
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
++import androidx.compose.animation.AnimatedVisibility
++import androidx.compose.animation.core.animateFloatAsState
++import androidx.compose.animation.core.tween
++import androidx.compose.animation.fadeIn
++import androidx.compose.animation.fadeOut
++import androidx.compose.foundation.Image
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
++import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.gestures.detectTransformGestures
++import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.WindowInsets
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+-import androidx.compose.foundation.layout.offset
+-import androidx.compose.ui.layout.onSizeChanged
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.navigationBars
+ import androidx.compose.foundation.layout.padding
+-import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.statusBars
++import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.layout.windowInsetsPadding
++import androidx.compose.foundation.lazy.LazyRow
++import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+-import androidx.compose.material.icons.rounded.Refresh
+ import androidx.compose.material3.CircularProgressIndicator
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.IconButton
+ import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Slider
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.DisposableEffect
+@@ -41,11 +53,15 @@
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.asImageBitmap
++import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+ import androidx.compose.ui.input.pointer.pointerInput
++import androidx.compose.ui.layout.ContentScale
++import androidx.compose.ui.layout.onSizeChanged
+ import androidx.compose.ui.platform.LocalContext
+-import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.unit.IntOffset
++import androidx.compose.ui.platform.LocalHapticFeedback
+ import androidx.compose.ui.unit.IntSize
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.viewinterop.AndroidView
+@@ -54,34 +70,32 @@
+ import androidx.lifecycle.LifecycleEventObserver
+ import androidx.lifecycle.compose.LocalLifecycleOwner
+ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+-import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
+-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
++import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
++import com.app.nosatmosphereeffect.helper.ClockStyle
+ import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
+-import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
+ import com.app.nosatmosphereeffect.image.BitmapDecoder
+ import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
++import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
+ import com.app.nosatmosphereeffect.ui.preview.EffectPreviewService
+ import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
+ import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
+ import java.io.File
+-import kotlin.math.roundToInt
++import kotlin.math.abs
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.withContext
+ 
+ /**
+- * Full-screen calibration for the Atmosphere depth-clock overlay — pinch to
+- * resize, drag to reposition, against a live preview of the person's actual
+- * applied wallpaper. Modeled on the app's crop screen rather than a settings
+- * card, since the whole point is judging placement against the real photo
+- * edge-to-edge.
++ * Full-screen placement and styling for the wallpaper clock — pick a face,
++ * drag to move, pinch to resize, all against a live preview of the person's
++ * actual applied wallpaper.
+  *
+- * There is no public API to read a device's real lock-screen clock position
+- * (see AtmosphereClockPolicy/AtmosphereRenderer for the longer version of
+- * why), so this is the substitute: let the person eyeball it, live.
++ * Modelled on the crop screen rather than a settings card: there is no public
++ * API to read a device's real lock-screen clock position, so eyeballing it
++ * against the real photo is the substitute.
+  *
+- * Only reachable from Advanced Settings when the clock toggle is on for the
+- * original Atmosphere effect (see AdvancedSettingsScreen).
++ * Reachable from Advanced Settings when the clock is on for the original
++ * Atmosphere effect.
+  */
+ class ClockAdjustActivity : ComponentActivity() {
+ 
+@@ -99,6 +113,7 @@
+ @Composable
+ private fun ClockAdjustScreen(onDone: () -> Unit) {
+     val context = LocalContext.current
++    val haptics = LocalHapticFeedback.current
+     val prefs = remember(context) {
+         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+     }
+@@ -113,7 +128,10 @@
+     }
+     var top by remember {
+         mutableFloatStateOf(
+-            prefs.getFloat(AtmosphereClockPolicy.TOP_KEY, AtmosphereClockPolicy.DEFAULT_TOP)
++            prefs.getFloat(
++                AtmosphereClockPolicy.TOP_KEY,
++                AtmosphereClockPolicy.DEFAULT_TOP
++            )
+         )
+     }
+     var heightFraction by remember {
+@@ -124,44 +142,60 @@
+             )
+         )
+     }
+-
+-    // The live preview instance, once created — used to push geometry
+-    // straight to the running renderer on every gesture tick, so dragging
+-    // feels immediate instead of waiting on a debounce + rebuild.
++    var opacity by remember {
++        mutableFloatStateOf(
++            prefs.getFloat(
++                AtmosphereClockPolicy.OPACITY_KEY,
++                AtmosphereClockPolicy.DEFAULT_OPACITY
++            )
++        )
++    }
++    var style by remember {
++        mutableStateOf(ClockStyle.fromId(prefs.getString(AtmosphereClockPolicy.STYLE_KEY, null)))
++    }
++    var showSeconds by remember {
++        mutableStateOf(
++            prefs.getBoolean(
++                AtmosphereClockPolicy.SECONDS_KEY,
++                AtmosphereClockPolicy.DEFAULT_SECONDS
++            )
++        )
++    }
++    var animate by remember {
++        mutableStateOf(
++            prefs.getBoolean(
++                AtmosphereClockPolicy.ANIMATE_KEY,
++                AtmosphereClockPolicy.DEFAULT_ANIMATE
++            )
++        )
++    }
++
+     var activePreview by remember { mutableStateOf<EffectPreviewService?>(null) }
+-
+-    fun pushLive() {
+-        activePreview?.setAtmosphereClockGeometry(centerX, top, heightFraction)
++    var interacting by remember { mutableStateOf(false) }
++    var lastInteractionMs by remember { mutableStateOf(0L) }
++
++    fun pushGeometry() {
++        activePreview?.setAtmosphereClockGeometry(centerX, top, heightFraction, opacity)
++    }
++
++    fun pushFace() {
++        activePreview?.setAtmosphereClockFace(style.id, showSeconds, animate)
+     }
+ 
+     var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
+     var wallpaperLoadFinished by remember { mutableStateOf(false) }
+     LaunchedEffect(Unit) {
+-        wallpaperBitmap = withContext(Dispatchers.IO) {
+-            loadCurrentWallpaperBitmap(context)
+-        }
++        wallpaperBitmap = withContext(Dispatchers.IO) { loadCurrentWallpaperBitmap(context) }
+         wallpaperLoadFinished = true
+     }
+ 
+-    val subjectMaskDrivingKeyEnabled = remember(prefs) {
+-        // For Atmosphere, subject-mask computation (which the clock's depth
+-        // occlusion depends on) is driven by "background only", not a
+-        // separate general subject-separation switch.
+-        prefs.getBoolean(GlassEffectPolicy.BACKGROUND_ONLY_KEY, false)
+-    }
+-    val subjectModelReady = remember(prefs) {
+-        prefs.getBoolean(CanvasSubjectSettings.MODEL_READY_KEY, false)
+-    }
+-
+-    // SubjectMaskDiagnostics is a plain in-memory holder (not Compose
+-    // state), written from a background thread doing mask computation —
+-    // poll it instead of trying to observe it directly, so a real failure
+-    // reason shows up here without needing adb/logcat.
+-    var lastMaskFailure by remember { mutableStateOf<String?>(null) }
+-    LaunchedEffect(Unit) {
+-        while (true) {
+-            lastMaskFailure = SubjectMaskDiagnostics.lastFailure
+-            delay(500)
++    // Rendered thumbnails of every face, so the gallery shows what each one
++    // actually looks like instead of a name. Built with the same renderer the
++    // wallpaper uses, so a thumbnail cannot drift from the real thing.
++    var thumbnails by remember { mutableStateOf<Map<ClockStyle, androidx.compose.ui.graphics.ImageBitmap>>(emptyMap()) }
++    LaunchedEffect(showSeconds) {
++        thumbnails = withContext(Dispatchers.Default) {
++            renderStyleThumbnails(context, showSeconds)
+         }
+     }
+ 
+@@ -169,24 +203,41 @@
+         centerX = AtmosphereClockPolicy.sanitizeCenterX(centerX)
+         top = AtmosphereClockPolicy.sanitizeTop(top)
+         heightFraction = AtmosphereClockPolicy.sanitizeHeight(heightFraction)
++        opacity = AtmosphereClockPolicy.sanitizeOpacity(opacity)
+         prefs.edit {
+             putFloat(AtmosphereClockPolicy.CENTER_X_KEY, centerX)
+             putFloat(AtmosphereClockPolicy.TOP_KEY, top)
+             putFloat(AtmosphereClockPolicy.HEIGHT_KEY, heightFraction)
+-        }
+-        val update = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
++            putFloat(AtmosphereClockPolicy.OPACITY_KEY, opacity)
++            putString(AtmosphereClockPolicy.STYLE_KEY, style.id)
++            putBoolean(AtmosphereClockPolicy.SECONDS_KEY, showSeconds)
++            putBoolean(AtmosphereClockPolicy.ANIMATE_KEY, animate)
++        }
++        val update = android.content.Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
+         update.setPackage(context.packageName)
+         context.sendBroadcast(update)
+     }
+ 
+-    // The on-screen preview updates instantly via pushLive() on every
+-    // gesture tick; this debounce only covers writing to prefs + telling
+-    // the real wallpaper, so we're not hammering SharedPreferences/sending
+-    // a broadcast on every pixel of movement.
+-    LaunchedEffect(centerX, top, heightFraction) {
+-        delay(400)
++    // The preview updates instantly through pushGeometry/pushFace; this
++    // debounce only covers writing prefs and telling the live wallpaper, so
++    // SharedPreferences is not hammered on every pixel of movement.
++    LaunchedEffect(centerX, top, heightFraction, opacity, style, showSeconds, animate) {
++        delay(350)
+         persist()
+     }
++
++    // Fade the placement guides out shortly after the last touch, so the
++    // clock can be judged against the photo without chrome over it.
++    LaunchedEffect(lastInteractionMs) {
++        if (lastInteractionMs == 0L) return@LaunchedEffect
++        delay(1_200)
++        interacting = false
++    }
++    val guideAlpha by animateFloatAsState(
++        targetValue = if (interacting) 1f else 0f,
++        animationSpec = tween(durationMillis = 220),
++        label = "clockGuideAlpha"
++    )
+ 
+     var containerSizePx by remember { mutableStateOf(IntSize.Zero) }
+ 
+@@ -199,7 +250,11 @@
+         if (wallpaperLoadFinished) {
+             ClockCalibrationPreview(
+                 wallpaper = wallpaperBitmap,
+-                onPreviewCreated = { activePreview = it },
++                onPreviewCreated = {
++                    activePreview = it
++                    pushFace()
++                    pushGeometry()
++                },
+                 modifier = Modifier.fillMaxSize()
+             )
+         } else {
+@@ -209,150 +264,312 @@
+         }
+ 
+         if (containerSizePx.width > 0 && containerSizePx.height > 0) {
+-            val containerWidthPx = containerSizePx.width.toFloat()
+-            val containerHeightPx = containerSizePx.height.toFloat()
+-            val handleAspect = 3.2f
+-            val handleHeightPx = heightFraction * containerHeightPx
+-            val handleWidthPx = handleHeightPx * handleAspect
+-            val handleXPx = centerX * containerWidthPx - handleWidthPx / 2f
+-            val handleYPx = top * containerHeightPx
++            val widthPx = containerSizePx.width.toFloat()
++            val heightPx = containerSizePx.height.toFloat()
+ 
+             Box(
+                 modifier = Modifier
+                     .fillMaxSize()
+-                    .pointerInput(containerWidthPx, containerHeightPx) {
++                    .pointerInput(widthPx, heightPx) {
+                         detectTransformGestures { _, pan, zoom, _ ->
+-                            centerX = (centerX + pan.x / containerWidthPx)
+-                                .coerceIn(0.05f, 0.95f)
+-                            top = (top + pan.y / containerHeightPx)
+-                                .coerceIn(0.02f, 0.85f)
++                            interacting = true
++                            lastInteractionMs = System.currentTimeMillis()
++
++                            val proposed = centerX + pan.x / widthPx
++                            // Snap to the horizontal centre, since that is
++                            // where almost every lock screen puts its clock
++                            // and hitting 0.500 by hand is fiddly.
++                            centerX = if (abs(proposed - 0.5f) < CENTER_SNAP) {
++                                if (abs(centerX - 0.5f) >= CENTER_SNAP) {
++                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
++                                }
++                                0.5f
++                            } else {
++                                AtmosphereClockPolicy.sanitizeCenterX(proposed)
++                            }
++                            top = AtmosphereClockPolicy.sanitizeTop(top + pan.y / heightPx)
+                             if (zoom != 1f) {
+                                 heightFraction = AtmosphereClockPolicy.sanitizeHeight(
+                                     heightFraction * zoom
+                                 )
+                             }
+-                            pushLive()
++                            pushGeometry()
+                         }
+                     }
+             ) {
+-                Box(
+-                    modifier = Modifier
+-                        .offset {
+-                            IntOffset(handleXPx.roundToInt(), handleYPx.roundToInt())
+-                        }
+-                        .size(
+-                            with(LocalDensity.current) { handleWidthPx.toDp() },
+-                            with(LocalDensity.current) { handleHeightPx.toDp() }
++                // Placement guides. No box around the clock: a hard border
++                // fights the thing it is supposed to help you position. These
++                // are hairlines that only show while you are actually moving
++                // it, and they mark the centre and the top edge rather than
++                // outlining the glyphs.
++                if (guideAlpha > 0.01f) {
++                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
++                        val guideColor = Color.White.copy(alpha = 0.55f * guideAlpha)
++                        val centred = abs(centerX - 0.5f) < 0.001f
++                        drawLine(
++                            color = if (centred) {
++                                Color(0xFF7FD1FF).copy(alpha = 0.9f * guideAlpha)
++                            } else {
++                                guideColor
++                            },
++                            start = androidx.compose.ui.geometry.Offset(centerX * size.width, 0f),
++                            end = androidx.compose.ui.geometry.Offset(
++                                centerX * size.width,
++                                size.height
++                            ),
++                            strokeWidth = 1.dp.toPx()
+                         )
+-                        .clip(RoundedCornerShape(8.dp))
+-                        .border(2.dp, Color.Yellow, RoundedCornerShape(8.dp))
+-                )
++                        drawLine(
++                            color = guideColor,
++                            start = androidx.compose.ui.geometry.Offset(0f, top * size.height),
++                            end = androidx.compose.ui.geometry.Offset(
++                                size.width,
++                                top * size.height
++                            ),
++                            strokeWidth = 1.dp.toPx()
++                        )
++                    }
++                }
+             }
+         }
+ 
+-        // Top scrim bar, overlaid rather than pushing the image down —
+-        // matches the crop screen's full-bleed feel.
++        // Top bar, overlaid rather than pushing the image down.
+         Box(
+             Modifier
+                 .fillMaxWidth()
++                .align(Alignment.TopStart)
++                .background(
++                    Brush.verticalGradient(
++                        listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)
++                    )
++                )
+                 .windowInsetsPadding(WindowInsets.statusBars)
+-                .background(Color.Black.copy(alpha = 0.35f))
+-                .align(Alignment.TopStart)
++                .padding(4.dp)
+         ) {
+-            Box(Modifier.fillMaxWidth().padding(4.dp)) {
+-                IconButton(onClick = onDone, modifier = Modifier.align(Alignment.CenterStart)) {
+-                    Icon(
+-                        Icons.AutoMirrored.Rounded.ArrowBack,
+-                        contentDescription = "Done",
+-                        tint = Color.White
+-                    )
++            IconButton(onClick = onDone, modifier = Modifier.align(Alignment.CenterStart)) {
++                Icon(
++                    Icons.AutoMirrored.Rounded.ArrowBack,
++                    contentDescription = "Done",
++                    tint = Color.White
++                )
++            }
++            Text(
++                "Drag to move, pinch to resize",
++                color = Color.White,
++                style = MaterialTheme.typography.bodyMedium,
++                modifier = Modifier.align(Alignment.Center)
++            )
++        }
++
++        // Controls. Fades down while the clock is being dragged so it never
++        // hides the thing being positioned.
++        AnimatedVisibility(
++            visible = !interacting,
++            enter = fadeIn(),
++            exit = fadeOut(),
++            modifier = Modifier.align(Alignment.BottomStart)
++        ) {
++            ClockControls(
++                styles = ClockStyle.entries,
++                thumbnails = thumbnails,
++                selected = style,
++                onStyleSelected = {
++                    style = it
++                    pushFace()
++                },
++                heightFraction = heightFraction,
++                onHeightChange = {
++                    heightFraction = AtmosphereClockPolicy.sanitizeHeight(it)
++                    pushGeometry()
++                },
++                opacity = opacity,
++                onOpacityChange = {
++                    opacity = AtmosphereClockPolicy.sanitizeOpacity(it)
++                    pushGeometry()
++                },
++                showSeconds = showSeconds,
++                onShowSecondsChange = {
++                    showSeconds = it
++                    pushFace()
++                },
++                animate = animate,
++                onAnimateChange = {
++                    animate = it
++                    pushFace()
++                },
++                segmentationDisabled = SegmentationCrashGuard.isDisabled(context),
++                onResetSegmentation = { SegmentationCrashGuard.reset(context) },
++                onResetPlacement = {
++                    centerX = AtmosphereClockPolicy.DEFAULT_CENTER_X
++                    top = AtmosphereClockPolicy.DEFAULT_TOP
++                    heightFraction = AtmosphereClockPolicy.DEFAULT_HEIGHT
++                    opacity = AtmosphereClockPolicy.DEFAULT_OPACITY
++                    pushGeometry()
+                 }
+-                Text(
+-                    "Pinch to resize, drag to move",
+-                    color = Color.White,
+-                    style = MaterialTheme.typography.bodyMedium,
+-                    modifier = Modifier.align(Alignment.Center)
++            )
++        }
++    }
++}
++
++@Composable
++private fun ClockControls(
++    styles: List<ClockStyle>,
++    thumbnails: Map<ClockStyle, androidx.compose.ui.graphics.ImageBitmap>,
++    selected: ClockStyle,
++    onStyleSelected: (ClockStyle) -> Unit,
++    heightFraction: Float,
++    onHeightChange: (Float) -> Unit,
++    opacity: Float,
++    onOpacityChange: (Float) -> Unit,
++    showSeconds: Boolean,
++    onShowSecondsChange: (Boolean) -> Unit,
++    animate: Boolean,
++    onAnimateChange: (Boolean) -> Unit,
++    segmentationDisabled: Boolean,
++    onResetSegmentation: () -> Unit,
++    onResetPlacement: () -> Unit
++) {
++    Column(
++        Modifier
++            .fillMaxWidth()
++            .background(
++                Brush.verticalGradient(
++                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.82f))
+                 )
+-                IconButton(
+-                    onClick = {
+-                        centerX = AtmosphereClockPolicy.DEFAULT_CENTER_X
+-                        top = AtmosphereClockPolicy.DEFAULT_TOP
+-                        heightFraction = AtmosphereClockPolicy.DEFAULT_HEIGHT
+-                        pushLive()
+-                    },
+-                    modifier = Modifier.align(Alignment.CenterEnd)
++            )
++            .windowInsetsPadding(WindowInsets.navigationBars)
++            .padding(horizontal = 16.dp, vertical = 12.dp)
++    ) {
++        Text(
++            "Style",
++            color = Color.White,
++            style = MaterialTheme.typography.labelLarge
++        )
++        Spacer(Modifier.height(8.dp))
++        LazyRow(
++            horizontalArrangement = Arrangement.spacedBy(10.dp),
++            contentPadding = PaddingValues(vertical = 2.dp)
++        ) {
++            items(styles) { candidate ->
++                val isSelected = candidate == selected
++                Column(
++                    horizontalAlignment = Alignment.CenterHorizontally,
++                    modifier = Modifier
++                        .width(112.dp)
++                        .clip(RoundedCornerShape(14.dp))
++                        .background(Color.White.copy(alpha = if (isSelected) 0.18f else 0.07f))
++                        .border(
++                            width = if (isSelected) 2.dp else 1.dp,
++                            color = if (isSelected) {
++                                Color.White.copy(alpha = 0.9f)
++                            } else {
++                                Color.White.copy(alpha = 0.16f)
++                            },
++                            shape = RoundedCornerShape(14.dp)
++                        )
++                        .clickable { onStyleSelected(candidate) }
++                        .padding(8.dp)
+                 ) {
+-                    Icon(Icons.Rounded.Refresh, contentDescription = "Reset", tint = Color.White)
+-                }
+-            }
+-        }
+-
+-        // Bottom hint strip — only shown when it explains something the
+-        // person can't see for themselves (no wallpaper yet, depth effect
+-        // won't show yet).
+-        val segmentationDisabled = SegmentationCrashGuard.isDisabled(context)
+-        val hints = buildList {
+-            if (wallpaperLoadFinished && wallpaperBitmap == null) {
+-                add("No wallpaper set yet — showing a sample photo.")
+-            }
+-            if (segmentationDisabled) {
+-                add(
+-                    "Subject detection was disabled after crashing the app " +
+-                        "repeatedly (a crash inside a system component, not " +
+-                        "this app) — tap Reset below to try again."
+-                )
+-            } else if (!subjectMaskDrivingKeyEnabled) {
+-                add(
+-                    "\"Background only\" is off for the Glass effect, so " +
+-                        "nothing will occlude the clock — turn it on in " +
+-                        "Advanced Settings to see the depth effect. Note: " +
+-                        "this is a shared setting also used by the Glass " +
+-                        "effect itself, so check that toggling it doesn't " +
+-                        "cause problems there on your device first."
+-                )
+-            } else if (!subjectModelReady) {
+-                add(
+-                    "The subject-detection model isn't ready on this " +
+-                        "device yet, so occlusion may not show here until " +
+-                        "it finishes downloading."
+-                )
+-            } else if (lastMaskFailure != null) {
+-                // "Background only" is on and the model's ready, but the
+-                // most recent attempt failed or was rejected — show why,
+-                // straight from the code that tried, no adb needed.
+-                add("No depth effect yet: $lastMaskFailure")
+-            }
+-        }
+-        if (hints.isNotEmpty()) {
+-            Column(
+-                Modifier
+-                    .fillMaxWidth()
+-                    .align(Alignment.BottomStart)
+-                    .background(Color.Black.copy(alpha = 0.55f))
+-                    .padding(16.dp)
+-            ) {
+-                Text(
+-                    hints.joinToString("\n\n"),
+-                    color = Color.White,
+-                    style = MaterialTheme.typography.bodySmall
+-                )
+-                if (segmentationDisabled) {
+-                    AtmoTextButton(
+-                        text = "Reset",
+-                        onClick = { SegmentationCrashGuard.reset(context) }
++                    val thumbnail = thumbnails[candidate]
++                    Box(
++                        Modifier
++                            .fillMaxWidth()
++                            .height(46.dp),
++                        contentAlignment = Alignment.Center
++                    ) {
++                        if (thumbnail != null) {
++                            Image(
++                                bitmap = thumbnail,
++                                contentDescription = candidate.label,
++                                contentScale = ContentScale.Fit,
++                                modifier = Modifier.fillMaxSize()
++                            )
++                        }
++                    }
++                    Spacer(Modifier.height(4.dp))
++                    Text(
++                        candidate.label,
++                        color = Color.White,
++                        style = MaterialTheme.typography.labelMedium
+                     )
+                 }
+             }
+         }
++
++        Spacer(Modifier.height(10.dp))
++        LabelledSlider(
++            label = "Size",
++            value = heightFraction,
++            valueRange = 0.03f..0.40f,
++            onValueChange = onHeightChange
++        )
++        LabelledSlider(
++            label = "Opacity",
++            value = opacity,
++            valueRange = 0f..1f,
++            onValueChange = onOpacityChange
++        )
++
++        SettingSwitchRow(
++            title = "Show seconds",
++            checked = showSeconds,
++            onCheckedChange = onShowSecondsChange
++        )
++        SettingSwitchRow(
++            title = "Animate digit changes",
++            checked = animate,
++            onCheckedChange = onAnimateChange,
++            subtitle = "Digits slide as the time changes. Costs a short burst " +
++                "of frames each minute."
++        )
++
++        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++            AtmoTextButton(text = "Reset placement", onClick = onResetPlacement)
++            if (segmentationDisabled) {
++                AtmoTextButton(
++                    text = "Re-enable subject detection",
++                    onClick = onResetSegmentation
++                )
++            }
++        }
++        if (segmentationDisabled) {
++            Text(
++                "Subject detection was switched off after repeated crashes in a " +
++                    "system component, so nothing will occlude the clock until " +
++                    "it is re-enabled.",
++                color = Color.White.copy(alpha = 0.75f),
++                style = MaterialTheme.typography.bodySmall
++            )
++        }
+     }
+ }
+ 
++@Composable
++private fun LabelledSlider(
++    label: String,
++    value: Float,
++    valueRange: ClosedFloatingPointRange<Float>,
++    onValueChange: (Float) -> Unit
++) {
++    Column(Modifier.fillMaxWidth()) {
++        Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium)
++        Slider(
++            value = value.coerceIn(valueRange.start, valueRange.endInclusive),
++            valueRange = valueRange,
++            onValueChange = onValueChange
++        )
++    }
++}
++
+ /**
+- * A minimal live preview of the Atmosphere effect, forced onto the GLES
+- * backend (the only one the clock overlay is implemented on) regardless of
+- * the device's normal Vulkan/OpenGL ES preference — see EffectPreviewService's
+- * forceOpenGlEs param. Reports the created instance back via
+- * [onPreviewCreated] so the caller can push live geometry updates to it.
++ * A live preview of the Atmosphere effect, forced onto the GLES backend.
++ *
++ * Both backends implement the clock now, but the calibration screen pins
++ * itself to GLES on purpose: it is a short-lived, windowed surface that only
++ * has to be geometrically faithful, and GLES 3.0 is available everywhere, so
++ * this avoids standing up a second Vulkan swapchain next to the live
++ * wallpaper's. The two shaders compute the clock rect identically, so what
++ * you position here is what you get.
+  */
+ @Composable
+ private fun ClockCalibrationPreview(
+@@ -397,19 +614,60 @@
+ }
+ 
+ /**
+- * Loads the same "currently applied wallpaper" file MainActivity previews
+- * elsewhere in the app (files/wallpaper.jpg). Returns null if none is set
+- * yet or it can't be decoded — EffectPreviewService falls back to its own
+- * demo photo in that case.
++ * Renders one thumbnail per face using the same [ClockFaceRenderer] the
++ * wallpaper uses, scaled down for the gallery.
++ *
++ * Runs off the main thread. Each renderer is released immediately, because
++ * the renderer reuses one internal bitmap — the scaled copy is what survives.
++ */
++private fun renderStyleThumbnails(
++    context: Context,
++    showSeconds: Boolean
++): Map<ClockStyle, androidx.compose.ui.graphics.ImageBitmap> {
++    val now = System.currentTimeMillis()
++    val result = LinkedHashMap<ClockStyle, androidx.compose.ui.graphics.ImageBitmap>()
++    for (candidate in ClockStyle.entries) {
++        val renderer = ClockFaceRenderer(context).apply {
++            style = candidate
++            this.showSeconds = showSeconds
++            animateDigits = false
++        }
++        try {
++            val rendered = renderer.render(nowMillis = now, uptimeMs = 0L) ?: continue
++            if (rendered.width <= 0 || rendered.height <= 0) continue
++            val targetWidth = THUMBNAIL_WIDTH_PX
++            val targetHeight = (rendered.height.toFloat() * targetWidth / rendered.width)
++                .toInt()
++                .coerceAtLeast(1)
++            val scaled = Bitmap.createScaledBitmap(rendered, targetWidth, targetHeight, true)
++            result[candidate] = scaled.asImageBitmap()
++        } catch (_: RuntimeException) {
++            // A face that will not render is simply left out of the gallery.
++        } catch (_: OutOfMemoryError) {
++            break
++        } finally {
++            renderer.release()
++        }
++    }
++    return result
++}
++
++/**
++ * Loads the same "currently applied wallpaper" file the rest of the app
++ * previews (files/wallpaper.jpg). Returns null if none is set yet or it
++ * cannot be decoded — EffectPreviewService falls back to its own demo photo.
+  */
+ private suspend fun loadCurrentWallpaperBitmap(context: Context): Bitmap? {
+     val file = File(context.filesDir, "wallpaper.jpg")
+     if (!file.exists()) return null
+     return try {
+         BitmapDecoder.decodePreview(file)
+-    } catch (failure: java.io.IOException) {
++    } catch (_: java.io.IOException) {
+         null
+-    } catch (failure: RuntimeException) {
++    } catch (_: RuntimeException) {
+         null
+     }
+ }
++
++private const val CENTER_SNAP = 0.015f
++private const val THUMBNAIL_WIDTH_PX = 260
+--- a/app/src/main/java/com/app/nosatmosphereeffect/helper/AtmosphereClockPolicy.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/helper/AtmosphereClockPolicy.kt
+@@ -1,41 +1,68 @@
+ package com.app.nosatmosphereeffect.helper
+ 
+ /**
+- * Defines the depth-composited clock overlay, currently supported only by
+- * the original Atmosphere effect (blobs/clouds renderer, [AtmosphereRenderer]).
++ * Defines the clock overlay drawn into the wallpaper by the original
++ * Atmosphere effect (blobs/clouds renderer, [AtmosphereRenderer] on GLES and
++ * VulkanAtmosphereHost on Vulkan).
+  *
+- * Unlike [AtmosphereGlassPolicy], this intentionally excludes "REVERSE":
+- * that direction runs through BlurToSharpRenderer, which does not yet
+- * implement the clock compositing pass.
++ * Excludes "REVERSE": that direction runs through BlurToSharpRenderer, which
++ * has no clock compositing pass.
+  *
+  * Geometry is stored as screen-fraction values (matching the shader's
+- * screen-locked uEffectCoord space) so the same numbers drive both the
+- * live wallpaper and the ClockAdjustActivity preview with no conversion.
++ * screen-locked effect-coordinate space) so the same numbers drive the live
++ * wallpaper, both backends, and the ClockAdjustActivity preview with no
++ * conversion anywhere.
++ *
++ * ## Depth is independent of Glass
++ *
++ * [DEPTH_KEY] is the clock's own switch for "draw the subject back over the
++ * clock so it looks like the clock is behind them". The first version of this
++ * feature piggybacked on the Glass effect's background-only flag, which meant
++ * the depth effect silently did nothing whenever Glass was off. The two are
++ * separate settings now; both feed the same subject-mask machinery, and the
++ * mask is computed when *either* asks for it (see
++ * AtmosphereRenderState.needsSubjectMask).
+  */
+ object AtmosphereClockPolicy {
+     const val ENABLED_KEY = "atmosphere_clock_enabled"
++    const val DEPTH_KEY = "atmosphere_clock_depth"
++    const val STYLE_KEY = "atmosphere_clock_style"
++    const val SECONDS_KEY = "atmosphere_clock_seconds"
++    const val ANIMATE_KEY = "atmosphere_clock_animate"
+     const val CENTER_X_KEY = "atmosphere_clock_center_x"
+     const val TOP_KEY = "atmosphere_clock_top"
+     const val HEIGHT_KEY = "atmosphere_clock_height"
+     const val OPACITY_KEY = "atmosphere_clock_opacity"
+ 
+-    // Large-by-default: chosen so the clock is unmissable without on-device
+-    // tuning. ClockAdjustActivity lets a user shrink/move it per device.
+     const val DEFAULT_CENTER_X = 0.5f
+     const val DEFAULT_TOP = 0.14f
+     const val DEFAULT_HEIGHT = 0.16f
+     const val DEFAULT_OPACITY = 1f
++    const val DEFAULT_DEPTH = true
++    const val DEFAULT_SECONDS = false
++    const val DEFAULT_ANIMATE = true
+ 
+     private const val MIN_CENTER_X = 0.05f
+     private const val MAX_CENTER_X = 0.95f
+     private const val MIN_TOP = 0.02f
+-    private const val MAX_TOP = 0.85f
+-    private const val MIN_HEIGHT = 0.04f
+-    private const val MAX_HEIGHT = 0.32f
++    private const val MAX_TOP = 0.90f
++    private const val MIN_HEIGHT = 0.03f
++    private const val MAX_HEIGHT = 0.40f
+ 
+-    fun supportsEffect(effectId: String?): Boolean {
+-        return effectId == "ORIGINAL"
+-    }
++    /** All keys this feature owns, for the Advanced Settings reset path. */
++    val ALL_KEYS: List<String> = listOf(
++        ENABLED_KEY,
++        DEPTH_KEY,
++        STYLE_KEY,
++        SECONDS_KEY,
++        ANIMATE_KEY,
++        CENTER_X_KEY,
++        TOP_KEY,
++        HEIGHT_KEY,
++        OPACITY_KEY
++    )
++
++    fun supportsEffect(effectId: String?): Boolean = effectId == "ORIGINAL"
+ 
+     fun resolveEnabled(effectId: String?, requested: Boolean): Boolean {
+         return supportsEffect(effectId) && requested
+@@ -60,4 +87,18 @@
+         if (!value.isFinite()) return DEFAULT_OPACITY
+         return value.coerceIn(0f, 1f)
+     }
++
++    fun sanitizeStyleId(value: String?): String = ClockStyle.fromId(value).id
++
++    /**
++     * The clock only draws on the lock-screen side of the transition, so it
++     * fades out over the first slice of the unlock animation. Shared by both
++     * backends so they agree on the curve.
++     */
++    const val LOCK_FADE_RANGE = 0.25f
++
++    fun lockFade(progress: Float): Float {
++        if (!progress.isFinite()) return 0f
++        return (1f - progress / LOCK_FADE_RANGE).coerceIn(0f, 1f)
++    }
+ }
+--- /dev/null
++++ b/app/src/main/java/com/app/nosatmosphereeffect/helper/ClockFace.kt
+@@ -0,0 +1,612 @@
++package com.app.nosatmosphereeffect.helper
++
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.Typeface
++import android.text.format.DateFormat
++import androidx.core.graphics.createBitmap
++import java.util.Calendar
++import kotlin.math.abs
++import kotlin.math.max
++import kotlin.math.pow
++
++/**
++ * The selectable clock faces.
++ *
++ * Every style is built from a typeface family that ships with Android
++ * itself (no bundled font files, no downloadable-fonts dependency), so the
++ * same code produces the same result in the F-Droid and Play builds and
++ * nothing here needs a licence audit. [familyName] values are the standard
++ * aliases declared in /system/etc/fonts.xml on every Android device; if a
++ * device happens not to have one, Typeface.create falls back to the default
++ * sans-serif rather than failing.
++ */
++enum class ClockStyle(
++    val id: String,
++    val label: String,
++    val description: String,
++    private val familyName: String,
++    private val weight: Int,
++    /** Extra tracking as a fraction of the text size. */
++    val letterSpacingEm: Float,
++    /** True when hours and minutes are drawn on separate rows. */
++    val stacked: Boolean,
++    /** Alpha applied to the ":" separator, 0..1. */
++    val separatorAlpha: Float
++) {
++    MODERN(
++        id = "modern",
++        label = "Modern",
++        description = "Light and airy, widely spaced",
++        familyName = "sans-serif-thin",
++        weight = 200,
++        letterSpacingEm = 0.06f,
++        stacked = false,
++        separatorAlpha = 0.55f
++    ),
++    DISPLAY(
++        id = "display",
++        label = "Display",
++        description = "Heavy, tightly set",
++        familyName = "sans-serif",
++        weight = 900,
++        letterSpacingEm = -0.02f,
++        stacked = false,
++        separatorAlpha = 0.8f
++    ),
++    SERIF(
++        id = "serif",
++        label = "Serif",
++        description = "Classic, editorial",
++        familyName = "serif",
++        weight = 400,
++        letterSpacingEm = 0.02f,
++        stacked = false,
++        separatorAlpha = 0.7f
++    ),
++    MONO(
++        id = "mono",
++        label = "Mono",
++        description = "Even, terminal-like",
++        familyName = "monospace",
++        weight = 400,
++        letterSpacingEm = 0.04f,
++        stacked = false,
++        separatorAlpha = 0.6f
++    ),
++    STACKED(
++        id = "stacked",
++        label = "Stacked",
++        description = "Hours above minutes",
++        familyName = "sans-serif-condensed",
++        weight = 700,
++        letterSpacingEm = 0f,
++        stacked = true,
++        separatorAlpha = 0f
++    );
++
++    fun typeface(): Typeface {
++        return try {
++            Typeface.create(
++                Typeface.create(familyName, Typeface.NORMAL),
++                weight,
++                false
++            )
++        } catch (_: RuntimeException) {
++            Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
++        }
++    }
++
++    companion object {
++        val DEFAULT = MODERN
++
++        fun fromId(id: String?): ClockStyle {
++            if (id == null) return DEFAULT
++            return entries.firstOrNull { it.id == id } ?: DEFAULT
++        }
++    }
++}
++
++/**
++ * Draws the clock face into a reusable bitmap, and owns the digit-change
++ * animation.
++ *
++ * Shared deliberately by [ClockTextureProvider] (GLES) and
++ * [com.app.nosatmosphereeffect.renderer.vulkan.VulkanClockTextureUploader]
++ * (Vulkan): the previous version of this feature had two copies of the
++ * drawing code, which is how the two backends ended up disagreeing about
++ * geometry. The only thing the two wrappers still do differently is the
++ * upload step.
++ *
++ * Not thread-safe. Each backend owns its own instance and only touches it
++ * from its own render thread.
++ *
++ * ## Why the bitmap has a fixed size
++ *
++ * Digit slots are laid out using the widest digit's advance rather than the
++ * advance of whichever digit is currently showing. That costs a few pixels
++ * of padding on narrow digits and buys three things: the clock stops
++ * shifting sideways as the time changes, the animation has somewhere stable
++ * to slide within, and the bitmap dimensions never change — so the GLES path
++ * can texSubImage2D into the existing texture instead of reallocating, and
++ * the Vulkan path re-uploads the same extent every time.
++ */
++class ClockFaceRenderer(private val context: Context) {
++
++    var style: ClockStyle = ClockStyle.DEFAULT
++        set(value) {
++            if (field != value) {
++                field = value
++                invalidateLayout()
++            }
++        }
++
++    var showSeconds: Boolean = false
++        set(value) {
++            if (field != value) {
++                field = value
++                invalidateLayout()
++            }
++        }
++
++    var animateDigits: Boolean = true
++        set(value) {
++            if (field != value) {
++                field = value
++                if (!value) transitionStartUptimeMs = NO_TRANSITION
++            }
++        }
++
++    /** Width of the most recently rendered bitmap, in pixels. */
++    var width: Int = 0
++        private set
++
++    /** Height of the most recently rendered bitmap, in pixels. */
++    var height: Int = 0
++        private set
++
++    val aspectRatio: Float
++        get() = if (height > 0) width.toFloat() / height.toFloat() else 1f
++
++    private var is24Hour: Boolean = DateFormat.is24HourFormat(context)
++
++    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        color = Color.WHITE
++        textAlign = Paint.Align.LEFT
++    }
++
++    private val calendar: Calendar = Calendar.getInstance()
++
++    private var bitmap: Bitmap? = null
++    private var canvas: Canvas? = null
++
++    private var layout: FaceLayout? = null
++    private var currentRows: List<String> = emptyList()
++    private var previousRows: List<String> = emptyList()
++
++    private var lastRenderedKey: Long = Long.MIN_VALUE
++    private var lastRenderUptimeMs: Long = 0L
++    private var transitionStartUptimeMs: Long = NO_TRANSITION
++
++    /**
++     * True when a frame is due — either the displayed time changed or a
++     * digit transition is still in flight. Callers use this both to decide
++     * whether to redraw and to decide whether to schedule another frame.
++     */
++    fun needsRender(nowMillis: Long, uptimeMs: Long): Boolean {
++        if (bitmap == null) return true
++        if (timeKey(nowMillis) != lastRenderedKey) return true
++        return isAnimating(uptimeMs)
++    }
++
++    fun isAnimating(uptimeMs: Long): Boolean {
++        if (!animateDigits || transitionStartUptimeMs == NO_TRANSITION) return false
++        return uptimeMs - transitionStartUptimeMs < TRANSITION_DURATION_MS
++    }
++
++    /**
++     * Renders the face for [nowMillis]. [uptimeMs] must come from a
++     * monotonic clock (SystemClock.uptimeMillis) so that a user or network
++     * time change moves the digits without corrupting the animation.
++     *
++     * [minimumIntervalMs] throttles animation frames; pass 0 to force a
++     * render. Returns the bitmap to upload, or null when nothing needs to
++     * be uploaded this frame.
++     */
++    fun render(
++        nowMillis: Long,
++        uptimeMs: Long,
++        minimumIntervalMs: Long = 0L
++    ): Bitmap? {
++        val key = timeKey(nowMillis)
++        val timeChanged = key != lastRenderedKey
++        val animating = isAnimating(uptimeMs)
++        if (!timeChanged && !animating && bitmap != null) return null
++        if (
++            !timeChanged &&
++            bitmap != null &&
++            uptimeMs - lastRenderUptimeMs < minimumIntervalMs
++        ) {
++            return null
++        }
++
++        val rows = formatRows(nowMillis)
++        if (timeChanged && currentRows.isNotEmpty() && rows != currentRows) {
++            previousRows = currentRows
++            if (animateDigits) transitionStartUptimeMs = uptimeMs
++        }
++        if (currentRows.isEmpty()) previousRows = rows
++        currentRows = rows
++
++        val face = ensureLayout(rows)
++        val target = ensureBitmap(face) ?: return null
++        val target2d = canvas ?: return null
++
++        target.eraseColor(Color.TRANSPARENT)
++        drawFace(target2d, face, uptimeMs)
++
++        lastRenderedKey = key
++        lastRenderUptimeMs = uptimeMs
++        width = target.width
++        height = target.height
++        return target
++    }
++
++    /** Re-reads the system 12/24-hour setting; call on a config change. */
++    fun refreshFormat() {
++        val updated = DateFormat.is24HourFormat(context)
++        if (updated != is24Hour) {
++            is24Hour = updated
++            invalidateLayout()
++        }
++    }
++
++    /**
++     * Forces the next [render] to redraw and re-upload without animating —
++     * for surface/context loss, where the GPU-side copy is gone but the
++     * displayed time has not actually changed.
++     */
++    fun invalidate() {
++        lastRenderedKey = Long.MIN_VALUE
++        transitionStartUptimeMs = NO_TRANSITION
++    }
++
++    fun release() {
++        bitmap?.recycle()
++        bitmap = null
++        canvas = null
++        layout = null
++        width = 0
++        height = 0
++        invalidate()
++        currentRows = emptyList()
++        previousRows = emptyList()
++    }
++
++    // ---------------------------------------------------------------- draw
++
++    private fun drawFace(target: Canvas, face: FaceLayout, uptimeMs: Long) {
++        val progress = transitionProgress(uptimeMs)
++        val rowCount = face.rows.size
++        for (rowIndex in 0 until rowCount) {
++            val row = face.rows[rowIndex]
++            val previousRow = previousRows.getOrNull(rowIndex)
++            val currentRow = currentRows.getOrNull(rowIndex) ?: continue
++            var x = face.padding + (face.contentWidth - row.width) / 2f
++            val baseline = face.padding + face.rowBaselines[rowIndex]
++
++            for (slotIndex in row.slots.indices) {
++                val slot = row.slots[slotIndex]
++                val newChar = currentRow.getOrNull(slotIndex) ?: continue
++                val oldChar = previousRow?.getOrNull(slotIndex)
++                val centerX = x + slot.advance / 2f
++
++                val slotProgress = if (progress == null || oldChar == null || oldChar == newChar) {
++                    null
++                } else {
++                    staggered(progress, slotIndex, row.slots.size)
++                }
++
++                if (slotProgress == null) {
++                    drawGlyph(target, newChar, centerX, baseline, face, 1f, 0f, 1f)
++                } else {
++                    val eased = easeOutCubic(slotProgress)
++                    val shift = face.textSize * TRANSITION_TRAVEL_EM
++                    // Outgoing digit rises and fades; incoming rises into
++                    // place from below. Scale is nudged so the swap reads as
++                    // depth rather than a flat slide.
++                    drawGlyph(
++                        target,
++                        oldChar,
++                        centerX,
++                        baseline,
++                        face,
++                        alpha = 1f - eased,
++                        offsetY = -shift * eased,
++                        scale = 1f - 0.10f * eased
++                    )
++                    drawGlyph(
++                        target,
++                        newChar,
++                        centerX,
++                        baseline,
++                        face,
++                        alpha = eased,
++                        offsetY = shift * (1f - eased),
++                        scale = 0.90f + 0.10f * eased
++                    )
++                }
++                x += slot.advance
++            }
++        }
++    }
++
++    private fun drawGlyph(
++        target: Canvas,
++        character: Char,
++        centerX: Float,
++        baseline: Float,
++        face: FaceLayout,
++        alpha: Float,
++        offsetY: Float,
++        scale: Float
++    ) {
++        val clamped = alpha.coerceIn(0f, 1f)
++        if (clamped <= 0.004f) return
++        val isSeparator = character == ':'
++        val styleAlpha = if (isSeparator) style.separatorAlpha else 1f
++        val finalAlpha = clamped * styleAlpha
++        if (finalAlpha <= 0.004f) return
++
++        textPaint.alpha = (finalAlpha * 255f).toInt().coerceIn(0, 255)
++        // Shadow strength tracks alpha so a fading digit does not leave a
++        // hard drop shadow behind it.
++        textPaint.setShadowLayer(
++            face.textSize * SHADOW_RADIUS_EM,
++            0f,
++            face.textSize * SHADOW_DY_EM,
++            Color.argb((0x66 * finalAlpha).toInt().coerceIn(0, 255), 0, 0, 0)
++        )
++
++        val text = character.toString()
++        val glyphWidth = textPaint.measureText(text)
++        target.save()
++        target.translate(0f, offsetY)
++        if (scale != 1f) target.scale(scale, scale, centerX, baseline)
++        target.drawText(text, centerX - glyphWidth / 2f, baseline, textPaint)
++        target.restore()
++    }
++
++    // -------------------------------------------------------------- layout
++
++    private fun invalidateLayout() {
++        layout = null
++        bitmap?.recycle()
++        bitmap = null
++        canvas = null
++        width = 0
++        height = 0
++        currentRows = emptyList()
++        previousRows = emptyList()
++        invalidate()
++    }
++
++    private fun ensureLayout(rows: List<String>): FaceLayout {
++        val existing = layout
++        if (existing != null && existing.matches(rows)) return existing
++
++        textPaint.typeface = style.typeface()
++        textPaint.textSize = TEXT_SIZE_PX
++        textPaint.letterSpacing = style.letterSpacingEm
++        textPaint.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
++
++        // Slot width is the widest digit, so the layout never reflows.
++        var digitAdvance = 0f
++        for (digit in '0'..'9') {
++            digitAdvance = max(digitAdvance, textPaint.measureText(digit.toString()))
++        }
++        val separatorAdvance = textPaint.measureText(":")
++
++        val metrics = textPaint.fontMetrics
++        val rowHeight = metrics.bottom - metrics.top
++        val rowLayouts = rows.map { rowText ->
++            val slots = rowText.map { character ->
++                Slot(
++                    advance = if (character == ':') separatorAdvance else digitAdvance
++                )
++            }
++            RowLayout(slots = slots, width = slots.sumOf { it.advance.toDouble() }.toFloat())
++        }
++
++        val contentWidth = rowLayouts.maxOfOrNull { it.width } ?: digitAdvance
++        val rowSpacing = if (rows.size > 1) TEXT_SIZE_PX * ROW_SPACING_EM else 0f
++        val contentHeight = rowHeight * rows.size + rowSpacing * (rows.size - 1)
++
++        // Vertical padding leaves room for the slide travel plus the shadow,
++        // so an animating glyph is never clipped by the texture edge.
++        val padding = TEXT_SIZE_PX * (TRANSITION_TRAVEL_EM + SHADOW_RADIUS_EM + 0.12f)
++
++        val baselines = FloatArray(rows.size)
++        for (index in rows.indices) {
++            baselines[index] = (rowHeight + rowSpacing) * index - metrics.top
++        }
++
++        val face = FaceLayout(
++            rows = rowLayouts,
++            rowBaselines = baselines,
++            rowTexts = rows,
++            contentWidth = contentWidth,
++            contentHeight = contentHeight,
++            padding = padding,
++            textSize = TEXT_SIZE_PX
++        )
++        layout = face
++        return face
++    }
++
++    private fun ensureBitmap(face: FaceLayout): Bitmap? {
++        val targetWidth = (face.contentWidth + face.padding * 2f).toInt().coerceAtLeast(1)
++        val targetHeight = (face.contentHeight + face.padding * 2f).toInt().coerceAtLeast(1)
++        val existing = bitmap
++        if (
++            existing != null &&
++            !existing.isRecycled &&
++            existing.width == targetWidth &&
++            existing.height == targetHeight
++        ) {
++            return existing
++        }
++        existing?.recycle()
++        return try {
++            val created = createBitmap(targetWidth, targetHeight)
++            bitmap = created
++            canvas = Canvas(created)
++            created
++        } catch (_: OutOfMemoryError) {
++            bitmap = null
++            canvas = null
++            null
++        }
++    }
++
++    // --------------------------------------------------------------- time
++
++    private fun timeKey(nowMillis: Long): Long {
++        val divisor = if (showSeconds) 1_000L else 60_000L
++        // Local-offset aware so a timezone change re-renders even when the
++        // UTC minute has not rolled over.
++        calendar.timeInMillis = nowMillis
++        val offset = calendar.get(Calendar.ZONE_OFFSET) + calendar.get(Calendar.DST_OFFSET)
++        return (nowMillis + offset) / divisor
++    }
++
++    private fun formatRows(nowMillis: Long): List<String> {
++        calendar.timeInMillis = nowMillis
++        val hour24 = calendar.get(Calendar.HOUR_OF_DAY)
++        val minute = calendar.get(Calendar.MINUTE)
++        val second = calendar.get(Calendar.SECOND)
++
++        val hourText = if (is24Hour) {
++            twoDigits(hour24)
++        } else {
++            val hour12 = if (hour24 % 12 == 0) 12 else hour24 % 12
++            hour12.toString()
++        }
++        val minuteText = twoDigits(minute)
++
++        return if (style.stacked) {
++            if (showSeconds) {
++                listOf(hourText, minuteText, twoDigits(second))
++            } else {
++                listOf(hourText, minuteText)
++            }
++        } else {
++            val single = buildString {
++                append(hourText)
++                append(':')
++                append(minuteText)
++                if (showSeconds) {
++                    append(':')
++                    append(twoDigits(second))
++                }
++            }
++            listOf(single)
++        }
++    }
++
++    private fun twoDigits(value: Int): String {
++        val safe = abs(value) % 100
++        return if (safe < 10) "0$safe" else safe.toString()
++    }
++
++    // ---------------------------------------------------------- animation
++
++    private fun transitionProgress(uptimeMs: Long): Float? {
++        if (!animateDigits || transitionStartUptimeMs == NO_TRANSITION) return null
++        val elapsed = uptimeMs - transitionStartUptimeMs
++        if (elapsed < 0L) {
++            // Monotonic clock went backwards (should not happen, but a
++            // paused-then-resumed engine can produce odd deltas): finish now
++            // rather than animating for the length of a long.
++            transitionStartUptimeMs = NO_TRANSITION
++            return null
++        }
++        if (elapsed >= TRANSITION_DURATION_MS) {
++            transitionStartUptimeMs = NO_TRANSITION
++            return null
++        }
++        return elapsed.toFloat() / TRANSITION_DURATION_MS.toFloat()
++    }
++
++    /**
++     * Rightmost slot leads, each slot to its left starting slightly later,
++     * so a rollover like 09:59 -> 10:00 cascades instead of flipping as one
++     * block.
++     */
++    private fun staggered(progress: Float, slotIndex: Int, slotCount: Int): Float {
++        val fromRight = (slotCount - 1 - slotIndex).coerceAtLeast(0)
++        val delay = (fromRight * STAGGER_FRACTION).coerceIn(0f, 0.6f)
++        val span = 1f - delay
++        if (span <= 0f) return 1f
++        return ((progress - delay) / span).coerceIn(0f, 1f)
++    }
++
++    private fun easeOutCubic(value: Float): Float {
++        return 1f - (1f - value.coerceIn(0f, 1f)).pow(3)
++    }
++
++    private data class Slot(val advance: Float)
++
++    private data class RowLayout(val slots: List<Slot>, val width: Float)
++
++    private class FaceLayout(
++        val rows: List<RowLayout>,
++        val rowBaselines: FloatArray,
++        val rowTexts: List<String>,
++        val contentWidth: Float,
++        val contentHeight: Float,
++        val padding: Float,
++        val textSize: Float
++    ) {
++        /**
++         * A layout is reusable while the *shape* is unchanged — same number
++         * of rows and same slot pattern. "09:41" and "10:00" share a layout;
++         * "9:41" and "10:41" do not, because the 12-hour hour field grows a
++         * digit at ten o'clock.
++         */
++        fun matches(candidate: List<String>): Boolean {
++            if (candidate.size != rowTexts.size) return false
++            for (index in candidate.indices) {
++                val existing = rowTexts[index]
++                val other = candidate[index]
++                if (existing.length != other.length) return false
++                for (position in existing.indices) {
++                    if ((existing[position] == ':') != (other[position] == ':')) return false
++                }
++            }
++            return true
++        }
++    }
++
++    private companion object {
++        /**
++         * Rendered size of the face. The shader scales this to whatever the
++         * user picked, so this only sets sharpness. 320px of cap height is
++         * comfortably above the ~380px a 16%-of-screen clock occupies on a
++         * 2400px-tall display, and keeps the bitmap around 1000x450 —
++         * cheap enough to re-upload during the digit animation, where the
++         * old 640px constant produced ~1900x900 uploads at frame rate.
++         */
++        const val TEXT_SIZE_PX = 320f
++        const val ROW_SPACING_EM = 0.04f
++        const val SHADOW_RADIUS_EM = 0.085f
++        const val SHADOW_DY_EM = 0.022f
++        const val TRANSITION_DURATION_MS = 520L
++        const val TRANSITION_TRAVEL_EM = 0.42f
++        const val STAGGER_FRACTION = 0.13f
++        const val NO_TRANSITION = Long.MIN_VALUE
++    }
++}
+--- a/app/src/main/java/com/app/nosatmosphereeffect/helper/ClockTextureProvider.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/helper/ClockTextureProvider.kt
+@@ -2,27 +2,20 @@
+ 
+ import android.content.Context
+ import android.graphics.Bitmap
+-import android.graphics.Canvas
+-import android.graphics.Color
+-import android.graphics.Paint
+-import android.graphics.Typeface
+ import android.opengl.GLES30
+ import android.opengl.GLUtils
+-import android.text.format.DateFormat
++import android.os.SystemClock
+ import android.util.Log
+-import androidx.core.graphics.createBitmap
+-import java.time.LocalTime
+-import java.time.format.DateTimeFormatter
+-import java.util.Locale
+ 
+ /**
+- * Renders "HH:mm" (respecting the device's 12/24-hour setting) to a
+- * transparent bitmap and keeps a GL texture in sync with it.
++ * Keeps a GL texture in sync with the shared [ClockFaceRenderer].
+  *
+  * GL calls in [ensureUpToDate] must run on the renderer's GL thread — same
+- * constraint as the rest of [AtmosphereRenderer]'s texture handling.
++ * constraint as the rest of AtmosphereRenderer's texture handling.
+  */
+-class ClockTextureProvider(private val context: Context) {
++class ClockTextureProvider(context: Context) {
++
++    private val face = ClockFaceRenderer(context)
+ 
+     @Volatile var textureId: Int = 0
+         private set
+@@ -31,47 +24,75 @@
+     @Volatile var textureHeight: Int = 0
+         private set
+ 
+-    private var lastRenderedMinuteKey: Long = Long.MIN_VALUE
+-    private var formatter: DateTimeFormatter = build24HourAwareFormatter()
+-
+-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+-        color = Color.WHITE
+-        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+-        textAlign = Paint.Align.CENTER
+-        setShadowLayer(SHADOW_RADIUS_PX, 0f, SHADOW_DY_PX, SHADOW_COLOR)
+-    }
++    /** Dimensions of the storage currently allocated for [textureId]. */
++    private var allocatedWidth: Int = 0
++    private var allocatedHeight: Int = 0
++
++    val aspectRatio: Float
++        get() = if (textureHeight > 0) {
++            textureWidth.toFloat() / textureHeight.toFloat()
++        } else {
++            1f
++        }
++
++    var style: ClockStyle
++        get() = face.style
++        set(value) { face.style = value }
++
++    var showSeconds: Boolean
++        get() = face.showSeconds
++        set(value) { face.showSeconds = value }
++
++    var animateDigits: Boolean
++        get() = face.animateDigits
++        set(value) { face.animateDigits = value }
+ 
+     /**
+-     * Call once per frame while the clock is enabled. Cheap when the
+-     * minute hasn't changed. Returns true if the texture is ready to draw.
++     * True while a digit transition is in flight, so the renderer knows to
++     * ask for another frame. Without this the animation would only advance
++     * when something else happened to trigger a draw.
++     */
++    fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
++
++    /** True when a redraw is due, animation or not. */
++    fun needsRender(): Boolean =
++        face.needsRender(System.currentTimeMillis(), SystemClock.uptimeMillis())
++
++    /**
++     * Call once per frame while the clock is enabled. Cheap when nothing has
++     * changed. Returns true if the texture is ready to draw.
+      */
+     fun ensureUpToDate(): Boolean {
+-        val now = LocalTime.now()
+-        val minuteKey = now.hour * 60L + now.minute
+-        if (minuteKey == lastRenderedMinuteKey && textureId != 0) {
+-            return true
+-        }
++        val uptime = SystemClock.uptimeMillis()
++        val bitmap = try {
++            face.render(
++                nowMillis = System.currentTimeMillis(),
++                uptimeMs = uptime,
++                minimumIntervalMs = ANIMATION_MIN_INTERVAL_MS
++            )
++        } catch (failure: RuntimeException) {
++            Log.w(TAG, "Unable to render the Atmosphere clock face", failure)
++            return textureId != 0
++        }
++
++        if (bitmap == null) return textureId != 0
++
+         return try {
+-            val bitmap = renderBitmap(now)
+-            try {
+-                textureId = uploadTexture(bitmap, textureId)
+-                textureWidth = bitmap.width
+-                textureHeight = bitmap.height
+-                lastRenderedMinuteKey = minuteKey
+-                true
+-            } finally {
+-                bitmap.recycle()
+-            }
++            uploadTexture(bitmap)
++            textureWidth = bitmap.width
++            textureHeight = bitmap.height
++            true
+         } catch (failure: RuntimeException) {
+-            Log.w(TAG, "Unable to render the Atmosphere clock texture", failure)
+-            false
+-        }
+-    }
+-
+-    /** Re-reads the 12/24-hour system setting; call if it may have changed. */
++            Log.w(TAG, "Unable to upload the Atmosphere clock texture", failure)
++            // Force a full re-upload next time rather than leaving a
++            // half-initialised texture bound.
++            face.invalidate()
++            textureId != 0
++        }
++    }
++
+     fun refreshClockFormatPreference() {
+-        formatter = build24HourAwareFormatter()
+-        lastRenderedMinuteKey = Long.MIN_VALUE
++        face.refreshFormat()
+     }
+ 
+     fun release() {
+@@ -79,105 +100,106 @@
+             GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
+             textureId = 0
+         }
+-        lastRenderedMinuteKey = Long.MIN_VALUE
++        allocatedWidth = 0
++        allocatedHeight = 0
++        textureWidth = 0
++        textureHeight = 0
++        face.release()
+     }
+ 
+     /**
+      * Call from onSurfaceCreated after an EGL context loss. The old texture
+      * id belonged to the destroyed context — deleting it there would be
+-     * meaningless (or could collide with an unrelated id in the new one),
+-     * so just forget it and let [ensureUpToDate] allocate a fresh texture.
++     * meaningless (or could collide with an unrelated id in the new one), so
++     * just forget it and let [ensureUpToDate] allocate a fresh texture.
+      */
+     fun resetForNewContext() {
+         textureId = 0
+         textureWidth = 0
+         textureHeight = 0
+-        lastRenderedMinuteKey = Long.MIN_VALUE
+-    }
+-
+-    private fun build24HourAwareFormatter(): DateTimeFormatter {
+-        val pattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm"
+-        return DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
+-    }
+-
+-    private fun renderBitmap(now: LocalTime): Bitmap {
+-        val text = formatter.format(now)
+-        textPaint.textSize = TEXT_SIZE_PX
+-        val metrics = textPaint.fontMetrics
+-        val textWidth = textPaint.measureText(text)
+-
+-        val width = (textWidth + PADDING_PX * 2f).toInt().coerceAtLeast(1)
+-        val height = (metrics.bottom - metrics.top + PADDING_PX * 2f).toInt().coerceAtLeast(1)
+-
+-        val bitmap = createBitmap(width, height)
+-        val canvas = Canvas(bitmap)
+-        val baseline = PADDING_PX - metrics.top
+-        canvas.drawText(text, width / 2f, baseline, textPaint)
+-        return bitmap
+-    }
+-
+-    private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int): Int {
+-        // Drain any GL errors left over from earlier, unrelated calls this
+-        // frame (e.g. a blob-array overflow elsewhere in onDrawFrame) —
+-        // otherwise the check() below can misattribute a stray error to
+-        // this upload and throw, silently disabling the clock every time
+-        // something upstream leaves an unchecked error queued.
++        allocatedWidth = 0
++        allocatedHeight = 0
++        face.invalidate()
++    }
++
++    private fun uploadTexture(bitmap: Bitmap) {
++        // Drain GL errors left over from earlier, unrelated calls this frame
++        // (e.g. a blob-array overflow elsewhere in onDrawFrame) — otherwise
++        // the check below can misattribute a stray error to this upload and
++        // throw, silently disabling the clock every time something upstream
++        // leaves an unchecked error queued.
+         while (GLES30.glGetError() != GLES30.GL_NO_ERROR) {
+             // intentionally empty: just flushing the error queue
+         }
+-        val isNewTexture = existingTextureId == 0
+-        val textureId = if (isNewTexture) {
++
++        val isNewTexture = textureId == 0
++        if (isNewTexture) {
+             val generated = IntArray(1)
+             GLES30.glGenTextures(1, generated, 0)
+-            generated[0]
+-        } else {
+-            existingTextureId
+-        }
+-        check(textureId != 0) { "OpenGL did not create a clock texture" }
++            check(generated[0] != 0) { "OpenGL did not create a clock texture" }
++            textureId = generated[0]
++            allocatedWidth = 0
++            allocatedHeight = 0
++        }
++
+         try {
+             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
+-            GLES30.glTexParameteri(
+-                GLES30.GL_TEXTURE_2D,
+-                GLES30.GL_TEXTURE_MIN_FILTER,
+-                GLES30.GL_LINEAR
+-            )
+-            GLES30.glTexParameteri(
+-                GLES30.GL_TEXTURE_2D,
+-                GLES30.GL_TEXTURE_MAG_FILTER,
+-                GLES30.GL_LINEAR
+-            )
+-            GLES30.glTexParameteri(
+-                GLES30.GL_TEXTURE_2D,
+-                GLES30.GL_TEXTURE_WRAP_S,
+-                GLES30.GL_CLAMP_TO_EDGE
+-            )
+-            GLES30.glTexParameteri(
+-                GLES30.GL_TEXTURE_2D,
+-                GLES30.GL_TEXTURE_WRAP_T,
+-                GLES30.GL_CLAMP_TO_EDGE
+-            )
+-            // Bitmap dimensions change every render (text width varies), so
+-            // always reallocate storage rather than texSubImage2D into it.
+-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
++            if (isNewTexture) {
++                GLES30.glTexParameteri(
++                    GLES30.GL_TEXTURE_2D,
++                    GLES30.GL_TEXTURE_MIN_FILTER,
++                    GLES30.GL_LINEAR
++                )
++                GLES30.glTexParameteri(
++                    GLES30.GL_TEXTURE_2D,
++                    GLES30.GL_TEXTURE_MAG_FILTER,
++                    GLES30.GL_LINEAR
++                )
++                GLES30.glTexParameteri(
++                    GLES30.GL_TEXTURE_2D,
++                    GLES30.GL_TEXTURE_WRAP_S,
++                    GLES30.GL_CLAMP_TO_EDGE
++                )
++                GLES30.glTexParameteri(
++                    GLES30.GL_TEXTURE_2D,
++                    GLES30.GL_TEXTURE_WRAP_T,
++                    GLES30.GL_CLAMP_TO_EDGE
++                )
++            }
++
++            // ClockFaceRenderer keeps the bitmap a fixed size for a given
++            // face, so after the first upload this is a texSubImage2D into
++            // existing storage — which matters because the digit animation
++            // re-uploads at frame rate for half a second on every change.
++            if (
++                allocatedWidth == bitmap.width &&
++                allocatedHeight == bitmap.height
++            ) {
++                GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bitmap)
++            } else {
++                GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
++                allocatedWidth = bitmap.width
++                allocatedHeight = bitmap.height
++            }
++
+             val error = GLES30.glGetError()
+             check(error == GLES30.GL_NO_ERROR) {
+                 "OpenGL error 0x${error.toString(16)} while uploading the clock texture"
+             }
+-            return textureId
+         } catch (failure: RuntimeException) {
+             if (isNewTexture) {
+                 GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
+-            }
++                textureId = 0
++            }
++            allocatedWidth = 0
++            allocatedHeight = 0
+             throw failure
+         }
+     }
+ 
+     private companion object {
+         const val TAG = "ClockTextureProvider"
+-        const val TEXT_SIZE_PX = 640f
+-        const val PADDING_PX = 60f
+-        const val SHADOW_RADIUS_PX = 40f
+-        const val SHADOW_DY_PX = 10f
+-        const val SHADOW_COLOR = 0x99000000.toInt()
++        /** ~30fps ceiling on animation re-uploads. */
++        const val ANIMATION_MIN_INTERVAL_MS = 32L
+     }
+ }
+--- a/app/src/main/java/com/app/nosatmosphereeffect/renderer/AtmosphereRenderController.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/renderer/AtmosphereRenderController.kt
+@@ -4,6 +4,7 @@
+ import android.graphics.Bitmap
+ import android.util.Log
+ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
++import com.app.nosatmosphereeffect.helper.ClockStyle
+ import com.app.nosatmosphereeffect.helper.GLWallpaperService
+ import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
+ import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
+@@ -100,6 +101,10 @@
+         glassLineThickness: Float,
+         glassBackgroundOnly: Boolean,
+         clockEnabled: Boolean = false,
++        clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
++        clockStyleId: String = ClockStyle.DEFAULT.id,
++        clockShowSeconds: Boolean = AtmosphereClockPolicy.DEFAULT_SECONDS,
++        clockAnimate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
+         clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
+         clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
+         clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
+@@ -120,6 +125,10 @@
+                 glassLineThickness = glassLineThickness,
+                 glassBackgroundOnly = glassBackgroundOnly,
+                 clockEnabled = AtmosphereClockPolicy.resolveEnabled(effectId, clockEnabled),
++                clockDepthEnabled = clockDepthEnabled,
++                clockStyleId = clockStyleId,
++                clockShowSeconds = clockShowSeconds,
++                clockAnimate = clockAnimate,
+                 clockCenterX = clockCenterX,
+                 clockTop = clockTop,
+                 clockHeight = clockHeight,
+@@ -459,8 +468,24 @@
+                 applyState(snapshot)
+                 onRenderRetryRequested = engine::requestRender
+                 onSubjectMaskUpdated = engine::requestRender
+-            }
+-        }
++                onAnimationFrameRequested = engine::requestRender
++            }
++        }
++    }
++
++    /**
++     * Forwarded from AtmosphereService when the system reports a minute
++     * tick, a manual time change or a timezone change. Without this the
++     * clock only refreshes when something else happens to request a frame,
++     * which on a static wallpaper (transitions off) is essentially never.
++     */
++    fun onSystemTimeChanged() {
++        val targets = synchronized(lock) {
++            Pair(openGlAtmosphere, vulkanHost)
++        }
++        targets.first?.onTimeChanged()
++        targets.second?.onTimeChanged()
++        synchronized(lock) { engine }?.requestRender()
+     }
+ 
+     private fun applyState(snapshot: AtmosphereRenderState) {
+@@ -483,8 +508,13 @@
+         atmosphereGlassEnabled = state.glassEnabled
+         glassLineCount = state.glassLineCount
+         glassLineThickness = state.glassLineThickness
+-        configureGlassBackgroundOnly(state.glassBackgroundOnly)
++        glassBackgroundOnly = state.glassBackgroundOnly
++        configureSubjectIsolation(state.needsSubjectMask())
+         clockEnabled = state.clockEnabled
++        clockDepthEnabled = state.clockDepthEnabled
++        clockStyle = state.clockStyle
++        clockShowSeconds = state.clockShowSeconds
++        clockAnimate = state.clockAnimate
+         clockCenterX = state.clockCenterX
+         clockTop = state.clockTop
+         clockHeight = state.clockHeight
+@@ -502,7 +532,8 @@
+         atmosphereGlassEnabled = state.glassEnabled
+         glassLineCount = state.glassLineCount
+         glassLineThickness = state.glassLineThickness
+-        configureGlassBackgroundOnly(state.glassBackgroundOnly)
++        glassBackgroundOnly = state.glassBackgroundOnly
++        configureSubjectIsolation(state.needsSubjectMask())
+         setDrawerBlurred(state.drawerBlur > 0.5f)
+     }
+ 
+--- a/app/src/main/java/com/app/nosatmosphereeffect/renderer/AtmosphereRenderState.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/renderer/AtmosphereRenderState.kt
+@@ -1,6 +1,7 @@
+ package com.app.nosatmosphereeffect.renderer
+ 
+ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
++import com.app.nosatmosphereeffect.helper.ClockStyle
+ import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+ 
+ data class AtmosphereBlobFrame(
+@@ -61,16 +62,28 @@
+     val scrollOffsetX: Float = 0.5f,
+     val scrollWindowX: Float = 1f,
+     val clockEnabled: Boolean = false,
++    /**
++     * The clock's own depth switch. Independent of [glassBackgroundOnly]:
++     * both request a subject mask, but either can ask for one on its own.
++     */
++    val clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
++    val clockStyleId: String = ClockStyle.DEFAULT.id,
++    val clockShowSeconds: Boolean = AtmosphereClockPolicy.DEFAULT_SECONDS,
++    val clockAnimate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
+     val clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
+     val clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
+     val clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
+     val clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
+     // Vulkan-only, dynamic (like hasSubject/blobs below): the clock
+-    // bitmap's width/height ratio, refreshed whenever a fresh minute is
++    // bitmap's width/height ratio, refreshed whenever a fresh face is
+     // rendered, so the shader can size the clock quad without a native
+-    // round-trip. Unused on the GLES path (AtmosphereRenderer computes this
+-    // itself from ClockTextureProvider directly).
++    // round-trip. Unused on the GLES path (AtmosphereRenderer reads this
++    // from ClockTextureProvider directly).
+     val clockTextureAspect: Float = 1f,
++    // Vulkan-only, dynamic: set once the worker has uploaded a real clock
++    // face. Until then the shader must not sample the clock binding — see
++    // clockMeta.y in vulkan_atmosphere_jni.cpp.
++    val clockFaceUploaded: Boolean = false,
+     val blobs: AtmosphereBlobFrame = AtmosphereBlobFrame()
+ ) {
+     fun sanitized(): AtmosphereRenderState {
+@@ -89,6 +102,7 @@
+             drawerBlur = drawerBlur.finiteOr(0f).coerceIn(0f, 1f),
+             scrollOffsetX = scrollOffsetX.finiteOr(0.5f).coerceIn(0f, 1f),
+             scrollWindowX = scrollWindowX.finiteOr(1f).coerceIn(MIN_SCROLL_WINDOW, 1f),
++            clockStyleId = AtmosphereClockPolicy.sanitizeStyleId(clockStyleId),
+             clockCenterX = AtmosphereClockPolicy.sanitizeCenterX(clockCenterX),
+             clockTop = AtmosphereClockPolicy.sanitizeTop(clockTop),
+             clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
+@@ -98,6 +112,20 @@
+         )
+     }
+ 
++    /**
++     * Whether anything on screen needs the subject mask. Glass's
++     * background-only mode and the clock's depth effect are separate user
++     * settings that happen to share the same expensive input, so the mask is
++     * computed when either wants it and skipped when neither does.
++     */
++    fun needsSubjectMask(): Boolean {
++        return (glassEnabled && glassBackgroundOnly) ||
++            (clockEnabled && clockDepthEnabled)
++    }
++
++    val clockStyle: ClockStyle
++        get() = ClockStyle.fromId(clockStyleId)
++
+     private fun Float.finiteOr(fallback: Float): Float {
+         return if (isFinite()) this else fallback
+     }
+--- a/app/src/main/java/com/app/nosatmosphereeffect/renderer/AtmosphereRenderer.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/renderer/AtmosphereRenderer.kt
+@@ -10,6 +10,7 @@
+ import android.util.Log
+ import androidx.core.graphics.createBitmap
+ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
++import com.app.nosatmosphereeffect.helper.ClockStyle
+ import com.app.nosatmosphereeffect.helper.ClockTextureProvider
+ import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+ import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
+@@ -69,6 +70,9 @@
+     @Volatile private var released = false
+     @Volatile var onRenderRetryRequested: (() -> Unit)? = null
+     @Volatile var onSubjectMaskUpdated: (() -> Unit)? = null
++    /** Asks the host surface for another frame; used by the clock animation. */
++    @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
++    @Volatile private var pendingClockFormatRefresh: Boolean = false
+     private var renderFailureLogged = false
+     private var renderRetryCount = 0
+     private var generationCounter = 0L
+@@ -108,11 +112,23 @@
+             field = GlassEffectPolicy.sanitizeLineThickness(value)
+         }
+ 
+-    // Depth-composited lock/home clock overlay (Advanced Settings toggle +
+-    // ClockAdjustActivity for position/size). GLES-only for now:
+-    // VulkanAtmosphereHost does not read this state, so devices on the
+-    // Vulkan backend won't show the clock until that path is implemented.
++    // Clock overlay (Advanced Settings toggles + ClockAdjustActivity for
++    // position/size/style). Mirrored on the Vulkan backend by
++    // VulkanAtmosphereHost; keep the two in step.
+     @Volatile var clockEnabled: Boolean = false
++    /**
++     * The clock's own depth switch — whether the subject is drawn back over
++     * the clock. Separate from [glassBackgroundOnly] on purpose: the first
++     * version of this feature reused Glass's flag, which made the depth
++     * effect silently do nothing whenever the Glass effect was off.
++     */
++    @Volatile var clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH
++    /**
++     * Drives the uBackgroundOnly uniform. Previously this was read straight
++     * off subjectMasks.enabled, which is no longer equivalent now that the
++     * clock can request a mask on its own.
++     */
++    @Volatile var glassBackgroundOnly: Boolean = false
+     @Volatile var clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X
+         set(value) {
+             field = AtmosphereClockPolicy.sanitizeCenterX(value)
+@@ -129,6 +145,16 @@
+         set(value) {
+             field = AtmosphereClockPolicy.sanitizeOpacity(value)
+         }
++    var clockStyle: ClockStyle
++        get() = clockTexture.style
++        set(value) { clockTexture.style = value }
++    var clockShowSeconds: Boolean
++        get() = clockTexture.showSeconds
++        set(value) { clockTexture.showSeconds = value }
++    var clockAnimate: Boolean
++        get() = clockTexture.animateDigits
++        set(value) { clockTexture.animateDigits = value }
++
+     private val clockTexture = ClockTextureProvider(context)
+ 
+     private var programId: Int = 0
+@@ -174,7 +200,18 @@
+         }
+     }
+ 
+-    fun configureGlassBackgroundOnly(enabled: Boolean) {
++    @Deprecated(
++        "Subject isolation is no longer Glass-only",
++        ReplaceWith("configureSubjectIsolation(enabled)")
++    )
++    fun configureGlassBackgroundOnly(enabled: Boolean) = configureSubjectIsolation(enabled)
++
++    /**
++     * Turns subject-mask computation on or off. Callers pass the union of
++     * everything that wants a mask (Glass background-only, clock depth) —
++     * see AtmosphereRenderState.needsSubjectMask.
++     */
++    fun configureSubjectIsolation(enabled: Boolean) {
+         try {
+             val changed = subjectMasks.configure(enabled)
+             if (
+@@ -226,6 +263,8 @@
+         }
+         onRenderRetryRequested = null
+         onSubjectMaskUpdated = null
++        onAnimationFrameRequested = null
++        clockTexture.release()
+         subjectMasks.close()
+         if (pending != null && !pending.isRecycled) {
+             pending.recycle()
+@@ -611,11 +650,15 @@
+         )
+         GLES30.glUniform1f(
+             GLES30.glGetUniformLocation(programId, "uBackgroundOnly"),
+-            if (subjectMasks.enabled) 1f else 0f
++            if (glassBackgroundOnly && subjectMasks.enabled) 1f else 0f
+         )
+         GLES30.glUniform1f(
+             GLES30.glGetUniformLocation(programId, "uHasSubject"),
+-            if (subjectMasks.enabled && currentSet.hasSubject) 1f else 0f
++            if (glassBackgroundOnly && subjectMasks.enabled && currentSet.hasSubject) {
++                1f
++            } else {
++                0f
++            }
+         )
+ 
+         // Horizontal scroll window (identity 0f/1f = no scroll, draws as before).
+@@ -635,38 +678,7 @@
+         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
+         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 2)
+ 
+-        val clockLockFade = (1f - blurStrength / CLOCK_LOCK_FADE_RANGE).coerceIn(0f, 1f)
+-        val clockReady = clockEnabled && clockLockFade > 0f && clockTexture.ensureUpToDate()
+-        GLES30.glUniform1f(
+-            GLES30.glGetUniformLocation(programId, "uClockEnabled"),
+-            if (clockReady) 1f else 0f
+-        )
+-        if (clockReady) {
+-            val clockAspect = if (clockTexture.textureHeight > 0) {
+-                clockTexture.textureWidth.toFloat() / clockTexture.textureHeight.toFloat()
+-            } else {
+-                1f
+-            }
+-            val heightUv = clockHeight
+-            // Convert a screen-height-relative size to UV-space width so the
+-            // glyph keeps its true pixel aspect ratio (see derivation in the
+-            // renderer's onDrawFrame comment history / PR description).
+-            val widthUv = heightUv * clockAspect / aspectRatio
+-            GLES30.glUniform4f(
+-                GLES30.glGetUniformLocation(programId, "uClockRect"),
+-                clockCenterX - widthUv / 2f,
+-                clockTop,
+-                widthUv,
+-                heightUv
+-            )
+-            GLES30.glUniform1f(
+-                GLES30.glGetUniformLocation(programId, "uClockOpacity"),
+-                clockOpacity * clockLockFade
+-            )
+-            GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
+-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clockTexture.textureId)
+-            GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uClockTexture"), 3)
+-        }
++            drawClockOverlay()
+ 
+             val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
+             val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")
+@@ -683,6 +695,95 @@
+             clearFrame()
+             requestBoundedRetry()
+         }
++    }
++
++    /**
++     * Composites the clock overlay uniforms for this frame.
++     *
++     * Every uniform is written on every frame, including the disabled case:
++     * the previous version only wrote uClockRect/uClockOpacity inside the
++     * enabled branch, so a frame where the texture was not ready left the
++     * previous frame's geometry behind in the program.
++     */
++    private fun drawClockOverlay() {
++        if (pendingClockFormatRefresh) {
++            pendingClockFormatRefresh = false
++            clockTexture.refreshClockFormatPreference()
++        }
++        val lockFade = AtmosphereClockPolicy.lockFade(blurStrength)
++        val ready = clockEnabled &&
++            lockFade > 0f &&
++            clockOpacity > 0f &&
++            clockTexture.ensureUpToDate() &&
++            clockTexture.textureId != 0
++
++        GLES30.glUniform1f(
++            GLES30.glGetUniformLocation(programId, "uClockEnabled"),
++            if (ready) 1f else 0f
++        )
++        if (!ready) {
++            GLES30.glUniform1f(
++                GLES30.glGetUniformLocation(programId, "uClockOpacity"),
++                0f
++            )
++            GLES30.glUniform1f(
++                GLES30.glGetUniformLocation(programId, "uClockDepth"),
++                0f
++            )
++            GLES30.glUniform4f(
++                GLES30.glGetUniformLocation(programId, "uClockRect"),
++                0f,
++                0f,
++                1f,
++                1f
++            )
++            return
++        }
++
++        // Height is expressed as a fraction of screen height; width follows
++        // from the face's own pixel aspect, divided by the screen aspect so
++        // the glyphs are not stretched.
++        val heightUv = clockHeight
++        val widthUv = heightUv * clockTexture.aspectRatio / aspectRatio
++        GLES30.glUniform4f(
++            GLES30.glGetUniformLocation(programId, "uClockRect"),
++            clockCenterX - widthUv / 2f,
++            clockTop,
++            widthUv,
++            heightUv
++        )
++        GLES30.glUniform1f(
++            GLES30.glGetUniformLocation(programId, "uClockOpacity"),
++            clockOpacity * lockFade
++        )
++        GLES30.glUniform1f(
++            GLES30.glGetUniformLocation(programId, "uClockDepth"),
++            if (clockDepthEnabled && subjectMasks.enabled && currentSet.hasSubject) {
++                1f
++            } else {
++                0f
++            }
++        )
++        GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
++        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clockTexture.textureId)
++        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uClockTexture"), 3)
++
++        // A static wallpaper draws once and stops. Without this the digit
++        // animation would stall part-way through and the displayed time
++        // would only advance when something unrelated forced a redraw.
++        if (clockTexture.isAnimating()) {
++            onAnimationFrameRequested?.invoke()
++        }
++    }
++
++    /**
++     * Re-reads the system 12/24-hour setting and forces the next frame to
++     * redraw the face. Called from AtmosphereService's time-tick receiver;
++     * safe to call from any thread (the work happens on the next draw).
++     */
++    fun onTimeChanged() {
++        pendingClockFormatRefresh = true
++        onAnimationFrameRequested?.invoke()
+     }
+ 
+     private fun createEmptyTexture(width: Int, height: Int, existingTextureId: Int = 0, existingWidth: Int = 0, existingHeight: Int = 0): Int {
+@@ -1021,10 +1122,5 @@
+     private companion object {
+         const val TAG = "AtmosphereRenderer"
+         const val MAX_RENDER_RETRIES = 3
+-        // "ORIGINAL" maps blurStrength 0 -> lock screen, 1 -> home screen
+-        // (see EffectStatePolicy.endpoints). The clock is a lock-screen
+-        // feature, so fade it out over the first slice of the unlock
+-        // transition rather than showing it on the home screen too.
+-        const val CLOCK_LOCK_FADE_RANGE = 0.25f
+     }
+ }
+--- a/app/src/main/java/com/app/nosatmosphereeffect/renderer/vulkan/VulkanAtmosphereHost.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/renderer/vulkan/VulkanAtmosphereHost.kt
+@@ -40,10 +40,20 @@
+     private val clockTexture = VulkanClockTextureUploader(appContext)
+ 
+     init {
+-        subjectMasks.configure(
+-            initialState.glassEnabled && initialState.glassBackgroundOnly
+-        )
++        subjectMasks.configure(initialState.sanitized().needsSubjectMask())
++        applyClockConfiguration(initialState.sanitized())
+         startNativeEngine()
++    }
++
++    /**
++     * Face settings (style/seconds/animation) live on the uploader, not in
++     * the uniform buffer, because changing any of them changes the bitmap
++     * rather than how the shader reads it.
++     */
++    private fun applyClockConfiguration(state: AtmosphereRenderState) {
++        clockTexture.style = state.clockStyle
++        clockTexture.showSeconds = state.clockShowSeconds
++        clockTexture.animateDigits = state.clockAnimate
+     }
+ 
+     fun updateState(state: AtmosphereRenderState) {
+@@ -52,12 +62,16 @@
+         if (safe.progress == 0f && current.progress != 0f) {
+             blobPlanner.rerollTargets()
+         }
+-        val isolationEnabled = safe.glassEnabled && safe.glassBackgroundOnly
++        // Either Glass's background-only mode or the clock's depth effect
++        // can call for a subject mask, independently of the other.
++        val isolationEnabled = safe.needsSubjectMask()
+         val isolationChanged = subjectMasks.configure(isolationEnabled)
++        applyClockConfiguration(safe)
+         updateEffectState {
+             safe.copy(
+                 hasSubject = if (isolationEnabled) current.hasSubject else false,
+                 clockTextureAspect = current.clockTextureAspect,
++                clockFaceUploaded = current.clockFaceUploaded && safe.clockEnabled,
+                 blobs = blobPlanner.frame(safe.progress)
+             )
+         }
+@@ -135,29 +149,53 @@
+         }
+ 
+         if (success && currentEffectState().clockEnabled) {
+-            val bitmap = clockTexture.renderIfMinuteChanged()
+-            if (bitmap != null) {
+-                try {
+-                    if (VulkanAtmosphereNative.nativeUploadClock(handle, bitmap)) {
+-                        val aspect = if (clockTexture.textureHeight > 0) {
+-                            clockTexture.textureWidth.toFloat() /
+-                                clockTexture.textureHeight.toFloat()
+-                        } else {
+-                            1f
+-                        }
+-                        updateEffectState { it.copy(clockTextureAspect = aspect) }
+-                    } else {
+-                        // Non-fatal: the clock is a nice-to-have overlay,
+-                        // not worth failing the whole frame over.
+-                        Log.w(TAG, "Unable to upload the Vulkan Atmosphere clock texture")
+-                    }
+-                } finally {
+-                    bitmap.recycleSafely()
++            uploadClockFrame(handle)
++        }
++
++        return success
++    }
++
++    /**
++     * Uploads a clock face when there is one to upload, and keeps the frame
++     * pump running while a digit transition is in flight.
++     *
++     * Failures here are deliberately non-fatal: prepareFrameOnWorker
++     * returning false takes the whole Vulkan backend down permanently (see
++     * VulkanSingleImageHost.drawOnWorker), which is far too heavy a response
++     * to a decorative overlay failing to upload.
++     */
++    private fun uploadClockFrame(handle: Long) {
++        val bitmap = try {
++            clockTexture.renderIfChanged()
++        } catch (failure: RuntimeException) {
++            Log.w(TAG, "Unable to render the Vulkan Atmosphere clock face", failure)
++            null
++        }
++
++        if (bitmap != null) {
++            // The bitmap is owned and reused by the face renderer — do not
++            // recycle it here. The previous version did, which meant every
++            // frame after the first uploaded a recycled bitmap.
++            if (VulkanAtmosphereNative.nativeUploadClock(handle, bitmap)) {
++                clockTexture.markUploaded()
++                val aspect = clockTexture.aspectRatio
++                updateEffectState {
++                    it.copy(
++                        clockTextureAspect = aspect,
++                        clockFaceUploaded = true
++                    )
+                 }
+-            }
+-        }
+-
+-        return success
++            } else {
++                Log.w(TAG, "Unable to upload the Vulkan Atmosphere clock texture")
++            }
++        }
++
++        // A static wallpaper produces no frames on its own, so without this
++        // the digit animation would freeze part-way and the time would only
++        // change when something unrelated triggered a draw.
++        if (clockTexture.isAnimating()) {
++            requestRender()
++        }
+     }
+ 
+     override fun onSurfaceResetOnWorker() {
+@@ -166,6 +204,7 @@
+         updateEffectState {
+             it.copy(
+                 hasSubject = false,
++                clockFaceUploaded = false,
+                 blobs = AtmosphereBlobFrame()
+             )
+         }
+@@ -173,6 +212,17 @@
+ 
+     override fun onEffectResourcesReleased() {
+         subjectMasks.close()
++        clockTexture.release()
++    }
++
++    /**
++     * Re-reads the system 12/24-hour setting and forces a redraw. Called from
++     * AtmosphereService's time-tick receiver.
++     */
++    fun onTimeChanged() {
++        clockTexture.refreshClockFormatPreference()
++        clockTexture.reset()
++        requestRender()
+     }
+ 
+     private fun Bitmap.recycleSafely() {
+--- a/app/src/main/java/com/app/nosatmosphereeffect/renderer/vulkan/VulkanAtmosphereNative.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/renderer/vulkan/VulkanAtmosphereNative.kt
+@@ -3,6 +3,7 @@
+ import android.content.res.AssetManager
+ import android.graphics.Bitmap
+ import android.view.Surface
++import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+ import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
+ import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
+ 
+@@ -55,7 +56,8 @@
+         clockHeightFraction: Float,
+         clockTextureAspect: Float,
+         clockOpacity: Float,
+-        clockEnabled: Boolean,
++        clockUploaded: Boolean,
++        clockDepth: Boolean,
+         blobColors: FloatArray,
+         blobPositions: FloatArray,
+         blobSizes: FloatArray,
+@@ -133,8 +135,15 @@
+             clockTop = safe.clockTop,
+             clockHeightFraction = safe.clockHeight,
+             clockTextureAspect = safe.clockTextureAspect,
+-            clockOpacity = safe.clockOpacity,
+-            clockEnabled = safe.clockEnabled,
++            // The lock fade is applied here rather than in the shader so
++            // both backends share AtmosphereClockPolicy's single curve.
++            clockOpacity = if (safe.clockEnabled) {
++                safe.clockOpacity * AtmosphereClockPolicy.lockFade(safe.progress)
++            } else {
++                0f
++            },
++            clockUploaded = safe.clockEnabled && safe.clockFaceUploaded,
++            clockDepth = safe.clockEnabled && safe.clockDepthEnabled,
+             blobColors = safe.blobs.colors,
+             blobPositions = safe.blobs.positions,
+             blobSizes = safe.blobs.sizes,
+--- a/app/src/main/java/com/app/nosatmosphereeffect/renderer/vulkan/VulkanClockTextureUploader.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/renderer/vulkan/VulkanClockTextureUploader.kt
+@@ -2,105 +2,94 @@
+ 
+ import android.content.Context
+ import android.graphics.Bitmap
+-import android.graphics.Canvas
+-import android.graphics.Color
+-import android.graphics.Paint
+-import android.graphics.Typeface
+-import android.text.format.DateFormat
+-import androidx.core.graphics.createBitmap
+-import java.time.LocalTime
+-import java.time.format.DateTimeFormatter
+-import java.util.Locale
++import android.os.SystemClock
++import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
++import com.app.nosatmosphereeffect.helper.ClockStyle
+ 
+ /**
+- * Renders "HH:mm" (respecting the device's 12/24-hour setting) to a
+- * transparent bitmap for upload via [VulkanAtmosphereNative.nativeUploadClock].
++ * Vulkan-side wrapper around the shared [ClockFaceRenderer].
+  *
+- * Deliberately a separate class from
+- * [com.app.nosatmosphereeffect.helper.ClockTextureProvider] (the GLES
+- * equivalent) rather than a shared one: the two differ in their final
+- * upload step (GL texture vs native Vulkan bitmap upload) and keeping them
+- * independent means this addition can't regress the already-working GLES
+- * clock. The Canvas/Paint rendering logic below is intentionally the same
+- * shape as that class — see it for the reasoning on each choice (padding,
+- * shadow, minute-granularity caching).
++ * The drawing itself is shared with the GLES path now; only the upload step
++ * differs (this returns a bitmap for
++ * [VulkanAtmosphereNative.nativeUploadClock] instead of touching a GL
++ * texture). The previous version duplicated the whole Canvas/Paint routine,
++ * which is how the two backends drifted apart.
+  *
+- * Not thread-confined by itself — the caller (VulkanAtmosphereHost) only
+- * ever touches it from its single worker thread, same as everything else
+- * in that class.
++ * Not thread-confined by itself — the caller (VulkanAtmosphereHost) only ever
++ * touches it from its single worker thread, same as everything else there.
+  */
+-internal class VulkanClockTextureUploader(private val context: Context) {
++internal class VulkanClockTextureUploader(context: Context) {
+ 
+-    var textureWidth: Int = 0
+-        private set
+-    var textureHeight: Int = 0
++    private val face = ClockFaceRenderer(context)
++
++    val textureWidth: Int get() = face.width
++    val textureHeight: Int get() = face.height
++    val aspectRatio: Float get() = face.aspectRatio
++
++    /**
++     * True once a real face has been uploaded. Until then the shader must
++     * not sample the clock binding: an unwritten optional binding holds the
++     * engine's 1x1 clear texture, which is opaque black, so drawing it would
++     * paint a solid black rectangle where the clock belongs.
++     */
++    var hasUploadedFace: Boolean = false
+         private set
+ 
+-    private var lastRenderedMinuteKey: Long = Long.MIN_VALUE
+-    private var formatter: DateTimeFormatter = build24HourAwareFormatter()
++    var style: ClockStyle
++        get() = face.style
++        set(value) { face.style = value }
+ 
+-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+-        color = Color.WHITE
+-        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+-        textAlign = Paint.Align.CENTER
+-        setShadowLayer(SHADOW_RADIUS_PX, 0f, SHADOW_DY_PX, SHADOW_COLOR)
++    var showSeconds: Boolean
++        get() = face.showSeconds
++        set(value) { face.showSeconds = value }
++
++    var animateDigits: Boolean
++        get() = face.animateDigits
++        set(value) { face.animateDigits = value }
++
++    fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
++
++    /**
++     * Returns a bitmap only when there is something new to upload — null
++     * otherwise, so the caller can skip the upload. The bitmap is owned and
++     * reused by the face renderer: the caller must NOT recycle it.
++     */
++    fun renderIfChanged(): Bitmap? {
++        return face.render(
++            nowMillis = System.currentTimeMillis(),
++            uptimeMs = SystemClock.uptimeMillis(),
++            // Vulkan reallocates the sampled image on every upload, so
++            // animation frames are throttled harder than on GLES, where the
++            // same call is a texSubImage2D into existing storage.
++            minimumIntervalMs = ANIMATION_MIN_INTERVAL_MS
++        )
++    }
++
++    fun markUploaded() {
++        hasUploadedFace = true
++    }
++
++    fun refreshClockFormatPreference() {
++        face.refreshFormat()
+     }
+ 
+     /**
+-     * Returns a freshly-rendered bitmap only when the minute has changed
+-     * since the last call (or on the very first call) — null otherwise, so
+-     * the caller can skip uploading when there's nothing new. The caller
+-     * owns the returned bitmap and must recycle it once uploaded.
++     * Call after a surface reset so the next frame re-uploads even if the
++     * displayed time has not changed — the new surface's descriptor set has
++     * no clock content yet.
+      */
+-    fun renderIfMinuteChanged(): Bitmap? {
+-        val now = LocalTime.now()
+-        val minuteKey = now.hour * 60L + now.minute
+-        if (minuteKey == lastRenderedMinuteKey && textureWidth > 0) return null
+-
+-        val text = formatter.format(now)
+-        textPaint.textSize = TEXT_SIZE_PX
+-        val metrics = textPaint.fontMetrics
+-        val textWidth = textPaint.measureText(text)
+-
+-        val width = (textWidth + PADDING_PX * 2f).toInt().coerceAtLeast(1)
+-        val height = (metrics.bottom - metrics.top + PADDING_PX * 2f).toInt().coerceAtLeast(1)
+-
+-        val bitmap = createBitmap(width, height)
+-        val canvas = Canvas(bitmap)
+-        val baseline = PADDING_PX - metrics.top
+-        canvas.drawText(text, width / 2f, baseline, textPaint)
+-
+-        textureWidth = width
+-        textureHeight = height
+-        lastRenderedMinuteKey = minuteKey
+-        return bitmap
++    fun reset() {
++        hasUploadedFace = false
++        face.invalidate()
+     }
+ 
+-    /** Re-reads the 12/24-hour system setting; call if it may have changed. */
+-    fun refreshClockFormatPreference() {
+-        formatter = build24HourAwareFormatter()
+-        lastRenderedMinuteKey = Long.MIN_VALUE
+-    }
+-
+-    /** Call after a surface reset so the next frame re-uploads, even if
+-     * the clock text itself hasn't changed — the new surface's descriptor
+-     * set has no clock content yet. */
+-    fun reset() {
+-        lastRenderedMinuteKey = Long.MIN_VALUE
+-        textureWidth = 0
+-        textureHeight = 0
+-    }
+-
+-    private fun build24HourAwareFormatter(): DateTimeFormatter {
+-        val pattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm"
+-        return DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
++    fun release() {
++        hasUploadedFace = false
++        face.release()
+     }
+ 
+     private companion object {
+-        const val TEXT_SIZE_PX = 640f
+-        const val PADDING_PX = 60f
+-        const val SHADOW_RADIUS_PX = 40f
+-        const val SHADOW_DY_PX = 10f
+-        const val SHADOW_COLOR = 0x99000000.toInt()
++        /** ~20fps ceiling on animation re-uploads. */
++        const val ANIMATION_MIN_INTERVAL_MS = 50L
+     }
+ }
+--- a/app/src/main/java/com/app/nosatmosphereeffect/service/AtmosphereService.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/service/AtmosphereService.kt
+@@ -1,9 +1,16 @@
+ package com.app.nosatmosphereeffect.service
+ 
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
+ import android.content.SharedPreferences
+ import android.graphics.Bitmap
++import android.util.Log
++import androidx.core.content.ContextCompat
+ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+ import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
++import com.app.nosatmosphereeffect.helper.ClockStyle
+ import com.app.nosatmosphereeffect.helper.GLWallpaperService
+ import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
+ import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
+@@ -16,6 +23,19 @@
+     override val unlockedProgress = 1f
+     override val defaultAnimationDurationMs = 2_500L
+ 
++    /**
++     * Drives the clock.
++     *
++     * The renderers only draw when something asks them to, and a wallpaper
++     * sitting on the lock screen with transitions off asks for nothing. That
++     * left the clock frozen at whatever minute it happened to be rendered
++     * on. ACTION_TIME_TICK arrives once a minute for registered receivers
++     * only, which is exactly the cadence the clock needs; the other two
++     * actions cover manual time changes and travel across timezones, both of
++     * which also change the 12/24-hour reading.
++     */
++    private var timeReceiver: BroadcastReceiver? = null
++
+     override fun createEffectRenderer(): AtmosphereRenderController {
+         return AtmosphereRenderController(applicationContext, reverse = false)
+     }
+@@ -25,6 +45,14 @@
+         renderer: AtmosphereRenderController
+     ) {
+         renderer.attach(engine)
++    }
++
++    override fun onRendererAttached(
++        renderer: AtmosphereRenderController,
++        requestRender: () -> Unit
++    ) {
++        super.onRendererAttached(renderer, requestRender)
++        registerTimeReceiver(renderer)
+     }
+ 
+     override fun configureRenderer(
+@@ -47,7 +75,26 @@
+             noiseEnabled = preferences.readBoolean("enable_noise", false),
+             noiseScale = preferences.readFloat("noise_scale", 2_000f),
+             noiseStrength = preferences.readFloat("noise_strength", 0.06f),
+-            clockEnabled = preferences.readBoolean(AtmosphereClockPolicy.ENABLED_KEY, false),
++            clockEnabled = preferences.readBoolean(
++                AtmosphereClockPolicy.ENABLED_KEY,
++                false
++            ),
++            clockDepthEnabled = preferences.readBoolean(
++                AtmosphereClockPolicy.DEPTH_KEY,
++                AtmosphereClockPolicy.DEFAULT_DEPTH
++            ),
++            clockStyleId = preferences.readString(
++                AtmosphereClockPolicy.STYLE_KEY,
++                ClockStyle.DEFAULT.id
++            ),
++            clockShowSeconds = preferences.readBoolean(
++                AtmosphereClockPolicy.SECONDS_KEY,
++                AtmosphereClockPolicy.DEFAULT_SECONDS
++            ),
++            clockAnimate = preferences.readBoolean(
++                AtmosphereClockPolicy.ANIMATE_KEY,
++                AtmosphereClockPolicy.DEFAULT_ANIMATE
++            ),
+             clockCenterX = preferences.readFloat(
+                 AtmosphereClockPolicy.CENTER_X_KEY,
+                 AtmosphereClockPolicy.DEFAULT_CENTER_X
+@@ -94,7 +141,49 @@
+     }
+ 
+     override fun releaseRenderer(renderer: AtmosphereRenderController) {
++        unregisterTimeReceiver()
+         renderer.release()
++    }
++
++    private fun registerTimeReceiver(renderer: AtmosphereRenderController) {
++        unregisterTimeReceiver()
++        val receiver = object : BroadcastReceiver() {
++            override fun onReceive(context: Context?, intent: Intent?) {
++                renderer.onSystemTimeChanged()
++            }
++        }
++        val filter = IntentFilter().apply {
++            addAction(Intent.ACTION_TIME_TICK)
++            addAction(Intent.ACTION_TIME_CHANGED)
++            addAction(Intent.ACTION_TIMEZONE_CHANGED)
++        }
++        try {
++            // ACTION_TIME_TICK is protected and can only be delivered to a
++            // receiver registered in code, never a manifest one, so this has
++            // to happen here rather than in AndroidManifest.xml.
++            ContextCompat.registerReceiver(
++                this,
++                receiver,
++                filter,
++                ContextCompat.RECEIVER_NOT_EXPORTED
++            )
++            timeReceiver = receiver
++        } catch (failure: RuntimeException) {
++            // A failure here costs the clock its once-a-minute refresh, not
++            // the wallpaper — degrade rather than take the service down.
++            Log.w(TAG, "Could not register the clock time receiver", failure)
++            timeReceiver = null
++        }
++    }
++
++    private fun unregisterTimeReceiver() {
++        val receiver = timeReceiver ?: return
++        timeReceiver = null
++        try {
++            unregisterReceiver(receiver)
++        } catch (_: IllegalArgumentException) {
++            // Already gone; nothing to do.
++        }
+     }
+ 
+     private fun SharedPreferences.readBoolean(key: String, fallback: Boolean): Boolean {
+@@ -112,4 +201,16 @@
+             fallback
+         }
+     }
++
++    private fun SharedPreferences.readString(key: String, fallback: String): String {
++        return try {
++            getString(key, fallback) ?: fallback
++        } catch (_: ClassCastException) {
++            fallback
++        }
++    }
++
++    private companion object {
++        const val TAG = "AtmosphereService"
++    }
+ }
+--- a/app/src/main/java/com/app/nosatmosphereeffect/ui/preview/EffectPreviewService.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/ui/preview/EffectPreviewService.kt
+@@ -17,6 +17,7 @@
+ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+ import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
+ import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
++import com.app.nosatmosphereeffect.helper.ClockStyle
+ import com.app.nosatmosphereeffect.helper.EffectStatePolicy
+ import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
+ import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+@@ -151,16 +152,46 @@
+      * event would be too janky. Call [setRendererProgress]'s normal path
+      * (or just rely on the next full state rebuild) for anything else.
+      */
+-    fun setAtmosphereClockGeometry(centerX: Float, top: Float, height: Float) {
++    fun setAtmosphereClockGeometry(
++        centerX: Float,
++        top: Float,
++        height: Float,
++        opacity: Float
++    ) {
++        withLiveAtmosphereRenderer { renderer ->
++            renderer.clockCenterX = centerX
++            renderer.clockTop = top
++            renderer.clockHeight = height
++            renderer.clockOpacity = opacity
++        }
++    }
++
++    /**
++     * Pushes face settings (style, seconds, animation) straight to the live
++     * renderer. Separate from the geometry call because these change the
++     * rendered bitmap rather than how the shader places it.
++     */
++    fun setAtmosphereClockFace(
++        styleId: String,
++        showSeconds: Boolean,
++        animate: Boolean
++    ) {
++        withLiveAtmosphereRenderer { renderer ->
++            renderer.clockEnabled = true
++            renderer.clockStyle = ClockStyle.fromId(styleId)
++            renderer.clockShowSeconds = showSeconds
++            renderer.clockAnimate = animate
++        }
++    }
++
++    private fun withLiveAtmosphereRenderer(block: (AtmosphereRenderer) -> Unit) {
+         if (released.get() || activeBackend != GraphicsBackend.OPENGL_ES) return
+         val surface = openGlSurface
+         val renderer = openGlRenderer
+         if (surface != null && renderer is AtmosphereRenderer) {
+             surface.queueEvent {
+                 if (!released.get() && openGlRenderer === renderer) {
+-                    renderer.clockCenterX = centerX
+-                    renderer.clockTop = top
+-                    renderer.clockHeight = height
++                    block(renderer)
+                 }
+             }
+             requestActiveRender()
+@@ -258,6 +289,26 @@
+                         glassBackgroundOnly =
+                             configuredAtmosphereGlassBackgroundOnly,
+                         clockEnabled = clockEnabled,
++                        clockDepthEnabled = previewBoolean(
++                            prefs,
++                            AtmosphereClockPolicy.DEPTH_KEY,
++                            AtmosphereClockPolicy.DEFAULT_DEPTH
++                        ),
++                        clockStyleId = previewString(
++                            prefs,
++                            AtmosphereClockPolicy.STYLE_KEY,
++                            ClockStyle.DEFAULT.id
++                        ),
++                        clockShowSeconds = previewBoolean(
++                            prefs,
++                            AtmosphereClockPolicy.SECONDS_KEY,
++                            AtmosphereClockPolicy.DEFAULT_SECONDS
++                        ),
++                        clockAnimate = previewBoolean(
++                            prefs,
++                            AtmosphereClockPolicy.ANIMATE_KEY,
++                            AtmosphereClockPolicy.DEFAULT_ANIMATE
++                        ),
+                         clockCenterX = previewFloat(
+                             prefs,
+                             AtmosphereClockPolicy.CENTER_X_KEY,
+@@ -496,8 +547,13 @@
+                 renderer.atmosphereGlassEnabled = value.glassEnabled
+                 renderer.glassLineCount = value.glassLineCount
+                 renderer.glassLineThickness = value.glassLineThickness
+-                renderer.configureGlassBackgroundOnly(value.glassBackgroundOnly)
++                renderer.glassBackgroundOnly = value.glassBackgroundOnly
++                renderer.configureSubjectIsolation(value.needsSubjectMask())
+                 renderer.clockEnabled = value.clockEnabled
++                renderer.clockDepthEnabled = value.clockDepthEnabled
++                renderer.clockStyle = value.clockStyle
++                renderer.clockShowSeconds = value.clockShowSeconds
++                renderer.clockAnimate = value.clockAnimate
+                 renderer.clockCenterX = value.clockCenterX
+                 renderer.clockTop = value.clockTop
+                 renderer.clockHeight = value.clockHeight
+@@ -654,6 +710,19 @@
+         if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
+         return try {
+             preferences.getFloat(key, defaultValue)
++        } catch (_: ClassCastException) {
++            defaultValue
++        }
++    }
++
++    private fun previewString(
++        preferences: SharedPreferences,
++        key: String,
++        defaultValue: String
++    ): String {
++        if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
++        return try {
++            preferences.getString(key, defaultValue) ?: defaultValue
+         } catch (_: ClassCastException) {
+             defaultValue
+         }
+--- a/app/src/main/java/com/app/nosatmosphereeffect/ui/screens/AdvancedSettingsScreen.kt
++++ b/app/src/main/java/com/app/nosatmosphereeffect/ui/screens/AdvancedSettingsScreen.kt
+@@ -76,6 +76,7 @@
+     val atmosphereGlassEnabled: Boolean,
+     val showClockToggle: Boolean,
+     val clockEnabled: Boolean,
++    val clockDepthEnabled: Boolean,
+     val glassReverse: Boolean,
+     val showNoiseSwitch: Boolean,
+     val showBlob: Boolean,
+@@ -131,6 +132,7 @@
+     val neonLineWidth: Float,
+     val atmosphereGlassEnabled: Boolean,
+     val clockEnabled: Boolean,
++    val clockDepthEnabled: Boolean,
+     val glassLineCount: Int,
+     val glassLineThickness: Float,
+     val glassTransitionStyle: GlassTransitionStyle,
+@@ -181,6 +183,9 @@
+     var clockEnabled by remember {
+         mutableStateOf(config.clockEnabled)
+     }
++    var clockDepthEnabled by remember {
++        mutableStateOf(config.clockDepthEnabled)
++    }
+     var glassLineCount by remember { mutableFloatStateOf(config.glassLineCount.toFloat()) }
+     var glassLineThickness by remember {
+         mutableFloatStateOf(config.glassLineThickness)
+@@ -263,6 +268,7 @@
+         neonLineWidth = neonLineWidth,
+         atmosphereGlassEnabled = atmosphereGlassEnabled,
+         clockEnabled = clockEnabled,
++        clockDepthEnabled = clockDepthEnabled,
+         glassLineCount = GlassEffectPolicy.sanitizeLineCount(glassLineCount),
+         glassLineThickness = GlassEffectPolicy.sanitizeLineThickness(glassLineThickness),
+         glassTransitionStyle = glassTransitionStyle,
+@@ -364,6 +370,8 @@
+                         },
+                         clockEnabled = clockEnabled,
+                         onClockEnabledChange = { clockEnabled = it },
++                        clockDepthEnabled = clockDepthEnabled,
++                        onClockDepthEnabledChange = { clockDepthEnabled = it },
+                         glassLineCount = glassLineCount,
+                         onGlassLineCountChange = { glassLineCount = it },
+                         glassLineThickness = glassLineThickness,
+@@ -461,6 +469,8 @@
+     onAtmosphereGlassEnabledChange: (Boolean) -> Unit,
+     clockEnabled: Boolean,
+     onClockEnabledChange: (Boolean) -> Unit,
++    clockDepthEnabled: Boolean,
++    onClockDepthEnabledChange: (Boolean) -> Unit,
+     glassLineCount: Float,
+     onGlassLineCountChange: (Float) -> Unit,
+     glassLineThickness: Float,
+@@ -586,17 +596,30 @@
+                     checked = clockEnabled,
+                     onCheckedChange = onClockEnabledChange,
+                     subtitle = if (clockEnabled) {
+-                        "Drawn behind the subject, like a depth-effect photo. " +
+-                            "Hide your device's own lock screen clock to avoid " +
++                        "Hide your device's own lock screen clock to avoid " +
+                             "seeing two."
+                     } else {
+                         "Renders a clock into the wallpaper itself."
+                     }
+                 )
+                 if (clockEnabled) {
++                    // Depth is the clock's own switch, not the Glass effect's.
++                    // Turning it on computes a subject mask whether or not
++                    // Glass is in use, which is the whole point: the previous
++                    // version reused Glass's "background only" flag, so the
++                    // depth effect silently did nothing unless Glass was on.
++                    SettingSwitchRow(
++                        title = "Depth effect",
++                        checked = clockDepthEnabled,
++                        onCheckedChange = onClockDepthEnabledChange,
++                        subtitle = "Draws the subject back over the clock, so " +
++                            "the clock sits behind them. Needs a photo with a " +
++                            "clear subject; works whether or not the Glass " +
++                            "effect is on."
++                    )
+                     val context = LocalContext.current
+                     AtmoTextButton(
+-                        text = "Adjust clock position & size",
++                        text = "Choose style, position & size",
+                         onClick = {
+                             context.startActivity(
+                                 Intent(context, ClockAdjustActivity::class.java)
+--- a/app/src/main/shaders/atmosphere/atmosphere.frag
++++ b/app/src/main/shaders/atmosphere/atmosphere.frag
+@@ -21,7 +21,8 @@
+     // x: centerX, y: top, z: heightFraction, w: textureAspect — all in the
+     // screen-locked vEffectCoord space.
+     vec4 clockRect;
+-    // x: opacity, y: enabled, z/w: unused.
++    // x: opacity, y: a face has been uploaded, z: depth enabled AND a
++    // subject mask exists, w: unused.
+     vec4 clockMeta;
+ } params;
+ 
+@@ -203,48 +204,45 @@
+         params.misc.x > 0.5 ? clamp(params.misc.y, 0.0, 1.0) : 0.0;
+     finalColor = mix(finalColor, frosted, drawerBlur);
+ 
+-    // Depth-composited clock: sits on top of the atmosphere effect but
+-    // behind the subject, so the subject visually occludes it — same
+-    // trick as the static-glass background-coverage logic above, applied
+-    // globally instead of only within that sub-effect. Faded out toward
+-    // the home screen (progress -> 1): the clock is a lock-screen feature
+-    // (see AtmosphereRenderer.CLOCK_LOCK_FADE_RANGE for the GLES twin of
+-    // this same logic).
+-    if (params.clockMeta.y > 0.5) {
+-        float clockLockFade = 1.0 - clamp(progress / 0.25, 0.0, 1.0);
+-        if (clockLockFade > 0.0) {
+-            float clockHeightUv = params.clockRect.z;
+-            float clockWidthUv =
+-                clockHeightUv * params.clockRect.w / aspectRatio;
+-            vec2 clockOrigin = vec2(
+-                params.clockRect.x - clockWidthUv * 0.5,
+-                params.clockRect.y
+-            );
+-            vec2 clockUv =
+-                (vEffectCoord - clockOrigin) / vec2(clockWidthUv, clockHeightUv);
+-            if (
+-                clockUv.x >= 0.0 && clockUv.x <= 1.0 &&
+-                clockUv.y >= 0.0 && clockUv.y <= 1.0
+-            ) {
+-                vec4 clockSample = texture(clockTexture, clockUv);
+-                finalColor = mix(
+-                    finalColor,
+-                    clockSample.rgb,
+-                    clockSample.a * params.clockMeta.x * clockLockFade
+-                );
+-            }
+-
+-            // Reuses the same isolate-background-and-has-subject signal
+-            // the glass ribs use (params.viewport.w) rather than a
+-            // separate flag, since GLES's AtmosphereRenderState.sanitized()
+-            // already forces glassBackgroundOnly false whenever glassEnabled
+-            // is false — the two backends agree on this gating already.
+-            if (params.viewport.w > 0.5) {
+-                vec3 subjectSharp = texture(sharpTexture, vTexCoord).rgb;
+-                float subjectCoverage =
+-                    smoothstep(0.30, 0.72, sampleSubject(vTexCoord));
+-                finalColor = mix(finalColor, subjectSharp, subjectCoverage);
+-            }
++    // Clock overlay — mirrors the GLES path in
++    // assets/shaders/atmosphere/atmosphere.frag; keep the two in step.
++    //
++    // clockMeta.y is "a face has been uploaded", not the user's toggle. The
++    // engine fills unwritten optional bindings with an opaque-black 1x1
++    // clear texture, so sampling before the first upload would draw a solid
++    // black rectangle. The lock fade lives on the host side and arrives
++    // already folded into clockMeta.x, so this shader has no policy in it.
++    if (params.clockMeta.y > 0.5 && params.clockMeta.x > 0.0) {
++        float clockHeightUv = max(params.clockRect.z, 1e-5);
++        float clockWidthUv =
++            max(clockHeightUv * params.clockRect.w / aspectRatio, 1e-5);
++        vec2 clockOrigin = vec2(
++            params.clockRect.x - clockWidthUv * 0.5,
++            params.clockRect.y
++        );
++        vec2 clockUv =
++            (vEffectCoord - clockOrigin) / vec2(clockWidthUv, clockHeightUv);
++        if (
++            clockUv.x >= 0.0 && clockUv.x <= 1.0 &&
++            clockUv.y >= 0.0 && clockUv.y <= 1.0
++        ) {
++            vec4 clockSample = texture(clockTexture, clockUv);
++            finalColor = mix(
++                finalColor,
++                clockSample.rgb,
++                clockSample.a * params.clockMeta.x
++            );
++        }
++
++        if (params.clockMeta.z > 0.5) {
++            vec3 subjectSharp = texture(sharpTexture, vTexCoord).rgb;
++            float subjectCoverage =
++                smoothstep(0.30, 0.72, sampleSubject(vTexCoord));
++            finalColor = mix(
++                finalColor,
++                subjectSharp,
++                subjectCoverage * params.clockMeta.x
++            );
+         }
+     }
+ 

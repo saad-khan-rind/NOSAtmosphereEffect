@@ -76,6 +76,7 @@ data class AdvancedConfig(
     val atmosphereGlassEnabled: Boolean,
     val showClockToggle: Boolean,
     val clockEnabled: Boolean,
+    val clockDepthEnabled: Boolean,
     val glassReverse: Boolean,
     val showNoiseSwitch: Boolean,
     val showBlob: Boolean,
@@ -131,6 +132,7 @@ data class AdvancedResult(
     val neonLineWidth: Float,
     val atmosphereGlassEnabled: Boolean,
     val clockEnabled: Boolean,
+    val clockDepthEnabled: Boolean,
     val glassLineCount: Int,
     val glassLineThickness: Float,
     val glassTransitionStyle: GlassTransitionStyle,
@@ -180,6 +182,9 @@ fun AdvancedSettingsScreen(
     }
     var clockEnabled by remember {
         mutableStateOf(config.clockEnabled)
+    }
+    var clockDepthEnabled by remember {
+        mutableStateOf(config.clockDepthEnabled)
     }
     var glassLineCount by remember { mutableFloatStateOf(config.glassLineCount.toFloat()) }
     var glassLineThickness by remember {
@@ -263,6 +268,7 @@ fun AdvancedSettingsScreen(
         neonLineWidth = neonLineWidth,
         atmosphereGlassEnabled = atmosphereGlassEnabled,
         clockEnabled = clockEnabled,
+        clockDepthEnabled = clockDepthEnabled,
         glassLineCount = GlassEffectPolicy.sanitizeLineCount(glassLineCount),
         glassLineThickness = GlassEffectPolicy.sanitizeLineThickness(glassLineThickness),
         glassTransitionStyle = glassTransitionStyle,
@@ -364,6 +370,8 @@ fun AdvancedSettingsScreen(
                         },
                         clockEnabled = clockEnabled,
                         onClockEnabledChange = { clockEnabled = it },
+                        clockDepthEnabled = clockDepthEnabled,
+                        onClockDepthEnabledChange = { clockDepthEnabled = it },
                         glassLineCount = glassLineCount,
                         onGlassLineCountChange = { glassLineCount = it },
                         glassLineThickness = glassLineThickness,
@@ -461,6 +469,8 @@ private fun EffectSettings(
     onAtmosphereGlassEnabledChange: (Boolean) -> Unit,
     clockEnabled: Boolean,
     onClockEnabledChange: (Boolean) -> Unit,
+    clockDepthEnabled: Boolean,
+    onClockDepthEnabledChange: (Boolean) -> Unit,
     glassLineCount: Float,
     onGlassLineCountChange: (Float) -> Unit,
     glassLineThickness: Float,
@@ -586,17 +596,30 @@ private fun EffectSettings(
                     checked = clockEnabled,
                     onCheckedChange = onClockEnabledChange,
                     subtitle = if (clockEnabled) {
-                        "Drawn behind the subject, like a depth-effect photo. " +
-                            "Hide your device's own lock screen clock to avoid " +
+                        "Hide your device's own lock screen clock to avoid " +
                             "seeing two."
                     } else {
                         "Renders a clock into the wallpaper itself."
                     }
                 )
                 if (clockEnabled) {
+                    // Depth is the clock's own switch, not the Glass effect's.
+                    // Turning it on computes a subject mask whether or not
+                    // Glass is in use, which is the whole point: the previous
+                    // version reused Glass's "background only" flag, so the
+                    // depth effect silently did nothing unless Glass was on.
+                    SettingSwitchRow(
+                        title = "Depth effect",
+                        checked = clockDepthEnabled,
+                        onCheckedChange = onClockDepthEnabledChange,
+                        subtitle = "Draws the subject back over the clock, so " +
+                            "the clock sits behind them. Needs a photo with a " +
+                            "clear subject; works whether or not the Glass " +
+                            "effect is on."
+                    )
                     val context = LocalContext.current
                     AtmoTextButton(
-                        text = "Adjust clock position & size",
+                        text = "Choose style, position & size",
                         onClick = {
                             context.startActivity(
                                 Intent(context, ClockAdjustActivity::class.java)
