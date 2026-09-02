@@ -86,6 +86,7 @@ import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
 import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
+import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
@@ -230,6 +231,19 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
         autoColor = withContext(Dispatchers.IO) { ClockPalette.autoColorFor(context) }
         pushFace()
+    }
+
+    // SubjectMaskDiagnostics is a plain in-memory holder written from the
+    // segmentation worker, not Compose state, so poll it. Worth surfacing:
+    // when segmentation fails there is otherwise nothing on screen to
+    // distinguish "no subject in this photo" from "the model is broken on this
+    // build" — which is exactly the F-Droid litert mismatch.
+    var maskFailure by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            maskFailure = SubjectMaskDiagnostics.lastFailure
+            delay(700)
+        }
     }
 
     var thumbnails by remember { mutableStateOf<Map<ClockStyle, ImageBitmap>>(emptyMap()) }
@@ -461,6 +475,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 onTogglePicker = { pickerOpen = !pickerOpen },
                 canEyedrop = wallpaperBitmap != null,
                 onArmEyedropper = { eyedropperArmed = true },
+                maskFailure = maskFailure,
                 segmentationDisabled = SegmentationCrashGuard.isDisabled(context),
                 onResetSegmentation = { SegmentationCrashGuard.reset(context) },
                 onResetPlacement = {
@@ -499,6 +514,7 @@ private fun ClockControls(
     onTogglePicker: () -> Unit,
     canEyedrop: Boolean,
     onArmEyedropper: () -> Unit,
+    maskFailure: String?,
     segmentationDisabled: Boolean,
     onResetSegmentation: () -> Unit,
     onResetPlacement: () -> Unit
@@ -629,11 +645,17 @@ private fun ClockControls(
                 )
             }
         }
-        if (segmentationDisabled) {
-            Text(
+        val notice = when {
+            segmentationDisabled ->
                 "Subject detection was switched off after repeated crashes in a " +
                     "system component, so nothing will occlude the clock until it " +
-                    "is re-enabled.",
+                    "is re-enabled."
+            maskFailure != null -> "No depth effect yet: $maskFailure"
+            else -> null
+        }
+        if (notice != null) {
+            Text(
+                notice,
                 color = Color.White.copy(alpha = 0.75f),
                 style = MaterialTheme.typography.bodySmall
             )

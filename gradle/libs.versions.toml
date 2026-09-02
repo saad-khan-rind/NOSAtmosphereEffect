@@ -13,7 +13,7 @@ composeBom = "2026.08.00"
 exifinterface = "1.4.2"
 palette = "1.0.0"
 # Keep this API aligned with the source-built F-Droid runtime below.
-litert = "2.2.0"
+litert = "1.4.1"
 litertFdroid = "1.4.1-fdroid"
 
 [libraries]

@@ -96,6 +96,12 @@ class AtmosphereRenderer(
         }
     @Volatile var dimLevel: Float = 0.2f
     @Volatile private var needsReload: Boolean = false
+    /**
+     * Texture generation the last subject-mask request was issued for. Guards
+     * against re-requesting for an image that has already been through
+     * segmentation, whether it produced a mask or not.
+     */
+    @Volatile private var maskRequestedGeneration: Long = NO_GENERATION
     @Volatile var enableNoise: Boolean = false
     @Volatile var noiseScale: Float = 2000.0f
     @Volatile var noiseStrength: Float = 0.06f
@@ -226,10 +232,21 @@ class AtmosphereRenderer(
     fun configureSubjectIsolation(enabled: Boolean) {
         try {
             val changed = subjectMasks.configure(enabled)
+            // Reload once per image, not once per call.
+            //
+            // This used to also fire on `!currentSet.hasSubject`, which reads
+            // as "no mask yet, so try again". But the controller calls this
+            // from applyState, and applyState runs on every progress tick of
+            // the unlock animation — so until a mask arrived, every frame set
+            // needsReload, and every frame re-decoded and re-uploaded the
+            // wallpaper textures AND queued another segmentation pass (the
+            // coordinator does not coalesce). That is the staged, snapshot-like
+            // unlock stutter. On F-Droid, where extraction was failing
+            // outright, hasSubject never became true, so it never stopped.
             if (
                 enabled &&
                 currentSet.isValid() &&
-                (changed || !currentSet.hasSubject)
+                (changed || maskRequestedGeneration != currentSet.generation)
             ) {
                 needsReload = true
             }
@@ -975,6 +992,7 @@ class AtmosphereRenderer(
     }
 
     private fun requestSubjectMask(bitmap: Bitmap, generation: Long) {
+        maskRequestedGeneration = generation
         try {
             subjectMasks.request(bitmap, generation)
         } catch (failure: RuntimeException) {
@@ -1137,5 +1155,6 @@ class AtmosphereRenderer(
     private companion object {
         const val TAG = "AtmosphereRenderer"
         const val MAX_RENDER_RETRIES = 3
+        const val NO_GENERATION = -1L
     }
 }

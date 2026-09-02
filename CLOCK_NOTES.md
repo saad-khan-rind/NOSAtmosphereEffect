@@ -319,3 +319,65 @@ tapping a shadow doesn't produce an invisible clock.
 - **Hour format toggle** — System / 12-hour / 24-hour, stored in
   `atmosphere_clock_hour_format`. `null` override means follow the system, so
   changing the device setting still propagates when the toggle is on System.
+
+---
+
+# Fifth pass — F-Droid segmentation and the unlock stutter
+
+Two independent problems that were making each other look worse.
+
+## 1. F-Droid segmentation was broken by the litert bump
+
+`libs.versions.toml` had:
+
+```toml
+# Keep this API aligned with the source-built F-Droid runtime below.
+litert = "2.2.0"          # <- bumped in the WIP branch
+litertFdroid = "1.4.1-fdroid"
+```
+
+`litert-api` is the interface the source-built F-Droid runtime implements, and
+the comment directly above it says to keep them aligned. The WIP branch bumped
+one and not the other, so `fdroidImplementation` was linking a 2.2.0 API
+against a 1.4.1 interpreter. The Play flavour uses ML Kit and never touches
+either, which is exactly why Play works and F-Droid doesn't.
+
+Pinned back to 1.4.1. This is the third time this dependency has come up — it
+was flagged as unrelated-and-risky in the first pass and is worth bumping
+deliberately, both versions together, as its own change.
+
+## 2. The unlock stutter — a reload storm, not a rendering cost
+
+`AtmosphereRenderer.configureSubjectIsolation` set `needsReload = true`
+whenever `enabled && !currentSet.hasSubject`, which reads as a reasonable
+"no mask yet, try again". But the controller calls it from `applyState`, and
+`applyState` runs on **every progress tick of the unlock animation**. So until
+a mask arrived, every single frame:
+
+- re-decoded and re-uploaded the sharp and blurred wallpaper textures, and
+- queued another full segmentation pass — `SubjectMaskCoordinator.request` did
+  no coalescing, so each call started a fresh inference.
+
+That is the staged, snapshot-like unlock. And on F-Droid, where extraction was
+failing outright, `hasSubject` never became true, so it never stopped — the
+device was running TFLite inference at frame rate, forever, which is why it was
+"super laggy" rather than briefly janky.
+
+Fixed in two places:
+
+- The renderer now tracks `maskRequestedGeneration` and reloads once per image
+  rather than once per call, whether or not that image produced a mask.
+- `SubjectMaskCoordinator.request` drops a request whose generation it has
+  already served. Belt and braces, and it protects the Vulkan host too.
+
+This bug predates the clock work — but it only ever fired when Glass's
+background-only mode was on, an opt-in sub-feature. Clock depth defaults to on,
+so the clock rework is what exposed it to everyone.
+
+## 3. Diagnostics back on screen
+
+Restored the `SubjectMaskDiagnostics` line in the adjust screen's controls
+(dropped in the second pass for visual cleanliness — that was the wrong call).
+Without it there is nothing on screen distinguishing "this photo has no clear
+subject" from "the model is broken on this build", which is precisely the
+F-Droid case above.

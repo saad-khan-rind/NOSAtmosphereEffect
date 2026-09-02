@@ -52,6 +52,12 @@ internal class SubjectMaskCoordinator(
     fun request(bitmap: Bitmap, generation: Long) {
         val activeExtractor = synchronized(lock) {
             if (closed || !enabled || bitmap.isRecycled) return
+            // One extraction per image. Callers can ask repeatedly — the GLES
+            // renderer used to, once per frame, while waiting for a mask — and
+            // segmentation is far too expensive to run speculatively. A new
+            // image gets a new generation; configure(false) resets this, so
+            // toggling the feature off and on still re-runs it.
+            if (latestRequest == generation) return
             latestRequest = generation
             extractor ?: SubjectMaskExtractor(
                 appContext,
