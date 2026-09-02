@@ -15,6 +15,7 @@ import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeSession
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatusRepository
 import com.app.nosatmosphereeffect.renderer.status.VulkanDeviceCapability
 import java.util.Locale
+import com.app.nosatmosphereeffect.helper.RendererDiagnosticsLog
 
 internal object VulkanSupport {
     private const val TAG = "VulkanSupport"
@@ -120,6 +121,23 @@ internal object VulkanSupport {
                 else -> "This effect does not have a Vulkan renderer"
             }
         }
+        RendererDiagnosticsLog.record(
+            context,
+            "backend-select",
+            "$effectId -> $selectedBackend " +
+                "(preference=$preference, vulkan1.1=$hasVulkan11, " +
+                "probe=${probedVersion ?: "none"}, blocked=$blockedAfterFailure)" +
+                (if (fallbackReason != null) " reason=$fallbackReason" else "") +
+                // The stored reason is the ORIGINAL failure. Without it a
+                // blocked line only says "something went wrong once", which
+                // is exactly as useless as it sounds.
+                (if (blockedAfterFailure) {
+                    " recorded=" +
+                        (VulkanFailureStore.blockedReason(context, effectId) ?: "unknown")
+                } else {
+                    ""
+                })
+        )
         return VulkanBackendResolution(
             preference = preference,
             backend = selectedBackend,
@@ -190,7 +208,27 @@ internal object VulkanSupport {
         return selection
     }
 
+    /**
+     * Clears every recorded Vulkan failure so the next selection tries Vulkan
+     * again. Exposed through the diagnostics screen: without it, a single
+     * failure pins a device to OpenGL ES for every build sharing a
+     * versionCode, which made the fallback impossible to re-test.
+     */
+    fun clearRecordedFailures(context: Context) {
+        VulkanFailureStore.clearAll(context)
+        RendererDiagnosticsLog.record(
+            context,
+            "vulkan-blocklist",
+            "Recorded failures cleared by the user; Vulkan will be retried"
+        )
+    }
+
     fun recordFailure(context: Context, effectId: String, reason: String) {
+        RendererDiagnosticsLog.record(
+            context,
+            "vulkan-blocklist",
+            "$effectId blocked for this build: $reason"
+        )
         VulkanFailureStore.record(context, effectId, reason)
     }
 
@@ -258,6 +296,7 @@ private object VulkanFailureStore {
     private const val LEGACY_FAILURE_ID_KEY = "vulkan_failure_id"
     private const val FAILURE_ID_PREFIX = "vulkan_failure_id_"
     private const val FAILURE_REASON_PREFIX = "vulkan_failure_reason_"
+    private const val FAILURE_WALLPAPER_PREFIX = "vulkan_failure_wallpaper_"
 
     /**
      * Bumped whenever the Vulkan path changes enough that an old recorded
@@ -271,8 +310,10 @@ private object VulkanFailureStore {
      * records once, without weakening the mechanism for real driver faults.
      *
      * 2: depth clock — new clock sampler binding, uniform moved to binding 4.
+     * 3: retires records written by the 7.2.3 development builds, which all
+     *    shared schema 2 and therefore kept re-blocking each other.
      */
-    private const val RENDERER_SCHEMA = 2
+    private const val RENDERER_SCHEMA = 3
 
     fun isBlocked(context: Context, effectId: String): Boolean {
         val preferences =
@@ -280,31 +321,71 @@ private object VulkanFailureStore {
         val currentFailureId = failureId(context)
         val scopedFailureId = preferences.getString(failureIdKey(effectId), null)
         val failureReason = preferences.getString(failureReasonKey(effectId), null)
+        // A recorded failure describes this build AND the image that was
+        // loaded when it happened. Setting a new wallpaper changes the
+        // textures, their dimensions, and the surface lifecycle, so an old
+        // failure says nothing about the new one — retry rather than making
+        // the user reinstall or dig through settings to un-stick it.
+        val recordedWallpaper = preferences.getLong(failureWallpaperKey(effectId), -1L)
+        val wallpaperChanged = scopedFailureId != null &&
+            recordedWallpaper != activeWallpaperStamp(context)
         val repaired = VulkanFailurePolicy.shouldClearObsoleteAtmosphereStateFailure(
             effectId = effectId,
             currentFailureId = currentFailureId,
             scopedFailureId = scopedFailureId,
             failureReason = failureReason
         )
-        if (repaired) {
+        if (repaired || wallpaperChanged) {
             preferences.edit {
                 remove(failureIdKey(effectId))
                 remove(failureReasonKey(effectId))
+                remove(failureWallpaperKey(effectId))
             }
         }
         return VulkanFailurePolicy.isBlocked(
             effectId = effectId,
             currentFailureId = currentFailureId,
-            scopedFailureId = if (repaired) null else scopedFailureId,
+            scopedFailureId = if (repaired || wallpaperChanged) null else scopedFailureId,
             legacyFailureId = preferences.getString(LEGACY_FAILURE_ID_KEY, null)
         )
+    }
+
+    /** The reason recorded for the currently active block, if any. */
+    fun blockedReason(context: Context, effectId: String): String? {
+        val preferences =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return preferences.getString(failureReasonKey(effectId), null)
+    }
+
+    /** Drops every recorded failure. Backs the diagnostics screen's retry. */
+    fun clearAll(context: Context) {
+        val preferences =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val doomed = preferences.all.keys.filter {
+            it.startsWith(FAILURE_ID_PREFIX) ||
+                it.startsWith(FAILURE_REASON_PREFIX) ||
+                it.startsWith(FAILURE_WALLPAPER_PREFIX) ||
+                it == LEGACY_FAILURE_ID_KEY
+        }
+        preferences.edit { doomed.forEach { remove(it) } }
     }
 
     fun record(context: Context, effectId: String, reason: String) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             putString(failureIdKey(effectId), failureId(context))
             putString(failureReasonKey(effectId), reason.take(500))
+            putLong(failureWallpaperKey(effectId), activeWallpaperStamp(context))
         }
+    }
+
+    private fun failureWallpaperKey(effectId: String): String {
+        return FAILURE_WALLPAPER_PREFIX + VulkanFailurePolicy.normalizedEffectId(effectId)
+    }
+
+    /** Modification time of the applied image; -1 when there isn't one. */
+    private fun activeWallpaperStamp(context: Context): Long {
+        val file = java.io.File(context.applicationContext.filesDir, "wallpaper.jpg")
+        return if (file.exists()) file.lastModified() else -1L
     }
 
     private fun failureIdKey(effectId: String): String {

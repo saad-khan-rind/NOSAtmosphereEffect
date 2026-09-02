@@ -337,6 +337,18 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeCl
         : JNI_FALSE;
 }
 
+/**
+ * Not tied to a handle: the buffer is global, so it still returns the reason
+ * after an engine has been torn down — which is exactly when it matters.
+ */
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeDrainDiagnostics(
+    JNIEnv* env,
+    jobject
+) {
+    return env->NewStringUTF(atmo::vulkan::drainDiagnostics().c_str());
+}
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSetState(
     JNIEnv* env,

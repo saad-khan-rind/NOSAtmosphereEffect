@@ -49,15 +49,20 @@ internal class SubjectMaskCoordinator(
         return changed
     }
 
-    fun request(bitmap: Bitmap, generation: Long) {
+    /**
+     * Returns true only when an extraction was actually dispatched. Callers
+     * use this to decide whether the generation has been served — marking it
+     * served on a dropped request means it is never retried.
+     */
+    fun request(bitmap: Bitmap, generation: Long): Boolean {
         val activeExtractor = synchronized(lock) {
-            if (closed || !enabled || bitmap.isRecycled) return
+            if (closed || !enabled || bitmap.isRecycled) return false
             // One extraction per image. Callers can ask repeatedly — the GLES
             // renderer used to, once per frame, while waiting for a mask — and
             // segmentation is far too expensive to run speculatively. A new
             // image gets a new generation; configure(false) resets this, so
             // toggling the feature off and on still re-runs it.
-            if (latestRequest == generation) return
+            if (latestRequest == generation) return false
             latestRequest = generation
             extractor ?: SubjectMaskExtractor(
                 appContext,
@@ -65,6 +70,7 @@ internal class SubjectMaskCoordinator(
             ).also { extractor = it }
         }
         activeExtractor.extract(bitmap, generation)
+        return true
     }
 
     fun takePending(): PendingMask? = synchronized(lock) {

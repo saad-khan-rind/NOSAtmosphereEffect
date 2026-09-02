@@ -29,7 +29,9 @@ import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreferences
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 import com.app.nosatmosphereeffect.ui.screens.AdvancedConfig
 import com.app.nosatmosphereeffect.ui.screens.AdvancedResult
 import com.app.nosatmosphereeffect.ui.screens.AdvancedSettingsScreen
@@ -230,6 +232,11 @@ class AdvancedSettingsActivity : ComponentActivity() {
             rotationValues.getOrElse(result.rotationIndex) { rotationValues[0] }
 
         GraphicsBackendPreferences.write(this, result.rendererPreference)
+        // Asking for Vulkan (or Automatic) is an explicit request to try it
+        // again, so an old recorded failure should not silently veto it.
+        if (result.rendererPreference != GraphicsBackendPreference.OPENGL_ES) {
+            runCatching { VulkanSupport.clearRecordedFailures(this) }
+        }
         wpPrefs.edit { putLong("rotation_interval_minutes", selectedRotationValue) }
         WallpaperBehaviorPreferences.write(
             this,

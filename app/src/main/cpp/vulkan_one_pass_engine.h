@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace atmo::vulkan {
 
@@ -26,6 +27,12 @@ struct OnePassConfig {
 using OnePassHandle = void*;
 
 uint32_t probeRuntime();
+
+/**
+ * Returns every native error recorded since the last call, newline separated,
+ * and clears the buffer. Backs the in-app diagnostics screen.
+ */
+std::string drainDiagnostics();
 
 OnePassHandle createOnePass(
     JNIEnv* env,

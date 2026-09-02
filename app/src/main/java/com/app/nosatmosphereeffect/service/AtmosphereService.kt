@@ -7,6 +7,7 @@ import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
+import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
 
 class AtmosphereService :
@@ -62,9 +63,16 @@ class AtmosphereService :
             noiseEnabled = preferences.readBoolean("enable_noise", false),
             noiseScale = preferences.readFloat("noise_scale", 2_000f),
             noiseStrength = preferences.readFloat("noise_strength", 0.06f),
-            clockEnabled = preferences.readBoolean(
-                AtmosphereClockPolicy.ENABLED_KEY,
-                false
+            // Playlist and theme modes rotate the image underneath the clock,
+            // so the clock stays off there — see
+            // AtmosphereClockPolicy.resolveEnabled.
+            clockEnabled = AtmosphereClockPolicy.resolveEnabled(
+                effectId = effectId,
+                requested = preferences.readBoolean(
+                    AtmosphereClockPolicy.ENABLED_KEY,
+                    false
+                ),
+                singleImageMode = !PlaylistModeManager.isPlaylistMode(applicationContext)
             ),
             clockDepthEnabled = preferences.readBoolean(
                 AtmosphereClockPolicy.DEPTH_KEY,

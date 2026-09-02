@@ -13,6 +13,10 @@ composeBom = "2026.08.00"
 exifinterface = "1.4.2"
 palette = "1.0.0"
 # Keep this API aligned with the source-built F-Droid runtime below.
+# 2.2.0 was tried here and broke the F-Droid flavour: litert-api ships the
+# interface the fdroid source-built runtime (1.4.1) implements, so bumping one
+# without the other leaves fdroidImplementation linking a 2.2.0 API against a
+# 1.4.1 interpreter. The Play flavour uses ML Kit and never noticed.
 litert = "1.4.1"
 litertFdroid = "1.4.1-fdroid"
 

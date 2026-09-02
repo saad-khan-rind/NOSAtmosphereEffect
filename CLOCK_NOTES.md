@@ -381,3 +381,198 @@ Restored the `SubjectMaskDiagnostics` line in the adjust screen's controls
 Without it there is nothing on screen distinguishing "this photo has no clear
 subject" from "the model is broken on this build", which is precisely the
 F-Droid case above.
+
+---
+
+# Sixth pass — in-app diagnostics, clock limited to single-image mode
+
+## Renderer diagnostics
+
+I have guessed at the Vulkan fallback twice and been wrong both times, so this
+pass builds the instrument instead of guessing a third time.
+
+**Native side.** Every native failure already funnels through `logError` in
+`vulkan_one_pass_engine.cpp`, so that is the one place worth capturing from. It
+now also pushes into a 64-entry mutex-guarded ring, drained by
+`atmo::vulkan::drainDiagnostics()` and exposed as
+`VulkanAtmosphereNative.nativeDrainDiagnostics()`. The buffer is global rather
+than per-handle deliberately: it still returns the reason after the engine has
+been destroyed, which is exactly when it is needed.
+
+**Kotlin side.** `RendererDiagnosticsLog` appends to
+`files/renderer-diagnostics.log` (capped at 96 KB, trimmed to the most recent
+64 KB). A file rather than an in-memory object because the engine is usually
+created and torn down long before anyone opens settings, and a fallback happens
+once at startup — an in-memory buffer would be empty by the time you looked.
+
+Three hooks:
+
+- `VulkanSupport.resolveBackend` — records every selection with the inputs that
+  drove it: preference, whether Vulkan 1.1 is advertised, the native probe
+  result, and the blocklist state. If the backend was never chosen, this line
+  says which of those four conditions rejected it.
+- `VulkanSupport.recordFailure` — records when a failure is written to the
+  blocklist, so a later "blocked" line can be traced back to its origin.
+- `AtmosphereRenderController.onVulkanFailure` — records the runtime fallback
+  reason *and* the drained native detail together. The Kotlin reason says which
+  stage gave up; the native lines say why. Neither is much use alone.
+
+**Reading it.** Advanced Settings → Diagnostics → "Renderer diagnostics".
+Copy / Share / Clear, monospaced, auto-refreshing every 1.5s so you can leave
+it open, apply the wallpaper, and come back to a populated log. It's a visible
+entry, not behind the seven-tap gesture that hides `PaletteDiagnosticsActivity`
+— you asked for a build that shows the logs, and a hidden one you have to
+remember how to open isn't that.
+
+Nothing leaves the device; Share just hands the text to a chooser.
+
+**What I expect it to show.** One of these two shapes:
+
+- a `backend-select` line with `-> OPENGL_ES` and a `reason=` — the backend was
+  never chosen, and the reason names which check failed, or
+- a `backend-select` line with `-> VULKAN` followed by a `vulkan-fallback` line
+  — it started and died, and the indented native lines under it are the actual
+  cause.
+
+That distinction is the thing I've been unable to determine by reading code.
+
+## Clock is single-image only
+
+`AtmosphereClockPolicy.resolveEnabled` takes a `singleImageMode` flag, resolved
+from `PlaylistModeManager.isPlaylistMode` in both `AtmosphereService` and
+`EffectPreviewService`. Advanced Settings replaces the clock controls with a
+one-line explanation in playlist and theme modes rather than showing a toggle
+that would not take effect.
+
+The reason is real rather than defensive: a position calibrated against one
+photo is wrong for the next, and the wallpaper-derived Auto colour would need
+to re-derive on every rotation. Both are solvable — per-image placement, or
+re-running extraction on rotation — but neither is solved, and a badly placed
+clock is worse than no clock.
+
+---
+
+# Seventh pass — the log answers it
+
+## Vulkan: never attempted, and my schema salt was self-defeating
+
+Every line in your log says the same thing:
+
+```
+blocked=true  reason=Vulkan was disabled after a previous driver failure
+```
+
+`probe=1.1`, `vulkan1.1=true`, and switching the preference from AUTOMATIC to
+VULKAN changed nothing — so Vulkan is fine on the device and the engine was
+never even constructed. There is no `vulkan-fallback` line because there was no
+run to fall back from. Everything since the third pass has been the blocklist,
+exactly as I first thought, and the versionCode bump to 7.2.3 did not clear it
+for a reason that is my fault:
+
+`VulkanFailurePolicy.isBlocked` blocks when `scopedFailureId == currentFailureId`,
+where the id is `fingerprint | versionCode | schema`. I added `s2` in the third
+pass — so builds from the third, fourth, fifth and sixth passes **all share the
+same id**. The failure recorded while testing one of those still matched every
+later one. Bumping versionCode didn't help because the salt was already pinning
+it; the salt retires records once and then becomes just as sticky as what it
+replaced.
+
+Fixed properly this time:
+
+- `RENDERER_SCHEMA` → 3, which retires the 7.2.3 development records.
+- **A "Retry Vulkan" button** in the diagnostics screen, clearing every
+  `vulkan_failure_*` key. This is the real fix — the salt is a one-shot and I
+  should not have relied on it as the escape hatch during development.
+- A blocked `backend-select` line now carries `recorded=<original reason>`.
+  Your log would have named the actual failure on line one if I'd included it;
+  a blocked line saying only "something failed once" is as useless as it sounds.
+
+**What to do:** install this build, open Advanced Settings → Diagnostics →
+Retry Vulkan, re-apply the wallpaper, then read the log. You will get either a
+clean `-> VULKAN` line, or a `vulkan-fallback` entry with the native detail
+indented under it. That second case is the one I still have not seen.
+
+## F-Droid depth working in-app but not on the wallpaper
+
+Regression from the fifth pass, and a real one.
+
+`requestSubjectMask` set `maskRequestedGeneration = generation` unconditionally,
+but `SubjectMaskCoordinator.request` silently drops a request while isolation is
+disabled. On the live wallpaper the first textures load **before** the
+preference-driven `configure()` arrives, so the generation was marked served
+with no request ever dispatched — and `configureSubjectIsolation` then saw
+"already requested for this generation" and never scheduled the reload that
+would have issued the real one. No mask, ever.
+
+The in-app preview has the opposite ordering (state is applied with the first
+texture load), which is exactly why it looked correct in the adjust screen and
+in settings while the wallpaper showed nothing.
+
+The old `!currentSet.hasSubject` clause had been hiding this by forcing a reload
+on every frame — the same clause that caused the unlock stutter. Removing it was
+right; it just exposed an ordering bug underneath.
+
+`request()` now returns whether it dispatched, and the renderer records the
+generation only when it did.
+
+---
+
+# Eighth pass — the real failure, and automatic retries
+
+## The reason, at last
+
+```
+[vulkan-fallback] Atmosphere fell back to OpenGL ES:
+    The Vulkan Atmosphere swapchain could not be initialized
+```
+
+That is `nativeSetSurface` returning false — and note there is **no native
+detail indented under it**, meaning `drainDiagnostics()` came back empty. So
+the failing step took one of the *silent* `return false` paths in the surface
+setup chain, which is why nothing has ever shown up in logcat either.
+
+`setSurface` runs nine create steps plus the optional-texture clear loop, and
+19 of those bail-outs logged nothing at all. They all name themselves now:
+
+```
+<label> surface setup failed: vkCreateDescriptorSetLayout
+<label> surface setup failed: swapchain extent is empty
+<label> surface setup failed: clearing optional texture binding 3
+...
+```
+
+The last one is worth watching for specifically. `optionalTextureMask` grew
+from `(1<<2)` to `(1<<2)|(1<<3)` for the clock, so binding 3 is now cleared
+during surface setup on every run — including with the clock and glass both
+off, which matches "it fails even when neither is active". If that line is what
+appears, the clock's texture binding is the cause and I have somewhere concrete
+to go. If it is one of the others, the clock is exonerated and this is a
+pre-existing Nothing/Adreno swapchain issue that the earlier blocklist was
+hiding.
+
+Either way the next log names it exactly. I am not going to guess again.
+
+## Retries without re-applying anything
+
+Three changes, so the blocklist stops being a dead end:
+
+**Setting a new wallpaper retries automatically.** A recorded failure now stores
+the applied image's modification time alongside the build id, and a block whose
+stored stamp no longer matches is dropped. A failure describes a specific build
+*and* a specific image — new textures, new dimensions, new surface lifecycle —
+so it says nothing about the next one. This is done inside `VulkanFailureStore`
+rather than at each call site that writes `wallpaper.jpg`, so no apply path can
+be missed.
+
+**Choosing Vulkan or Automatic retries.** `AdvancedSettingsActivity` clears
+recorded failures whenever the renderer preference is set to anything other
+than OpenGL ES. Explicitly asking for Vulkan should not be silently vetoed by
+an old failure — which is exactly what your `preference=VULKAN ... blocked=true`
+lines were.
+
+**Manual retry** stays in the diagnostics screen for cases neither of the above
+covers.
+
+The blocklist still does its job — a device that fails under the current build,
+on the current image, with Vulkan requested, still falls back and stays there
+until something actually changes.

@@ -18,6 +18,7 @@ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
@@ -277,8 +278,13 @@ class EffectPreviewService(
                 configuredAtmosphereGlassBackgroundOnly =
                     glassEnabled && glassSettings.backgroundOnly
                 val clockEnabled = AtmosphereClockPolicy.resolveEnabled(
-                    effectId,
-                    previewBoolean(prefs, AtmosphereClockPolicy.ENABLED_KEY, false)
+                    effectId = effectId,
+                    requested = previewBoolean(
+                        prefs,
+                        AtmosphereClockPolicy.ENABLED_KEY,
+                        false
+                    ),
+                    singleImageMode = !PlaylistModeManager.isPlaylistMode(appContext)
                 )
                 EffectPreviewRenderState.Atmosphere(
                     AtmosphereRenderState(

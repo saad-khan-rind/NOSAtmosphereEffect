@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.activity.ClockAdjustActivity
+import com.app.nosatmosphereeffect.activity.DiagnosticsActivity
 import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
@@ -589,7 +590,19 @@ private fun EffectSettings(
             }
         }
 
-        if (config.showClockToggle) {
+        if (config.showClockToggle && config.isPlaylistMode) {
+            SettingsGroup("Clock") {
+                Text(
+                    "The wallpaper clock is available in single-image mode only " +
+                        "for now. In playlist and theme modes the image changes " +
+                        "underneath it, so a position calibrated against one " +
+                        "photo would be wrong for the next.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        if (config.showClockToggle && !config.isPlaylistMode) {
             SettingsGroup("Clock") {
                 SettingSwitchRow(
                     title = "Show clock on wallpaper",
@@ -1014,6 +1027,25 @@ private fun DisplaySettings(
                     onSelected = onRotationSelected
                 )
             }
+        }
+
+        SettingsGroup("Diagnostics") {
+            Text(
+                "Records which graphics backend each effect selected, and the " +
+                    "reason if Vulkan fell back to OpenGL ES. Useful when " +
+                    "reporting a rendering problem.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(8.dp))
+            val diagnosticsContext = LocalContext.current
+            AtmoTextButton(
+                text = "Renderer diagnostics",
+                onClick = {
+                    diagnosticsContext.startActivity(
+                        Intent(diagnosticsContext, DiagnosticsActivity::class.java)
+                    )
+                }
+            )
         }
     }
 }

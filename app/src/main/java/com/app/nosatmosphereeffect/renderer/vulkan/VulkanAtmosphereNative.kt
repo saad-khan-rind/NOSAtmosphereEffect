@@ -34,6 +34,13 @@ internal object VulkanAtmosphereNative {
 
     external fun nativeClearClock(handle: Long): Boolean
 
+    /**
+     * Drains every native error recorded since the last call. Not tied to a
+     * handle — the buffer is global, so it still returns the reason after the
+     * engine has been destroyed, which is when it is actually needed.
+     */
+    external fun nativeDrainDiagnostics(): String
+
     external fun nativeSetState(
         handle: Long,
         progress: Float,

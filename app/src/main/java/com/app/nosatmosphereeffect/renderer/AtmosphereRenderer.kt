@@ -992,9 +992,20 @@ class AtmosphereRenderer(
     }
 
     private fun requestSubjectMask(bitmap: Bitmap, generation: Long) {
-        maskRequestedGeneration = generation
         try {
-            subjectMasks.request(bitmap, generation)
+            // Only record the generation when the request was actually taken.
+            //
+            // The coordinator drops requests while isolation is disabled, and
+            // on the live wallpaper the first textures load BEFORE the
+            // preference-driven configure() arrives — so marking the
+            // generation served here unconditionally meant
+            // configureSubjectIsolation later saw "already requested" and
+            // never scheduled the reload that would issue the real request.
+            // The mask then never arrived, which is why depth worked in the
+            // in-app preview (different ordering) but not on the wallpaper.
+            if (subjectMasks.request(bitmap, generation)) {
+                maskRequestedGeneration = generation
+            }
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to request the Atmosphere subject mask", failure)
             SubjectMaskDiagnostics.recordFailure("Requesting mask", failure)

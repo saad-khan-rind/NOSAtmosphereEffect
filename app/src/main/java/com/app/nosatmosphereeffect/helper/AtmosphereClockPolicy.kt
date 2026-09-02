@@ -79,8 +79,22 @@ object AtmosphereClockPolicy {
 
     fun supportsEffect(effectId: String?): Boolean = effectId == "ORIGINAL"
 
-    fun resolveEnabled(effectId: String?, requested: Boolean): Boolean {
-        return supportsEffect(effectId) && requested
+    /**
+     * The clock is single-image only for now.
+     *
+     * In playlist and theme modes the wallpaper swaps underneath the clock,
+     * which breaks two things at once: the position that was calibrated
+     * against one photo is wrong for the next, and the wallpaper-derived
+     * "Auto" colour would have to re-derive on every rotation. Neither is
+     * unsolvable, but neither is solved, so the honest behaviour is to keep
+     * the clock off rather than show a badly placed one.
+     */
+    fun resolveEnabled(
+        effectId: String?,
+        requested: Boolean,
+        singleImageMode: Boolean = true
+    ): Boolean {
+        return supportsEffect(effectId) && singleImageMode && requested
     }
 
     fun sanitizeCenterX(value: Float): Float {
