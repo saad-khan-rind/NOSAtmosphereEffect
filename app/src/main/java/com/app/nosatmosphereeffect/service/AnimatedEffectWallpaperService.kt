@@ -56,6 +56,13 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
 
     protected open fun onRendererAttached(renderer: R, requestRender: () -> Unit) = Unit
 
+    /**
+     * Called on every engine visibility change, before the transition-specific
+     * handling below. Subclasses use it to idle work that only matters while
+     * the wallpaper is on screen.
+     */
+    protected open fun onEngineVisibilityChanged(renderer: R?, visible: Boolean) = Unit
+
     protected open fun releaseRenderer(renderer: R) = Unit
 
     final override fun onCreateEngine(): Engine {
@@ -164,6 +171,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
+            onEngineVisibilityChanged(renderer, visible)
             if (!behavior.transitionsEnabled) {
                 animator?.cancel()
                 animator = null

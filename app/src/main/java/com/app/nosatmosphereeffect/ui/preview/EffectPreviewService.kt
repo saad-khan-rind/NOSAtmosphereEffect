@@ -17,6 +17,7 @@ import androidx.core.graphics.createBitmap
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
@@ -174,13 +175,15 @@ class EffectPreviewService(
     fun setAtmosphereClockFace(
         styleId: String,
         showSeconds: Boolean,
-        animate: Boolean
+        animate: Boolean,
+        color: Int
     ) {
         withLiveAtmosphereRenderer { renderer ->
             renderer.clockEnabled = true
             renderer.clockStyle = ClockStyle.fromId(styleId)
             renderer.clockShowSeconds = showSeconds
             renderer.clockAnimate = animate
+            renderer.clockColor = color
         }
     }
 
@@ -328,6 +331,14 @@ class EffectPreviewService(
                             prefs,
                             AtmosphereClockPolicy.OPACITY_KEY,
                             AtmosphereClockPolicy.DEFAULT_OPACITY
+                        ),
+                        clockColor = ClockPalette.resolve(
+                            previewInt(
+                                prefs,
+                                AtmosphereClockPolicy.COLOR_KEY,
+                                AtmosphereClockPolicy.DEFAULT_COLOR
+                            ),
+                            ClockPalette.autoColorFor(appContext)
                         )
                     ).sanitized()
                 )
@@ -554,6 +565,7 @@ class EffectPreviewService(
                 renderer.clockStyle = value.clockStyle
                 renderer.clockShowSeconds = value.clockShowSeconds
                 renderer.clockAnimate = value.clockAnimate
+                renderer.clockColor = value.clockColor
                 renderer.clockCenterX = value.clockCenterX
                 renderer.clockTop = value.clockTop
                 renderer.clockHeight = value.clockHeight
@@ -710,6 +722,19 @@ class EffectPreviewService(
         if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
         return try {
             preferences.getFloat(key, defaultValue)
+        } catch (_: ClassCastException) {
+            defaultValue
+        }
+    }
+
+    private fun previewInt(
+        preferences: SharedPreferences,
+        key: String,
+        defaultValue: Int
+    ): Int {
+        if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
+        return try {
+            preferences.getInt(key, defaultValue)
         } catch (_: ClassCastException) {
             defaultValue
         }

@@ -152,6 +152,19 @@ class ClockFaceRenderer(private val context: Context) {
             }
         }
 
+    /**
+     * Colour the glyphs are drawn in, already resolved (never
+     * [ClockPalette.AUTO]). Changing it only needs a redraw, not a relayout.
+     */
+    var color: Int = ClockPalette.DEFAULT_FALLBACK
+        set(value) {
+            val opaque = value or (0xFF shl 24)
+            if (field != opaque) {
+                field = opaque
+                invalidate()
+            }
+        }
+
     var animateDigits: Boolean = true
         set(value) {
             if (field != value) {
@@ -174,6 +187,8 @@ class ClockFaceRenderer(private val context: Context) {
     private var is24Hour: Boolean = DateFormat.is24HourFormat(context)
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        // Set per glyph in drawGlyph — alpha is animated, so the colour has
+        // to be reapplied each time anyway.
         color = Color.WHITE
         textAlign = Paint.Align.LEFT
     }
@@ -366,6 +381,7 @@ class ClockFaceRenderer(private val context: Context) {
         val finalAlpha = clamped * styleAlpha
         if (finalAlpha <= 0.004f) return
 
+        textPaint.color = color
         textPaint.alpha = (finalAlpha * 255f).toInt().coerceIn(0, 255)
         // Shadow strength tracks alpha so a fading digit does not leave a
         // hard drop shadow behind it.

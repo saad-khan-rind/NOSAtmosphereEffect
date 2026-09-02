@@ -33,6 +33,12 @@ object AtmosphereClockPolicy {
     const val TOP_KEY = "atmosphere_clock_top"
     const val HEIGHT_KEY = "atmosphere_clock_height"
     const val OPACITY_KEY = "atmosphere_clock_opacity"
+    /**
+     * Stored as an ARGB int. [ClockPalette.AUTO] (0) means "follow the
+     * wallpaper", which is the default — a plain white clock reads as pasted
+     * on, a wallpaper-tinted one reads as part of the image.
+     */
+    const val COLOR_KEY = "atmosphere_clock_color"
 
     const val DEFAULT_CENTER_X = 0.5f
     const val DEFAULT_TOP = 0.14f
@@ -41,6 +47,7 @@ object AtmosphereClockPolicy {
     const val DEFAULT_DEPTH = true
     const val DEFAULT_SECONDS = false
     const val DEFAULT_ANIMATE = true
+    const val DEFAULT_COLOR = ClockPalette.AUTO
 
     private const val MIN_CENTER_X = 0.05f
     private const val MAX_CENTER_X = 0.95f
@@ -56,6 +63,7 @@ object AtmosphereClockPolicy {
         STYLE_KEY,
         SECONDS_KEY,
         ANIMATE_KEY,
+        COLOR_KEY,
         CENTER_X_KEY,
         TOP_KEY,
         HEIGHT_KEY,
@@ -89,6 +97,12 @@ object AtmosphereClockPolicy {
     }
 
     fun sanitizeStyleId(value: String?): String = ClockStyle.fromId(value).id
+
+    /** Colours are stored opaque; a transparent value would hide the clock. */
+    fun sanitizeColor(value: Int): Int {
+        if (value == ClockPalette.AUTO) return ClockPalette.AUTO
+        return value or (0xFF shl 24)
+    }
 
     /**
      * The clock only draws on the lock-screen side of the transition, so it

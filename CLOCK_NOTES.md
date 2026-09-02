@@ -1,4 +1,4 @@
-# AtmoEngine — depth clock, second pass
+# AtmoEngine — depth clock, third pass
 
 17 files. Drop `app/` over your working tree (it mirrors the same paths), or
 review `clock-depth.patch` first — it's a unified diff against the WIP branch
@@ -156,3 +156,89 @@ Easy to add back into `ClockControls` if you want it — say the word.
 - `AtmosphereClockPolicy.supportsEffect` still restricts to `"ORIGINAL"`, so
   REVERSE silently has no clock. Reasonable, but the settings UI doesn't say so.
 - No string resources — new UI text is inline English, matching what was there.
+
+
+---
+
+# Third pass — Vulkan blocklist, frame cadence, colour
+
+## Vulkan was blocklisted, not failing
+
+`VulkanFailureStore` records a failure keyed on
+`Build.FINGERPRINT | versionCode`, and `isBlocked` refuses Vulkan for any
+later run with the same key. The WIP branch already bumped versionCode to
+500720, so the *first* broken clock build blocklisted Vulkan on your device at
+that key — and every fix since has carried the same versionCode and been
+denied a chance to run. The message you're seeing is the stored reason being
+replayed, not a fresh failure.
+
+Fixed by folding a schema number into the key:
+
+```kotlin
+private const val RENDERER_SCHEMA = 2
+...
+return "${Build.FINGERPRINT}|$versionCode|s$RENDERER_SCHEMA"
+```
+
+Old records no longer match, so they're ignored and Vulkan is retried once.
+Bump `RENDERER_SCHEMA` on any future change that invalidates old failure data.
+This deliberately doesn't weaken the mechanism — a device that genuinely fails
+under the new code gets re-blocked immediately.
+
+To confirm before rebuilding, clear `graphics_backend_prefs` (app data) and
+watch whether Vulkan activates. **If it still falls back after this, the reason
+string it shows is the thing I need** — the four possible ones are distinct
+enough to point straight at the cause.
+
+## Why the clock froze on a static lock screen
+
+Two causes, and the receiver was the wrong tool for both.
+
+`ACTION_TIME_TICK` fires once a minute, so it can't drive a seconds display at
+all — that alone explains "even seconds do not animate". And registering it on
+the *service* was wrong: a live wallpaper hosts several engines, the settings
+preview and the real wallpaper can be alive simultaneously, and whichever one
+died first called `unregisterReceiver` and left the survivor with nothing.
+That's why it worked right after an AOD round-trip (visibility change →
+`requestRender`) and never on its own.
+
+Replaced with `ClockFramePump` — one per controller, i.e. one per engine. It
+posts to the next real second or minute boundary rather than relying on a
+broadcast, so the cadence is exact at either granularity, and it keeps a
+receiver only for `ACTION_TIME_CHANGED` / `ACTION_TIMEZONE_CHANGED`, which a
+timer can't infer. `AnimatedEffectWallpaperService` gained one hook —
+`onEngineVisibilityChanged` — so the pump idles when the wallpaper is off
+screen instead of ticking forever.
+
+Digit animation still self-schedules through `onAnimationFrameRequested`; the
+pump only starts each transition.
+
+## Colour
+
+Default is now **Auto**: the hue is taken from the wallpaper via the existing
+`WallpaperColorExtractor`, then `ClockPalette.condition()` forces saturation
+into 0.18–0.42 and lightness to 0.90. Keeping the raw dominant colour would
+give you a navy clock on a navy photo — the hue is what makes it feel like
+part of the image, the lightness is what keeps it readable. A near-grey source
+has no meaningful hue, so it falls back to plain white rather than muddy
+off-grey.
+
+Twelve presets plus a custom picker (hue / saturation / lightness sliders, not
+a wheel — lightness is the axis that decides legibility, so it gets its own
+control). Conditioning is applied to Auto only: a hand-picked deep red stays
+deep red.
+
+Extraction is cached against the wallpaper file's mtime and invalidated on
+`reloadTexture()`, so a playlist rotation re-derives but a settings change
+doesn't. It runs on a dedicated daemon thread — never the render or main
+thread.
+
+Stored in `atmosphere_clock_color` as an ARGB int, with `0` as the Auto
+sentinel.
+
+### Still open
+
+The auto colour reads `files/wallpaper.jpg` — the same file the rest of the app
+treats as "the applied image". If your playlist path writes somewhere else, the
+tint will lag behind the visible image and this should hook
+`notifySystemColorsChanged()` instead.

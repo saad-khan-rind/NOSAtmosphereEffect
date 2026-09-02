@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -66,11 +67,13 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.edit
+import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
+import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
 import com.app.nosatmosphereeffect.image.BitmapDecoder
@@ -170,6 +173,20 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         )
     }
 
+    var colorPref by remember {
+        mutableStateOf(
+            prefs.getInt(
+                AtmosphereClockPolicy.COLOR_KEY,
+                AtmosphereClockPolicy.DEFAULT_COLOR
+            )
+        )
+    }
+    // The wallpaper-derived tint, shown on the "Auto" swatch so the choice is
+    // visible rather than a guess. Extraction decodes and runs Palette, so it
+    // stays off the main thread.
+    var autoColor by remember { mutableStateOf<Int?>(null) }
+    var showCustomPicker by remember { mutableStateOf(false) }
+
     var activePreview by remember { mutableStateOf<EffectPreviewService?>(null) }
     var interacting by remember { mutableStateOf(false) }
     var lastInteractionMs by remember { mutableStateOf(0L) }
@@ -179,7 +196,12 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
 
     fun pushFace() {
-        activePreview?.setAtmosphereClockFace(style.id, showSeconds, animate)
+        activePreview?.setAtmosphereClockFace(
+            style.id,
+            showSeconds,
+            animate,
+            ClockPalette.resolve(colorPref, autoColor)
+        )
     }
 
     var wallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -187,6 +209,10 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
         wallpaperBitmap = withContext(Dispatchers.IO) { loadCurrentWallpaperBitmap(context) }
         wallpaperLoadFinished = true
+    }
+    LaunchedEffect(Unit) {
+        autoColor = withContext(Dispatchers.IO) { ClockPalette.autoColorFor(context) }
+        pushFace()
     }
 
     // Rendered thumbnails of every face, so the gallery shows what each one
@@ -212,6 +238,10 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             putString(AtmosphereClockPolicy.STYLE_KEY, style.id)
             putBoolean(AtmosphereClockPolicy.SECONDS_KEY, showSeconds)
             putBoolean(AtmosphereClockPolicy.ANIMATE_KEY, animate)
+            putInt(
+                AtmosphereClockPolicy.COLOR_KEY,
+                AtmosphereClockPolicy.sanitizeColor(colorPref)
+            )
         }
         val update = android.content.Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
         update.setPackage(context.packageName)
@@ -221,7 +251,9 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     // The preview updates instantly through pushGeometry/pushFace; this
     // debounce only covers writing prefs and telling the live wallpaper, so
     // SharedPreferences is not hammered on every pixel of movement.
-    LaunchedEffect(centerX, top, heightFraction, opacity, style, showSeconds, animate) {
+    LaunchedEffect(
+        centerX, top, heightFraction, opacity, style, showSeconds, animate, colorPref
+    ) {
         delay(350)
         persist()
     }
@@ -397,9 +429,18 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                     animate = it
                     pushFace()
                 },
+                colorPref = colorPref,
+                autoColor = autoColor,
+                onColorSelected = {
+                    colorPref = it
+                    pushFace()
+                },
+                showCustomPicker = showCustomPicker,
+                onToggleCustomPicker = { showCustomPicker = !showCustomPicker },
                 segmentationDisabled = SegmentationCrashGuard.isDisabled(context),
                 onResetSegmentation = { SegmentationCrashGuard.reset(context) },
                 onResetPlacement = {
+                    colorPref = AtmosphereClockPolicy.DEFAULT_COLOR
                     centerX = AtmosphereClockPolicy.DEFAULT_CENTER_X
                     top = AtmosphereClockPolicy.DEFAULT_TOP
                     heightFraction = AtmosphereClockPolicy.DEFAULT_HEIGHT
@@ -425,6 +466,11 @@ private fun ClockControls(
     onShowSecondsChange: (Boolean) -> Unit,
     animate: Boolean,
     onAnimateChange: (Boolean) -> Unit,
+    colorPref: Int,
+    autoColor: Int?,
+    onColorSelected: (Int) -> Unit,
+    showCustomPicker: Boolean,
+    onToggleCustomPicker: () -> Unit,
     segmentationDisabled: Boolean,
     onResetSegmentation: () -> Unit,
     onResetPlacement: () -> Unit
@@ -496,6 +542,51 @@ private fun ClockControls(
             }
         }
 
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Colour",
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge
+            )
+            Spacer(Modifier.width(8.dp))
+            AtmoTextButton(
+                text = if (showCustomPicker) "Hide custom" else "Custom…",
+                onClick = onToggleCustomPicker,
+                contentColor = Color.White
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                // Auto follows the wallpaper. Shown first and selected by
+                // default, because a clock tinted from the image reads as part
+                // of it rather than pasted on top.
+                ColorSwatch(
+                    color = autoColor ?: ClockPalette.DEFAULT_FALLBACK,
+                    label = "Auto",
+                    selected = ClockPalette.isAuto(colorPref),
+                    onClick = { onColorSelected(ClockPalette.AUTO) }
+                )
+            }
+            items(ClockPalette.PRESETS) { swatch ->
+                ColorSwatch(
+                    color = swatch.color,
+                    label = swatch.label,
+                    selected = !ClockPalette.isAuto(colorPref) &&
+                        colorPref == swatch.color,
+                    onClick = { onColorSelected(swatch.color) }
+                )
+            }
+        }
+
+        if (showCustomPicker) {
+            CustomColorPicker(
+                current = ClockPalette.resolve(colorPref, autoColor),
+                onColorChange = onColorSelected
+            )
+        }
+
         Spacer(Modifier.height(10.dp))
         LabelledSlider(
             label = "Size",
@@ -541,6 +632,103 @@ private fun ClockControls(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+    }
+}
+
+@Composable
+private fun ColorSwatch(
+    color: Int,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(56.dp)
+    ) {
+        Box(
+            Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(19.dp))
+                .background(Color(color))
+                .border(
+                    width = if (selected) 3.dp else 1.dp,
+                    color = if (selected) {
+                        Color.White
+                    } else {
+                        Color.White.copy(alpha = 0.28f)
+                    },
+                    shape = RoundedCornerShape(19.dp)
+                )
+                .clickable(onClick = onClick)
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            label,
+            color = Color.White.copy(alpha = if (selected) 1f else 0.7f),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * Hue / saturation / lightness sliders rather than a colour wheel: a wheel is
+ * hard to hit precisely on a phone, and lightness is the axis that actually
+ * decides whether the clock stays readable over a photo, so it deserves its
+ * own control rather than being buried in a 2D gradient.
+ */
+@Composable
+private fun CustomColorPicker(
+    current: Int,
+    onColorChange: (Int) -> Unit
+) {
+    val hsl = remember(current) {
+        FloatArray(3).also { ColorUtils.colorToHSL(current, it) }
+    }
+    var hue by remember(current) { mutableFloatStateOf(hsl[0]) }
+    var saturation by remember(current) { mutableFloatStateOf(hsl[1]) }
+    var lightness by remember(current) { mutableFloatStateOf(hsl[2]) }
+
+    fun emit() {
+        onColorChange(
+            ColorUtils.HSLToColor(floatArrayOf(hue, saturation, lightness)) or
+                (0xFF shl 24)
+        )
+    }
+
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    Color(
+                        ColorUtils.HSLToColor(
+                            floatArrayOf(hue, saturation, lightness)
+                        )
+                    )
+                )
+        )
+        LabelledSlider(
+            label = "Hue",
+            value = hue,
+            valueRange = 0f..360f,
+            onValueChange = { hue = it; emit() }
+        )
+        LabelledSlider(
+            label = "Saturation",
+            value = saturation,
+            valueRange = 0f..1f,
+            onValueChange = { saturation = it; emit() }
+        )
+        LabelledSlider(
+            label = "Lightness",
+            value = lightness,
+            valueRange = 0f..1f,
+            onValueChange = { lightness = it; emit() }
+        )
     }
 }
 

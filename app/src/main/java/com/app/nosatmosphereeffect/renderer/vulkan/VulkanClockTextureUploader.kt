@@ -47,6 +47,10 @@ internal class VulkanClockTextureUploader(context: Context) {
         get() = face.animateDigits
         set(value) { face.animateDigits = value }
 
+    var color: Int
+        get() = face.color
+        set(value) { face.color = value }
+
     fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
 
     /**

@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.renderer
 
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 
@@ -74,6 +75,13 @@ data class AtmosphereRenderState(
     val clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
     val clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
     val clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
+    /**
+     * Already-resolved ARGB glyph colour — never [ClockPalette.AUTO]. The
+     * controller turns the stored preference (which may be AUTO) into a
+     * concrete colour, so neither renderer has to know about wallpaper
+     * extraction.
+     */
+    val clockColor: Int = ClockPalette.DEFAULT_FALLBACK,
     // Vulkan-only, dynamic (like hasSubject/blobs below): the clock
     // bitmap's width/height ratio, refreshed whenever a fresh face is
     // rendered, so the shader can size the clock quad without a native
@@ -107,6 +115,7 @@ data class AtmosphereRenderState(
             clockTop = AtmosphereClockPolicy.sanitizeTop(clockTop),
             clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
             clockOpacity = AtmosphereClockPolicy.sanitizeOpacity(clockOpacity),
+            clockColor = clockColor or (0xFF shl 24),
             clockTextureAspect = clockTextureAspect.finiteOr(1f).coerceIn(0.05f, 20f),
             blobs = blobs.sanitized()
         )

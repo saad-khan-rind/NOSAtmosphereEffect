@@ -47,6 +47,10 @@ class ClockTextureProvider(context: Context) {
         get() = face.animateDigits
         set(value) { face.animateDigits = value }
 
+    var color: Int
+        get() = face.color
+        set(value) { face.color = value }
+
     /**
      * True while a digit transition is in flight, so the renderer knows to
      * ask for another frame. Without this the animation would only advance

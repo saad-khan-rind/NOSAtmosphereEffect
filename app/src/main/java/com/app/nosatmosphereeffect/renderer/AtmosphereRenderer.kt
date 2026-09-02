@@ -159,6 +159,9 @@ class AtmosphereRenderer(
     var clockAnimate: Boolean
         get() = clockTexture.animateDigits
         set(value) { clockTexture.animateDigits = value }
+    var clockColor: Int
+        get() = clockTexture.color
+        set(value) { clockTexture.color = value }
 
     private var programId: Int = 0
     private var blurProgramId: Int = 0

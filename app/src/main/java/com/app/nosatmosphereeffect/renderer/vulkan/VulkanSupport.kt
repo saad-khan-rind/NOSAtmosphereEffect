@@ -259,6 +259,21 @@ private object VulkanFailureStore {
     private const val FAILURE_ID_PREFIX = "vulkan_failure_id_"
     private const val FAILURE_REASON_PREFIX = "vulkan_failure_reason_"
 
+    /**
+     * Bumped whenever the Vulkan path changes enough that an old recorded
+     * failure says nothing about the new code.
+     *
+     * The failure id is (fingerprint | versionCode), so a device that failed
+     * once stays on OpenGL ES for every build carrying the same versionCode
+     * — which is exactly what happened while the clock work was in progress:
+     * the first broken build blocklisted Vulkan, and every fix afterwards was
+     * never given a chance to run. Folding a schema number in retires those
+     * records once, without weakening the mechanism for real driver faults.
+     *
+     * 2: depth clock — new clock sampler binding, uniform moved to binding 4.
+     */
+    private const val RENDERER_SCHEMA = 2
+
     fun isBlocked(context: Context, effectId: String): Boolean {
         val preferences =
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -306,7 +321,7 @@ private object VulkanFailureStore {
                 .getPackageInfo(context.packageName, 0)
                 .longVersionCode
         }.getOrDefault(0L)
-        return "${Build.FINGERPRINT}|$versionCode"
+        return "${Build.FINGERPRINT}|$versionCode|s$RENDERER_SCHEMA"
     }
 
 }

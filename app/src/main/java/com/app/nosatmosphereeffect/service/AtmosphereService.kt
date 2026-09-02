@@ -1,13 +1,7 @@
 package com.app.nosatmosphereeffect.service
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.graphics.Bitmap
-import android.util.Log
-import androidx.core.content.ContextCompat
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.ClockStyle
@@ -23,19 +17,6 @@ class AtmosphereService :
     override val unlockedProgress = 1f
     override val defaultAnimationDurationMs = 2_500L
 
-    /**
-     * Drives the clock.
-     *
-     * The renderers only draw when something asks them to, and a wallpaper
-     * sitting on the lock screen with transitions off asks for nothing. That
-     * left the clock frozen at whatever minute it happened to be rendered
-     * on. ACTION_TIME_TICK arrives once a minute for registered receivers
-     * only, which is exactly the cadence the clock needs; the other two
-     * actions cover manual time changes and travel across timezones, both of
-     * which also change the 12/24-hour reading.
-     */
-    private var timeReceiver: BroadcastReceiver? = null
-
     override fun createEffectRenderer(): AtmosphereRenderController {
         return AtmosphereRenderController(applicationContext, reverse = false)
     }
@@ -47,12 +28,18 @@ class AtmosphereService :
         renderer.attach(engine)
     }
 
-    override fun onRendererAttached(
-        renderer: AtmosphereRenderController,
-        requestRender: () -> Unit
+    /**
+     * The clock's frame cadence is owned by the controller's ClockFramePump,
+     * one per engine. This only tells it when to idle: a live wallpaper
+     * service can have a settings-preview engine and the real wallpaper alive
+     * at once, so anything service-wide would be torn down by whichever
+     * engine happened to die first.
+     */
+    override fun onEngineVisibilityChanged(
+        renderer: AtmosphereRenderController?,
+        visible: Boolean
     ) {
-        super.onRendererAttached(renderer, requestRender)
-        registerTimeReceiver(renderer)
+        renderer?.setEngineVisible(visible)
     }
 
     override fun configureRenderer(
@@ -110,6 +97,10 @@ class AtmosphereService :
             clockOpacity = preferences.readFloat(
                 AtmosphereClockPolicy.OPACITY_KEY,
                 AtmosphereClockPolicy.DEFAULT_OPACITY
+            ),
+            clockColor = preferences.readInt(
+                AtmosphereClockPolicy.COLOR_KEY,
+                AtmosphereClockPolicy.DEFAULT_COLOR
             )
         )
     }
@@ -141,49 +132,7 @@ class AtmosphereService :
     }
 
     override fun releaseRenderer(renderer: AtmosphereRenderController) {
-        unregisterTimeReceiver()
         renderer.release()
-    }
-
-    private fun registerTimeReceiver(renderer: AtmosphereRenderController) {
-        unregisterTimeReceiver()
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                renderer.onSystemTimeChanged()
-            }
-        }
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_TIME_TICK)
-            addAction(Intent.ACTION_TIME_CHANGED)
-            addAction(Intent.ACTION_TIMEZONE_CHANGED)
-        }
-        try {
-            // ACTION_TIME_TICK is protected and can only be delivered to a
-            // receiver registered in code, never a manifest one, so this has
-            // to happen here rather than in AndroidManifest.xml.
-            ContextCompat.registerReceiver(
-                this,
-                receiver,
-                filter,
-                ContextCompat.RECEIVER_NOT_EXPORTED
-            )
-            timeReceiver = receiver
-        } catch (failure: RuntimeException) {
-            // A failure here costs the clock its once-a-minute refresh, not
-            // the wallpaper — degrade rather than take the service down.
-            Log.w(TAG, "Could not register the clock time receiver", failure)
-            timeReceiver = null
-        }
-    }
-
-    private fun unregisterTimeReceiver() {
-        val receiver = timeReceiver ?: return
-        timeReceiver = null
-        try {
-            unregisterReceiver(receiver)
-        } catch (_: IllegalArgumentException) {
-            // Already gone; nothing to do.
-        }
     }
 
     private fun SharedPreferences.readBoolean(key: String, fallback: Boolean): Boolean {
@@ -202,6 +151,14 @@ class AtmosphereService :
         }
     }
 
+    private fun SharedPreferences.readInt(key: String, fallback: Int): Int {
+        return try {
+            getInt(key, fallback)
+        } catch (_: ClassCastException) {
+            fallback
+        }
+    }
+
     private fun SharedPreferences.readString(key: String, fallback: String): String {
         return try {
             getString(key, fallback) ?: fallback
@@ -210,7 +167,4 @@ class AtmosphereService :
         }
     }
 
-    private companion object {
-        const val TAG = "AtmosphereService"
-    }
 }
