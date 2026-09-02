@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.AtmosphereBlobFrame
@@ -55,6 +56,8 @@ internal class VulkanAtmosphereHost(
         clockTexture.showSeconds = state.clockShowSeconds
         clockTexture.animateDigits = state.clockAnimate
         clockTexture.color = state.clockColor
+        clockTexture.hourFormatOverride =
+            AtmosphereClockPolicy.hourFormatOverride(state.clockHourFormat)
     }
 
     fun updateState(state: AtmosphereRenderState) {
@@ -131,8 +134,6 @@ internal class VulkanAtmosphereHost(
         handle: Long,
         textureGeneration: Long
     ): Boolean {
-        var success = true
-
         val pending = subjectMasks.takePending()
         if (pending != null) {
             try {
@@ -142,18 +143,31 @@ internal class VulkanAtmosphereHost(
                         pending.bitmap
                     )
                     updateEffectState { it.copy(hasSubject = uploaded) }
-                    success = uploaded
+                    if (!uploaded) {
+                        // Deliberately NOT fatal. Returning false here takes
+                        // the entire Vulkan backend down permanently for the
+                        // build (see VulkanSingleImageHost.drawOnWorker and
+                        // VulkanFailureStore), which was tolerable while masks
+                        // were only computed for an opt-in Glass sub-feature.
+                        // The clock's depth effect turns them on by default,
+                        // so one bad mask would now cost every user Vulkan
+                        // entirely. Degrade to "no subject" instead.
+                        Log.w(
+                            TAG,
+                            "Subject mask upload failed; continuing without depth"
+                        )
+                    }
                 }
             } finally {
                 pending.bitmap.recycleSafely()
             }
         }
 
-        if (success && currentEffectState().clockEnabled) {
+        if (currentEffectState().clockEnabled) {
             uploadClockFrame(handle)
         }
 
-        return success
+        return true
     }
 
     /**

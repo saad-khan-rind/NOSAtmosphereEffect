@@ -39,6 +39,8 @@ object AtmosphereClockPolicy {
      * on, a wallpaper-tinted one reads as part of the image.
      */
     const val COLOR_KEY = "atmosphere_clock_color"
+    /** "system" (default), "12" or "24". */
+    const val HOUR_FORMAT_KEY = "atmosphere_clock_hour_format"
 
     const val DEFAULT_CENTER_X = 0.5f
     const val DEFAULT_TOP = 0.14f
@@ -48,6 +50,10 @@ object AtmosphereClockPolicy {
     const val DEFAULT_SECONDS = false
     const val DEFAULT_ANIMATE = true
     const val DEFAULT_COLOR = ClockPalette.AUTO
+    const val HOUR_FORMAT_SYSTEM = "system"
+    const val HOUR_FORMAT_12 = "12"
+    const val HOUR_FORMAT_24 = "24"
+    const val DEFAULT_HOUR_FORMAT = HOUR_FORMAT_SYSTEM
 
     private const val MIN_CENTER_X = 0.05f
     private const val MAX_CENTER_X = 0.95f
@@ -64,6 +70,7 @@ object AtmosphereClockPolicy {
         SECONDS_KEY,
         ANIMATE_KEY,
         COLOR_KEY,
+        HOUR_FORMAT_KEY,
         CENTER_X_KEY,
         TOP_KEY,
         HEIGHT_KEY,
@@ -97,6 +104,18 @@ object AtmosphereClockPolicy {
     }
 
     fun sanitizeStyleId(value: String?): String = ClockStyle.fromId(value).id
+
+    fun sanitizeHourFormat(value: String?): String = when (value) {
+        HOUR_FORMAT_12, HOUR_FORMAT_24 -> value
+        else -> HOUR_FORMAT_SYSTEM
+    }
+
+    /** null means "follow the system setting". */
+    fun hourFormatOverride(value: String?): Boolean? = when (sanitizeHourFormat(value)) {
+        HOUR_FORMAT_12 -> false
+        HOUR_FORMAT_24 -> true
+        else -> null
+    }
 
     /** Colours are stored opaque; a transparent value would hide the clock. */
     fun sanitizeColor(value: Int): Int {

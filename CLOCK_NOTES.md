@@ -242,3 +242,80 @@ The auto colour reads `files/wallpaper.jpg` — the same file the rest of the ap
 treats as "the applied image". If your playlist path writes somewhere else, the
 tint will lag behind the visible image and this should hook
 `notifySystemColorsChanged()` instead.
+
+---
+
+# Fourth pass
+
+## The clock jumping in front of the subject — GLES texture unit clobber
+
+This was the good bug. `ClockTextureProvider.uploadTexture()` called
+`glBindTexture` without selecting a texture unit first, so it bound the clock
+face to *whatever unit was active* — and at that point in `onDrawFrame` the
+active unit is `GL_TEXTURE2`, the subject mask. For the rest of that frame
+`uSubjectMask` sampled the clock face instead of the mask, `sampleSubject()`
+returned the clock's red channel, subject coverage collapsed, and the clock
+drew in front of the subject.
+
+It only happens on frames that carry an *upload*, which is exactly the reported
+pattern: once a minute it looked like a rare glitch, once a second with seconds
+enabled it is a visible flicker, and "whenever frame is updated" is precisely
+right.
+
+`ensureUpToDate()` now takes the target unit and selects it before touching any
+binding, and the renderer restores `GL_TEXTURE0` afterwards. This bug predates
+the clock rework — it was in the original implementation too.
+
+## Vulkan
+
+The blocklist theory was wrong, and bumping to 7.2.3 ruling it out is useful
+information: Vulkan is now genuinely initialising and then failing at runtime.
+The message you see ("switched to OpenGL ES after Vulkan failed") comes from
+`AtmosphereRenderController`, not from backend selection, which confirms it
+gets far enough to draw.
+
+One concrete cause fixed: `prepareFrameOnWorker` returned false when a subject
+mask upload failed, and false there is **fatal** — it tears down Vulkan for the
+whole build via `VulkanFailureStore`. That was survivable when masks were only
+computed for an opt-in Glass sub-feature; the clock's depth effect turns them
+on by default, so a single bad mask now costs every user Vulkan entirely. Mask
+upload failure is non-fatal now and degrades to "no subject".
+
+If it still falls back after this, **I need the reason string** — there are only
+three and they point to completely different places:
+
+- "The Vulkan Atmosphere frame resources failed" → `prepareFrameOnWorker`
+- "The Vulkan Atmosphere state could not be updated" → `nativeSetState` returned
+  false, i.e. the uniform upload or blob array read
+- "The Vulkan driver failed while presenting Atmosphere" → `vkQueueSubmit` or
+  `vkQueuePresentKHR`
+
+`adb logcat -s VulkanOnePass:W VulkanAtmosphereHost:W AtmosphereRenderController:W`
+around the moment it falls back should show it, along with any native
+`logError` lines (they carry the "Atmo Atmosphere" label).
+
+## Colour
+
+Replaced the H/S/L sliders with a real HSV wheel — angle is hue, radius is
+saturation, brightness on a slider beside it. The disc is rasterised once into a
+bitmap and blitted rather than computed per-pixel in the draw scope, which is
+what makes hand-rolled wheels feel sluggish.
+
+Added an eyedropper: "Pick from wallpaper" arms it, then a tap anywhere on the
+preview samples the photo at that point. It inverts the preview's centre-crop to
+find the source pixel, averages a 7×7 block (a single pixel lands on JPEG noise
+often enough to feel random), and lifts very dark samples to 0.55 lightness so
+tapping a shadow doesn't produce an invisible clock.
+
+## Other
+
+- **Tap to hide** — matches the crop screen. Tap toggles all chrome; the panel
+  also hides while dragging. Taps and transform gestures live in separate
+  `pointerInput` modifiers so neither swallows the other.
+- **Stacked hour padding** — 12-hour stacked faces now show `04` over `25`
+  rather than `4` over `25`. The rows are centred on each other, so a
+  single-digit hour sat visibly narrower than the minutes. Inline faces keep the
+  unpadded hour, which is what a 12-hour clock normally shows.
+- **Hour format toggle** — System / 12-hour / 24-hour, stored in
+  `atmosphere_clock_hour_format`. `null` override means follow the system, so
+  changing the device setting still propagates when the toggle is on System.

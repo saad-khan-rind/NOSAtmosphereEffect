@@ -51,6 +51,10 @@ class ClockTextureProvider(context: Context) {
         get() = face.color
         set(value) { face.color = value }
 
+    var hourFormatOverride: Boolean?
+        get() = face.hourFormatOverride
+        set(value) { face.hourFormatOverride = value }
+
     /**
      * True while a digit transition is in flight, so the renderer knows to
      * ask for another frame. Without this the animation would only advance
@@ -66,7 +70,20 @@ class ClockTextureProvider(context: Context) {
      * Call once per frame while the clock is enabled. Cheap when nothing has
      * changed. Returns true if the texture is ready to draw.
      */
-    fun ensureUpToDate(): Boolean {
+    /**
+     * [textureUnit] is the GL_TEXTUREn constant the caller will sample the
+     * clock from. It is selected BEFORE any binding here, because uploading
+     * binds a texture to whatever unit happens to be active — and the unit
+     * active at this point in the frame is the subject mask's. Uploading
+     * without selecting first replaced the mask with the clock face for the
+     * rest of that frame, so sampleSubject() read the clock's red channel,
+     * the subject coverage collapsed, and the clock drew in front of the
+     * subject for exactly the frames that carried an upload. At one upload a
+     * minute that looked like a rare glitch; with seconds enabled it is a
+     * once-a-second flicker.
+     */
+    fun ensureUpToDate(textureUnit: Int): Boolean {
+        GLES30.glActiveTexture(textureUnit)
         val uptime = SystemClock.uptimeMillis()
         val bitmap = try {
             face.render(

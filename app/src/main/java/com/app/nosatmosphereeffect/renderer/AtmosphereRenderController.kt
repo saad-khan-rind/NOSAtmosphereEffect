@@ -123,7 +123,8 @@ class AtmosphereRenderController(
         clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
         clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
         clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
-        clockColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR
+        clockColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR,
+        clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
     ) {
         requestedClockColor = AtmosphereClockPolicy.sanitizeColor(clockColor)
         val resolvedClock = AtmosphereClockPolicy.resolveEnabled(effectId, clockEnabled)
@@ -153,7 +154,8 @@ class AtmosphereRenderController(
                 clockColor = ClockPalette.resolve(
                     requestedClockColor,
                     resolvedAutoClockColor
-                )
+                ),
+                clockHourFormat = clockHourFormat
             ).sanitized()
             state
         }
@@ -572,6 +574,7 @@ class AtmosphereRenderController(
         clockShowSeconds = state.clockShowSeconds
         clockAnimate = state.clockAnimate
         clockColor = state.clockColor
+        clockHourFormat = state.clockHourFormat
         clockCenterX = state.clockCenterX
         clockTop = state.clockTop
         clockHeight = state.clockHeight

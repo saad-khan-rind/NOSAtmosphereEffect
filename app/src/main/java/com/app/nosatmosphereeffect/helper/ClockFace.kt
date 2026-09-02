@@ -184,7 +184,21 @@ class ClockFaceRenderer(private val context: Context) {
     val aspectRatio: Float
         get() = if (height > 0) width.toFloat() / height.toFloat() else 1f
 
-    private var is24Hour: Boolean = DateFormat.is24HourFormat(context)
+    /**
+     * null = follow the system setting; true/false = explicit override.
+     */
+    var hourFormatOverride: Boolean? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidateLayout()
+            }
+        }
+
+    private var systemIs24Hour: Boolean = DateFormat.is24HourFormat(context)
+
+    private val is24Hour: Boolean
+        get() = hourFormatOverride ?: systemIs24Hour
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         // Set per glyph in drawGlyph — alpha is animated, so the colour has
@@ -273,9 +287,9 @@ class ClockFaceRenderer(private val context: Context) {
     /** Re-reads the system 12/24-hour setting; call on a config change. */
     fun refreshFormat() {
         val updated = DateFormat.is24HourFormat(context)
-        if (updated != is24Hour) {
-            is24Hour = updated
-            invalidateLayout()
+        if (updated != systemIs24Hour) {
+            systemIs24Hour = updated
+            if (hourFormatOverride == null) invalidateLayout()
         }
     }
 
@@ -514,7 +528,12 @@ class ClockFaceRenderer(private val context: Context) {
             twoDigits(hour24)
         } else {
             val hour12 = if (hour24 % 12 == 0) 12 else hour24 % 12
-            hour12.toString()
+            // Stacked faces pad to two digits: the rows are centred on each
+            // other, so a single-digit hour sits visibly narrower than the
+            // minutes below it and the whole face looks lopsided. Inline
+            // faces keep the unpadded hour, which is what a 12-hour clock
+            // normally shows.
+            if (style.stacked) twoDigits(hour12) else hour12.toString()
         }
         val minuteText = twoDigits(minute)
 

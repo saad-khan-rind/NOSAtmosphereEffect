@@ -162,6 +162,12 @@ class AtmosphereRenderer(
     var clockColor: Int
         get() = clockTexture.color
         set(value) { clockTexture.color = value }
+    var clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeHourFormat(value)
+            clockTexture.hourFormatOverride =
+                AtmosphereClockPolicy.hourFormatOverride(field)
+        }
 
     private var programId: Int = 0
     private var blurProgramId: Int = 0
@@ -720,7 +726,7 @@ class AtmosphereRenderer(
         val ready = clockEnabled &&
             lockFade > 0f &&
             clockOpacity > 0f &&
-            clockTexture.ensureUpToDate() &&
+            clockTexture.ensureUpToDate(GLES30.GL_TEXTURE3) &&
             clockTexture.textureId != 0
 
         GLES30.glUniform1f(
@@ -728,6 +734,7 @@ class AtmosphereRenderer(
             if (ready) 1f else 0f
         )
         if (!ready) {
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
             GLES30.glUniform1f(
                 GLES30.glGetUniformLocation(programId, "uClockOpacity"),
                 0f
@@ -773,6 +780,8 @@ class AtmosphereRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clockTexture.textureId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uClockTexture"), 3)
+        // Leave the active unit where the rest of the frame expects it.
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
 
         // A static wallpaper draws once and stops. Without this the digit
         // animation would stall part-way through and the displayed time

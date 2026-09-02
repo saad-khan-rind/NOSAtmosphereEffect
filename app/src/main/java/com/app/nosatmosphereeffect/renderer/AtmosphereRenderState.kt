@@ -82,6 +82,8 @@ data class AtmosphereRenderState(
      * extraction.
      */
     val clockColor: Int = ClockPalette.DEFAULT_FALLBACK,
+    /** "system", "12" or "24" — see AtmosphereClockPolicy.hourFormatOverride. */
+    val clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT,
     // Vulkan-only, dynamic (like hasSubject/blobs below): the clock
     // bitmap's width/height ratio, refreshed whenever a fresh face is
     // rendered, so the shader can size the clock quad without a native
@@ -116,6 +118,7 @@ data class AtmosphereRenderState(
             clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
             clockOpacity = AtmosphereClockPolicy.sanitizeOpacity(clockOpacity),
             clockColor = clockColor or (0xFF shl 24),
+            clockHourFormat = AtmosphereClockPolicy.sanitizeHourFormat(clockHourFormat),
             clockTextureAspect = clockTextureAspect.finiteOr(1f).coerceIn(0.05f, 20f),
             blobs = blobs.sanitized()
         )

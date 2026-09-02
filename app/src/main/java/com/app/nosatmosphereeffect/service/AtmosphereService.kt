@@ -101,6 +101,10 @@ class AtmosphereService :
             clockColor = preferences.readInt(
                 AtmosphereClockPolicy.COLOR_KEY,
                 AtmosphereClockPolicy.DEFAULT_COLOR
+            ),
+            clockHourFormat = preferences.readString(
+                AtmosphereClockPolicy.HOUR_FORMAT_KEY,
+                AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
             )
         )
     }

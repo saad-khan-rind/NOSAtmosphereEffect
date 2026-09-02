@@ -51,6 +51,10 @@ internal class VulkanClockTextureUploader(context: Context) {
         get() = face.color
         set(value) { face.color = value }
 
+    var hourFormatOverride: Boolean?
+        get() = face.hourFormatOverride
+        set(value) { face.hourFormatOverride = value }
+
     fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
 
     /**

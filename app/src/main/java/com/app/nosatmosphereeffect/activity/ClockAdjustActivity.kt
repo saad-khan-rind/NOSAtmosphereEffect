@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.activity
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,10 +12,15 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,9 +60,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -68,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.edit
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.createBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -84,21 +94,22 @@ import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 import java.io.File
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * Full-screen placement and styling for the wallpaper clock — pick a face,
- * drag to move, pinch to resize, all against a live preview of the person's
- * actual applied wallpaper.
- *
- * Modelled on the crop screen rather than a settings card: there is no public
- * API to read a device's real lock-screen clock position, so eyeballing it
- * against the real photo is the substitute.
- *
- * Reachable from Advanced Settings when the clock is on for the original
- * Atmosphere effect.
+ * Placement and styling for the wallpaper clock, against a live preview of the
+ * applied wallpaper. Drag to move, pinch to resize, tap to hide the controls
+ * and see the result unobstructed — the same tap-to-hide behaviour as the crop
+ * screen, and for the same reason: placement cannot be judged with a panel
+ * covering a third of the screen.
  */
 class ClockAdjustActivity : ComponentActivity() {
 
@@ -131,10 +142,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
     var top by remember {
         mutableFloatStateOf(
-            prefs.getFloat(
-                AtmosphereClockPolicy.TOP_KEY,
-                AtmosphereClockPolicy.DEFAULT_TOP
-            )
+            prefs.getFloat(AtmosphereClockPolicy.TOP_KEY, AtmosphereClockPolicy.DEFAULT_TOP)
         )
     }
     var heightFraction by remember {
@@ -154,7 +162,9 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         )
     }
     var style by remember {
-        mutableStateOf(ClockStyle.fromId(prefs.getString(AtmosphereClockPolicy.STYLE_KEY, null)))
+        mutableStateOf(
+            ClockStyle.fromId(prefs.getString(AtmosphereClockPolicy.STYLE_KEY, null))
+        )
     }
     var showSeconds by remember {
         mutableStateOf(
@@ -172,7 +182,6 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             )
         )
     }
-
     var colorPref by remember {
         mutableStateOf(
             prefs.getInt(
@@ -181,11 +190,18 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             )
         )
     }
-    // The wallpaper-derived tint, shown on the "Auto" swatch so the choice is
-    // visible rather than a guess. Extraction decodes and runs Palette, so it
-    // stays off the main thread.
+    var hourFormat by remember {
+        mutableStateOf(
+            AtmosphereClockPolicy.sanitizeHourFormat(
+                prefs.getString(AtmosphereClockPolicy.HOUR_FORMAT_KEY, null)
+            )
+        )
+    }
+
     var autoColor by remember { mutableStateOf<Int?>(null) }
-    var showCustomPicker by remember { mutableStateOf(false) }
+    var pickerOpen by remember { mutableStateOf(false) }
+    var eyedropperArmed by remember { mutableStateOf(false) }
+    var chromeVisible by remember { mutableStateOf(true) }
 
     var activePreview by remember { mutableStateOf<EffectPreviewService?>(null) }
     var interacting by remember { mutableStateOf(false) }
@@ -200,7 +216,8 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             style.id,
             showSeconds,
             animate,
-            ClockPalette.resolve(colorPref, autoColor)
+            ClockPalette.resolve(colorPref, autoColor),
+            hourFormat
         )
     }
 
@@ -215,13 +232,10 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         pushFace()
     }
 
-    // Rendered thumbnails of every face, so the gallery shows what each one
-    // actually looks like instead of a name. Built with the same renderer the
-    // wallpaper uses, so a thumbnail cannot drift from the real thing.
-    var thumbnails by remember { mutableStateOf<Map<ClockStyle, androidx.compose.ui.graphics.ImageBitmap>>(emptyMap()) }
-    LaunchedEffect(showSeconds) {
+    var thumbnails by remember { mutableStateOf<Map<ClockStyle, ImageBitmap>>(emptyMap()) }
+    LaunchedEffect(showSeconds, hourFormat) {
         thumbnails = withContext(Dispatchers.Default) {
-            renderStyleThumbnails(context, showSeconds)
+            renderStyleThumbnails(context, showSeconds, hourFormat)
         }
     }
 
@@ -242,24 +256,21 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 AtmosphereClockPolicy.COLOR_KEY,
                 AtmosphereClockPolicy.sanitizeColor(colorPref)
             )
+            putString(AtmosphereClockPolicy.HOUR_FORMAT_KEY, hourFormat)
         }
-        val update = android.content.Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
+        val update = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
         update.setPackage(context.packageName)
         context.sendBroadcast(update)
     }
 
-    // The preview updates instantly through pushGeometry/pushFace; this
-    // debounce only covers writing prefs and telling the live wallpaper, so
-    // SharedPreferences is not hammered on every pixel of movement.
     LaunchedEffect(
-        centerX, top, heightFraction, opacity, style, showSeconds, animate, colorPref
+        centerX, top, heightFraction, opacity, style,
+        showSeconds, animate, colorPref, hourFormat
     ) {
         delay(350)
         persist()
     }
 
-    // Fade the placement guides out shortly after the last touch, so the
-    // clock can be judged against the photo without chrome over it.
     LaunchedEffect(lastInteractionMs) {
         if (lastInteractionMs == 0L) return@LaunchedEffect
         delay(1_200)
@@ -302,18 +313,44 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    // Taps get their own pointerInput so they can coexist with
+                    // the transform gestures below: a tap with no movement
+                    // never reaches the transform detector, and a drag never
+                    // fires a tap.
+                    .pointerInput(eyedropperArmed, wallpaperBitmap, widthPx, heightPx) {
+                        detectTapGestures { position ->
+                            val source = wallpaperBitmap
+                            if (eyedropperArmed && source != null) {
+                                val sampled = sampleWallpaperColor(
+                                    bitmap = source,
+                                    tap = position,
+                                    viewWidth = widthPx,
+                                    viewHeight = heightPx
+                                )
+                                if (sampled != null) {
+                                    colorPref = sampled
+                                    eyedropperArmed = false
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.LongPress
+                                    )
+                                    pushFace()
+                                }
+                            } else {
+                                chromeVisible = !chromeVisible
+                            }
+                        }
+                    }
                     .pointerInput(widthPx, heightPx) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             interacting = true
                             lastInteractionMs = System.currentTimeMillis()
 
                             val proposed = centerX + pan.x / widthPx
-                            // Snap to the horizontal centre, since that is
-                            // where almost every lock screen puts its clock
-                            // and hitting 0.500 by hand is fiddly.
                             centerX = if (abs(proposed - 0.5f) < CENTER_SNAP) {
                                 if (abs(centerX - 0.5f) >= CENTER_SNAP) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.LongPress
+                                    )
                                 }
                                 0.5f
                             } else {
@@ -329,13 +366,8 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                         }
                     }
             ) {
-                // Placement guides. No box around the clock: a hard border
-                // fights the thing it is supposed to help you position. These
-                // are hairlines that only show while you are actually moving
-                // it, and they mark the centre and the top edge rather than
-                // outlining the glyphs.
                 if (guideAlpha > 0.01f) {
-                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                    Canvas(Modifier.fillMaxSize()) {
                         val guideColor = Color.White.copy(alpha = 0.55f * guideAlpha)
                         val centred = abs(centerX - 0.5f) < 0.001f
                         drawLine(
@@ -344,20 +376,14 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                             } else {
                                 guideColor
                             },
-                            start = androidx.compose.ui.geometry.Offset(centerX * size.width, 0f),
-                            end = androidx.compose.ui.geometry.Offset(
-                                centerX * size.width,
-                                size.height
-                            ),
+                            start = Offset(centerX * size.width, 0f),
+                            end = Offset(centerX * size.width, size.height),
                             strokeWidth = 1.dp.toPx()
                         )
                         drawLine(
                             color = guideColor,
-                            start = androidx.compose.ui.geometry.Offset(0f, top * size.height),
-                            end = androidx.compose.ui.geometry.Offset(
-                                size.width,
-                                top * size.height
-                            ),
+                            start = Offset(0f, top * size.height),
+                            end = Offset(size.width, top * size.height),
                             strokeWidth = 1.dp.toPx()
                         )
                     }
@@ -365,50 +391,53 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             }
         }
 
-        // Top bar, overlaid rather than pushing the image down.
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopStart)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)
-                    )
-                )
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(4.dp)
-        ) {
-            IconButton(onClick = onDone, modifier = Modifier.align(Alignment.CenterStart)) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Done",
-                    tint = Color.White
-                )
-            }
-            Text(
-                "Drag to move, pinch to resize",
-                color = Color.White,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-
-        // Controls. Fades down while the clock is being dragged so it never
-        // hides the thing being positioned.
         AnimatedVisibility(
-            visible = !interacting,
+            visible = chromeVisible,
             enter = fadeIn(),
             exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopStart)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)
+                        )
+                    )
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(4.dp)
+            ) {
+                IconButton(onClick = onDone, modifier = Modifier.align(Alignment.CenterStart)) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Done",
+                        tint = Color.White
+                    )
+                }
+                Text(
+                    if (eyedropperArmed) {
+                        "Tap the wallpaper to pick a colour"
+                    } else {
+                        "Drag to move · pinch to resize · tap to hide"
+                    },
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = chromeVisible && !interacting && !eyedropperArmed,
+            enter = fadeIn() + slideInVertically { it / 3 },
+            exit = fadeOut() + slideOutVertically { it / 3 },
             modifier = Modifier.align(Alignment.BottomStart)
         ) {
             ClockControls(
-                styles = ClockStyle.entries,
                 thumbnails = thumbnails,
                 selected = style,
-                onStyleSelected = {
-                    style = it
-                    pushFace()
-                },
+                onStyleSelected = { style = it; pushFace() },
                 heightFraction = heightFraction,
                 onHeightChange = {
                     heightFraction = AtmosphereClockPolicy.sanitizeHeight(it)
@@ -420,23 +449,18 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                     pushGeometry()
                 },
                 showSeconds = showSeconds,
-                onShowSecondsChange = {
-                    showSeconds = it
-                    pushFace()
-                },
+                onShowSecondsChange = { showSeconds = it; pushFace() },
                 animate = animate,
-                onAnimateChange = {
-                    animate = it
-                    pushFace()
-                },
+                onAnimateChange = { animate = it; pushFace() },
+                hourFormat = hourFormat,
+                onHourFormatChange = { hourFormat = it; pushFace() },
                 colorPref = colorPref,
                 autoColor = autoColor,
-                onColorSelected = {
-                    colorPref = it
-                    pushFace()
-                },
-                showCustomPicker = showCustomPicker,
-                onToggleCustomPicker = { showCustomPicker = !showCustomPicker },
+                onColorSelected = { colorPref = it; pushFace() },
+                pickerOpen = pickerOpen,
+                onTogglePicker = { pickerOpen = !pickerOpen },
+                canEyedrop = wallpaperBitmap != null,
+                onArmEyedropper = { eyedropperArmed = true },
                 segmentationDisabled = SegmentationCrashGuard.isDisabled(context),
                 onResetSegmentation = { SegmentationCrashGuard.reset(context) },
                 onResetPlacement = {
@@ -446,6 +470,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                     heightFraction = AtmosphereClockPolicy.DEFAULT_HEIGHT
                     opacity = AtmosphereClockPolicy.DEFAULT_OPACITY
                     pushGeometry()
+                    pushFace()
                 }
             )
         }
@@ -454,8 +479,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
 
 @Composable
 private fun ClockControls(
-    styles: List<ClockStyle>,
-    thumbnails: Map<ClockStyle, androidx.compose.ui.graphics.ImageBitmap>,
+    thumbnails: Map<ClockStyle, ImageBitmap>,
     selected: ClockStyle,
     onStyleSelected: (ClockStyle) -> Unit,
     heightFraction: Float,
@@ -466,11 +490,15 @@ private fun ClockControls(
     onShowSecondsChange: (Boolean) -> Unit,
     animate: Boolean,
     onAnimateChange: (Boolean) -> Unit,
+    hourFormat: String,
+    onHourFormatChange: (String) -> Unit,
     colorPref: Int,
     autoColor: Int?,
     onColorSelected: (Int) -> Unit,
-    showCustomPicker: Boolean,
-    onToggleCustomPicker: () -> Unit,
+    pickerOpen: Boolean,
+    onTogglePicker: () -> Unit,
+    canEyedrop: Boolean,
+    onArmEyedropper: () -> Unit,
     segmentationDisabled: Boolean,
     onResetSegmentation: () -> Unit,
     onResetPlacement: () -> Unit
@@ -480,88 +508,47 @@ private fun ClockControls(
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
-                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.82f))
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.86f))
                 )
             )
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Text(
-            "Style",
-            color = Color.White,
-            style = MaterialTheme.typography.labelLarge
-        )
-        Spacer(Modifier.height(8.dp))
+        SectionLabel("Style")
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 2.dp)
         ) {
-            items(styles) { candidate ->
-                val isSelected = candidate == selected
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .width(112.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = if (isSelected) 0.18f else 0.07f))
-                        .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) {
-                                Color.White.copy(alpha = 0.9f)
-                            } else {
-                                Color.White.copy(alpha = 0.16f)
-                            },
-                            shape = RoundedCornerShape(14.dp)
-                        )
-                        .clickable { onStyleSelected(candidate) }
-                        .padding(8.dp)
-                ) {
-                    val thumbnail = thumbnails[candidate]
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(46.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (thumbnail != null) {
-                            Image(
-                                bitmap = thumbnail,
-                                contentDescription = candidate.label,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        candidate.label,
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
+            items(ClockStyle.entries) { candidate ->
+                StyleCard(
+                    style = candidate,
+                    thumbnail = thumbnails[candidate],
+                    selected = candidate == selected,
+                    onClick = { onStyleSelected(candidate) }
+                )
             }
         }
 
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Colour",
-                color = Color.White,
-                style = MaterialTheme.typography.labelLarge
-            )
+            SectionLabel("Colour")
             Spacer(Modifier.width(8.dp))
             AtmoTextButton(
-                text = if (showCustomPicker) "Hide custom" else "Custom…",
-                onClick = onToggleCustomPicker,
+                text = if (pickerOpen) "Close wheel" else "Colour wheel",
+                onClick = onTogglePicker,
                 contentColor = Color.White
             )
+            if (canEyedrop) {
+                AtmoTextButton(
+                    text = "Pick from wallpaper",
+                    onClick = onArmEyedropper,
+                    contentColor = Color.White
+                )
+            }
         }
         Spacer(Modifier.height(6.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
-                // Auto follows the wallpaper. Shown first and selected by
-                // default, because a clock tinted from the image reads as part
-                // of it rather than pasted on top.
                 ColorSwatch(
                     color = autoColor ?: ClockPalette.DEFAULT_FALLBACK,
                     label = "Auto",
@@ -573,15 +560,14 @@ private fun ClockControls(
                 ColorSwatch(
                     color = swatch.color,
                     label = swatch.label,
-                    selected = !ClockPalette.isAuto(colorPref) &&
-                        colorPref == swatch.color,
+                    selected = !ClockPalette.isAuto(colorPref) && colorPref == swatch.color,
                     onClick = { onColorSelected(swatch.color) }
                 )
             }
         }
 
-        if (showCustomPicker) {
-            CustomColorPicker(
+        if (pickerOpen) {
+            ColorWheelPicker(
                 current = ClockPalette.resolve(colorPref, autoColor),
                 onColorChange = onColorSelected
             )
@@ -601,6 +587,27 @@ private fun ClockControls(
             onValueChange = onOpacityChange
         )
 
+        Spacer(Modifier.height(4.dp))
+        SectionLabel("Hour format")
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChoiceChip(
+                label = "System",
+                selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM,
+                onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM) }
+            )
+            ChoiceChip(
+                label = "12-hour",
+                selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_12,
+                onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_12) }
+            )
+            ChoiceChip(
+                label = "24-hour",
+                selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_24,
+                onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_24) }
+            )
+        }
+
         SettingSwitchRow(
             title = "Show seconds",
             checked = showSeconds,
@@ -610,12 +617,11 @@ private fun ClockControls(
             title = "Animate digit changes",
             checked = animate,
             onCheckedChange = onAnimateChange,
-            subtitle = "Digits slide as the time changes. Costs a short burst " +
-                "of frames each minute."
+            subtitle = "Digits slide as the time changes."
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AtmoTextButton(text = "Reset placement", onClick = onResetPlacement)
+            AtmoTextButton(text = "Reset", onClick = onResetPlacement)
             if (segmentationDisabled) {
                 AtmoTextButton(
                     text = "Re-enable subject detection",
@@ -626,12 +632,71 @@ private fun ClockControls(
         if (segmentationDisabled) {
             Text(
                 "Subject detection was switched off after repeated crashes in a " +
-                    "system component, so nothing will occlude the clock until " +
-                    "it is re-enabled.",
+                    "system component, so nothing will occlude the clock until it " +
+                    "is re-enabled.",
                 color = Color.White.copy(alpha = 0.75f),
                 style = MaterialTheme.typography.bodySmall
             )
         }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge)
+}
+
+@Composable
+private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White.copy(alpha = if (selected) 0.22f else 0.07f))
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = Color.White.copy(alpha = if (selected) 0.9f else 0.16f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp)
+    ) {
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun StyleCard(
+    style: ClockStyle,
+    thumbnail: ImageBitmap?,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(112.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = if (selected) 0.18f else 0.07f))
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = Color.White.copy(alpha = if (selected) 0.9f else 0.16f),
+                shape = RoundedCornerShape(14.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Box(Modifier.fillMaxWidth().height(46.dp), contentAlignment = Alignment.Center) {
+            if (thumbnail != null) {
+                Image(
+                    bitmap = thumbnail,
+                    contentDescription = style.label,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(style.label, color = Color.White, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -653,11 +718,7 @@ private fun ColorSwatch(
                 .background(Color(color))
                 .border(
                     width = if (selected) 3.dp else 1.dp,
-                    color = if (selected) {
-                        Color.White
-                    } else {
-                        Color.White.copy(alpha = 0.28f)
-                    },
+                    color = if (selected) Color.White else Color.White.copy(alpha = 0.28f),
                     shape = RoundedCornerShape(19.dp)
                 )
                 .clickable(onClick = onClick)
@@ -673,62 +734,109 @@ private fun ColorSwatch(
 }
 
 /**
- * Hue / saturation / lightness sliders rather than a colour wheel: a wheel is
- * hard to hit precisely on a phone, and lightness is the axis that actually
- * decides whether the clock stays readable over a photo, so it deserves its
- * own control rather than being buried in a 2D gradient.
+ * Standard HSV wheel: angle is hue, distance from the centre is saturation,
+ * with a brightness slider beside it — a flat disc has nowhere to put the third
+ * axis.
+ *
+ * The disc is rasterised once into a bitmap and then blitted. Computing it
+ * per-pixel inside the draw scope would re-run tens of thousands of colour
+ * conversions on every recomposition, which is what makes hand-rolled wheels
+ * feel sluggish.
  */
 @Composable
-private fun CustomColorPicker(
+private fun ColorWheelPicker(
     current: Int,
     onColorChange: (Int) -> Unit
 ) {
-    val hsl = remember(current) {
-        FloatArray(3).also { ColorUtils.colorToHSL(current, it) }
+    val hsv = remember(current) {
+        FloatArray(3).also { android.graphics.Color.colorToHSV(current, it) }
     }
-    var hue by remember(current) { mutableFloatStateOf(hsl[0]) }
-    var saturation by remember(current) { mutableFloatStateOf(hsl[1]) }
-    var lightness by remember(current) { mutableFloatStateOf(hsl[2]) }
+    var hue by remember(current) { mutableFloatStateOf(hsv[0]) }
+    var saturation by remember(current) { mutableFloatStateOf(hsv[1]) }
+    var value by remember(current) { mutableFloatStateOf(hsv[2]) }
+
+    val wheel = remember { buildHueWheel(WHEEL_PX).asImageBitmap() }
 
     fun emit() {
         onColorChange(
-            ColorUtils.HSLToColor(floatArrayOf(hue, saturation, lightness)) or
+            android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)) or
                 (0xFF shl 24)
         )
     }
 
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    fun applyPointer(position: Offset, sizePx: Float) {
+        val radius = sizePx / 2f
+        if (radius <= 0f) return
+        val dx = position.x - radius
+        val dy = position.y - radius
+        saturation = (hypot(dx, dy) / radius).coerceIn(0f, 1f)
+        val degrees = Math.toDegrees(atan2(dy, dx).toDouble()).toFloat()
+        hue = (degrees + 360f) % 360f
+        emit()
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(
             Modifier
-                .fillMaxWidth()
-                .height(28.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(
-                    Color(
-                        ColorUtils.HSLToColor(
-                            floatArrayOf(hue, saturation, lightness)
+                .size(WHEEL_DP.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures { applyPointer(it, size.width.toFloat()) }
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, _ ->
+                        applyPointer(change.position, size.width.toFloat())
+                    }
+                }
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawImage(
+                    image = wheel,
+                    dstSize = IntSize(size.width.toInt(), size.height.toInt())
+                )
+                // Brightness is not on the disc, so dim it to match rather than
+                // showing colours the picker cannot currently produce.
+                if (value < 1f) {
+                    drawCircle(color = Color.Black.copy(alpha = 1f - value))
+                }
+                val radius = size.minDimension / 2f
+                val angle = Math.toRadians(hue.toDouble())
+                val marker = Offset(
+                    radius + (cos(angle) * saturation * radius).toFloat(),
+                    radius + (sin(angle) * saturation * radius).toFloat()
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = 9.dp.toPx(),
+                    center = marker,
+                    style = Stroke(width = 2.5.dp.toPx())
+                )
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.fillMaxWidth()) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        Color(
+                            android.graphics.Color.HSVToColor(
+                                floatArrayOf(hue, saturation, value)
+                            )
                         )
                     )
-                )
-        )
-        LabelledSlider(
-            label = "Hue",
-            value = hue,
-            valueRange = 0f..360f,
-            onValueChange = { hue = it; emit() }
-        )
-        LabelledSlider(
-            label = "Saturation",
-            value = saturation,
-            valueRange = 0f..1f,
-            onValueChange = { saturation = it; emit() }
-        )
-        LabelledSlider(
-            label = "Lightness",
-            value = lightness,
-            valueRange = 0f..1f,
-            onValueChange = { lightness = it; emit() }
-        )
+            )
+            LabelledSlider(
+                label = "Brightness",
+                value = value,
+                valueRange = 0f..1f,
+                onValueChange = { value = it; emit() }
+            )
+        }
     }
 }
 
@@ -749,16 +857,80 @@ private fun LabelledSlider(
     }
 }
 
+/** Rasterises the hue/saturation disc once. Pixels outside it stay transparent. */
+private fun buildHueWheel(sizePx: Int): Bitmap {
+    val bitmap = createBitmap(sizePx, sizePx)
+    val pixels = IntArray(sizePx * sizePx)
+    val radius = sizePx / 2f
+    val hsv = FloatArray(3)
+    hsv[2] = 1f
+    for (y in 0 until sizePx) {
+        val dy = y - radius
+        for (x in 0 until sizePx) {
+            val dx = x - radius
+            val distance = hypot(dx, dy)
+            if (distance > radius) continue
+            hsv[0] = (Math.toDegrees(atan2(dy, dx).toDouble()).toFloat() + 360f) % 360f
+            hsv[1] = (distance / radius).coerceIn(0f, 1f)
+            pixels[y * sizePx + x] = android.graphics.Color.HSVToColor(hsv)
+        }
+    }
+    bitmap.setPixels(pixels, 0, sizePx, 0, 0, sizePx, sizePx)
+    return bitmap
+}
+
 /**
- * A live preview of the Atmosphere effect, forced onto the GLES backend.
+ * Maps a tap on the full-screen preview back to a pixel in the wallpaper.
  *
- * Both backends implement the clock now, but the calibration screen pins
- * itself to GLES on purpose: it is a short-lived, windowed surface that only
- * has to be geometrically faithful, and GLES 3.0 is available everywhere, so
- * this avoids standing up a second Vulkan swapchain next to the live
- * wallpaper's. The two shaders compute the clock rect identically, so what
- * you position here is what you get.
+ * The preview centre-crops the photo to fill the surface, so the same mapping
+ * is inverted here. Returns null if the bitmap is unusable.
  */
+private fun sampleWallpaperColor(
+    bitmap: Bitmap,
+    tap: Offset,
+    viewWidth: Float,
+    viewHeight: Float
+): Int? {
+    if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) return null
+    if (viewWidth <= 0f || viewHeight <= 0f) return null
+    val scale = max(viewWidth / bitmap.width, viewHeight / bitmap.height)
+    if (scale <= 0f) return null
+    val originX = (viewWidth - bitmap.width * scale) / 2f
+    val originY = (viewHeight - bitmap.height * scale) / 2f
+    val sourceX = ((tap.x - originX) / scale).toInt().coerceIn(0, bitmap.width - 1)
+    val sourceY = ((tap.y - originY) / scale).toInt().coerceIn(0, bitmap.height - 1)
+
+    return try {
+        // Average a small block rather than reading one pixel: a single sample
+        // lands on JPEG noise often enough that the picked colour feels random.
+        var red = 0
+        var green = 0
+        var blue = 0
+        var count = 0
+        for (y in (sourceY - SAMPLE_RADIUS_PX)..(sourceY + SAMPLE_RADIUS_PX)) {
+            if (y < 0 || y >= bitmap.height) continue
+            for (x in (sourceX - SAMPLE_RADIUS_PX)..(sourceX + SAMPLE_RADIUS_PX)) {
+                if (x < 0 || x >= bitmap.width) continue
+                val pixel = bitmap.getPixel(x, y)
+                red += (pixel shr 16) and 0xFF
+                green += (pixel shr 8) and 0xFF
+                blue += pixel and 0xFF
+                count++
+            }
+        }
+        if (count == 0) return null
+        val averaged = android.graphics.Color.rgb(red / count, green / count, blue / count)
+        // Lift very dark samples so tapping a shadow does not produce an
+        // invisible clock. Hue and relative saturation are preserved.
+        val hsl = FloatArray(3)
+        ColorUtils.colorToHSL(averaged, hsl)
+        hsl[2] = max(hsl[2], MIN_PICKED_LIGHTNESS)
+        ColorUtils.HSLToColor(hsl) or (0xFF shl 24)
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+}
+
 @Composable
 private fun ClockCalibrationPreview(
     wallpaper: Bitmap?,
@@ -801,36 +973,32 @@ private fun ClockCalibrationPreview(
     AndroidView(factory = { preview.view }, modifier = modifier)
 }
 
-/**
- * Renders one thumbnail per face using the same [ClockFaceRenderer] the
- * wallpaper uses, scaled down for the gallery.
- *
- * Runs off the main thread. Each renderer is released immediately, because
- * the renderer reuses one internal bitmap — the scaled copy is what survives.
- */
 private fun renderStyleThumbnails(
     context: Context,
-    showSeconds: Boolean
-): Map<ClockStyle, androidx.compose.ui.graphics.ImageBitmap> {
+    showSeconds: Boolean,
+    hourFormat: String
+): Map<ClockStyle, ImageBitmap> {
     val now = System.currentTimeMillis()
-    val result = LinkedHashMap<ClockStyle, androidx.compose.ui.graphics.ImageBitmap>()
+    val result = LinkedHashMap<ClockStyle, ImageBitmap>()
     for (candidate in ClockStyle.entries) {
         val renderer = ClockFaceRenderer(context).apply {
             style = candidate
             this.showSeconds = showSeconds
             animateDigits = false
+            hourFormatOverride = AtmosphereClockPolicy.hourFormatOverride(hourFormat)
         }
         try {
             val rendered = renderer.render(nowMillis = now, uptimeMs = 0L) ?: continue
             if (rendered.width <= 0 || rendered.height <= 0) continue
-            val targetWidth = THUMBNAIL_WIDTH_PX
+            val targetWidth = min(THUMBNAIL_WIDTH_PX, rendered.width)
             val targetHeight = (rendered.height.toFloat() * targetWidth / rendered.width)
                 .toInt()
                 .coerceAtLeast(1)
-            val scaled = Bitmap.createScaledBitmap(rendered, targetWidth, targetHeight, true)
-            result[candidate] = scaled.asImageBitmap()
+            result[candidate] =
+                Bitmap.createScaledBitmap(rendered, targetWidth, targetHeight, true)
+                    .asImageBitmap()
         } catch (_: RuntimeException) {
-            // A face that will not render is simply left out of the gallery.
+            // A face that will not render is left out of the gallery.
         } catch (_: OutOfMemoryError) {
             break
         } finally {
@@ -840,11 +1008,6 @@ private fun renderStyleThumbnails(
     return result
 }
 
-/**
- * Loads the same "currently applied wallpaper" file the rest of the app
- * previews (files/wallpaper.jpg). Returns null if none is set yet or it
- * cannot be decoded — EffectPreviewService falls back to its own demo photo.
- */
 private suspend fun loadCurrentWallpaperBitmap(context: Context): Bitmap? {
     val file = File(context.filesDir, "wallpaper.jpg")
     if (!file.exists()) return null
@@ -859,3 +1022,7 @@ private suspend fun loadCurrentWallpaperBitmap(context: Context): Bitmap? {
 
 private const val CENTER_SNAP = 0.015f
 private const val THUMBNAIL_WIDTH_PX = 260
+private const val WHEEL_PX = 240
+private const val WHEEL_DP = 132
+private const val SAMPLE_RADIUS_PX = 3
+private const val MIN_PICKED_LIGHTNESS = 0.55f

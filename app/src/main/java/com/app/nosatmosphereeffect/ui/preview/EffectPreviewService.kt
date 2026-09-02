@@ -176,7 +176,8 @@ class EffectPreviewService(
         styleId: String,
         showSeconds: Boolean,
         animate: Boolean,
-        color: Int
+        color: Int,
+        hourFormat: String
     ) {
         withLiveAtmosphereRenderer { renderer ->
             renderer.clockEnabled = true
@@ -184,6 +185,7 @@ class EffectPreviewService(
             renderer.clockShowSeconds = showSeconds
             renderer.clockAnimate = animate
             renderer.clockColor = color
+            renderer.clockHourFormat = hourFormat
         }
     }
 
@@ -339,6 +341,11 @@ class EffectPreviewService(
                                 AtmosphereClockPolicy.DEFAULT_COLOR
                             ),
                             ClockPalette.autoColorFor(appContext)
+                        ),
+                        clockHourFormat = previewString(
+                            prefs,
+                            AtmosphereClockPolicy.HOUR_FORMAT_KEY,
+                            AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
                         )
                     ).sanitized()
                 )
@@ -566,6 +573,7 @@ class EffectPreviewService(
                 renderer.clockShowSeconds = value.clockShowSeconds
                 renderer.clockAnimate = value.clockAnimate
                 renderer.clockColor = value.clockColor
+                renderer.clockHourFormat = value.clockHourFormat
                 renderer.clockCenterX = value.clockCenterX
                 renderer.clockTop = value.clockTop
                 renderer.clockHeight = value.clockHeight
