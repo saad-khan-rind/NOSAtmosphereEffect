@@ -14,8 +14,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.helper.PlaylistModeManager
+import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
@@ -51,7 +55,8 @@ class EffectPreviewService(
     cornerRadiusPx: Float,
     private val settingsMode: EffectPreviewSettingsMode =
         EffectPreviewSettingsMode.SAVED_ACTIVE,
-    private val atmosphereGlassEnabledOverride: Boolean? = null
+    private val atmosphereGlassEnabledOverride: Boolean? = null,
+    private val forceOpenGlEs: Boolean = false
 ) {
     private val appContext = context.applicationContext
     private val released = AtomicBoolean(false)
@@ -92,11 +97,15 @@ class EffectPreviewService(
                     configuredAtmosphereGlassBackgroundOnly
             )
         }
-        val selectedBackend = runCatching {
-            VulkanSupport.selectPreviewBackend(appContext, effectId)
-        }.getOrElse { failure ->
-            Log.w(TAG, "Unable to select the preview graphics backend", failure)
+        val selectedBackend = if (forceOpenGlEs) {
             GraphicsBackend.OPENGL_ES
+        } else {
+            runCatching {
+                VulkanSupport.selectPreviewBackend(appContext, effectId)
+            }.getOrElse { failure ->
+                Log.w(TAG, "Unable to select the preview graphics backend", failure)
+                GraphicsBackend.OPENGL_ES
+            }
         }
         if (selectedBackend == GraphicsBackend.VULKAN) {
             attachVulkan()
@@ -136,6 +145,63 @@ class EffectPreviewService(
             },
             atmosphereGlassEnabled = configuredAtmosphereGlassEnabled && effectApplied
         )
+    }
+
+    /**
+     * Pushes clock geometry straight to the live GLES renderer, bypassing
+     * the state/prefs machinery entirely — for interactive dragging in
+     * ClockAdjustActivity, where recreating the whole preview per pointer
+     * event would be too janky. Call [setRendererProgress]'s normal path
+     * (or just rely on the next full state rebuild) for anything else.
+     */
+    fun setAtmosphereClockGeometry(
+        centerX: Float,
+        top: Float,
+        height: Float,
+        opacity: Float
+    ) {
+        withLiveAtmosphereRenderer { renderer ->
+            renderer.clockCenterX = centerX
+            renderer.clockTop = top
+            renderer.clockHeight = height
+            renderer.clockOpacity = opacity
+        }
+    }
+
+    /**
+     * Pushes face settings (style, seconds, animation) straight to the live
+     * renderer. Separate from the geometry call because these change the
+     * rendered bitmap rather than how the shader places it.
+     */
+    fun setAtmosphereClockFace(
+        styleId: String,
+        showSeconds: Boolean,
+        animate: Boolean,
+        color: Int,
+        hourFormat: String
+    ) {
+        withLiveAtmosphereRenderer { renderer ->
+            renderer.clockEnabled = true
+            renderer.clockStyle = ClockStyle.fromId(styleId)
+            renderer.clockShowSeconds = showSeconds
+            renderer.clockAnimate = animate
+            renderer.clockColor = color
+            renderer.clockHourFormat = hourFormat
+        }
+    }
+
+    private fun withLiveAtmosphereRenderer(block: (AtmosphereRenderer) -> Unit) {
+        if (released.get() || activeBackend != GraphicsBackend.OPENGL_ES) return
+        val surface = openGlSurface
+        val renderer = openGlRenderer
+        if (surface != null && renderer is AtmosphereRenderer) {
+            surface.queueEvent {
+                if (!released.get() && openGlRenderer === renderer) {
+                    block(renderer)
+                }
+            }
+            requestActiveRender()
+        }
     }
 
     private fun setRendererProgress(
@@ -211,6 +277,15 @@ class EffectPreviewService(
                 val glassSettings = previewGlassSettings(prefs)
                 configuredAtmosphereGlassBackgroundOnly =
                     glassEnabled && glassSettings.backgroundOnly
+                val clockEnabled = AtmosphereClockPolicy.resolveEnabled(
+                    effectId = effectId,
+                    requested = previewBoolean(
+                        prefs,
+                        AtmosphereClockPolicy.ENABLED_KEY,
+                        false
+                    ),
+                    singleImageMode = !PlaylistModeManager.isPlaylistMode(appContext)
+                )
                 EffectPreviewRenderState.Atmosphere(
                     AtmosphereRenderState(
                         dimLevel = previewFloat(prefs, "dim_level", 0.2f),
@@ -223,7 +298,61 @@ class EffectPreviewService(
                         glassLineCount = glassSettings.lineCount,
                         glassLineThickness = glassSettings.lineThickness,
                         glassBackgroundOnly =
-                            configuredAtmosphereGlassBackgroundOnly
+                            configuredAtmosphereGlassBackgroundOnly,
+                        clockEnabled = clockEnabled,
+                        clockDepthEnabled = previewBoolean(
+                            prefs,
+                            AtmosphereClockPolicy.DEPTH_KEY,
+                            AtmosphereClockPolicy.DEFAULT_DEPTH
+                        ),
+                        clockStyleId = previewString(
+                            prefs,
+                            AtmosphereClockPolicy.STYLE_KEY,
+                            ClockStyle.DEFAULT.id
+                        ),
+                        clockShowSeconds = previewBoolean(
+                            prefs,
+                            AtmosphereClockPolicy.SECONDS_KEY,
+                            AtmosphereClockPolicy.DEFAULT_SECONDS
+                        ),
+                        clockAnimate = previewBoolean(
+                            prefs,
+                            AtmosphereClockPolicy.ANIMATE_KEY,
+                            AtmosphereClockPolicy.DEFAULT_ANIMATE
+                        ),
+                        clockCenterX = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.CENTER_X_KEY,
+                            AtmosphereClockPolicy.DEFAULT_CENTER_X
+                        ),
+                        clockTop = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.TOP_KEY,
+                            AtmosphereClockPolicy.DEFAULT_TOP
+                        ),
+                        clockHeight = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.HEIGHT_KEY,
+                            AtmosphereClockPolicy.DEFAULT_HEIGHT
+                        ),
+                        clockOpacity = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.OPACITY_KEY,
+                            AtmosphereClockPolicy.DEFAULT_OPACITY
+                        ),
+                        clockColor = ClockPalette.resolve(
+                            previewInt(
+                                prefs,
+                                AtmosphereClockPolicy.COLOR_KEY,
+                                AtmosphereClockPolicy.DEFAULT_COLOR
+                            ),
+                            ClockPalette.autoColorFor(appContext)
+                        ),
+                        clockHourFormat = previewString(
+                            prefs,
+                            AtmosphereClockPolicy.HOUR_FORMAT_KEY,
+                            AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
+                        )
                     ).sanitized()
                 )
             }
@@ -442,7 +571,19 @@ class EffectPreviewService(
                 renderer.atmosphereGlassEnabled = value.glassEnabled
                 renderer.glassLineCount = value.glassLineCount
                 renderer.glassLineThickness = value.glassLineThickness
-                renderer.configureGlassBackgroundOnly(value.glassBackgroundOnly)
+                renderer.glassBackgroundOnly = value.glassBackgroundOnly
+                renderer.configureSubjectIsolation(value.needsSubjectMask())
+                renderer.clockEnabled = value.clockEnabled
+                renderer.clockDepthEnabled = value.clockDepthEnabled
+                renderer.clockStyle = value.clockStyle
+                renderer.clockShowSeconds = value.clockShowSeconds
+                renderer.clockAnimate = value.clockAnimate
+                renderer.clockColor = value.clockColor
+                renderer.clockHourFormat = value.clockHourFormat
+                renderer.clockCenterX = value.clockCenterX
+                renderer.clockTop = value.clockTop
+                renderer.clockHeight = value.clockHeight
+                renderer.clockOpacity = value.clockOpacity
             }
             renderer is BlurToSharpRenderer &&
                 state is EffectPreviewRenderState.Atmosphere -> {
@@ -595,6 +736,32 @@ class EffectPreviewService(
         if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
         return try {
             preferences.getFloat(key, defaultValue)
+        } catch (_: ClassCastException) {
+            defaultValue
+        }
+    }
+
+    private fun previewInt(
+        preferences: SharedPreferences,
+        key: String,
+        defaultValue: Int
+    ): Int {
+        if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
+        return try {
+            preferences.getInt(key, defaultValue)
+        } catch (_: ClassCastException) {
+            defaultValue
+        }
+    }
+
+    private fun previewString(
+        preferences: SharedPreferences,
+        key: String,
+        defaultValue: String
+    ): String {
+        if (settingsMode != EffectPreviewSettingsMode.SAVED_ACTIVE) return defaultValue
+        return try {
+            preferences.getString(key, defaultValue) ?: defaultValue
         } catch (_: ClassCastException) {
             defaultValue
         }

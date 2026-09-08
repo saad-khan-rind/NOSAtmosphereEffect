@@ -1,4 +1,4 @@
-Atmo Engine 7.1.1 turns your images into customizable live wallpapers, with optional lock-screen-to-home-screen transitions.
+Atmo Engine turns your images into customizable live wallpapers, with optional lock-screen-to-home-screen transitions.
 
 Atmo Engine is an open-source wallpaper studio inspired by the Atmosphere effect in Nothing OS. Choose an image, preview and fine-tune the effect, then apply it through Android's live wallpaper screen.
 

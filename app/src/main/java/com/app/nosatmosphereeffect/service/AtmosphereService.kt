@@ -2,9 +2,12 @@ package com.app.nosatmosphereeffect.service
 
 import android.content.SharedPreferences
 import android.graphics.Bitmap
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
+import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
 
 class AtmosphereService :
@@ -26,6 +29,20 @@ class AtmosphereService :
         renderer.attach(engine)
     }
 
+    /**
+     * The clock's frame cadence is owned by the controller's ClockFramePump,
+     * one per engine. This only tells it when to idle: a live wallpaper
+     * service can have a settings-preview engine and the real wallpaper alive
+     * at once, so anything service-wide would be torn down by whichever
+     * engine happened to die first.
+     */
+    override fun onEngineVisibilityChanged(
+        renderer: AtmosphereRenderController?,
+        visible: Boolean
+    ) {
+        renderer?.setEngineVisible(visible)
+    }
+
     override fun configureRenderer(
         renderer: AtmosphereRenderController,
         preferences: SharedPreferences
@@ -45,7 +62,58 @@ class AtmosphereService :
             contrast = preferences.readFloat("blob_contrast", 1f),
             noiseEnabled = preferences.readBoolean("enable_noise", false),
             noiseScale = preferences.readFloat("noise_scale", 2_000f),
-            noiseStrength = preferences.readFloat("noise_strength", 0.06f)
+            noiseStrength = preferences.readFloat("noise_strength", 0.06f),
+            // Playlist and theme modes rotate the image underneath the clock,
+            // so the clock stays off there — see
+            // AtmosphereClockPolicy.resolveEnabled.
+            clockEnabled = AtmosphereClockPolicy.resolveEnabled(
+                effectId = effectId,
+                requested = preferences.readBoolean(
+                    AtmosphereClockPolicy.ENABLED_KEY,
+                    false
+                ),
+                singleImageMode = !PlaylistModeManager.isPlaylistMode(applicationContext)
+            ),
+            clockDepthEnabled = preferences.readBoolean(
+                AtmosphereClockPolicy.DEPTH_KEY,
+                AtmosphereClockPolicy.DEFAULT_DEPTH
+            ),
+            clockStyleId = preferences.readString(
+                AtmosphereClockPolicy.STYLE_KEY,
+                ClockStyle.DEFAULT.id
+            ),
+            clockShowSeconds = preferences.readBoolean(
+                AtmosphereClockPolicy.SECONDS_KEY,
+                AtmosphereClockPolicy.DEFAULT_SECONDS
+            ),
+            clockAnimate = preferences.readBoolean(
+                AtmosphereClockPolicy.ANIMATE_KEY,
+                AtmosphereClockPolicy.DEFAULT_ANIMATE
+            ),
+            clockCenterX = preferences.readFloat(
+                AtmosphereClockPolicy.CENTER_X_KEY,
+                AtmosphereClockPolicy.DEFAULT_CENTER_X
+            ),
+            clockTop = preferences.readFloat(
+                AtmosphereClockPolicy.TOP_KEY,
+                AtmosphereClockPolicy.DEFAULT_TOP
+            ),
+            clockHeight = preferences.readFloat(
+                AtmosphereClockPolicy.HEIGHT_KEY,
+                AtmosphereClockPolicy.DEFAULT_HEIGHT
+            ),
+            clockOpacity = preferences.readFloat(
+                AtmosphereClockPolicy.OPACITY_KEY,
+                AtmosphereClockPolicy.DEFAULT_OPACITY
+            ),
+            clockColor = preferences.readInt(
+                AtmosphereClockPolicy.COLOR_KEY,
+                AtmosphereClockPolicy.DEFAULT_COLOR
+            ),
+            clockHourFormat = preferences.readString(
+                AtmosphereClockPolicy.HOUR_FORMAT_KEY,
+                AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
+            )
         )
     }
 
@@ -94,4 +162,21 @@ class AtmosphereService :
             fallback
         }
     }
+
+    private fun SharedPreferences.readInt(key: String, fallback: Int): Int {
+        return try {
+            getInt(key, fallback)
+        } catch (_: ClassCastException) {
+            fallback
+        }
+    }
+
+    private fun SharedPreferences.readString(key: String, fallback: String): String {
+        return try {
+            getString(key, fallback) ?: fallback
+        } catch (_: ClassCastException) {
+            fallback
+        }
+    }
+
 }

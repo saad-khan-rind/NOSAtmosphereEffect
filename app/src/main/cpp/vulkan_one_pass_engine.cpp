@@ -12,6 +12,8 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <deque>
+#include <mutex>
 #include <limits>
 #include <optional>
 #include <string>
@@ -32,8 +34,30 @@ constexpr std::array<uint32_t, 4> kSupportedCoreApiVersions{
     VK_API_VERSION_1_1
 };
 
+// Every native failure funnels through logError, so it is also the one place
+// worth capturing from. logcat is fine for development, but the whole point of
+// the in-app diagnostics screen is that a user hitting a Vulkan fallback on a
+// device we do not have can read the actual reason without adb.
+std::mutex& diagnosticsMutex() {
+    static std::mutex mutex;
+    return mutex;
+}
+
+std::deque<std::string>& diagnosticsBuffer() {
+    static std::deque<std::string> buffer;
+    return buffer;
+}
+
+constexpr size_t kMaximumDiagnosticEntries = 64;
+
 void logError(const std::string& message) {
     __android_log_print(ANDROID_LOG_ERROR, kLogTag, "%s", message.c_str());
+    std::lock_guard<std::mutex> guard(diagnosticsMutex());
+    std::deque<std::string>& buffer = diagnosticsBuffer();
+    buffer.push_back(message);
+    while (buffer.size() > kMaximumDiagnosticEntries) {
+        buffer.pop_front();
+    }
 }
 
 bool hasExtension(
@@ -312,6 +336,10 @@ public:
             const uint32_t bindingBit = 1U << binding;
             if ((optionalTextureMask_ & bindingBit) != 0 &&
                 !clearTexture(binding)) {
+                logError(
+                    label_ + " surface setup failed: clearing optional texture binding " +
+                    std::to_string(binding)
+                );
                 destroySurface();
                 return false;
             }
@@ -584,6 +612,7 @@ public:
                 VK_TRUE,
                 std::numeric_limits<uint64_t>::max()
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkWaitForFences");
             return false;
         }
         void* mapped = nullptr;
@@ -595,6 +624,7 @@ public:
                 0,
                 &mapped
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkMapMemory");
             return false;
         }
         std::memcpy(mapped, data, size);
@@ -699,6 +729,7 @@ private:
             !createAndroidSurface() ||
             !selectPhysicalDevice(loaderVersion)) {
             destroyNegotiationInstance();
+            logError(label_ + " surface setup failed: instance/surface/device selection");
             return false;
         }
 
@@ -811,6 +842,7 @@ private:
                 &deviceCount,
                 devices.data()
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkEnumeratePhysicalDevices");
             return false;
         }
 
@@ -937,6 +969,7 @@ private:
                 surface_,
                 &capabilities
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
             return false;
         }
 
@@ -948,6 +981,7 @@ private:
                 nullptr
             ) != VK_SUCCESS ||
             formatCount == 0) {
+            logError(label_ + " surface setup failed: no surface formats");
             return false;
         }
         std::vector<VkSurfaceFormatKHR> formats(formatCount);
@@ -957,6 +991,7 @@ private:
                 &formatCount,
                 formats.data()
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkGetPhysicalDeviceSurfaceFormatsKHR");
             return false;
         }
         auto preferred = std::find_if(
@@ -988,7 +1023,10 @@ private:
                 capabilities.maxImageExtent.height
             );
         }
-        if (extent_.width == 0 || extent_.height == 0) return false;
+        if (extent_.width == 0 || extent_.height == 0) {
+            logError(label_ + " surface setup failed: swapchain extent is empty");
+            return false;
+        }
 
         uint32_t imageCount = capabilities.minImageCount + 1;
         if (capabilities.maxImageCount > 0) {
@@ -1059,6 +1097,7 @@ private:
                 nullptr
             ) != VK_SUCCESS ||
             actualImageCount == 0) {
+            logError(label_ + " surface setup failed: swapchain image count query");
             return false;
         }
         swapchainImages_.resize(actualImageCount);
@@ -1069,6 +1108,7 @@ private:
                 swapchainImages_.data()
             ) != VK_SUCCESS ||
             actualImageCount == 0) {
+            logError(label_ + " surface setup failed: swapchain image fetch");
             return false;
         }
         swapchainImages_.resize(actualImageCount);
@@ -1092,6 +1132,7 @@ private:
                     nullptr,
                     &view
                 ) != VK_SUCCESS) {
+                logError(label_ + " surface setup failed: vkCreateImageView");
                 return false;
             }
             swapchainImageViews_.push_back(view);
@@ -1133,6 +1174,7 @@ private:
                 nullptr,
                 &descriptorSetLayout_
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkCreateDescriptorSetLayout");
             return false;
         }
 
@@ -1161,6 +1203,7 @@ private:
                 nullptr,
                 &descriptorPool_
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkCreateDescriptorPool");
             return false;
         }
 
@@ -1175,6 +1218,7 @@ private:
                 &allocateInfo,
                 &descriptorSet_
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkAllocateDescriptorSets");
             return false;
         }
         if (uniformData_.empty()) return true;
@@ -1198,6 +1242,7 @@ private:
                 uniformData_.data(),
                 uniformData_.size()
             )) {
+            logError(label_ + " surface setup failed: uniform buffer creation");
             return false;
         }
 
@@ -1425,6 +1470,7 @@ private:
             ) != VK_SUCCESS) {
             vkDestroyShaderModule(device_, vertexModule, nullptr);
             vkDestroyShaderModule(device_, fragmentModule, nullptr);
+            logError(label_ + " surface setup failed: vkCreatePipelineLayout");
             return false;
         }
 
@@ -1475,6 +1521,7 @@ private:
                     nullptr,
                     &framebuffer
                 ) != VK_SUCCESS) {
+                logError(label_ + " surface setup failed: vkCreateFramebuffer");
                 return false;
             }
             framebuffers_.push_back(framebuffer);
@@ -1494,6 +1541,7 @@ private:
                 nullptr,
                 &commandPool_
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkCreateCommandPool");
             return false;
         }
 
@@ -1524,6 +1572,7 @@ private:
                 nullptr,
                 &imageAvailable_
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkCreateSemaphore");
             return false;
         }
 
@@ -1538,6 +1587,7 @@ private:
                     nullptr,
                     &semaphore
                 ) != VK_SUCCESS) {
+                logError(label_ + " surface setup failed: vkCreateSemaphore");
                 return false;
             }
         }
@@ -1591,6 +1641,7 @@ private:
                 nullptr,
                 &buffer
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkCreateBuffer");
             return false;
         }
 
@@ -1655,6 +1706,7 @@ private:
                 nullptr,
                 &texture.image
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkCreateImage");
             return false;
         }
 
@@ -1680,6 +1732,7 @@ private:
                 nullptr,
                 &texture.memory
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkAllocateMemory");
             return false;
         }
         return vkBindImageMemory(
@@ -1985,6 +2038,7 @@ private:
                 nullptr,
                 &texture.view
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkCreateImageView");
             return false;
         }
 
@@ -2034,6 +2088,7 @@ private:
                 commandBuffer_,
                 &beginInfo
             ) != VK_SUCCESS) {
+            logError(label_ + " surface setup failed: vkBeginCommandBuffer");
             return false;
         }
         VkClearValue clearColor{};
@@ -2232,6 +2287,18 @@ void destroyOnePass(JNIEnv* env, OnePassHandle handle) {
         engine->releaseAssetManagerRef(env);
     }
     delete engine;
+}
+
+std::string drainDiagnostics() {
+    std::lock_guard<std::mutex> guard(diagnosticsMutex());
+    std::deque<std::string>& buffer = diagnosticsBuffer();
+    std::string joined;
+    for (const std::string& entry : buffer) {
+        joined += entry;
+        joined += '\n';
+    }
+    buffer.clear();
+    return joined;
 }
 
 }  // namespace atmo::vulkan

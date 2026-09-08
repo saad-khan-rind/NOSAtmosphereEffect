@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
@@ -28,7 +29,9 @@ import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreferences
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 import com.app.nosatmosphereeffect.ui.screens.AdvancedConfig
 import com.app.nosatmosphereeffect.ui.screens.AdvancedResult
 import com.app.nosatmosphereeffect.ui.screens.AdvancedSettingsScreen
@@ -59,6 +62,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val isFrosted = activeEffect.contains("FROSTED")
         val isGlass = activeEffect.contains("GLASS")
         val isAtmosphere = AtmosphereGlassPolicy.supportsEffect(activeEffect)
+        val isAtmosphereOriginal = AtmosphereClockPolicy.supportsEffect(activeEffect)
         val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass
         val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
         val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere
@@ -95,6 +99,15 @@ class AdvancedSettingsActivity : ComponentActivity() {
                 prefs.readBoolean(AtmosphereGlassPolicy.ENABLED_KEY, false)
             ),
             glassReverse = activeEffect == "GLASS_REVERSE",
+            showClockToggle = isAtmosphereOriginal,
+            clockEnabled = AtmosphereClockPolicy.resolveEnabled(
+                activeEffect,
+                prefs.readBoolean(AtmosphereClockPolicy.ENABLED_KEY, false)
+            ),
+            clockDepthEnabled = prefs.readBoolean(
+                AtmosphereClockPolicy.DEPTH_KEY,
+                AtmosphereClockPolicy.DEFAULT_DEPTH
+            ),
             showNoiseSwitch = showNoiseSwitch,
             showBlob = showBlob,
             isPlaylistMode = isPlaylistMode,
@@ -189,7 +202,8 @@ class AdvancedSettingsActivity : ComponentActivity() {
                             defaultPoll,
                             defaultDelay,
                             defaultDuration,
-                            updateAtmosphereGlass = isAtmosphere
+                            updateAtmosphereGlass = isAtmosphere,
+                            updateAtmosphereClock = isAtmosphereOriginal
                         )
                     },
                     onReset = { resetSettings(prefs) },
@@ -206,7 +220,8 @@ class AdvancedSettingsActivity : ComponentActivity() {
         defaultPoll: Long,
         defaultDelay: Long,
         defaultDuration: Long,
-        updateAtmosphereGlass: Boolean
+        updateAtmosphereGlass: Boolean,
+        updateAtmosphereClock: Boolean
     ) {
         val poll = result.poll.toLongOrNull() ?: defaultPoll
         val delay = result.delay.toLongOrNull() ?: defaultDelay
@@ -217,6 +232,11 @@ class AdvancedSettingsActivity : ComponentActivity() {
             rotationValues.getOrElse(result.rotationIndex) { rotationValues[0] }
 
         GraphicsBackendPreferences.write(this, result.rendererPreference)
+        // Asking for Vulkan (or Automatic) is an explicit request to try it
+        // again, so an old recorded failure should not silently veto it.
+        if (result.rendererPreference != GraphicsBackendPreference.OPENGL_ES) {
+            runCatching { VulkanSupport.clearRecordedFailures(this) }
+        }
         wpPrefs.edit { putLong("rotation_interval_minutes", selectedRotationValue) }
         WallpaperBehaviorPreferences.write(
             this,
@@ -247,6 +267,13 @@ class AdvancedSettingsActivity : ComponentActivity() {
                 putBoolean(
                     AtmosphereGlassPolicy.ENABLED_KEY,
                     result.atmosphereGlassEnabled
+                )
+            }
+            if (updateAtmosphereClock) {
+                putBoolean(AtmosphereClockPolicy.ENABLED_KEY, result.clockEnabled)
+                putBoolean(
+                    AtmosphereClockPolicy.DEPTH_KEY,
+                    result.clockDepthEnabled
                 )
             }
             putInt(
@@ -306,6 +333,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
             remove("neon_sensitivity")
             remove("neon_line_width")
             remove(AtmosphereGlassPolicy.ENABLED_KEY)
+            AtmosphereClockPolicy.ALL_KEYS.forEach { remove(it) }
             remove(GlassEffectPolicy.LINE_COUNT_KEY)
             remove(GlassEffectPolicy.LINE_THICKNESS_KEY)
             remove(GlassEffectPolicy.TRANSITION_STYLE_KEY)

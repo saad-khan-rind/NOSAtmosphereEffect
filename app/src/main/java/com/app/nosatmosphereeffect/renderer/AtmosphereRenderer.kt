@@ -9,8 +9,12 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.util.Log
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockStyle
+import com.app.nosatmosphereeffect.helper.ClockTextureProvider
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.io.File
@@ -66,6 +70,9 @@ class AtmosphereRenderer(
     @Volatile private var released = false
     @Volatile var onRenderRetryRequested: (() -> Unit)? = null
     @Volatile var onSubjectMaskUpdated: (() -> Unit)? = null
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
+    @Volatile private var pendingClockFormatRefresh: Boolean = false
     private var renderFailureLogged = false
     private var renderRetryCount = 0
     private var generationCounter = 0L
@@ -89,6 +96,12 @@ class AtmosphereRenderer(
         }
     @Volatile var dimLevel: Float = 0.2f
     @Volatile private var needsReload: Boolean = false
+    /**
+     * Texture generation the last subject-mask request was issued for. Guards
+     * against re-requesting for an image that has already been through
+     * segmentation, whether it produced a mask or not.
+     */
+    @Volatile private var maskRequestedGeneration: Long = NO_GENERATION
     @Volatile var enableNoise: Boolean = false
     @Volatile var noiseScale: Float = 2000.0f
     @Volatile var noiseStrength: Float = 0.06f
@@ -103,6 +116,63 @@ class AtmosphereRenderer(
     @Volatile var glassLineThickness: Float = GlassEffectPolicy.DEFAULT_LINE_THICKNESS
         set(value) {
             field = GlassEffectPolicy.sanitizeLineThickness(value)
+        }
+
+    // Clock overlay (Advanced Settings toggles + ClockAdjustActivity for
+    // position/size/style). Mirrored on the Vulkan backend by
+    // VulkanAtmosphereHost; keep the two in step.
+    @Volatile var clockEnabled: Boolean = false
+    /**
+     * The clock's own depth switch — whether the subject is drawn back over
+     * the clock. Separate from [glassBackgroundOnly] on purpose: the first
+     * version of this feature reused Glass's flag, which made the depth
+     * effect silently do nothing whenever the Glass effect was off.
+     */
+    @Volatile var clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH
+    /**
+     * Drives the uBackgroundOnly uniform. Previously this was read straight
+     * off subjectMasks.enabled, which is no longer equivalent now that the
+     * clock can request a mask on its own.
+     */
+    @Volatile var glassBackgroundOnly: Boolean = false
+    @Volatile var clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeCenterX(value)
+        }
+    @Volatile var clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeTop(value)
+        }
+    @Volatile var clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeHeight(value)
+        }
+    @Volatile var clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeOpacity(value)
+        }
+    private val clockTexture = ClockTextureProvider(context)
+
+    // Face settings live on the provider rather than here, because changing
+    // any of them changes the rendered bitmap rather than how the shader
+    // places it.
+    var clockStyle: ClockStyle
+        get() = clockTexture.style
+        set(value) { clockTexture.style = value }
+    var clockShowSeconds: Boolean
+        get() = clockTexture.showSeconds
+        set(value) { clockTexture.showSeconds = value }
+    var clockAnimate: Boolean
+        get() = clockTexture.animateDigits
+        set(value) { clockTexture.animateDigits = value }
+    var clockColor: Int
+        get() = clockTexture.color
+        set(value) { clockTexture.color = value }
+    var clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
+        set(value) {
+            field = AtmosphereClockPolicy.sanitizeHourFormat(value)
+            clockTexture.hourFormatOverride =
+                AtmosphereClockPolicy.hourFormatOverride(field)
         }
 
     private var programId: Int = 0
@@ -148,14 +218,45 @@ class AtmosphereRenderer(
         }
     }
 
-    fun configureGlassBackgroundOnly(enabled: Boolean) {
-        val changed = subjectMasks.configure(enabled)
-        if (
-            enabled &&
-            currentSet.isValid() &&
-            (changed || !currentSet.hasSubject)
-        ) {
-            needsReload = true
+    @Deprecated(
+        "Subject isolation is no longer Glass-only",
+        ReplaceWith("configureSubjectIsolation(enabled)")
+    )
+    fun configureGlassBackgroundOnly(enabled: Boolean) = configureSubjectIsolation(enabled)
+
+    /**
+     * Turns subject-mask computation on or off. Callers pass the union of
+     * everything that wants a mask (Glass background-only, clock depth) —
+     * see AtmosphereRenderState.needsSubjectMask.
+     */
+    fun configureSubjectIsolation(enabled: Boolean) {
+        try {
+            val changed = subjectMasks.configure(enabled)
+            // Reload once per image, not once per call.
+            //
+            // This used to also fire on `!currentSet.hasSubject`, which reads
+            // as "no mask yet, so try again". But the controller calls this
+            // from applyState, and applyState runs on every progress tick of
+            // the unlock animation — so until a mask arrived, every frame set
+            // needsReload, and every frame re-decoded and re-uploaded the
+            // wallpaper textures AND queued another segmentation pass (the
+            // coordinator does not coalesce). That is the staged, snapshot-like
+            // unlock stutter. On F-Droid, where extraction was failing
+            // outright, hasSubject never became true, so it never stopped.
+            if (
+                enabled &&
+                currentSet.isValid() &&
+                (changed || maskRequestedGeneration != currentSet.generation)
+            ) {
+                needsReload = true
+            }
+        } catch (failure: Exception) {
+            // Best-effort visual feature — never let a failure here take
+            // down the caller (this runs on the main thread via the
+            // preferences broadcast receiver, so an uncaught exception
+            // here would crash the whole app, not just this effect).
+            Log.w(TAG, "Could not configure background-only mode", failure)
+            SubjectMaskDiagnostics.recordFailure("Enabling background-only", failure)
         }
     }
 
@@ -191,6 +292,8 @@ class AtmosphereRenderer(
         }
         onRenderRetryRequested = null
         onSubjectMaskUpdated = null
+        onAnimationFrameRequested = null
+        clockTexture.release()
         subjectMasks.close()
         if (pending != null && !pending.isRecycled) {
             pending.recycle()
@@ -208,6 +311,7 @@ class AtmosphereRenderer(
 
         currentSet.reset()
         nextSet.reset()
+        clockTexture.resetForNewContext()
         subjectMasks.discardPending()
         tempTextureId = 0
         tempTextureWidth = 0
@@ -575,11 +679,15 @@ class AtmosphereRenderer(
         )
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uBackgroundOnly"),
-            if (subjectMasks.enabled) 1f else 0f
+            if (glassBackgroundOnly && subjectMasks.enabled) 1f else 0f
         )
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uHasSubject"),
-            if (subjectMasks.enabled && currentSet.hasSubject) 1f else 0f
+            if (glassBackgroundOnly && subjectMasks.enabled && currentSet.hasSubject) {
+                1f
+            } else {
+                0f
+            }
         )
 
         // Horizontal scroll window (identity 0f/1f = no scroll, draws as before).
@@ -599,6 +707,8 @@ class AtmosphereRenderer(
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 2)
 
+            drawClockOverlay()
+
             val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
             val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")
             drawQuad(aPosLoc, aTexLoc)
@@ -614,6 +724,98 @@ class AtmosphereRenderer(
             clearFrame()
             requestBoundedRetry()
         }
+    }
+
+    /**
+     * Composites the clock overlay uniforms for this frame.
+     *
+     * Every uniform is written on every frame, including the disabled case:
+     * the previous version only wrote uClockRect/uClockOpacity inside the
+     * enabled branch, so a frame where the texture was not ready left the
+     * previous frame's geometry behind in the program.
+     */
+    private fun drawClockOverlay() {
+        if (pendingClockFormatRefresh) {
+            pendingClockFormatRefresh = false
+            clockTexture.refreshClockFormatPreference()
+        }
+        val lockFade = AtmosphereClockPolicy.lockFade(blurStrength)
+        val ready = clockEnabled &&
+            lockFade > 0f &&
+            clockOpacity > 0f &&
+            clockTexture.ensureUpToDate(GLES30.GL_TEXTURE3) &&
+            clockTexture.textureId != 0
+
+        GLES30.glUniform1f(
+            GLES30.glGetUniformLocation(programId, "uClockEnabled"),
+            if (ready) 1f else 0f
+        )
+        if (!ready) {
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glUniform1f(
+                GLES30.glGetUniformLocation(programId, "uClockOpacity"),
+                0f
+            )
+            GLES30.glUniform1f(
+                GLES30.glGetUniformLocation(programId, "uClockDepth"),
+                0f
+            )
+            GLES30.glUniform4f(
+                GLES30.glGetUniformLocation(programId, "uClockRect"),
+                0f,
+                0f,
+                1f,
+                1f
+            )
+            return
+        }
+
+        // Height is expressed as a fraction of screen height; width follows
+        // from the face's own pixel aspect, divided by the screen aspect so
+        // the glyphs are not stretched.
+        val heightUv = clockHeight
+        val widthUv = heightUv * clockTexture.aspectRatio / aspectRatio
+        GLES30.glUniform4f(
+            GLES30.glGetUniformLocation(programId, "uClockRect"),
+            clockCenterX - widthUv / 2f,
+            clockTop,
+            widthUv,
+            heightUv
+        )
+        GLES30.glUniform1f(
+            GLES30.glGetUniformLocation(programId, "uClockOpacity"),
+            clockOpacity * lockFade
+        )
+        GLES30.glUniform1f(
+            GLES30.glGetUniformLocation(programId, "uClockDepth"),
+            if (clockDepthEnabled && subjectMasks.enabled && currentSet.hasSubject) {
+                1f
+            } else {
+                0f
+            }
+        )
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, clockTexture.textureId)
+        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uClockTexture"), 3)
+        // Leave the active unit where the rest of the frame expects it.
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+
+        // A static wallpaper draws once and stops. Without this the digit
+        // animation would stall part-way through and the displayed time
+        // would only advance when something unrelated forced a redraw.
+        if (clockTexture.isAnimating()) {
+            onAnimationFrameRequested?.invoke()
+        }
+    }
+
+    /**
+     * Re-reads the system 12/24-hour setting and forces the next frame to
+     * redraw the face. Called from AtmosphereService's time-tick receiver;
+     * safe to call from any thread (the work happens on the next draw).
+     */
+    fun onTimeChanged() {
+        pendingClockFormatRefresh = true
+        onAnimationFrameRequested?.invoke()
     }
 
     private fun createEmptyTexture(width: Int, height: Int, existingTextureId: Int = 0, existingWidth: Int = 0, existingHeight: Int = 0): Int {
@@ -780,6 +982,7 @@ class AtmosphereRenderer(
             currentSet.hasSubject = true
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to upload the Atmosphere subject mask", failure)
+            SubjectMaskDiagnostics.recordFailure("Uploading mask texture", failure)
             deleteMaskTexture(currentSet)
         } finally {
             if (!pending.bitmap.isRecycled) {
@@ -790,9 +993,22 @@ class AtmosphereRenderer(
 
     private fun requestSubjectMask(bitmap: Bitmap, generation: Long) {
         try {
-            subjectMasks.request(bitmap, generation)
+            // Only record the generation when the request was actually taken.
+            //
+            // The coordinator drops requests while isolation is disabled, and
+            // on the live wallpaper the first textures load BEFORE the
+            // preference-driven configure() arrives — so marking the
+            // generation served here unconditionally meant
+            // configureSubjectIsolation later saw "already requested" and
+            // never scheduled the reload that would issue the real request.
+            // The mask then never arrived, which is why depth worked in the
+            // in-app preview (different ordering) but not on the wallpaper.
+            if (subjectMasks.request(bitmap, generation)) {
+                maskRequestedGeneration = generation
+            }
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to request the Atmosphere subject mask", failure)
+            SubjectMaskDiagnostics.recordFailure("Requesting mask", failure)
         }
     }
 
@@ -950,5 +1166,6 @@ class AtmosphereRenderer(
     private companion object {
         const val TAG = "AtmosphereRenderer"
         const val MAX_RENDER_RETRIES = 3
+        const val NO_GENERATION = -1L
     }
 }

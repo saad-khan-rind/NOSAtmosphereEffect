@@ -20,6 +20,8 @@ class SubjectMaskExtractor(
     private val onResult: (requestId: Long, mask: Bitmap?) -> Unit
 ) : Closeable {
 
+    private val appContext = context.applicationContext
+
     private companion object {
         const val TAG = "SubjectMaskExtractor"
         const val MAX_INPUT_SIDE = 1024
@@ -45,8 +47,9 @@ class SubjectMaskExtractor(
         if (closed || bitmap.width <= 0 || bitmap.height <= 0) return
         val inputBitmap = try {
             makeInputBitmap(bitmap)
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
+            SubjectMaskDiagnostics.recordFailure("Preparing image (Play)", error)
             if (!closed) onResult(requestId, null)
             return
         }
@@ -56,6 +59,9 @@ class SubjectMaskExtractor(
                 when {
                     closed -> inputBitmap.recycle()
                     !availability.areModulesAvailable() -> {
+                        SubjectMaskDiagnostics.recordRejection(
+                            "Play services subject model isn't installed yet"
+                        )
                         inputBitmap.recycle()
                         onResult(requestId, null)
                     }
@@ -64,12 +70,18 @@ class SubjectMaskExtractor(
             }
             .addOnFailureListener { error ->
                 Log.w(TAG, "Could not check subject-segmentation module availability", error)
+                SubjectMaskDiagnostics.recordFailure("Checking module availability", error)
                 inputBitmap.recycle()
                 if (!closed) onResult(requestId, null)
             }
     }
 
     private fun processInput(inputBitmap: Bitmap, requestId: Long) {
+        if (!SegmentationCrashGuard.beginAttempt(appContext)) {
+            inputBitmap.recycle()
+            if (!closed) onResult(requestId, null)
+            return
+        }
         try {
             segmenter.process(InputImage.fromBitmap(inputBitmap, 0))
                 .addOnSuccessListener { result ->
@@ -79,7 +91,12 @@ class SubjectMaskExtractor(
                         try {
                             run maskComputation@ {
                                 val confidence = result.foregroundConfidenceMask
-                                    ?: return@maskComputation null
+                                    ?: run {
+                                        SubjectMaskDiagnostics.recordRejection(
+                                            "No confidence mask returned"
+                                        )
+                                        return@maskComputation null
+                                    }
                                 val count = inputBitmap.width * inputBitmap.height
                                 val values = FloatArray(count)
                                 val buffer = confidence.duplicate()
@@ -88,6 +105,9 @@ class SubjectMaskExtractor(
                                     Log.w(
                                         TAG,
                                         "Subject mask contained ${buffer.remaining()} values; expected $count"
+                                    )
+                                    SubjectMaskDiagnostics.recordRejection(
+                                        "Mask data was the wrong size"
                                     )
                                     return@maskComputation null
                                 }
@@ -127,6 +147,20 @@ class SubjectMaskExtractor(
                                     highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ||
                                     !hasUsefulBounds
                                 ) {
+                                    SubjectMaskDiagnostics.recordRejection(
+                                        when {
+                                            foregroundFraction > MAX_FOREGROUND_FRACTION ->
+                                                "Subject fills too much of the photo " +
+                                                    "(${(foregroundFraction * 100).roundToInt()}% " +
+                                                    "— try a photo with more visible " +
+                                                    "background)"
+                                            foregroundFraction < MIN_FOREGROUND_FRACTION ->
+                                                "No confident subject found in the photo"
+                                            highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ->
+                                                "Subject detected but confidence was too low"
+                                            else -> "Subject bounds were too small/thin to use"
+                                        }
+                                    )
                                     return@maskComputation null
                                 }
 
@@ -147,12 +181,16 @@ class SubjectMaskExtractor(
                                     Bitmap.Config.ARGB_8888
                                 )
                             }
-                        } catch (error: Exception) {
+                        } catch (error: Throwable) {
                             Log.w(TAG, "Could not create a subject mask", error)
+                            SubjectMaskDiagnostics.recordFailure("Building mask bitmap", error)
                             null
                         }
                     }
 
+                    if (mask != null) SubjectMaskDiagnostics.recordSuccess()
+
+                    SegmentationCrashGuard.endAttempt(appContext)
                     if (closed) {
                         mask?.recycle()
                     } else {
@@ -161,13 +199,17 @@ class SubjectMaskExtractor(
                 }
                 .addOnFailureListener { error ->
                     Log.w(TAG, "Subject segmentation failed", error)
+                    SubjectMaskDiagnostics.recordFailure("Segmentation", error)
+                    SegmentationCrashGuard.endAttempt(appContext)
                     if (!closed) onResult(requestId, null)
                 }
                 .addOnCompleteListener {
                     inputBitmap.recycle()
                 }
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             Log.w(TAG, "Could not start subject segmentation", error)
+            SubjectMaskDiagnostics.recordFailure("Starting segmentation", error)
+            SegmentationCrashGuard.endAttempt(appContext)
             inputBitmap.recycle()
             if (!closed) onResult(requestId, null)
         }

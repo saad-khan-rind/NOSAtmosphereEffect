@@ -7,8 +7,9 @@ layout(location = 0) out vec4 fragColor;
 layout(set = 0, binding = 0) uniform sampler2D sharpTexture;
 layout(set = 0, binding = 1) uniform sampler2D blurredTexture;
 layout(set = 0, binding = 2) uniform sampler2D subjectMask;
+layout(set = 0, binding = 3) uniform sampler2D clockTexture;
 
-layout(std140, set = 0, binding = 3) uniform AtmosphereParams {
+layout(std140, set = 0, binding = 4) uniform AtmosphereParams {
     vec4 render;
     vec4 noise;
     vec4 glass;
@@ -17,6 +18,12 @@ layout(std140, set = 0, binding = 3) uniform AtmosphereParams {
     ivec4 blobMeta;
     vec4 blobColors[16];
     vec4 blobPositionsAndSizes[16];
+    // x: centerX, y: top, z: heightFraction, w: textureAspect — all in the
+    // screen-locked vEffectCoord space.
+    vec4 clockRect;
+    // x: opacity, y: a face has been uploaded, z: depth enabled AND a
+    // subject mask exists, w: unused.
+    vec4 clockMeta;
 } params;
 
 const float TWO_PI = 6.28318530718;
@@ -196,5 +203,48 @@ void main() {
     float drawerBlur =
         params.misc.x > 0.5 ? clamp(params.misc.y, 0.0, 1.0) : 0.0;
     finalColor = mix(finalColor, frosted, drawerBlur);
+
+    // Clock overlay — mirrors the GLES path in
+    // assets/shaders/atmosphere/atmosphere.frag; keep the two in step.
+    //
+    // clockMeta.y is "a face has been uploaded", not the user's toggle. The
+    // engine fills unwritten optional bindings with an opaque-black 1x1
+    // clear texture, so sampling before the first upload would draw a solid
+    // black rectangle. The lock fade lives on the host side and arrives
+    // already folded into clockMeta.x, so this shader has no policy in it.
+    if (params.clockMeta.y > 0.5 && params.clockMeta.x > 0.0) {
+        float clockHeightUv = max(params.clockRect.z, 1e-5);
+        float clockWidthUv =
+            max(clockHeightUv * params.clockRect.w / aspectRatio, 1e-5);
+        vec2 clockOrigin = vec2(
+            params.clockRect.x - clockWidthUv * 0.5,
+            params.clockRect.y
+        );
+        vec2 clockUv =
+            (vEffectCoord - clockOrigin) / vec2(clockWidthUv, clockHeightUv);
+        if (
+            clockUv.x >= 0.0 && clockUv.x <= 1.0 &&
+            clockUv.y >= 0.0 && clockUv.y <= 1.0
+        ) {
+            vec4 clockSample = texture(clockTexture, clockUv);
+            finalColor = mix(
+                finalColor,
+                clockSample.rgb,
+                clockSample.a * params.clockMeta.x
+            );
+        }
+
+        if (params.clockMeta.z > 0.5) {
+            vec3 subjectSharp = texture(sharpTexture, vTexCoord).rgb;
+            float subjectCoverage =
+                smoothstep(0.30, 0.72, sampleSubject(vTexCoord));
+            finalColor = mix(
+                finalColor,
+                subjectSharp,
+                subjectCoverage * params.clockMeta.x
+            );
+        }
+    }
+
     fragColor = vec4(finalColor, 1.0);
 }

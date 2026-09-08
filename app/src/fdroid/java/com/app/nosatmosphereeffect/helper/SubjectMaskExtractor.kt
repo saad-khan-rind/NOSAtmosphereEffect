@@ -59,22 +59,39 @@ class SubjectMaskExtractor(
 
         val inputBitmap = try {
             makeInputBitmap(bitmap)
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
+            SubjectMaskDiagnostics.recordFailure("Preparing image (bundled)", error)
             if (!closed) onResult(requestId, null)
             return
         }
 
         try {
             worker.execute {
-                val mask = try {
-                    if (closed) null else inferMask(inputBitmap)
-                } catch (error: Exception) {
-                    Log.w(TAG, "Bundled subject segmentation failed", error)
-                    null
-                } finally {
+                val mask = if (!SegmentationCrashGuard.beginAttempt(appContext)) {
                     inputBitmap.recycle()
+                    null
+                } else {
+                    try {
+                        val result = if (closed) null else inferMask(inputBitmap)
+                        SegmentationCrashGuard.endAttempt(appContext)
+                        result
+                    } catch (error: Throwable) {
+                        // Throwable, not Exception: a large/malformed wallpaper
+                        // can push the bundled TFLite model into OutOfMemoryError
+                        // on lower-end devices, which is an Error, not an
+                        // Exception — this is a best-effort visual feature, so
+                        // degrade to "no mask" instead of crashing the app.
+                        Log.w(TAG, "Bundled subject segmentation failed", error)
+                        SubjectMaskDiagnostics.recordFailure("Inference (bundled)", error)
+                        SegmentationCrashGuard.endAttempt(appContext)
+                        null
+                    } finally {
+                        inputBitmap.recycle()
+                    }
                 }
+
+                if (mask != null) SubjectMaskDiagnostics.recordSuccess()
 
                 if (closed) {
                     mask?.recycle()
@@ -84,6 +101,7 @@ class SubjectMaskExtractor(
             }
         } catch (error: RejectedExecutionException) {
             Log.w(TAG, "Subject-segmentation request was rejected", error)
+            SubjectMaskDiagnostics.recordFailure("Scheduling (bundled)", error)
             inputBitmap.recycle()
             if (!closed) onResult(requestId, null)
         }

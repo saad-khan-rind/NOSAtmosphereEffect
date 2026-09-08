@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.view.Surface
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 
@@ -29,6 +30,17 @@ internal object VulkanAtmosphereNative {
 
     external fun nativeClearMask(handle: Long): Boolean
 
+    external fun nativeUploadClock(handle: Long, bitmap: Bitmap): Boolean
+
+    external fun nativeClearClock(handle: Long): Boolean
+
+    /**
+     * Drains every native error recorded since the last call. Not tied to a
+     * handle — the buffer is global, so it still returns the reason after the
+     * engine has been destroyed, which is when it is actually needed.
+     */
+    external fun nativeDrainDiagnostics(): String
+
     external fun nativeSetState(
         handle: Long,
         progress: Float,
@@ -46,6 +58,13 @@ internal object VulkanAtmosphereNative {
         backgroundOnly: Boolean,
         hasSubject: Boolean,
         drawerBlur: Float,
+        clockCenterX: Float,
+        clockTop: Float,
+        clockHeightFraction: Float,
+        clockTextureAspect: Float,
+        clockOpacity: Float,
+        clockUploaded: Boolean,
+        clockDepth: Boolean,
         blobColors: FloatArray,
         blobPositions: FloatArray,
         blobSizes: FloatArray,
@@ -119,6 +138,19 @@ internal class VulkanAtmosphereBridge(
             backgroundOnly = safe.glassBackgroundOnly,
             hasSubject = safe.hasSubject,
             drawerBlur = safe.drawerBlur,
+            clockCenterX = safe.clockCenterX,
+            clockTop = safe.clockTop,
+            clockHeightFraction = safe.clockHeight,
+            clockTextureAspect = safe.clockTextureAspect,
+            // The lock fade is applied here rather than in the shader so
+            // both backends share AtmosphereClockPolicy's single curve.
+            clockOpacity = if (safe.clockEnabled) {
+                safe.clockOpacity * AtmosphereClockPolicy.lockFade(safe.progress)
+            } else {
+                0f
+            },
+            clockUploaded = safe.clockEnabled && safe.clockFaceUploaded,
+            clockDepth = safe.clockEnabled && safe.clockDepthEnabled,
             blobColors = safe.blobs.colors,
             blobPositions = safe.blobs.positions,
             blobSizes = safe.blobs.sizes,
