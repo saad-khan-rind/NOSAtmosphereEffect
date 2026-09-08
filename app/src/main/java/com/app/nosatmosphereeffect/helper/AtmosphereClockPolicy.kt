@@ -58,7 +58,7 @@ object AtmosphereClockPolicy {
      * a slightly larger budget is what turns that into a display clock
      * rather than a tall caption.
      */
-    const val DEFAULT_HEIGHT = 0.24f
+    const val DEFAULT_HEIGHT = 0.20f
     const val DEFAULT_OPACITY = 1f
     const val DEFAULT_DEPTH = true
     const val DEFAULT_SECONDS = false
@@ -74,7 +74,7 @@ object AtmosphereClockPolicy {
     private const val MIN_TOP = 0.02f
     private const val MAX_TOP = 0.90f
     private const val MIN_HEIGHT = 0.03f
-    private const val MAX_HEIGHT = 0.65f
+    private const val MAX_HEIGHT = 0.55f
 
     /** All keys this feature owns, for the Advanced Settings reset path. */
     val ALL_KEYS: List<String> = listOf(

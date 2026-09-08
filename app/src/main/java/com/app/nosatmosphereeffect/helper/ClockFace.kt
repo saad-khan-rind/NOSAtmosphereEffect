@@ -60,7 +60,7 @@ enum class ClockStyle(
         letterSpacingEm = 0.06f,
         stacked = false,
         separatorAlpha = 0.55f,
-        verticalStretch = 1.62f
+        verticalStretch = 1.34f
     ),
     DISPLAY(
         id = "display",
@@ -71,7 +71,7 @@ enum class ClockStyle(
         letterSpacingEm = -0.02f,
         stacked = false,
         separatorAlpha = 0.8f,
-        verticalStretch = 1.38f
+        verticalStretch = 1.18f
     ),
     SERIF(
         id = "serif",
@@ -82,7 +82,7 @@ enum class ClockStyle(
         letterSpacingEm = 0.02f,
         stacked = false,
         separatorAlpha = 0.7f,
-        verticalStretch = 1.46f
+        verticalStretch = 1.22f
     ),
     MONO(
         id = "mono",
@@ -93,7 +93,7 @@ enum class ClockStyle(
         letterSpacingEm = 0.04f,
         stacked = false,
         separatorAlpha = 0.6f,
-        verticalStretch = 1.52f
+        verticalStretch = 1.26f
     ),
     STACKED(
         id = "stacked",
@@ -104,7 +104,7 @@ enum class ClockStyle(
         letterSpacingEm = 0f,
         stacked = true,
         separatorAlpha = 0f,
-        verticalStretch = 1.40f
+        verticalStretch = 1.20f
     );
 
     fun typeface(): Typeface {
