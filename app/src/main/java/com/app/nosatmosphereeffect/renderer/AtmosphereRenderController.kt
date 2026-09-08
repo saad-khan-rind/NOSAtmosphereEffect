@@ -8,7 +8,6 @@ import com.app.nosatmosphereeffect.helper.ClockFramePump
 import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockScreen
 import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
-import com.app.nosatmosphereeffect.helper.RendererDiagnosticsLog
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
@@ -434,18 +433,6 @@ class AtmosphereRenderController(
         reloadTexture()
         currentEngine.requestRender()
         Log.w(TAG, "Atmosphere switched to OpenGL ES after Vulkan failed: $reason")
-        // The Kotlin-side reason says which stage gave up; the native drain
-        // says why. Neither is much use without the other, so record them
-        // together.
-        val nativeDetail = runCatching {
-            VulkanAtmosphereNative.nativeDrainDiagnostics()
-        }.getOrDefault("")
-        RendererDiagnosticsLog.recordBlock(
-            appContext,
-            "vulkan-fallback",
-            "Atmosphere fell back to OpenGL ES: $reason",
-            nativeDetail
-        )
     }
 
     private fun swapBackend(

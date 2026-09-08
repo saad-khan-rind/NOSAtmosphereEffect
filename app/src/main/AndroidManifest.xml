@@ -68,7 +68,6 @@
         <activity android:name=".activity.PlaylistEditorActivity"/>
         <activity android:name=".activity.ThemePlaylistEditorActivity" />
         <activity android:name=".activity.PaletteDiagnosticsActivity" />
-        <activity android:name=".activity.DiagnosticsActivity" />
 
         <service
             android:name=".service.AtmosphereService"

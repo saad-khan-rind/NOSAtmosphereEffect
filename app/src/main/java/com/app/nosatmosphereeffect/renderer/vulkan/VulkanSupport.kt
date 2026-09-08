@@ -15,7 +15,7 @@ import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeSession
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatusRepository
 import com.app.nosatmosphereeffect.renderer.status.VulkanDeviceCapability
 import java.util.Locale
-import com.app.nosatmosphereeffect.helper.RendererDiagnosticsLog
+import com.app.nosatmosphereeffect.helper.SubjectIsolationBackendPolicy
 
 internal object VulkanSupport {
     private const val TAG = "VulkanSupport"
@@ -81,6 +81,22 @@ internal object VulkanSupport {
                 fallbackReason = null
             )
         }
+        // TEMPORARY: subject isolation (clock depth, Atmosphere Glass's
+        // background-only mode) works on GLES and does not on Vulkan, so route
+        // the whole effect to GLES while any of it is switched on rather than
+        // render those features wrong. Checked before the capability probe so
+        // it costs nothing when it applies. Remove with
+        // SubjectIsolationBackendPolicy once Vulkan's mask path works.
+        if (SubjectIsolationBackendPolicy.requiresOpenGl(context, effectId)) {
+            return VulkanBackendResolution(
+                preference = preference,
+                backend = GraphicsBackend.OPENGL_ES,
+                capability = VulkanDeviceCapability.UNKNOWN,
+                probedVersion = null,
+                fallbackReason =
+                    "Subject isolation is on, which currently needs OpenGL ES"
+            )
+        }
         val featureQuery = runCatching {
             context.packageManager.hasSystemFeature(
                 PackageManager.FEATURE_VULKAN_HARDWARE_VERSION,
@@ -121,23 +137,6 @@ internal object VulkanSupport {
                 else -> "This effect does not have a Vulkan renderer"
             }
         }
-        RendererDiagnosticsLog.record(
-            context,
-            "backend-select",
-            "$effectId -> $selectedBackend " +
-                "(preference=$preference, vulkan1.1=$hasVulkan11, " +
-                "probe=${probedVersion ?: "none"}, blocked=$blockedAfterFailure)" +
-                (if (fallbackReason != null) " reason=$fallbackReason" else "") +
-                // The stored reason is the ORIGINAL failure. Without it a
-                // blocked line only says "something went wrong once", which
-                // is exactly as useless as it sounds.
-                (if (blockedAfterFailure) {
-                    " recorded=" +
-                        (VulkanFailureStore.blockedReason(context, effectId) ?: "unknown")
-                } else {
-                    ""
-                })
-        )
         return VulkanBackendResolution(
             preference = preference,
             backend = selectedBackend,
@@ -208,27 +207,8 @@ internal object VulkanSupport {
         return selection
     }
 
-    /**
-     * Clears every recorded Vulkan failure so the next selection tries Vulkan
-     * again. Exposed through the diagnostics screen: without it, a single
-     * failure pins a device to OpenGL ES for every build sharing a
-     * versionCode, which made the fallback impossible to re-test.
-     */
-    fun clearRecordedFailures(context: Context) {
-        VulkanFailureStore.clearAll(context)
-        RendererDiagnosticsLog.record(
-            context,
-            "vulkan-blocklist",
-            "Recorded failures cleared by the user; Vulkan will be retried"
-        )
-    }
 
     fun recordFailure(context: Context, effectId: String, reason: String) {
-        RendererDiagnosticsLog.record(
-            context,
-            "vulkan-blocklist",
-            "$effectId blocked for this build: $reason"
-        )
         VulkanFailureStore.record(context, effectId, reason)
     }
 

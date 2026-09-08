@@ -48,6 +48,25 @@ internal class VulkanAtmosphereHost(
      */
     @Volatile private var pendingClockEntry = false
 
+    /**
+     * Whether a real subject mask is bound to the mask binding right now.
+     *
+     * Deliberately a field on the host and NOT a value carried through
+     * AtmosphereRenderState. `hasSubject` describes a GPU resource, not a
+     * user setting, and every attempt to carry it in the state object has
+     * lost it: the state is rebuilt from the controller's snapshot on every
+     * progress tick of the unlock animation, on every preference change and
+     * on every colour re-derivation, each of which has to remember to carry
+     * the flag forward. Segmentation finishes somewhere inside that traffic,
+     * so one missed carry-forward permanently reverts the flag — the mask has
+     * already been consumed by takePending() and the coordinator will not
+     * re-dispatch for a generation it has served.
+     *
+     * The uniform value is now derived from this field at the point of use,
+     * so there is exactly one writer and no carry-forward to get wrong.
+     */
+    @Volatile private var subjectMaskUploaded = false
+
     init {
         subjectMasks.configure(initialState.sanitized().needsSubjectMask())
         applyClockConfiguration(initialState.sanitized())
@@ -80,11 +99,39 @@ internal class VulkanAtmosphereHost(
         val isolationEnabled = safe.needsSubjectMask()
         val isolationChanged = subjectMasks.configure(isolationEnabled)
         applyClockConfiguration(safe)
-        updateEffectState {
+        // Carried-over dynamic fields MUST be read from this lambda's own
+        // argument, not from the `current` snapshot above.
+        //
+        // hasSubject, clockTextureAspect and clockFaceUploaded are all
+        // written by prepareFrameOnWorker on the render worker, while this
+        // runs on whichever thread called applyState — and applyState runs on
+        // every progress tick of the lock/unlock animation. Reading a
+        // snapshot taken before the update meant a mask that finished
+        // extracting inside that window was silently overwritten with false.
+        //
+        // That loss was permanent, which is why it read as "background-only
+        // and clock depth never work" rather than as a flicker:
+        // takePending() had already consumed the mask, and the coordinator
+        // will not re-dispatch for a generation it has already served, so
+        // nothing set hasSubject again until the image itself changed.
+        // Segmentation takes a few hundred milliseconds and the unlock
+        // animation is running for exactly that long, so the window is hit
+        // most times rather than rarely.
+        //
+        // VulkanGlassHost and VulkanHalftoneHost already do this correctly;
+        // this host was the odd one out.
+        if (!isolationEnabled) subjectMaskUploaded = false
+        updateEffectState { previous ->
             safe.copy(
-                hasSubject = if (isolationEnabled) current.hasSubject else false,
-                clockTextureAspect = current.clockTextureAspect,
-                clockFaceUploaded = current.clockFaceUploaded && safe.clockEnabled,
+                // Read from the host's own fields, never carried forward from
+                // the previous state — see subjectMaskUploaded.
+                hasSubject = isolationEnabled && subjectMaskUploaded,
+                clockTextureAspect = if (clockTexture.hasUploadedFace) {
+                    clockTexture.aspectRatio
+                } else {
+                    previous.clockTextureAspect
+                },
+                clockFaceUploaded = clockTexture.hasUploadedFace && safe.clockEnabled,
                 blobs = blobPlanner.frame(safe.progress)
             )
         }
@@ -98,6 +145,7 @@ internal class VulkanAtmosphereHost(
         bitmap: Bitmap,
         textureGeneration: Long
     ): Boolean {
+        subjectMaskUploaded = false
         updateEffectState {
             it.copy(
                 hasSubject = false,
@@ -130,11 +178,12 @@ internal class VulkanAtmosphereHost(
         }
 
         if (subjectMasks.enabled) {
-            runCatching {
+            val dispatched = runCatching {
                 subjectMasks.request(bitmap, textureGeneration)
             }.onFailure { failure ->
                 Log.w(TAG, "Unable to request a Vulkan Atmosphere subject mask", failure)
-            }
+            }.getOrDefault(false)
+        } else {
         }
         return true
     }
@@ -155,11 +204,18 @@ internal class VulkanAtmosphereHost(
         val pending = subjectMasks.takePending()
         if (pending != null) {
             try {
-                if (pending.generation == textureGeneration && subjectMasks.enabled) {
+                // A mask extracted for an older generation is dropped: a newer
+                // wallpaper landed while this was in flight, and the request
+                // for that one was already dispatched.
+                if (
+                    pending.generation == textureGeneration &&
+                    subjectMasks.enabled
+                ) {
                     val uploaded = VulkanAtmosphereNative.nativeUploadMask(
                         handle,
                         pending.bitmap
                     )
+                    subjectMaskUploaded = uploaded
                     updateEffectState { it.copy(hasSubject = uploaded) }
                     if (!uploaded) {
                         // Deliberately NOT fatal. Returning false here takes
@@ -238,6 +294,7 @@ internal class VulkanAtmosphereHost(
     }
 
     override fun onSurfaceResetOnWorker() {
+        subjectMaskUploaded = false
         subjectMasks.discardPending()
         clockTexture.reset()
         updateEffectState {
@@ -264,11 +321,4 @@ internal class VulkanAtmosphereHost(
         requestRender()
     }
 
-    private fun Bitmap.recycleSafely() {
-        if (!isRecycled) recycle()
-    }
-
-    private companion object {
-        const val TAG = "VulkanAtmosphereHost"
-    }
 }
