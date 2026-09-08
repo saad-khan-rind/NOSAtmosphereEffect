@@ -201,6 +201,61 @@ object WallpaperFitHelper {
                 )
             }
         }
+        if (surfaceW > 0 && surfaceH > 0) {
+            // A posture change (fold / unfold) usually finds the image for the
+            // new surface size already prepared, which turns the re-fit into a
+            // plain texture upload instead of a decode the compositor has to
+            // paper over by stretching the previous frame.
+            val prepared = WallpaperPostureCache.take(renderKey(context, surfaceW, surfaceH))
+            if (prepared != null) return prepared
+        }
+        return buildRenderImage(context, surfaceW, surfaceH)
+    }
+
+    /**
+     * Prepares — off the render thread — the image [loadForRender] would build
+     * for [surfaceW] x [surfaceH], and parks it for the next call that asks for
+     * exactly that. Used to get the other fold posture ready before the device
+     * is actually folded into it. A no-op when it is already prepared.
+     *
+     * Runs on a background thread by contract: it decodes and rasterizes.
+     */
+    fun prewarm(context: Context, surfaceW: Int, surfaceH: Int) {
+        if (surfaceW <= 0 || surfaceH <= 0) return
+        val key = renderKey(context, surfaceW, surfaceH)
+        if (WallpaperPostureCache.holds(key)) return
+        WallpaperPostureCache.store(key, buildRenderImage(context, surfaceW, surfaceH))
+    }
+
+    /**
+     * Identifies the image [loadForRender] would produce: the surface size, the
+     * display settings that shape the fit, and a stamp of the wallpaper files
+     * themselves so a changed wallpaper never matches a prepared one.
+     */
+    internal fun renderKey(context: Context, surfaceW: Int, surfaceH: Int): WallpaperPostureCache.Key =
+        WallpaperPostureCache.Key(
+            width = surfaceW,
+            height = surfaceH,
+            mode = getActiveFitMode(context),
+            fill = getActiveFillMode(context),
+            scroll = isScrollEnabled(context),
+            stamp = wallpaperStamp(context)
+        )
+
+    private fun wallpaperStamp(context: Context): String {
+        val filesDir = context.filesDir
+        return fileStamp(File(filesDir, ACTIVE_WALLPAPER_FILE)) +
+            "|" + fileStamp(File(filesDir, ACTIVE_SOURCE_FILE))
+    }
+
+    private fun fileStamp(file: File): String =
+        if (file.isFile) "${file.lastModified()}:${file.length()}" else "-"
+
+    private fun buildRenderImage(
+        context: Context,
+        surfaceW: Int,
+        surfaceH: Int
+    ): RenderImage {
         if (!isScrollEnabled(context) || surfaceW <= 0 || surfaceH <= 0) {
             return RenderImage(loadDisplayBitmap(context, surfaceW, surfaceH), 1.0f)
         }

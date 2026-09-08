@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.helper
 
 import android.app.WallpaperColors
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
@@ -10,6 +11,7 @@ import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
 import java.io.File
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -25,6 +27,19 @@ interface WallpaperScrollRenderer {
 
 abstract class GLWallpaperService : WallpaperService() {
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        // The prepared posture image is a convenience, never a requirement.
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            WallpaperPostureCache.clear()
+        }
+    }
+
+    override fun onDestroy() {
+        WallpaperPostureCache.clear()
+        super.onDestroy()
+    }
+
     private data class WallpaperColorSource(
         val lastModified: Long,
         val length: Long
@@ -38,6 +53,12 @@ abstract class GLWallpaperService : WallpaperService() {
             dispatchToHost("pausing the render surface") { it.onPause() }
         }
         private val systemColorHandler = Handler(Looper.getMainLooper())
+        private val postureHandler = Handler(Looper.getMainLooper())
+        private var settledSurfaceSize: SurfaceSize? = null
+        private val posturePrewarmRunnable = Runnable {
+            val current = settledSurfaceSize ?: return@Runnable
+            posturePrewarmExecutor.execute { prewarmAlternatePosture(current) }
+        }
         private val systemColorExecutor = Executors.newSingleThreadExecutor()
         private var cachedSystemColors: WallpaperColors? = null
         private var cachedColorSource: WallpaperColorSource? = null
@@ -355,6 +376,7 @@ abstract class GLWallpaperService : WallpaperService() {
             colorRequestVersion++
             pauseHandler.removeCallbacks(pauseRunnable)
             systemColorHandler.removeCallbacks(publishSystemColors)
+            postureHandler.removeCallbacks(posturePrewarmRunnable)
             systemColorExecutor.shutdownNow()
             val host = renderHost
             dispatchToHost("pausing the destroyed render surface") { it.onPause() }
@@ -378,6 +400,50 @@ abstract class GLWallpaperService : WallpaperService() {
             surfaceHeight = height
             dispatchToHost("handling a render surface change") {
                 it.onSurfaceChanged(holder, format, width, height)
+            }
+            schedulePosturePrewarm(width, height)
+        }
+
+        /**
+         * Foldables resize the wallpaper surface when the device is folded or
+         * unfolded. Until the renderer submits a frame at the new size the
+         * compositor keeps scaling the previous one, which is the squeeze users
+         * report, and the renderer cannot submit that frame until it has
+         * re-fitted the image — a decode plus a full-surface rasterization on
+         * the render thread, with the engine thread blocked behind it.
+         *
+         * So once a size has settled, prepare the other one in the background.
+         * The next posture change then only has to upload a texture and the
+         * correct frame lands immediately. Nothing here is load-bearing: a
+         * failure just means the old, slower path runs.
+         */
+        private fun schedulePosturePrewarm(width: Int, height: Int) {
+            postureHandler.removeCallbacks(posturePrewarmRunnable)
+            if (width <= 0 || height <= 0) return
+            // Previews live in an activity at arbitrary sizes; they would only
+            // pollute the record of what the device actually renders at.
+            if (isPreview) return
+            settledSurfaceSize = SurfaceSize(width, height)
+            // Some devices deliver intermediate sizes while the fold animation
+            // runs. Waiting for the size to hold still keeps those out of the
+            // record and keeps the decode off the tail of the animation.
+            postureHandler.postDelayed(posturePrewarmRunnable, POSTURE_SETTLE_MS)
+        }
+
+        private fun prewarmAlternatePosture(current: SurfaceSize) {
+            // The engine can be torn down between the post and this running;
+            // preparing an image nothing will ask for only wastes memory.
+            if (engineDestroyed) return
+            val context = this@GLWallpaperService.applicationContext
+            try {
+                val other = FoldPostureSizes.record(context, current) ?: return
+                WallpaperFitHelper.prewarm(context, other.width, other.height)
+            } catch (failure: RuntimeException) {
+                Log.w(TAG, "Could not prepare the alternate posture image", failure)
+                WallpaperPostureCache.clear()
+            } catch (failure: OutOfMemoryError) {
+                Log.w(TAG, "Not enough memory to prepare the alternate posture image", failure)
+                WallpaperPostureCache.clear()
             }
         }
 
@@ -524,5 +590,15 @@ abstract class GLWallpaperService : WallpaperService() {
 
     private companion object {
         const val TAG = "GLWallpaperService"
+
+        /** How long a surface size has to hold still before it counts as a posture. */
+        const val POSTURE_SETTLE_MS = 700L
+
+        /**
+         * Shared by every engine in the process (live wallpaper and the system
+         * preview can both be alive at once) so posture preparation is serial
+         * and never competes with itself for memory.
+         */
+        val posturePrewarmExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     }
 }
