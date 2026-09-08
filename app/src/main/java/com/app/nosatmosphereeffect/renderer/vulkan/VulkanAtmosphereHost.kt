@@ -178,12 +178,11 @@ internal class VulkanAtmosphereHost(
         }
 
         if (subjectMasks.enabled) {
-            val dispatched = runCatching {
+            runCatching {
                 subjectMasks.request(bitmap, textureGeneration)
             }.onFailure { failure ->
                 Log.w(TAG, "Unable to request a Vulkan Atmosphere subject mask", failure)
-            }.getOrDefault(false)
-        } else {
+            }
         }
         return true
     }
@@ -321,4 +320,11 @@ internal class VulkanAtmosphereHost(
         requestRender()
     }
 
+    private fun Bitmap.recycleSafely() {
+        if (!isRecycled) recycle()
+    }
+
+    private companion object {
+        const val TAG = "VulkanAtmosphereHost"
+    }
 }
