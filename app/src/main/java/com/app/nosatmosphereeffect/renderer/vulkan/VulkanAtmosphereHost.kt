@@ -80,11 +80,32 @@ internal class VulkanAtmosphereHost(
         val isolationEnabled = safe.needsSubjectMask()
         val isolationChanged = subjectMasks.configure(isolationEnabled)
         applyClockConfiguration(safe)
-        updateEffectState {
+        // Carried-over dynamic fields MUST be read from this lambda's own
+        // argument, not from the `current` snapshot above.
+        //
+        // hasSubject, clockTextureAspect and clockFaceUploaded are all
+        // written by prepareFrameOnWorker on the render worker, while this
+        // runs on whichever thread called applyState — and applyState runs on
+        // every progress tick of the lock/unlock animation. Reading a
+        // snapshot taken before the update meant a mask that finished
+        // extracting inside that window was silently overwritten with false.
+        //
+        // That loss was permanent, which is why it read as "background-only
+        // and clock depth never work" rather than as a flicker:
+        // takePending() had already consumed the mask, and the coordinator
+        // will not re-dispatch for a generation it has already served, so
+        // nothing set hasSubject again until the image itself changed.
+        // Segmentation takes a few hundred milliseconds and the unlock
+        // animation is running for exactly that long, so the window is hit
+        // most times rather than rarely.
+        //
+        // VulkanGlassHost and VulkanHalftoneHost already do this correctly;
+        // this host was the odd one out.
+        updateEffectState { previous ->
             safe.copy(
-                hasSubject = if (isolationEnabled) current.hasSubject else false,
-                clockTextureAspect = current.clockTextureAspect,
-                clockFaceUploaded = current.clockFaceUploaded && safe.clockEnabled,
+                hasSubject = isolationEnabled && previous.hasSubject,
+                clockTextureAspect = previous.clockTextureAspect,
+                clockFaceUploaded = previous.clockFaceUploaded && safe.clockEnabled,
                 blobs = blobPlanner.frame(safe.progress)
             )
         }

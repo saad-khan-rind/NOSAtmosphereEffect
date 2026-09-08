@@ -43,7 +43,7 @@ one pipeline must agree on its type.
 **Before rebuilding:** `git clean -fdx app/src/main/assets/shaders/vulkan`.
 That directory is gitignored and still holds the stale `.spv`.
 
-## 2. Vertically big faces
+## 2. Vertically big faces (revised in pass 10 — see CLOCK_PASS10.md)
 
 `ClockStyle.verticalStretch`, applied as a canvas Y-scale about the baseline:
 Modern 1.34, Mono 1.26, Serif 1.22, Stacked 1.20, Display 1.18. The heavy
