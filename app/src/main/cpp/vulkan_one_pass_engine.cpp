@@ -1499,6 +1499,20 @@ private:
         );
         vkDestroyShaderModule(device_, vertexModule, nullptr);
         vkDestroyShaderModule(device_, fragmentModule, nullptr);
+        if (result != VK_SUCCESS) {
+            // The last unlabelled bail-out in the setSurface chain, and the
+            // one that actually fired: a stage declaring a descriptor with a
+            // type the set layout disagrees about (an attempt at a uniform
+            // block over a sampler binding, say) is rejected here rather than
+            // at module creation, so it looked like a swapchain failure with
+            // no native detail behind it. VkResult is logged numerically
+            // because the driver's own reason rarely reaches us.
+            logError(
+                label_ +
+                " surface setup failed: vkCreateGraphicsPipelines (VkResult " +
+                std::to_string(static_cast<int32_t>(result)) + ")"
+            );
+        }
         return result == VK_SUCCESS;
     }
 

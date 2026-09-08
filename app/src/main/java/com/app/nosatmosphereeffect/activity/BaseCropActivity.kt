@@ -216,7 +216,7 @@ abstract class BaseCropActivity : ComponentActivity() {
 
         ioExecutor.execute {
             try {
-                val bitmap = BitmapDecoder.decodeUri(this, uri)
+                val bitmap = BitmapDecoder.decodeUriFullSize(this, uri)
                 runOnUiThread {
                     if (isDestroyed || isFinishing) {
                         bitmap.recycle()
@@ -375,7 +375,12 @@ abstract class BaseCropActivity : ComponentActivity() {
         var failure: Exception? = null
         try {
             BitmapStore.writeJpegAtomically(bitmap, stagedWallpaper, quality = 100)
-            BitmapStore.writeJpegAtomically(source, stagedSource, quality = 95)
+            // The source is what FIT, ROTATE and scroll modes actually
+            // render from, so it is not an archive copy — it is on the
+            // display path and a quality-95 re-encode was visible in flat
+            // gradients (sky, skin) once the effect blurred and re-sharpened
+            // around it.
+            BitmapStore.writeJpegAtomically(source, stagedSource, quality = 100)
             return FileTransactions.beginReplacingFiles(
                 listOf(
                     stagedWallpaper to File(

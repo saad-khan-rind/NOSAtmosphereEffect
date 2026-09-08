@@ -2,6 +2,8 @@ package com.app.nosatmosphereeffect.renderer
 
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.helper.ClockScreen
+import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 
@@ -84,6 +86,16 @@ data class AtmosphereRenderState(
     val clockColor: Int = ClockPalette.DEFAULT_FALLBACK,
     /** "system", "12" or "24" — see AtmosphereClockPolicy.hourFormatOverride. */
     val clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT,
+    /** "lock", "home" or "both" — already resolved against the effect. */
+    val clockScreenId: String = ClockScreen.DEFAULT.id,
+    /**
+     * The effect's own shader progress at each end of the transition, copied
+     * from the wallpaper service. Effects disagree about which end is the
+     * lock screen (Atmosphere locks at 0, Reverse Atmosphere at 1), so the
+     * clock cannot read [progress] directly — see ClockScreenPolicy.
+     */
+    val clockLockedProgress: Float = 0f,
+    val clockUnlockedProgress: Float = 1f,
     // Vulkan-only, dynamic (like hasSubject/blobs below): the clock
     // bitmap's width/height ratio, refreshed whenever a fresh face is
     // rendered, so the shader can size the clock quad without a native
@@ -119,6 +131,9 @@ data class AtmosphereRenderState(
             clockOpacity = AtmosphereClockPolicy.sanitizeOpacity(clockOpacity),
             clockColor = clockColor or (0xFF shl 24),
             clockHourFormat = AtmosphereClockPolicy.sanitizeHourFormat(clockHourFormat),
+            clockScreenId = ClockScreenPolicy.sanitizeScreenId(clockScreenId),
+            clockLockedProgress = clockLockedProgress.finiteOr(0f),
+            clockUnlockedProgress = clockUnlockedProgress.finiteOr(1f),
             clockTextureAspect = clockTextureAspect.finiteOr(1f).coerceIn(0.05f, 20f),
             blobs = blobs.sanitized()
         )
@@ -137,6 +152,24 @@ data class AtmosphereRenderState(
 
     val clockStyle: ClockStyle
         get() = ClockStyle.fromId(clockStyleId)
+
+    val clockScreen: ClockScreen
+        get() = ClockScreen.fromId(clockScreenId)
+
+    /**
+     * How strongly the clock should be drawn right now, 0..1, with the
+     * user's opacity already folded in. Both backends read this rather than
+     * computing their own curve, which is what keeps them agreeing.
+     */
+    fun effectiveClockOpacity(): Float {
+        if (!clockEnabled) return 0f
+        return clockOpacity * ClockScreenPolicy.visibility(
+            screen = clockScreen,
+            progress = progress,
+            lockedProgress = clockLockedProgress,
+            unlockedProgress = clockUnlockedProgress
+        )
+    }
 
     private fun Float.finiteOr(fallback: Float): Float {
         return if (isFinite()) this else fallback

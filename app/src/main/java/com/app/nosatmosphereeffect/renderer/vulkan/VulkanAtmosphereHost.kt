@@ -40,6 +40,14 @@ internal class VulkanAtmosphereHost(
     }
     private val clockTexture = VulkanClockTextureUploader(appContext)
 
+    /**
+     * Set on the main thread when the engine becomes visible, consumed on the
+     * worker. Same reason as the GLES path: ClockFaceRenderer is confined to
+     * the thread that draws it, and onVisibilityChanged does not arrive on
+     * that thread.
+     */
+    @Volatile private var pendingClockEntry = false
+
     init {
         subjectMasks.configure(initialState.sanitized().needsSubjectMask())
         applyClockConfiguration(initialState.sanitized())
@@ -55,6 +63,7 @@ internal class VulkanAtmosphereHost(
         clockTexture.style = state.clockStyle
         clockTexture.showSeconds = state.clockShowSeconds
         clockTexture.animateDigits = state.clockAnimate
+        clockTexture.animateEntry = state.clockAnimate
         clockTexture.color = state.clockColor
         clockTexture.hourFormatOverride =
             AtmosphereClockPolicy.hourFormatOverride(state.clockHourFormat)
@@ -130,6 +139,15 @@ internal class VulkanAtmosphereHost(
         return true
     }
 
+    /**
+     * Plays the clock's entry animation on the next prepared frame. Called
+     * when the wallpaper engine becomes visible.
+     */
+    fun beginClockEntry() {
+        pendingClockEntry = true
+        requestRender()
+    }
+
     override fun prepareFrameOnWorker(
         handle: Long,
         textureGeneration: Long
@@ -180,6 +198,12 @@ internal class VulkanAtmosphereHost(
      * to a decorative overlay failing to upload.
      */
     private fun uploadClockFrame(handle: Long) {
+        // Held until the clock would actually be on screen — see the same
+        // guard in AtmosphereRenderer.drawClockOverlay.
+        if (pendingClockEntry && currentEffectState().effectiveClockOpacity() > 0f) {
+            pendingClockEntry = false
+            clockTexture.beginEntry()
+        }
         val bitmap = try {
             clockTexture.renderIfChanged()
         } catch (failure: RuntimeException) {

@@ -47,6 +47,10 @@ internal class VulkanClockTextureUploader(context: Context) {
         get() = face.animateDigits
         set(value) { face.animateDigits = value }
 
+    var animateEntry: Boolean
+        get() = face.animateEntry
+        set(value) { face.animateEntry = value }
+
     var color: Int
         get() = face.color
         set(value) { face.color = value }
@@ -57,19 +61,32 @@ internal class VulkanClockTextureUploader(context: Context) {
 
     fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
 
+    /** Starts the entry animation; see ClockFaceRenderer.beginEntry. */
+    fun beginEntry() {
+        face.beginEntry(SystemClock.uptimeMillis())
+    }
+
     /**
      * Returns a bitmap only when there is something new to upload — null
      * otherwise, so the caller can skip the upload. The bitmap is owned and
      * reused by the face renderer: the caller must NOT recycle it.
      */
     fun renderIfChanged(): Bitmap? {
+        val uptime = SystemClock.uptimeMillis()
         return face.render(
             nowMillis = System.currentTimeMillis(),
-            uptimeMs = SystemClock.uptimeMillis(),
+            uptimeMs = uptime,
             // Vulkan reallocates the sampled image on every upload, so
             // animation frames are throttled harder than on GLES, where the
-            // same call is a texSubImage2D into existing storage.
-            minimumIntervalMs = ANIMATION_MIN_INTERVAL_MS
+            // same call is a texSubImage2D into existing storage. The entry
+            // animation gets a shorter interval anyway: it plays once when
+            // the wallpaper appears, and 20fps is visibly choppy for the one
+            // animation the user is actually watching.
+            minimumIntervalMs = if (face.isEntering(uptime)) {
+                ENTRY_MIN_INTERVAL_MS
+            } else {
+                ANIMATION_MIN_INTERVAL_MS
+            }
         )
     }
 
@@ -99,5 +116,7 @@ internal class VulkanClockTextureUploader(context: Context) {
     private companion object {
         /** ~20fps ceiling on animation re-uploads. */
         const val ANIMATION_MIN_INTERVAL_MS = 50L
+        /** ~40fps while the entry animation is playing. */
+        const val ENTRY_MIN_INTERVAL_MS = 24L
     }
 }

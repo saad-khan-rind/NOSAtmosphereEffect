@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
@@ -113,7 +114,17 @@ class AtmosphereService :
             clockHourFormat = preferences.readString(
                 AtmosphereClockPolicy.HOUR_FORMAT_KEY,
                 AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
-            )
+            ),
+            // Original Atmosphere is only sharp while locked, so
+            // ClockScreenPolicy will collapse whatever is stored onto LOCK.
+            // Passed anyway so the effects that do offer the choice need no
+            // change here beyond the preference read.
+            clockScreenId = preferences.readString(
+                AtmosphereClockPolicy.SCREEN_KEY,
+                ClockScreenPolicy.defaultScreen(effectId).id
+            ),
+            clockLockedProgress = lockedProgress,
+            clockUnlockedProgress = unlockedProgress
         )
     }
 

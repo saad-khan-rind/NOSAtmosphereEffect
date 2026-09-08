@@ -47,6 +47,10 @@ class ClockTextureProvider(context: Context) {
         get() = face.animateDigits
         set(value) { face.animateDigits = value }
 
+    var animateEntry: Boolean
+        get() = face.animateEntry
+        set(value) { face.animateEntry = value }
+
     var color: Int
         get() = face.color
         set(value) { face.color = value }
@@ -61,6 +65,14 @@ class ClockTextureProvider(context: Context) {
      * when something else happened to trigger a draw.
      */
     fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
+
+    /**
+     * Starts the entry animation. Called when the wallpaper engine becomes
+     * visible, so the clock arrives rather than being already there.
+     */
+    fun beginEntry() {
+        face.beginEntry(SystemClock.uptimeMillis())
+    }
 
     /** True when a redraw is due, animation or not. */
     fun needsRender(): Boolean =
@@ -89,7 +101,15 @@ class ClockTextureProvider(context: Context) {
             face.render(
                 nowMillis = System.currentTimeMillis(),
                 uptimeMs = uptime,
-                minimumIntervalMs = ANIMATION_MIN_INTERVAL_MS
+                // The entry animation is a one-off worth spending frames on;
+                // the digit transition happens every minute and is throttled
+                // harder. Uploads here are texSubImage2D into existing
+                // storage, so the difference is cheap.
+                minimumIntervalMs = if (face.isEntering(uptime)) {
+                    ENTRY_MIN_INTERVAL_MS
+                } else {
+                    ANIMATION_MIN_INTERVAL_MS
+                }
             )
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to render the Atmosphere clock face", failure)
@@ -222,5 +242,7 @@ class ClockTextureProvider(context: Context) {
         const val TAG = "ClockTextureProvider"
         /** ~30fps ceiling on animation re-uploads. */
         const val ANIMATION_MIN_INTERVAL_MS = 32L
+        /** ~60fps while the entry animation is playing. */
+        const val ENTRY_MIN_INTERVAL_MS = 16L
     }
 }

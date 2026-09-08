@@ -187,6 +187,10 @@ class EffectPreviewService(
             renderer.clockAnimate = animate
             renderer.clockColor = color
             renderer.clockHourFormat = hourFormat
+            // Replay the entry animation on every face change so the adjust
+            // screen shows what the wallpaper will actually do rather than
+            // just the settled result.
+            renderer.beginClockEntry()
         }
     }
 
@@ -584,6 +588,9 @@ class EffectPreviewService(
                 renderer.clockTop = value.clockTop
                 renderer.clockHeight = value.clockHeight
                 renderer.clockOpacity = value.clockOpacity
+                renderer.clockScreen = value.clockScreen
+                renderer.clockLockedProgress = value.clockLockedProgress
+                renderer.clockUnlockedProgress = value.clockUnlockedProgress
             }
             renderer is BlurToSharpRenderer &&
                 state is EffectPreviewRenderState.Atmosphere -> {

@@ -41,10 +41,24 @@ object AtmosphereClockPolicy {
     const val COLOR_KEY = "atmosphere_clock_color"
     /** "system" (default), "12" or "24". */
     const val HOUR_FORMAT_KEY = "atmosphere_clock_hour_format"
+    /**
+     * "lock", "home" or "both" — see [ClockScreen]. Only meaningful for
+     * effects that leave the wallpaper sharp on both sides of the
+     * transition; everywhere else [ClockScreenPolicy.resolveScreen]
+     * collapses it onto the one side that works.
+     */
+    const val SCREEN_KEY = "atmosphere_clock_screen"
 
     const val DEFAULT_CENTER_X = 0.5f
-    const val DEFAULT_TOP = 0.14f
-    const val DEFAULT_HEIGHT = 0.16f
+    const val DEFAULT_TOP = 0.13f
+    /**
+     * Fraction of screen height the face occupies. Raised from 0.16: the
+     * faces are stretched vertically now (see ClockStyle.verticalStretch),
+     * which makes the glyphs tall and narrow within their height budget, and
+     * a slightly larger budget is what turns that into a display clock
+     * rather than a tall caption.
+     */
+    const val DEFAULT_HEIGHT = 0.20f
     const val DEFAULT_OPACITY = 1f
     const val DEFAULT_DEPTH = true
     const val DEFAULT_SECONDS = false
@@ -60,7 +74,7 @@ object AtmosphereClockPolicy {
     private const val MIN_TOP = 0.02f
     private const val MAX_TOP = 0.90f
     private const val MIN_HEIGHT = 0.03f
-    private const val MAX_HEIGHT = 0.40f
+    private const val MAX_HEIGHT = 0.55f
 
     /** All keys this feature owns, for the Advanced Settings reset path. */
     val ALL_KEYS: List<String> = listOf(
@@ -71,13 +85,29 @@ object AtmosphereClockPolicy {
         ANIMATE_KEY,
         COLOR_KEY,
         HOUR_FORMAT_KEY,
+        SCREEN_KEY,
         CENTER_X_KEY,
         TOP_KEY,
         HEIGHT_KEY,
         OPACITY_KEY
     )
 
-    fun supportsEffect(effectId: String?): Boolean = effectId == "ORIGINAL"
+    /**
+     * Effects whose renderers actually composite the clock.
+     *
+     * Deliberately a set rather than a predicate over EffectCatalog: the
+     * preference screen must not offer a clock for an effect whose renderer
+     * would silently ignore it. Add an id here in the same change that wires
+     * that effect's compositing, never before.
+     *
+     * REVERSE is absent on purpose — on Vulkan it shares VulkanAtmosphereHost
+     * and would work, but on GLES it runs through BlurToSharpRenderer, which
+     * has no clock pass. Enabling it would give the same effect a clock on
+     * one backend and not the other.
+     */
+    private val SUPPORTED_EFFECT_IDS = setOf("ORIGINAL")
+
+    fun supportsEffect(effectId: String?): Boolean = effectId in SUPPORTED_EFFECT_IDS
 
     /**
      * The clock is single-image only for now.
@@ -137,15 +167,6 @@ object AtmosphereClockPolicy {
         return value or (0xFF shl 24)
     }
 
-    /**
-     * The clock only draws on the lock-screen side of the transition, so it
-     * fades out over the first slice of the unlock animation. Shared by both
-     * backends so they agree on the curve.
-     */
-    const val LOCK_FADE_RANGE = 0.25f
-
-    fun lockFade(progress: Float): Float {
-        if (!progress.isFinite()) return 0f
-        return (1f - progress / LOCK_FADE_RANGE).coerceIn(0f, 1f)
-    }
+    fun sanitizeScreenId(value: String?): String =
+        ClockScreenPolicy.sanitizeScreenId(value)
 }

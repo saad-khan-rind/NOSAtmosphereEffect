@@ -10,6 +10,8 @@ import android.opengl.GLUtils
 import android.util.Log
 import androidx.core.graphics.createBitmap
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockScreen
+import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.ClockTextureProvider
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
@@ -73,6 +75,7 @@ class AtmosphereRenderer(
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
     @Volatile private var pendingClockFormatRefresh: Boolean = false
+    @Volatile private var pendingClockEntry: Boolean = false
     private var renderFailureLogged = false
     private var renderRetryCount = 0
     private var generationCounter = 0L
@@ -164,7 +167,26 @@ class AtmosphereRenderer(
         set(value) { clockTexture.showSeconds = value }
     var clockAnimate: Boolean
         get() = clockTexture.animateDigits
-        set(value) { clockTexture.animateDigits = value }
+        set(value) {
+            clockTexture.animateDigits = value
+            clockTexture.animateEntry = value
+        }
+
+    /**
+     * Which side of the transition the clock is allowed on, already resolved
+     * against the effect by ClockScreenPolicy.
+     */
+    @Volatile var clockScreen: ClockScreen = ClockScreen.DEFAULT
+
+    /**
+     * The effect's shader progress at each end of the transition. Atmosphere
+     * locks at 0 and unlocks at 1; the reverse direction is the other way
+     * round, and other effects have their own bounds — so the clock's fade
+     * is computed from the normalised unlock fraction rather than from
+     * [blurStrength] directly.
+     */
+    @Volatile var clockLockedProgress: Float = 0f
+    @Volatile var clockUnlockedProgress: Float = 1f
     var clockColor: Int
         get() = clockTexture.color
         set(value) { clockTexture.color = value }
@@ -739,9 +761,24 @@ class AtmosphereRenderer(
             pendingClockFormatRefresh = false
             clockTexture.refreshClockFormatPreference()
         }
-        val lockFade = AtmosphereClockPolicy.lockFade(blurStrength)
+        val visibility = ClockScreenPolicy.visibility(
+            screen = clockScreen,
+            progress = blurStrength,
+            lockedProgress = clockLockedProgress,
+            unlockedProgress = clockUnlockedProgress
+        )
+        // Held until the clock would actually be on screen rather than
+        // consumed on the first frame after becoming visible: waking onto the
+        // home screen with a lock-screen clock would otherwise spend the
+        // entry animation behind a zero opacity, and the user would see a
+        // clock that was simply already there when the transition brought it
+        // back.
+        if (pendingClockEntry && clockEnabled && visibility > 0f && clockOpacity > 0f) {
+            pendingClockEntry = false
+            clockTexture.beginEntry()
+        }
         val ready = clockEnabled &&
-            lockFade > 0f &&
+            visibility > 0f &&
             clockOpacity > 0f &&
             clockTexture.ensureUpToDate(GLES30.GL_TEXTURE3) &&
             clockTexture.textureId != 0
@@ -784,7 +821,7 @@ class AtmosphereRenderer(
         )
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uClockOpacity"),
-            clockOpacity * lockFade
+            clockOpacity * visibility
         )
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uClockDepth"),
@@ -815,6 +852,19 @@ class AtmosphereRenderer(
      */
     fun onTimeChanged() {
         pendingClockFormatRefresh = true
+        onAnimationFrameRequested?.invoke()
+    }
+
+    /**
+     * Plays the clock's entry animation. Called when the wallpaper engine
+     * becomes visible.
+     *
+     * The flag is read on the GL thread rather than starting the animation
+     * here: onVisibilityChanged arrives on the main thread, and
+     * ClockFaceRenderer is confined to whichever thread draws it.
+     */
+    fun beginClockEntry() {
+        pendingClockEntry = true
         onAnimationFrameRequested?.invoke()
     }
 
