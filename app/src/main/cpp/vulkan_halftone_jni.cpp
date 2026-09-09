@@ -2,6 +2,7 @@
 
 #include <android/asset_manager_jni.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 
@@ -13,6 +14,7 @@ constexpr char kFragmentShader[] =
     "shaders/vulkan/halftone/halftone.frag.spv";
 constexpr uint32_t kWallpaperBinding = 0;
 constexpr uint32_t kSubjectMaskBinding = 1;
+constexpr uint32_t kClockBinding = 2;
 
 struct HalftoneParams {
     float progress = 0.0F;
@@ -27,9 +29,25 @@ struct HalftoneParams {
     float scrollWindowX = 1.0F;
     float padding0 = 0.0F;
     float padding1 = 0.0F;
+    // Clock overlay, appended after the existing fields so none of the
+    // offsets above shift.
+    //
+    // clockRect: centerX, top, width, height as screen fractions, with the
+    // width already divided by the surface aspect — see
+    // atmo::vulkan::writeClockParams.
+    //
+    // clockMeta: opacity (lock/home fade already folded in by the host), "a
+    // face has been uploaded", "depth enabled AND a mask exists", unused.
+    // The depth slot is deliberately NOT gated on backgroundOnly: the clock's
+    // depth effect is its own setting and must work with the effect's
+    // subject isolation switched off.
+    float clockRect[4]{};
+    float clockMeta[4]{};
 };
 
-static_assert(sizeof(HalftoneParams) == 48);
+static_assert(offsetof(HalftoneParams, clockRect) == 48);
+static_assert(offsetof(HalftoneParams, clockMeta) == 64);
+static_assert(sizeof(HalftoneParams) == 80);
 
 struct HalftoneHandle {
     atmo::vulkan::OnePassHandle engine = nullptr;
@@ -56,8 +74,10 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeCrea
         "Atmo Halftone",
         kVertexShader,
         kFragmentShader,
-        2,
-        1U << kSubjectMaskBinding,
+        3,
+        // Both the mask and the clock are optional: each holds the engine's
+        // 1x1 clear texture until real content lands.
+        (1U << kSubjectMaskBinding) | (1U << kClockBinding),
         sizeof(HalftoneParams)
     };
     atmo::vulkan::OnePassHandle engine =
@@ -164,6 +184,33 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeClea
         : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeUploadClock(
+    JNIEnv* env,
+    jobject,
+    jlong handle,
+    jobject bitmap
+) {
+    HalftoneHandle* halftone = fromHandle(handle);
+    return halftone != nullptr &&
+        atmo::vulkan::uploadBitmap(halftone->engine, env, bitmap, kClockBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeClearClock(
+    JNIEnv*,
+    jobject,
+    jlong handle
+) {
+    HalftoneHandle* halftone = fromHandle(handle);
+    return halftone != nullptr &&
+        atmo::vulkan::clearTexture(halftone->engine, kClockBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeSetState(
     JNIEnv*,
@@ -176,15 +223,23 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeSetS
     jboolean backgroundOnly,
     jboolean hasSubject,
     jfloat scrollOffsetX,
-    jfloat scrollWindowX
+    jfloat scrollWindowX,
+    jfloat clockCenterX,
+    jfloat clockTop,
+    jfloat clockHeightFraction,
+    jfloat clockTextureAspect,
+    jfloat clockOpacity,
+    jboolean clockUploaded,
+    jboolean clockDepth
 ) {
     HalftoneHandle* halftone = fromHandle(handle);
     if (halftone == nullptr) return;
     const bool isolateBackground = backgroundOnly == JNI_TRUE;
-    const HalftoneParams params{
+    const float aspect = atmo::vulkan::surfaceAspectRatio(halftone->engine);
+    HalftoneParams params{
         progress,
         dimLevel,
-        atmo::vulkan::surfaceAspectRatio(halftone->engine),
+        aspect,
         halftone->reverse ? 1.0F : 0.0F,
         dotSize,
         grayscale == JNI_TRUE ? 1.0F : 0.0F,
@@ -195,6 +250,21 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeSetS
         0.0F,
         0.0F
     };
+    // Depth needs only a mask, so it is gated on hasSubject alone — NOT on
+    // isolateBackground the way controls.z/.w above are. The clock's depth
+    // effect is its own setting and has to work with the Halftone effect's
+    // background-only mode switched off.
+    atmo::vulkan::writeClockParams(
+        params,
+        aspect,
+        clockCenterX,
+        clockTop,
+        clockHeightFraction,
+        clockTextureAspect,
+        clockOpacity,
+        clockUploaded == JNI_TRUE,
+        clockDepth == JNI_TRUE && hasSubject == JNI_TRUE
+    );
     atmo::vulkan::setPushConstants(
         halftone->engine,
         &params,

@@ -6,12 +6,59 @@ layout(location = 0) out vec4 fragColor;
 
 layout(set = 0, binding = 0) uniform sampler2D sourceTexture;
 layout(set = 0, binding = 1) uniform sampler2D subjectMask;
+layout(set = 0, binding = 2) uniform sampler2D clockTexture;
 
 layout(push_constant) uniform GlassParams {
     vec4 transition;
     vec4 viewport;
     vec4 mask;
+    // Appended after the existing vec4s so none of the offsets above shift.
+    //
+    // clockRect: centerX, top, widthFraction, heightFraction — all in the
+    // screen-locked vEffectCoord space. The width arrives already divided by
+    // the surface aspect (see the JNI), because this shader has no
+    // surface-aspect field of its own.
+    //
+    // clockMeta: opacity (with the lock/home fade already folded in by the
+    // host), "a face has been uploaded", "depth enabled AND a subject mask
+    // exists", unused.
+    vec4 clockRect;
+    vec4 clockMeta;
 } params;
+
+// Mirrors the GLES path in assets/shaders/glass/glass.frag; keep the two in step.
+//
+// clockMeta.y is "a face has been uploaded", NOT the user's toggle: the
+// engine fills unwritten optional bindings with an opaque-black 1x1 clear
+// texture, so sampling before the first upload would paint a solid black
+// rectangle where the clock belongs. The lock/home fade arrives already
+// folded into clockMeta.x, so there is no policy in this shader.
+vec3 compositeClock(vec3 color, vec2 screenCoord) {
+    if (params.clockMeta.y <= 0.5 || params.clockMeta.x <= 0.0) return color;
+    vec2 clockSize = max(params.clockRect.zw, vec2(1e-5));
+    vec2 clockOrigin = vec2(
+        params.clockRect.x - clockSize.x * 0.5,
+        params.clockRect.y
+    );
+    vec2 clockUv = (screenCoord - clockOrigin) / clockSize;
+    if (
+        clockUv.x < 0.0 || clockUv.x > 1.0 ||
+        clockUv.y < 0.0 || clockUv.y > 1.0
+    ) {
+        return color;
+    }
+    vec4 clockSample = texture(clockTexture, clockUv);
+    return mix(color, clockSample.rgb, clockSample.a * params.clockMeta.x);
+}
+
+// Draws the sharp subject back over the clock, so the clock reads as sitting
+// behind them. Fades with the clock itself, so the subject is not left
+// re-sharpened over a stylised background once the clock has gone.
+vec3 applyClockDepth(vec3 color, vec3 subjectColor, float subjectMask) {
+    if (params.clockMeta.y <= 0.5 || params.clockMeta.z <= 0.5) return color;
+    float coverage = smoothstep(0.30, 0.72, subjectMask);
+    return mix(color, subjectColor, coverage * params.clockMeta.x);
+}
 
 const float TWO_PI = 6.28318530718;
 
@@ -109,12 +156,18 @@ void main() {
         }
     }
 
-    fragColor = vec4(
-        mix(
-            sharpColor,
-            glassColor,
-            transitionAmount * backgroundCoverage
-        ),
-        1.0
+    vec3 finalColor = mix(
+        sharpColor,
+        glassColor,
+        transitionAmount * backgroundCoverage
     );
+
+    finalColor = compositeClock(finalColor, vEffectCoord);
+    finalColor = applyClockDepth(
+        finalColor,
+        sharpColor,
+        sampleSubject(vTexCoord)
+    );
+
+    fragColor = vec4(finalColor, 1.0);
 }

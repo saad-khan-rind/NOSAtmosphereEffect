@@ -6,6 +6,8 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import com.app.nosatmosphereeffect.helper.SubjectMaskExtractor
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
@@ -36,6 +38,40 @@ class NeonRenderer(
 
     @Volatile
     var onSketchUpdated: (() -> Unit)? = null
+
+    /**
+     * The wallpaper clock. Sketch replaces the photo with line art rather than
+     * blurring it, so the image stays high-contrast and geometrically intact
+     * at both ends of the transition and the clock reads on either side — the
+     * user chooses. Units 0 and 1 carry the photo and the baked line texture,
+     * so the clock takes 2.
+     *
+     * No depth here despite the effect having a subject mask: the mask is
+     * consumed by the off-screen edge bake, and the on-screen pass samples the
+     * baked lines rather than the mask, so there is nothing to composite the
+     * subject back from.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
+
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile
+    var onAnimationFrameRequested: (() -> Unit)? = null
+        set(value) {
+            field = value
+            clockOverlay.onAnimationFrameRequested = value
+        }
+
+    fun applyClockState(state: ClockOverlayState) {
+        clockOverlay.applyState(state)
+        val wanted = state.needsSubjectMask()
+        val changed = clockDepthWanted != wanted
+        clockDepthWanted = wanted
+        refreshSubjectMaskNeed(changed)
+    }
+
+    fun beginClockEntry() = clockOverlay.beginEntry()
+
+    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
     @Volatile
     private var scrollOffsetX = 0.5f
@@ -94,6 +130,20 @@ class NeonRenderer(
     private var subjectMaskExtractor: SubjectMaskExtractor? = null
     @Volatile private var subjectSegmentationEnabled = false
 
+    /**
+     * Whether the clock's depth effect wants a mask.
+     *
+     * Kept apart from [subjectSegmentationEnabled] because the two are
+     * independent settings with different consumers: Sketch's own segmentation
+     * feeds the off-screen edge bake, while depth feeds the on-screen pass.
+     * Either can be the reason segmentation runs, and neither should switch
+     * the other on.
+     */
+    @Volatile private var clockDepthWanted = false
+
+    private val subjectMaskWanted: Boolean
+        get() = subjectSegmentationEnabled || clockDepthWanted
+
     @Volatile var blurStrength = 0.0f
     @Volatile var dimLevel = 0.0f
     @Volatile private var needsReload = false
@@ -140,20 +190,30 @@ class NeonRenderer(
     fun configureSubjectSegmentation(enabled: Boolean) {
         val changed = subjectSegmentationEnabled != enabled
         subjectSegmentationEnabled = enabled
+        refreshSubjectMaskNeed(changed)
+    }
 
-        if (!enabled) {
+    /**
+     * Segmentation runs when either consumer wants it, and is torn down only
+     * when neither does. Reloading on the transition into "wanted" is what
+     * dispatches the extraction: one request is served per image, so an image
+     * loaded while nobody wanted a mask would otherwise never get one.
+     */
+    private fun refreshSubjectMaskNeed(changed: Boolean) {
+        val wanted = subjectMaskWanted
+        if (!wanted) {
             latestSubjectRequest = -1L
             subjectMaskExtractor?.close()
             subjectMaskExtractor = null
             takePendingSubjectMask()?.bitmap?.recycle()
         }
-
-        // Enabling reloads the source bitmap so this build's model can extract it.
-        if (changed || enabled) needsReload = true
+        if (changed || wanted) needsReload = true
     }
 
     fun release() {
         onSketchUpdated = null
+        onAnimationFrameRequested = null
+        clockOverlay.release()
         subjectMaskExtractor?.close()
         subjectMaskExtractor = null
         takePendingSubjectMask()?.bitmap?.recycle()
@@ -181,6 +241,8 @@ class NeonRenderer(
         nextSet.reset()
         takePendingSubjectMask()?.bitmap?.recycle()
         needsReload = true
+        // The clock's texture id belonged to the destroyed context.
+        clockOverlay.resetForNewContext()
     }
 
     private fun loadAndApplyTextures() {
@@ -234,7 +296,7 @@ class NeonRenderer(
     }
 
     private fun startSubjectExtraction(bitmap: Bitmap, generation: Long) {
-        if (!subjectSegmentationEnabled) return
+        if (!subjectMaskWanted) return
         val extractor = subjectMaskExtractor ?: SubjectMaskExtractor(
             context,
             ::onSubjectMaskResult
@@ -245,7 +307,7 @@ class NeonRenderer(
 
     private fun onSubjectMaskResult(generation: Long, mask: Bitmap?) {
         if (mask == null) return
-        if (!subjectSegmentationEnabled || generation != latestSubjectRequest) {
+        if (!subjectMaskWanted || generation != latestSubjectRequest) {
             mask.recycle()
             return
         }
@@ -330,7 +392,10 @@ class NeonRenderer(
         GLES30.glUniform1i(GLES30.glGetUniformLocation(edgeProgramId, "uTextureSharp"), 0)
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, if (set.hasSubject) set.maskId else 0)
+        GLES30.glBindTexture(
+            GLES30.GL_TEXTURE_2D,
+            if (subjectSegmentationEnabled && set.hasSubject) set.maskId else 0
+        )
         GLES30.glUniform1i(GLES30.glGetUniformLocation(edgeProgramId, "uSubjectMask"), 1)
 
         GLES30.glUniform2f(
@@ -343,7 +408,10 @@ class NeonRenderer(
             1f / set.maskWidth.coerceAtLeast(1),
             1f / set.maskHeight.coerceAtLeast(1)
         )
-        GLES30.glUniform1f(GLES30.glGetUniformLocation(edgeProgramId, "uHasSubject"), if (set.hasSubject) 1f else 0f)
+        GLES30.glUniform1f(
+            GLES30.glGetUniformLocation(edgeProgramId, "uHasSubject"),
+            if (subjectSegmentationEnabled && set.hasSubject) 1f else 0f
+        )
         GLES30.glUniform1f(GLES30.glGetUniformLocation(edgeProgramId, "uLod"), edgeLod())
         GLES30.glUniform1f(GLES30.glGetUniformLocation(edgeProgramId, "uThreshold"), edgeThreshold())
         GLES30.glUniform1f(GLES30.glGetUniformLocation(edgeProgramId, "uWeakRatio"), WEAK_RATIO)
@@ -458,6 +526,21 @@ class NeonRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.lineId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uLineTex"), 1)
+
+        val maskReady = subjectMaskWanted && currentSet.hasSubject
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
+        GLES30.glUniform1i(
+            GLES30.glGetUniformLocation(programId, "uClockSubjectMask"),
+            3
+        )
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        clockOverlay.draw(
+            programId = programId,
+            progress = blurStrength,
+            screenAspect = aspectRatio,
+            subjectMaskAvailable = maskReady
+        )
 
         drawQuad(programId)
     }

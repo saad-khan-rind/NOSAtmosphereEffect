@@ -7,6 +7,8 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
@@ -73,6 +75,35 @@ class HalftoneRenderer(
     @Volatile var dotSize: Float = 12.0f
     @Volatile var grayscale: Boolean = false
 
+    /**
+     * The effect's own "background only" setting, kept separate from
+     * [SubjectMaskCoordinator.enabled].
+     *
+     * The two used to be the same thing, because the mask had exactly one
+     * consumer. The clock's depth effect is a second, independent consumer:
+     * it needs a mask even when the user has background-only switched off. If
+     * the shader kept reading uBackgroundOnly from "is a mask being computed",
+     * turning the clock's depth on would silently start protecting the subject
+     * from the halftone as well.
+     */
+    @Volatile private var backgroundOnly: Boolean = false
+
+    /**
+     * The wallpaper clock. Halftone screens the photo into dots but leaves its
+     * geometry in place, so the clock is legible at both ends of the
+     * transition and the user picks which. Units 0 and 1 carry the photo and
+     * the subject mask, so the clock takes 2.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
+
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile
+    var onAnimationFrameRequested: (() -> Unit)? = null
+        set(value) {
+            field = value
+            clockOverlay.onAnimationFrameRequested = value
+        }
+
     private var programId: Int = 0
     private var aspectRatio: Float = 1.0f
 
@@ -117,8 +148,30 @@ class HalftoneRenderer(
     }
 
     fun configureBackgroundOnly(enabled: Boolean) {
-        val changed = subjectMasks.configure(enabled)
-        if (enabled && (changed || currentSet.isValid())) {
+        backgroundOnly = enabled
+        refreshSubjectMaskNeed()
+    }
+
+    fun applyClockState(state: ClockOverlayState) {
+        clockOverlay.applyState(state)
+        refreshSubjectMaskNeed()
+    }
+
+    fun beginClockEntry() = clockOverlay.beginEntry()
+
+    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+
+    /**
+     * Segmentation runs when *either* consumer wants it and is skipped when
+     * neither does. Reloading on the transition into "wanted" is what actually
+     * dispatches the extraction: the coordinator serves one request per image
+     * generation, so without a reload an image that was loaded while the mask
+     * was unwanted would never get one.
+     */
+    private fun refreshSubjectMaskNeed() {
+        val wanted = backgroundOnly || clockOverlay.state.needsSubjectMask()
+        val changed = subjectMasks.configure(wanted)
+        if (wanted && (changed || currentSet.isValid())) {
             needsReload = true
         }
     }
@@ -131,6 +184,8 @@ class HalftoneRenderer(
         }
         onSubjectMaskUpdated = null
         onRenderRetryRequested = null
+        onAnimationFrameRequested = null
+        clockOverlay.release()
         subjectMasks.close()
         if (pending != null && !pending.isRecycled) pending.recycle()
     }
@@ -162,6 +217,8 @@ class HalftoneRenderer(
         currentSet.reset()
         nextSet.reset()
         subjectMasks.discardPending()
+        // The clock's texture id belonged to the destroyed context.
+        clockOverlay.resetForNewContext()
     }
 
     private fun loadAndApplyTextures() {
@@ -302,13 +359,16 @@ class HalftoneRenderer(
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uDimLevel"), dimLevel)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollOffsetX"), scrollOffsetX)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollWindowX"), currentWindowX)
+        // Gated on the effect's own setting, not on whether a mask exists:
+        // the clock's depth effect can be the reason a mask is being computed.
+        val maskReady = subjectMasks.enabled && currentSet.hasSubject
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uBackgroundOnly"),
-            if (subjectMasks.enabled) 1f else 0f
+            if (backgroundOnly && subjectMasks.enabled) 1f else 0f
         )
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uHasSubject"),
-            if (subjectMasks.enabled && currentSet.hasSubject) 1f else 0f
+            if (backgroundOnly && maskReady) 1f else 0f
         )
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
@@ -318,6 +378,13 @@ class HalftoneRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 1)
+
+        clockOverlay.draw(
+            programId = programId,
+            progress = blurStrength,
+            screenAspect = aspectRatio,
+            subjectMaskAvailable = maskReady
+        )
 
         val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
         val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")

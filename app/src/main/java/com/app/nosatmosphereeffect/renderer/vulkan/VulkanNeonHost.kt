@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.NeonRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
@@ -30,6 +31,9 @@ internal class VulkanNeonHost(
 
     private var retainedSource: Bitmap? = null
     private var retainedSubjectMask: Bitmap? = null
+
+    /** Which mask revision the display binding currently holds. */
+    private var uploadedClockMaskRevision: Long = NO_MASK_REVISION
     private var currentTextureGeneration = NO_TEXTURE_GENERATION
     private var requestedMaskGeneration = NO_TEXTURE_GENERATION
     private var subjectMaskRevision = 0L
@@ -38,19 +42,99 @@ internal class VulkanNeonHost(
     private var bakedSensitivity = Float.NaN
     private var bakedWithSegmentation = false
 
+
+    /**
+     * The wallpaper clock. Shares Sketch's render state rather than being
+     * configured separately, so a progress tick and a clock change take the
+     * same path into the shader.
+     */
+    private val clockOverlay = VulkanClockOverlay(appContext, "Sketch")
+
+    /** Plays the clock's entry animation on the next prepared frame. */
+    fun beginClockEntry() {
+        clockOverlay.beginEntry()
+        requestRender()
+    }
+
+    /** Re-reads the system 12/24-hour setting and forces a redraw. */
+    fun onTimeChanged() {
+        clockOverlay.onTimeChanged()
+        requestRender()
+    }
+
+    /**
+     * Uploads a clock face when there is one to upload.
+     *
+     * The freshly uploaded aspect and "a face exists" flag are read from the
+     * overlay's own fields inside the update lambda, never carried forward
+     * from a snapshot taken before it. This runs on the render worker while
+     * updateState runs on whichever thread changed a preference, and a
+     * snapshot read outside the lambda would silently lose whichever of the
+     * two landed second.
+     */
+    private fun uploadClockOnWorker(handle: Long) {
+        val current = currentEffectState()
+        val changed = clockOverlay.uploadIfNeeded(
+            effectiveOpacity = current.clock.effectiveOpacity(current.progress),
+            upload = { bitmap -> VulkanNeonNative.nativeUploadClock(handle, bitmap) },
+            requestRender = ::requestRender
+        )
+        if (!changed) return
+        updateEffectState { state ->
+            state.copy(
+                clock = state.clock.copy(
+                    textureAspect = clockOverlay.aspectRatio,
+                    faceUploaded = true
+                )
+            ).sanitized()
+        }
+    }
+
+    /**
+     * Keeps the state's clock fields in step with the overlay.
+     *
+     * Called from updateState on whichever thread changed a preference; the
+     * dynamic fields are read from the overlay rather than carried forward
+     * from a snapshot, for the reason above.
+     */
+    private fun syncClockState(clock: ClockOverlayState) {
+        clockOverlay.applyState(clock)
+        updateEffectState { current ->
+            current.copy(
+                clock = clock.copy(
+                    textureAspect = if (clockOverlay.hasUploadedFace) {
+                        clockOverlay.aspectRatio
+                    } else {
+                        current.clock.textureAspect
+                    },
+                    faceUploaded = clockOverlay.hasUploadedFace && clock.enabled
+                )
+            ).sanitized()
+        }
+    }
+
     init {
-        subjectMasks.configure(initialState.subjectSegmentationEnabled)
+        val safeInitial = initialState.sanitized()
+        subjectMasks.configure(
+            safeInitial.subjectSegmentationEnabled ||
+                safeInitial.clock.needsSubjectMask()
+        )
+        clockOverlay.applyState(safeInitial.clock)
         startNativeEngine()
     }
 
     fun updateState(state: NeonRenderState) {
         val sanitized = state.sanitized()
         val previous = currentEffectState()
-        val segmentationChanged = subjectMasks.configure(
-            sanitized.subjectSegmentationEnabled
-        )
+        // Sketch's own segmentation feeds the off-screen contour bake; the
+        // clock's depth effect feeds the on-screen pass. Either is reason
+        // enough to run segmentation, and neither implies the other.
+        val maskWanted = sanitized.subjectSegmentationEnabled ||
+            sanitized.clock.needsSubjectMask()
+        val segmentationChanged = subjectMasks.configure(maskWanted)
         updateEffectState { sanitized }
-        if (segmentationChanged && sanitized.subjectSegmentationEnabled) {
+        syncClockState(sanitized.clock)
+        if (segmentationChanged && maskWanted) {
             reloadTexture()
         } else if (
             segmentationChanged ||
@@ -87,15 +171,19 @@ internal class VulkanNeonHost(
         handle: Long,
         textureGeneration: Long
     ): Boolean {
+        uploadClockOnWorker(handle)
         consumePendingSubjectMask(textureGeneration)
 
         val state = currentEffectState().sanitized()
-        if (!state.subjectSegmentationEnabled && retainedSubjectMask != null) {
+        val maskWanted = state.subjectSegmentationEnabled ||
+            state.clock.needsSubjectMask()
+        if (!maskWanted && retainedSubjectMask != null) {
             retainedSubjectMask.recycleSafely()
             retainedSubjectMask = null
             subjectMaskRevision++
         }
         requestSubjectMaskIfNeeded(textureGeneration)
+        uploadClockSubjectMaskOnWorker(handle, maskWanted)
 
         val needsBake =
             bakedTextureGeneration != textureGeneration ||
@@ -107,7 +195,14 @@ internal class VulkanNeonHost(
 
     override fun onSurfaceResetOnWorker() {
         subjectMasks.discardPending()
+        // The new surface's descriptor set has no clock content yet.
+        clockOverlay.reset()
+        updateEffectState {
+            it.copy(clock = it.clock.copy(faceUploaded = false)).sanitized()
+        }
         recycleRetainedImages()
+        // The new surface's descriptor set has no mask content either.
+        uploadedClockMaskRevision = NO_MASK_REVISION
         currentTextureGeneration = NO_TEXTURE_GENERATION
         requestedMaskGeneration = NO_TEXTURE_GENERATION
         subjectMaskRevision = 0L
@@ -120,6 +215,7 @@ internal class VulkanNeonHost(
     override fun onEffectResourcesReleased() {
         recycleRetainedImages()
         subjectMasks.close()
+        clockOverlay.release()
     }
 
     private fun requestSubjectMaskIfNeeded(textureGeneration: Long) {
@@ -133,6 +229,34 @@ internal class VulkanNeonHost(
         }
         requestedMaskGeneration = textureGeneration
         subjectMasks.request(source, textureGeneration)
+    }
+
+    /**
+     * Publishes the mask to the on-screen pass for the clock's depth effect.
+     *
+     * Separate from the contour bake's use of the same bitmap: the bake folds
+     * the mask into the baked line texture, so the display pass has no way to
+     * recover it and needs its own binding. Tracked by revision rather than
+     * re-uploaded every frame — segmentation results change only when the
+     * image does.
+     */
+    private fun uploadClockSubjectMaskOnWorker(handle: Long, maskWanted: Boolean) {
+        val mask = retainedSubjectMask
+        if (!maskWanted || mask == null || mask.isRecycled) {
+            if (uploadedClockMaskRevision != NO_MASK_REVISION) {
+                VulkanNeonNative.nativeClearSubjectMask(handle)
+                uploadedClockMaskRevision = NO_MASK_REVISION
+                updateEffectState { it.copy(hasSubject = false).sanitized() }
+            }
+            return
+        }
+        if (uploadedClockMaskRevision == subjectMaskRevision) return
+        if (!VulkanNeonNative.nativeUploadSubjectMask(handle, mask)) {
+            Log.w(TAG, "Unable to upload the Sketch clock depth mask")
+            return
+        }
+        uploadedClockMaskRevision = subjectMaskRevision
+        updateEffectState { it.copy(hasSubject = true).sanitized() }
     }
 
     private fun consumePendingSubjectMask(textureGeneration: Long) {
@@ -313,7 +437,18 @@ private class NeonBridge(
             dimLevel = safe.dimLevel,
             lineWidth = safe.lineWidth,
             scrollOffsetX = scrollOffsetX,
-            scrollWindowX = scrollWindowX
+            scrollWindowX = scrollWindowX,
+            clockCenterX = safe.clock.centerX,
+            clockTop = safe.clock.top,
+            clockHeightFraction = safe.clock.height,
+            clockTextureAspect = safe.clock.textureAspect,
+            // The lock/home fade is folded in here, once, so the shader has no
+            // policy in it and both backends share one curve.
+            clockOpacity = safe.clock.effectiveOpacity(safe.progress),
+            clockUploaded = safe.clock.faceUploaded,
+            // Depth needs a mask, so the user's switch is ANDed with one
+            // existing — the shader must never sample the clear texture.
+            clockDepth = safe.clock.depthEnabled && safe.hasSubject
         )
     }
 

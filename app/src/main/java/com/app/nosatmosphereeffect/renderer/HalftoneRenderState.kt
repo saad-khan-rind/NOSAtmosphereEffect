@@ -1,19 +1,30 @@
 package com.app.nosatmosphereeffect.renderer
 
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+
 data class HalftoneRenderState(
     val progress: Float = 0f,
     val dimLevel: Float = 0f,
     val dotSize: Float = 12f,
     val grayscale: Boolean = false,
     val backgroundOnly: Boolean = false,
-    val hasSubject: Boolean = false
+    val hasSubject: Boolean = false,
+    /**
+     * The wallpaper clock. Grouped rather than flattened into a dozen fields
+     * so that adding the clock to an effect is one field, not twelve chances
+     * to forget one — see ClockOverlayState.
+     */
+    val clock: ClockOverlayState = ClockOverlayState()
 ) {
     fun sanitized(): HalftoneRenderState {
         return copy(
             progress = progress.finiteOr(0f).coerceIn(0f, 1f),
             dimLevel = dimLevel.finiteOr(0f).coerceIn(0f, 1f),
             dotSize = dotSize.finiteOr(12f).coerceIn(0f, 40f),
-            hasSubject = backgroundOnly && hasSubject
+            // The clock's depth effect can be the reason a mask exists, so
+            // "has a subject" is no longer conditional on background-only.
+            hasSubject = (backgroundOnly || clock.needsSubjectMask()) && hasSubject,
+            clock = clock.sanitized()
         )
     }
 

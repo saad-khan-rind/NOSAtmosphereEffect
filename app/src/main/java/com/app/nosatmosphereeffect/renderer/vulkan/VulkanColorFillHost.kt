@@ -35,6 +35,35 @@ internal class VulkanColorFillHost(
     private val activeReported = AtomicBoolean(false)
 
     private val latestState = AtomicReference(initialState.sanitized())
+
+    /**
+     * The wallpaper clock. Colour Fill has its own standalone host rather than
+     * sharing VulkanSingleImageHost, so the hooks the other effects override
+     * are open-coded here — [uploadClockOnWorker] is called from the draw path
+     * and [clockOverlay] is reset with the surface.
+     */
+    private val clockOverlay = VulkanClockOverlay(appContext, "Colour Fill")
+
+    /**
+     * Segmentation for the clock's depth effect. Colour Fill has no
+     * "background only" mode, so this is the mask's only consumer and it runs
+     * only while depth is switched on.
+     */
+    private val clockDepthMask = VulkanClockDepthMask(
+        appContext,
+        "Colour Fill",
+        ::requestRender
+    )
+
+    /**
+     * Counts images, not surfaces.
+     *
+     * This host's `generation` tracks the surface, which survives a wallpaper
+     * change and is recreated on rotation — neither of which is the question
+     * the mask needs answered. Feeding it to the mask would let a stale mask
+     * pass the freshness check after a playlist advance.
+     */
+    private var clockMaskGeneration = 0L
     private val nativeHandle = AtomicLong(0L)
     private val pendingPlaylistBitmap = AtomicReference<Bitmap?>(null)
     private val swapchainRetryBudget =
@@ -97,16 +126,85 @@ internal class VulkanColorFillHost(
 
     fun updateState(state: ColorFillRenderState) {
         val sanitized = state.sanitized()
+        clockOverlay.applyState(sanitized.clock)
+        // Reloading on the transition into "wanted" is what dispatches the
+        // extraction: one request is served per image, so an image uploaded
+        // while depth was off would otherwise never get a mask.
+        if (clockDepthMask.configure(sanitized.clock.needsSubjectMask()) &&
+            sanitized.clock.needsSubjectMask()
+        ) {
+            reloadTexture()
+        }
         latestState.updateAndGet { current ->
             current.copy(
                 progress = sanitized.progress,
                 dimLevel = sanitized.dimLevel,
                 originX = sanitized.originX,
-                originY = sanitized.originY
+                originY = sanitized.originY,
+                // The dynamic fields are read from the overlay rather than
+                // carried forward from a snapshot: this runs on whichever
+                // thread changed a preference while uploadClockOnWorker runs
+                // on the render worker, and a stale read would silently lose
+                // whichever landed second.
+                clock = sanitized.clock.copy(
+                    textureAspect = if (clockOverlay.hasUploadedFace) {
+                        clockOverlay.aspectRatio
+                    } else {
+                        current.clock.textureAspect
+                    },
+                    faceUploaded = clockOverlay.hasUploadedFace &&
+                        sanitized.clock.enabled
+                )
             ).sanitized()
         }
         postIfActive {
             applyStateOnWorker()
+        }
+    }
+
+    /** Plays the clock's entry animation on the next drawn frame. */
+    fun beginClockEntry() {
+        clockOverlay.beginEntry()
+        requestRender()
+    }
+
+    /** Re-reads the system 12/24-hour setting and forces a redraw. */
+    fun onTimeChanged() {
+        clockOverlay.onTimeChanged()
+        requestRender()
+    }
+
+    /**
+     * Uploads a clock face when there is one to upload. Failures are logged
+     * and skipped rather than failing the renderer: a decorative overlay must
+     * not be able to take the whole Vulkan backend down.
+     */
+    private fun uploadClockDepthMaskOnWorker(handle: Long) {
+        val hasSubject = clockDepthMask.uploadIfNeeded(
+            handle = handle,
+            textureGeneration = clockMaskGeneration,
+            upload = VulkanNative::nativeUploadSubjectMask,
+            clear = VulkanNative::nativeClearSubjectMask
+        )
+        if (hasSubject == latestState.get().hasSubject) return
+        latestState.updateAndGet { it.copy(hasSubject = hasSubject).sanitized() }
+    }
+
+    private fun uploadClockOnWorker(handle: Long) {
+        val current = latestState.get()
+        val changed = clockOverlay.uploadIfNeeded(
+            effectiveOpacity = current.clock.effectiveOpacity(current.progress),
+            upload = { bitmap -> VulkanNative.nativeUploadClock(handle, bitmap) },
+            requestRender = ::requestRender
+        )
+        if (!changed) return
+        latestState.updateAndGet { state ->
+            state.copy(
+                clock = state.clock.copy(
+                    textureAspect = clockOverlay.aspectRatio,
+                    faceUploaded = true
+                )
+            ).sanitized()
         }
     }
 
@@ -353,7 +451,14 @@ internal class VulkanColorFillHost(
             if (handle == 0L) {
                 false
             } else {
-                VulkanNative.nativeUploadBitmap(handle, bitmap)
+                VulkanNative.nativeUploadBitmap(handle, bitmap).also { ok ->
+                    // Dispatched before the recycle in the finally below: the
+                    // extractor needs the pixels.
+                    if (ok) {
+                        clockMaskGeneration++
+                        clockDepthMask.onImageUploaded(bitmap, clockMaskGeneration)
+                    }
+                }
             }
         } catch (failure: Throwable) {
             Log.e(TAG, "Unable to upload the Color Fill texture", failure)
@@ -390,7 +495,18 @@ internal class VulkanColorFillHost(
                 originX = state.originX,
                 originY = state.originY,
                 scrollOffsetX = state.scrollOffsetX,
-                scrollWindowX = state.scrollWindowX
+                scrollWindowX = state.scrollWindowX,
+                clockCenterX = state.clock.centerX,
+                clockTop = state.clock.top,
+                clockHeightFraction = state.clock.height,
+                clockTextureAspect = state.clock.textureAspect,
+                // The lock/home fade is folded in here, once, so the shader
+                // has no policy in it and both backends share one curve.
+                clockOpacity = state.clock.effectiveOpacity(state.progress),
+                clockUploaded = state.clock.faceUploaded,
+                // Depth needs a mask, so the user's switch is ANDed with one
+                // existing — the shader must never sample the clear texture.
+                clockDepth = state.clock.depthEnabled && state.hasSubject
             )
             true
         } catch (failure: Throwable) {
@@ -408,6 +524,10 @@ internal class VulkanColorFillHost(
             return
         }
         if (needsReload && !loadActiveTextureOnWorker(generation)) return
+        // Before the state is pushed, so this frame's uniforms already carry
+        // whatever the uploads just changed.
+        uploadClockOnWorker(handle)
+        uploadClockDepthMaskOnWorker(handle)
         if (!applyStateOnWorker()) return
         val result = try {
             VulkanNative.nativeRender(handle)
@@ -498,6 +618,16 @@ internal class VulkanColorFillHost(
         needsReload = true
         swapchainRecoveryQueued = false
         swapchainRetryBudget.reset()
+        // The new surface's descriptor set has no clock content yet, so the
+        // next frame must re-upload even though the time has not changed.
+        clockOverlay.reset()
+        clockDepthMask.onSurfaceReset()
+        latestState.updateAndGet { state ->
+            state.copy(
+                clock = state.clock.copy(faceUploaded = false),
+                hasSubject = false
+            ).sanitized()
+        }
     }
 
     private fun discardStaleSurfaceOnWorker() {
@@ -654,6 +784,8 @@ internal class VulkanColorFillHost(
     }
 
     private fun releaseNativeResources() {
+        clockOverlay.release()
+        clockDepthMask.close()
         ready = false
         readyGeneration = NO_SURFACE_GENERATION
         initializedApiVersion = null

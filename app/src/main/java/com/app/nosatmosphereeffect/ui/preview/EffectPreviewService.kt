@@ -18,6 +18,7 @@ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.helper.ClockPreferences
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
@@ -33,6 +34,7 @@ import com.app.nosatmosphereeffect.renderer.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.FrostedRenderer
 import com.app.nosatmosphereeffect.renderer.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.GlassRenderer
+import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderer
 import com.app.nosatmosphereeffect.renderer.NeonRenderState
@@ -272,6 +274,33 @@ class EffectPreviewService(
         }
     }
 
+    /**
+     * The clock settings for this preview.
+     *
+     * Reads exactly what the wallpaper services read, so the preview and the
+     * real wallpaper cannot disagree about where the clock goes. The colour is
+     * resolved here rather than left to a controller because the preview has
+     * no ClockRuntime — it is a one-shot state, not a running engine.
+     */
+    private fun previewClockState(
+        prefs: android.content.SharedPreferences,
+        lockedProgress: Float,
+        unlockedProgress: Float
+    ) = ClockPreferences.read(
+        preferences = prefs,
+        effectId = effectId,
+        singleImageMode = !PlaylistModeManager.isPlaylistMode(appContext),
+        lockedProgress = lockedProgress,
+        unlockedProgress = unlockedProgress
+    ).let { clock ->
+        clock.copy(
+            color = ClockPalette.resolve(
+                clock.requestedColor,
+                ClockPalette.autoColorFor(appContext)
+            )
+        ).sanitized()
+    }
+
     private fun createInitialState(): EffectPreviewRenderState {
         val prefs = appContext.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         return when (effectId) {
@@ -367,7 +396,12 @@ class EffectPreviewService(
                     enableNoise = previewBoolean(prefs, "enable_noise", false),
                     noiseScale = previewFloat(prefs, "noise_scale", 2000f),
                     noiseStrength = previewFloat(prefs, "noise_strength", 0.06f),
-                    blurRadius = previewFloat(prefs, "frosted_blur_radius", 200f)
+                    blurRadius = previewFloat(prefs, "frosted_blur_radius", 200f),
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = if (effectId == "FROSTED_REVERSE") 1f else 0f,
+                        unlockedProgress = if (effectId == "FROSTED_REVERSE") 0f else 1f
+                    )
                 ).sanitized()
             )
 
@@ -379,7 +413,20 @@ class EffectPreviewService(
                         lineCount = glassSettings.lineCount,
                         lineThickness = glassSettings.lineThickness,
                         transitionStyle = glassSettings.transitionStyle,
-                        backgroundOnly = glassSettings.backgroundOnly
+                        backgroundOnly = glassSettings.backgroundOnly,
+                        // Derived from the same policy GlassService uses,
+                        // rather than restated, so the two cannot drift.
+                        clock = previewClockState(
+                            prefs,
+                            lockedProgress = GlassEffectPolicy.shaderProgress(
+                                0f,
+                                effectId == "GLASS_REVERSE"
+                            ),
+                            unlockedProgress = GlassEffectPolicy.shaderProgress(
+                                1f,
+                                effectId == "GLASS_REVERSE"
+                            )
+                        )
                     ).sanitized()
                 )
             }
@@ -393,6 +440,15 @@ class EffectPreviewService(
                         prefs,
                         SubjectIsolationPolicy.HALFTONE_BACKGROUND_ONLY_KEY,
                         false
+                    ),
+                    // Matches HalftoneWallpaperService: these endpoints do
+                    // NOT flip for the reverse variant — the reversal lives in
+                    // HalftoneRenderState.effectStrength, and duplicating it
+                    // here would fade the clock on the wrong side.
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS,
+                        unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
                     )
                 ).sanitized()
             )
@@ -401,7 +457,14 @@ class EffectPreviewService(
                 ColorFillRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
                     originX = previewFloat(prefs, "origin_x", 0.5f),
-                    originY = previewFloat(prefs, "origin_y", 0.8f)
+                    originY = previewFloat(prefs, "origin_y", 0.8f),
+                    // Colour Fill's transition runs the other way round from
+                    // most effects: 1 is the monochrome lock-screen end.
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = if (effectId == "COLORFILL_REVERSE") 0f else 1f,
+                        unlockedProgress = if (effectId == "COLORFILL_REVERSE") 1f else 0f
+                    )
                 ).sanitized()
             )
 
@@ -414,6 +477,13 @@ class EffectPreviewService(
                         prefs,
                         CanvasSubjectSettings.ENABLED_KEY,
                         false
+                    ),
+                    // Matches CanvasSketchWallpaperService: fixed endpoints,
+                    // with the reversal living in NeonRenderState.imageAmount.
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = 0f,
+                        unlockedProgress = 1f
                     )
                 ).sanitized()
             )
@@ -606,6 +676,7 @@ class EffectPreviewService(
                 renderer.glassLineCount = value.glassLineCount
                 renderer.glassLineThickness = value.glassLineThickness
                 renderer.configureGlassBackgroundOnly(value.glassBackgroundOnly)
+                renderer.applyClockState(value.clockOverlay())
                 renderer.setDrawerBlurred(value.drawerBlur > 0.5f)
             }
             renderer is FrostedRenderer &&
@@ -617,6 +688,7 @@ class EffectPreviewService(
                 renderer.noiseScale = value.noiseScale
                 renderer.noiseStrength = value.noiseStrength
                 renderer.blurRadius = value.blurRadius
+                renderer.applyClockState(value.clock)
                 renderer.setDrawerBlurred(value.drawerBlur > 0.5f)
             }
             renderer is GlassRenderer &&
@@ -628,6 +700,7 @@ class EffectPreviewService(
                 renderer.lineThickness = value.lineThickness
                 renderer.transitionStyle = value.transitionStyle
                 renderer.configureBackgroundOnly(value.backgroundOnly)
+                renderer.applyClockState(value.clock)
             }
             renderer is HalftoneRenderer &&
                 state is EffectPreviewRenderState.Halftone -> {
@@ -637,6 +710,7 @@ class EffectPreviewService(
                 renderer.dotSize = value.dotSize
                 renderer.grayscale = value.grayscale
                 renderer.configureBackgroundOnly(value.backgroundOnly)
+                renderer.applyClockState(value.clock)
             }
             renderer is ColorFillRenderer &&
                 state is EffectPreviewRenderState.ColorFill -> {
@@ -645,6 +719,7 @@ class EffectPreviewService(
                 renderer.dimLevel = value.dimLevel
                 renderer.originX = value.originX
                 renderer.originY = value.originY
+                renderer.applyClockState(value.clock)
             }
             renderer is NeonRenderer &&
                 state is EffectPreviewRenderState.Neon -> {
@@ -656,6 +731,7 @@ class EffectPreviewService(
                 renderer.configureSubjectSegmentation(
                     value.subjectSegmentationEnabled
                 )
+                renderer.applyClockState(value.clock)
             }
             else -> error("The preview renderer and effect state do not match")
         }
@@ -665,8 +741,14 @@ class EffectPreviewService(
         val render = {
             if (!released.get()) previewContainer.post(::requestActiveRender)
         }
+        // Without the clock's own frame request the digit and entry animations
+        // stall part-way in the preview: these surfaces are
+        // RENDERMODE_WHEN_DIRTY, so nothing else asks for the next frame.
         when (renderer) {
-            is NeonRenderer -> renderer.onSketchUpdated = render
+            is NeonRenderer -> {
+                renderer.onSketchUpdated = render
+                renderer.onAnimationFrameRequested = render
+            }
             is AtmosphereRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
@@ -674,15 +756,20 @@ class EffectPreviewService(
             is BlurToSharpRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
+                renderer.onAnimationFrameRequested = render
             }
             is GlassRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
+                renderer.onAnimationFrameRequested = render
             }
             is HalftoneRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
+                renderer.onAnimationFrameRequested = render
             }
+            is ColorFillRenderer -> renderer.onAnimationFrameRequested = render
+            is FrostedRenderer -> renderer.onAnimationFrameRequested = render
         }
     }
 

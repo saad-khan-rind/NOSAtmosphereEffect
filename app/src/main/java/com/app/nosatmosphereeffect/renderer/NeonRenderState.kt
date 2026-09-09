@@ -1,18 +1,35 @@
 package com.app.nosatmosphereeffect.renderer
 
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+
 data class NeonRenderState(
     val progress: Float = 0f,
     val dimLevel: Float = 0f,
     val lineWidth: Float = 1.5f,
     val sensitivity: Float = 0.5f,
-    val subjectSegmentationEnabled: Boolean = false
+    val subjectSegmentationEnabled: Boolean = false,
+    /**
+     * The wallpaper clock. Grouped rather than flattened into a dozen fields
+     * so that adding the clock to an effect is one field, not twelve chances
+     * to forget one — see ClockOverlayState.
+     */
+    val clock: ClockOverlayState = ClockOverlayState(),
+    /**
+     * Whether a subject mask has been uploaded for the current image.
+     * Shared by Sketch's own segmentation and the clock's depth effect —
+     * either can be the reason it exists.
+     */
+    val hasSubject: Boolean = false
 ) {
     fun sanitized(): NeonRenderState {
         return copy(
             progress = progress.finiteOr(0f).coerceIn(0f, 1f),
             dimLevel = dimLevel.finiteOr(0f).coerceIn(0f, 1f),
             lineWidth = lineWidth.finiteOr(1.5f).coerceIn(0.25f, 8f),
-            sensitivity = sensitivity.finiteOr(0.5f).coerceIn(0f, 1f)
+            sensitivity = sensitivity.finiteOr(0.5f).coerceIn(0f, 1f),
+            clock = clock.sanitized(),
+            hasSubject = hasSubject &&
+                (subjectSegmentationEnabled || clock.needsSubjectMask())
         )
     }
 

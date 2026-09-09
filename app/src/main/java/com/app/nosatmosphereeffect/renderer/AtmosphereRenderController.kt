@@ -5,10 +5,10 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockFramePump
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockScreen
 import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
-import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
@@ -115,38 +115,8 @@ class AtmosphereRenderController(
         glassEnabled: Boolean,
         glassLineCount: Int,
         glassLineThickness: Float,
-        glassBackgroundOnly: Boolean,
-        clockEnabled: Boolean = false,
-        clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
-        clockStyleId: String = ClockStyle.DEFAULT.id,
-        clockShowSeconds: Boolean = AtmosphereClockPolicy.DEFAULT_SECONDS,
-        clockAnimate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
-        clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
-        clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
-        clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
-        clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
-        clockColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR,
-        clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT,
-        clockScreenId: String? = null,
-        /**
-         * The effect's shader progress at each end of its transition, passed
-         * down from the wallpaper service. The clock's fade is computed from
-         * the normalised unlock fraction, not from raw progress, because
-         * effects disagree about which end is the lock screen.
-         */
-        clockLockedProgress: Float = 0f,
-        clockUnlockedProgress: Float = 1f
+        glassBackgroundOnly: Boolean
     ) {
-        requestedClockColor = AtmosphereClockPolicy.sanitizeColor(clockColor)
-        val resolvedClock = AtmosphereClockPolicy.resolveEnabled(effectId, clockEnabled)
-        // Collapsed here, once, rather than in each renderer: an effect that
-        // is only sharp on one side gets that side regardless of what is
-        // stored, so a preference carried over from another effect cannot
-        // put the clock somewhere it would be illegible.
-        val resolvedScreen = ClockScreenPolicy.resolveScreen(
-            effectId,
-            clockScreenId?.let { ClockScreen.fromId(it) }
-        )
         val snapshot = synchronized(lock) {
             configuredGlassEnabled = glassEnabled
             configuredGlassBackgroundOnly = glassBackgroundOnly
@@ -160,29 +130,60 @@ class AtmosphereRenderController(
                 glassEnabled = glassEnabled,
                 glassLineCount = glassLineCount,
                 glassLineThickness = glassLineThickness,
-                glassBackgroundOnly = glassBackgroundOnly,
-                clockEnabled = AtmosphereClockPolicy.resolveEnabled(effectId, clockEnabled),
-                clockDepthEnabled = clockDepthEnabled,
-                clockStyleId = clockStyleId,
-                clockShowSeconds = clockShowSeconds,
-                clockAnimate = clockAnimate,
-                clockCenterX = clockCenterX,
-                clockTop = clockTop,
-                clockHeight = clockHeight,
-                clockOpacity = clockOpacity,
-                clockColor = ClockPalette.resolve(
-                    requestedClockColor,
-                    resolvedAutoClockColor
-                ),
-                clockHourFormat = clockHourFormat,
-                clockScreenId = resolvedScreen.id,
-                clockLockedProgress = clockLockedProgress,
-                clockUnlockedProgress = clockUnlockedProgress
+                glassBackgroundOnly = glassBackgroundOnly
             ).sanitized()
             state
         }
         applyState(snapshot)
-        clockPump.configure(resolvedClock, clockShowSeconds)
+    }
+
+    /**
+     * The clock, configured separately from the effect's own settings.
+     *
+     * Split out when the clock stopped being Atmosphere-only: every other
+     * effect service now hands its controller the same [ClockOverlayState],
+     * and having one shape of call across all of them is worth more than
+     * keeping this controller's twelve extra parameters. The state is unpacked
+     * into the flat fields the renderers and the Vulkan host already read,
+     * rather than those being rewritten to match.
+     */
+    fun configureClock(clock: ClockOverlayState) {
+        val safe = clock.sanitized()
+        requestedClockColor = safe.requestedColor
+        val resolvedClock =
+            AtmosphereClockPolicy.resolveEnabled(effectId, safe.enabled)
+        // Collapsed here, once, rather than in each renderer: an effect that
+        // is only sharp on one side gets that side regardless of what is
+        // stored, so a preference carried over from another effect cannot put
+        // the clock somewhere it would be illegible.
+        val resolvedScreen = ClockScreenPolicy.resolveScreen(
+            effectId,
+            ClockScreen.fromId(safe.screenId)
+        )
+        val snapshot = synchronized(lock) {
+            state = state.copy(
+                clockEnabled = resolvedClock,
+                clockDepthEnabled = safe.depthEnabled,
+                clockStyleId = safe.styleId,
+                clockShowSeconds = safe.showSeconds,
+                clockAnimate = safe.animate,
+                clockCenterX = safe.centerX,
+                clockTop = safe.top,
+                clockHeight = safe.height,
+                clockOpacity = safe.opacity,
+                clockColor = ClockPalette.resolve(
+                    requestedClockColor,
+                    resolvedAutoClockColor
+                ),
+                clockHourFormat = safe.hourFormat,
+                clockScreenId = resolvedScreen.id,
+                clockLockedProgress = safe.lockedProgress,
+                clockUnlockedProgress = safe.unlockedProgress
+            ).sanitized()
+            state
+        }
+        applyState(snapshot)
+        clockPump.configure(resolvedClock, safe.showSeconds)
         if (resolvedClock && ClockPalette.isAuto(requestedClockColor)) {
             refreshAutoClockColor()
         }
@@ -199,9 +200,12 @@ class AtmosphereRenderController(
     fun setEngineVisible(visible: Boolean) {
         clockPump.setVisible(visible)
         if (!visible) return
-        val targets = synchronized(lock) { Pair(openGlAtmosphere, vulkanHost) }
+        val targets = synchronized(lock) {
+            Triple(openGlAtmosphere, openGlReverse, vulkanHost)
+        }
         targets.first?.beginClockEntry()
         targets.second?.beginClockEntry()
+        targets.third?.beginClockEntry()
     }
 
     /**
@@ -231,9 +235,12 @@ class AtmosphereRenderController(
     }
 
     private fun onClockTick() {
-        val targets = synchronized(lock) { Pair(openGlAtmosphere, vulkanHost) }
+        val targets = synchronized(lock) {
+            Triple(openGlAtmosphere, openGlReverse, vulkanHost)
+        }
         targets.first?.onTimeChanged()
-        targets.second?.onTimeChanged()
+        targets.second?.onClockTimeChanged()
+        targets.third?.onTimeChanged()
         synchronized(lock) { engine }?.requestRender()
     }
 
@@ -565,6 +572,7 @@ class AtmosphereRenderController(
                 applyState(snapshot)
                 onRenderRetryRequested = engine::requestRender
                 onSubjectMaskUpdated = engine::requestRender
+                onAnimationFrameRequested = engine::requestRender
             }
         } else {
             AtmosphereRenderer(appContext).apply {
@@ -629,6 +637,9 @@ class AtmosphereRenderController(
         glassLineCount = state.glassLineCount
         glassLineThickness = state.glassLineThickness
         configureGlassBackgroundOnly(state.glassBackgroundOnly)
+        // Reverse Atmosphere gets the clock through the shared overlay rather
+        // than the flat fields the forward renderer uses.
+        applyClockState(state.clockOverlay())
         setDrawerBlurred(state.drawerBlur > 0.5f)
     }
 

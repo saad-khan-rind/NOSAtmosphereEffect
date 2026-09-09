@@ -27,9 +27,16 @@ enum class ClockSharpSide {
     HOME,
 
     /**
-     * Sharp on both sides. Only the Color Fill pair: monochrome and colour
-     * are both the undistorted photo, so the clock reads well either way and
-     * the user gets to choose.
+     * Legible on both sides, so the user gets to choose.
+     *
+     * "Sharp" is doing slightly less work here than the enum name suggests.
+     * What actually matters for the clock is whether the effect *displaces or
+     * softens* the image: a blur or a refraction moves pixels away from where
+     * the clock expects them and turns the edge of a glyph into mush, while a
+     * recolour, a line drawing or a dot screen leaves the geometry exactly
+     * where it was and stays high-contrast. Colour Fill, Sketch and Halftone
+     * are all the second kind, so a clock sits on either end of their
+     * transition perfectly well.
      */
     BOTH
 }

@@ -100,14 +100,41 @@ object AtmosphereClockPolicy {
      * would silently ignore it. Add an id here in the same change that wires
      * that effect's compositing, never before.
      *
-     * REVERSE is absent on purpose — on Vulkan it shares VulkanAtmosphereHost
-     * and would work, but on GLES it runs through BlurToSharpRenderer, which
-     * has no clock pass. Enabling it would give the same effect a clock on
-     * one backend and not the other.
+     * Every effect is listed now, and every one is wired on BOTH backends. An
+     * id belongs here only when the GLES renderer and the Vulkan host both
+     * draw it — half a pair would give the same effect a clock on one device
+     * and not on another, which reads as a bug rather than a limitation.
      */
-    private val SUPPORTED_EFFECT_IDS = setOf("ORIGINAL")
+    private val SUPPORTED_EFFECT_IDS = setOf(
+        "ORIGINAL",
+        "REVERSE",
+        "GLASS",
+        "GLASS_REVERSE",
+        "COLORFILL",
+        "COLORFILL_REVERSE",
+        "NEON",
+        "NEON_REVERSE",
+        "FROSTED",
+        "FROSTED_REVERSE",
+        "HALFTONE",
+        "HALFTONE_REVERSE"
+    )
+
+    /**
+     * Effects that can draw the subject back over the clock.
+     *
+     * Every effect now binds a subject mask in its display pass, so this is
+     * the same set as [SUPPORTED_EFFECT_IDS]. It stays a separate name because
+     * the two answer different questions: an effect could gain the clock
+     * before it gains segmentation. Keep the depth switch out of the settings
+     * screen for anything that lands here without a mask in its display pass —
+     * a switch that does nothing is worse than no switch.
+     */
+    private val DEPTH_EFFECT_IDS = SUPPORTED_EFFECT_IDS
 
     fun supportsEffect(effectId: String?): Boolean = effectId in SUPPORTED_EFFECT_IDS
+
+    fun supportsDepth(effectId: String?): Boolean = effectId in DEPTH_EFFECT_IDS
 
     /**
      * The clock is single-image only for now.
