@@ -3,6 +3,7 @@
 layout(set = 0, binding = 0) uniform sampler2D sharpTexture;
 layout(set = 0, binding = 1) uniform sampler2D lineTexture;
 layout(set = 0, binding = 2) uniform sampler2D clockTexture;
+layout(set = 0, binding = 3) uniform sampler2D clockSubjectMask;
 
 layout(location = 0) in vec2 vTexCoord;
 layout(location = 1) in vec2 vEffectCoord;
@@ -54,6 +55,53 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
     return mix(color, clockSample.rgb, clockSample.a * params.clockMeta.x);
 }
 
+// Subject mask for the clock's depth effect. These effects have no "background
+// only" mode of their own, so this binding exists purely for the clock;
+// clockMeta.z is 0 whenever no real mask has been uploaded, and the sampler is
+// then never read. Optional binding, so until the first upload it holds the
+// engine's 1x1 clear texture.
+float clockSubjectCoverage(vec2 uv) {
+    vec2 stepSize = 2.0 / vec2(textureSize(clockSubjectMask, 0));
+    float mask = texture(clockSubjectMask, uv).r;
+    mask = max(
+        mask,
+        texture(clockSubjectMask, clamp(uv + vec2(stepSize.x, 0.0), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(clockSubjectMask, clamp(uv - vec2(stepSize.x, 0.0), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(clockSubjectMask, clamp(uv + vec2(0.0, stepSize.y), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(clockSubjectMask, clamp(uv - vec2(0.0, stepSize.y), 0.0, 1.0)).r
+    );
+    return smoothstep(0.30, 0.72, mask);
+}
+
+// Draws the subject back over the clock, so the clock reads as sitting behind
+// them.
+//
+// subjectColor is the frame as it looked BEFORE the clock was composited, not
+// the untouched photo. Atmosphere, Glass and Halftone use the sharp photo
+// because their backgrounds are blurred or stylised, so a sharp subject reads
+// as depth. Here it would read as a cut-out instead: a full-colour subject
+// over Colour Fill's monochrome end, or a photographic subject over Sketch's
+// line art. Re-drawing what the effect already produced keeps the subject
+// looking like the rest of the frame, which is what sells the occlusion.
+// Mirrors the GLES path in assets/shaders/neon/neon.frag; keep the two in step.
+vec3 applyClockDepth(vec3 color, vec3 subjectColor, vec2 maskUv) {
+    if (params.clockMeta.y <= 0.5 || params.clockMeta.z <= 0.5) return color;
+    return mix(
+        color,
+        subjectColor,
+        clockSubjectCoverage(maskUv) * params.clockMeta.x
+    );
+}
+
 void main() {
     vec3 sharp = texture(sharpTexture, vTexCoord).rgb;
     float progress = clamp(params.render.x, 0.0, 1.0);
@@ -85,7 +133,9 @@ void main() {
         vec3(0.0),
         clamp(params.render.y, 0.0, 1.0) * (1.0 - imageAmount)
     );
+    vec3 beforeClock = color;
     color = compositeClock(color, vEffectCoord);
+    color = applyClockDepth(color, beforeClock, vTexCoord);
 
     fragColor = vec4(color, 1.0);
 }

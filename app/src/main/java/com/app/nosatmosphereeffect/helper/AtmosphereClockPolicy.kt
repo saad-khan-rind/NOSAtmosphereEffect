@@ -121,24 +121,16 @@ object AtmosphereClockPolicy {
     )
 
     /**
-     * Effects whose *display* pass has a subject mask bound, and can therefore
-     * draw the subject back over the clock.
+     * Effects that can draw the subject back over the clock.
      *
-     * Colour Fill and Frosted have no segmentation at all. Sketch computes a
-     * mask, but only for the off-screen edge bake — the final pass samples the
-     * baked line texture, not the mask, so it has nothing to composite from.
-     * Offering "Depth" for any of those three would be a switch that does
-     * nothing, so [ClockPreferences] forces it off there and the settings
-     * screen hides it.
+     * Every effect now binds a subject mask in its display pass, so this is
+     * the same set as [SUPPORTED_EFFECT_IDS]. It stays a separate name because
+     * the two answer different questions: an effect could gain the clock
+     * before it gains segmentation. Keep the depth switch out of the settings
+     * screen for anything that lands here without a mask in its display pass —
+     * a switch that does nothing is worse than no switch.
      */
-    private val DEPTH_EFFECT_IDS = setOf(
-        "ORIGINAL",
-        "REVERSE",
-        "GLASS",
-        "GLASS_REVERSE",
-        "HALFTONE",
-        "HALFTONE_REVERSE"
-    )
+    private val DEPTH_EFFECT_IDS = SUPPORTED_EFFECT_IDS
 
     fun supportsEffect(effectId: String?): Boolean = effectId in SUPPORTED_EFFECT_IDS
 

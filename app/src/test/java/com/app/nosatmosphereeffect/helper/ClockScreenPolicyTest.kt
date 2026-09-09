@@ -111,10 +111,17 @@ class ClockScreenPolicyTest {
     }
 
     @Test
-    fun `depth is offered only where the display pass has a mask`() {
+    fun `every effect that shows the clock can also draw depth`() {
+        // The two are separate questions — an effect could gain the clock
+        // before it gains segmentation — but every effect now binds a subject
+        // mask in its display pass, so the sets match. If they ever diverge,
+        // the settings screen must hide the depth switch for the difference.
         listOf(
             "ORIGINAL", "REVERSE",
             "GLASS", "GLASS_REVERSE",
+            "COLORFILL", "COLORFILL_REVERSE",
+            "NEON", "NEON_REVERSE",
+            "FROSTED", "FROSTED_REVERSE",
             "HALFTONE", "HALFTONE_REVERSE"
         ).forEach { effectId ->
             assertTrue(
@@ -122,20 +129,12 @@ class ClockScreenPolicyTest {
                 AtmosphereClockPolicy.supportsDepth(effectId)
             )
         }
+    }
 
-        // Colour Fill and Frosted have no segmentation at all; Sketch computes
-        // a mask but spends it on the off-screen edge bake, so its on-screen
-        // pass has nothing to composite the subject back from.
-        listOf(
-            "COLORFILL", "COLORFILL_REVERSE",
-            "NEON", "NEON_REVERSE",
-            "FROSTED", "FROSTED_REVERSE"
-        ).forEach { effectId ->
-            assertFalse(
-                "$effectId must not offer clock depth",
-                AtmosphereClockPolicy.supportsDepth(effectId)
-            )
-        }
+    @Test
+    fun `unknown effects never claim depth support`() {
+        assertFalse(AtmosphereClockPolicy.supportsDepth(null))
+        assertFalse(AtmosphereClockPolicy.supportsDepth("SOMETHING_NEW"))
     }
 }
 

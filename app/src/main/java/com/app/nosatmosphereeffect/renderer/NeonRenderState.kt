@@ -13,7 +13,13 @@ data class NeonRenderState(
      * so that adding the clock to an effect is one field, not twelve chances
      * to forget one — see ClockOverlayState.
      */
-    val clock: ClockOverlayState = ClockOverlayState()
+    val clock: ClockOverlayState = ClockOverlayState(),
+    /**
+     * Whether a subject mask has been uploaded for the current image.
+     * Shared by Sketch's own segmentation and the clock's depth effect —
+     * either can be the reason it exists.
+     */
+    val hasSubject: Boolean = false
 ) {
     fun sanitized(): NeonRenderState {
         return copy(
@@ -21,7 +27,9 @@ data class NeonRenderState(
             dimLevel = dimLevel.finiteOr(0f).coerceIn(0f, 1f),
             lineWidth = lineWidth.finiteOr(1.5f).coerceIn(0.25f, 8f),
             sensitivity = sensitivity.finiteOr(0.5f).coerceIn(0f, 1f),
-            clock = clock.sanitized()
+            clock = clock.sanitized(),
+            hasSubject = hasSubject &&
+                (subjectSegmentationEnabled || clock.needsSubjectMask())
         )
     }
 

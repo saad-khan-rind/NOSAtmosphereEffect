@@ -31,6 +31,9 @@ internal class VulkanNeonHost(
 
     private var retainedSource: Bitmap? = null
     private var retainedSubjectMask: Bitmap? = null
+
+    /** Which mask revision the display binding currently holds. */
+    private var uploadedClockMaskRevision: Long = NO_MASK_REVISION
     private var currentTextureGeneration = NO_TEXTURE_GENERATION
     private var requestedMaskGeneration = NO_TEXTURE_GENERATION
     private var subjectMaskRevision = 0L
@@ -111,20 +114,27 @@ internal class VulkanNeonHost(
     }
 
     init {
-        subjectMasks.configure(initialState.subjectSegmentationEnabled)
-        clockOverlay.applyState(initialState.sanitized().clock)
+        val safeInitial = initialState.sanitized()
+        subjectMasks.configure(
+            safeInitial.subjectSegmentationEnabled ||
+                safeInitial.clock.needsSubjectMask()
+        )
+        clockOverlay.applyState(safeInitial.clock)
         startNativeEngine()
     }
 
     fun updateState(state: NeonRenderState) {
         val sanitized = state.sanitized()
         val previous = currentEffectState()
-        val segmentationChanged = subjectMasks.configure(
-            sanitized.subjectSegmentationEnabled
-        )
+        // Sketch's own segmentation feeds the off-screen contour bake; the
+        // clock's depth effect feeds the on-screen pass. Either is reason
+        // enough to run segmentation, and neither implies the other.
+        val maskWanted = sanitized.subjectSegmentationEnabled ||
+            sanitized.clock.needsSubjectMask()
+        val segmentationChanged = subjectMasks.configure(maskWanted)
         updateEffectState { sanitized }
         syncClockState(sanitized.clock)
-        if (segmentationChanged && sanitized.subjectSegmentationEnabled) {
+        if (segmentationChanged && maskWanted) {
             reloadTexture()
         } else if (
             segmentationChanged ||
@@ -165,12 +175,15 @@ internal class VulkanNeonHost(
         consumePendingSubjectMask(textureGeneration)
 
         val state = currentEffectState().sanitized()
-        if (!state.subjectSegmentationEnabled && retainedSubjectMask != null) {
+        val maskWanted = state.subjectSegmentationEnabled ||
+            state.clock.needsSubjectMask()
+        if (!maskWanted && retainedSubjectMask != null) {
             retainedSubjectMask.recycleSafely()
             retainedSubjectMask = null
             subjectMaskRevision++
         }
         requestSubjectMaskIfNeeded(textureGeneration)
+        uploadClockSubjectMaskOnWorker(handle, maskWanted)
 
         val needsBake =
             bakedTextureGeneration != textureGeneration ||
@@ -188,6 +201,8 @@ internal class VulkanNeonHost(
             it.copy(clock = it.clock.copy(faceUploaded = false)).sanitized()
         }
         recycleRetainedImages()
+        // The new surface's descriptor set has no mask content either.
+        uploadedClockMaskRevision = NO_MASK_REVISION
         currentTextureGeneration = NO_TEXTURE_GENERATION
         requestedMaskGeneration = NO_TEXTURE_GENERATION
         subjectMaskRevision = 0L
@@ -214,6 +229,34 @@ internal class VulkanNeonHost(
         }
         requestedMaskGeneration = textureGeneration
         subjectMasks.request(source, textureGeneration)
+    }
+
+    /**
+     * Publishes the mask to the on-screen pass for the clock's depth effect.
+     *
+     * Separate from the contour bake's use of the same bitmap: the bake folds
+     * the mask into the baked line texture, so the display pass has no way to
+     * recover it and needs its own binding. Tracked by revision rather than
+     * re-uploaded every frame — segmentation results change only when the
+     * image does.
+     */
+    private fun uploadClockSubjectMaskOnWorker(handle: Long, maskWanted: Boolean) {
+        val mask = retainedSubjectMask
+        if (!maskWanted || mask == null || mask.isRecycled) {
+            if (uploadedClockMaskRevision != NO_MASK_REVISION) {
+                VulkanNeonNative.nativeClearSubjectMask(handle)
+                uploadedClockMaskRevision = NO_MASK_REVISION
+                updateEffectState { it.copy(hasSubject = false).sanitized() }
+            }
+            return
+        }
+        if (uploadedClockMaskRevision == subjectMaskRevision) return
+        if (!VulkanNeonNative.nativeUploadSubjectMask(handle, mask)) {
+            Log.w(TAG, "Unable to upload the Sketch clock depth mask")
+            return
+        }
+        uploadedClockMaskRevision = subjectMaskRevision
+        updateEffectState { it.copy(hasSubject = true).sanitized() }
     }
 
     private fun consumePendingSubjectMask(textureGeneration: Long) {
@@ -402,7 +445,10 @@ private class NeonBridge(
             // The lock/home fade is folded in here, once, so the shader has no
             // policy in it and both backends share one curve.
             clockOpacity = safe.clock.effectiveOpacity(safe.progress),
-            clockUploaded = safe.clock.faceUploaded
+            clockUploaded = safe.clock.faceUploaded,
+            // Depth needs a mask, so the user's switch is ANDed with one
+            // existing — the shader must never sample the clear texture.
+            clockDepth = safe.clock.depthEnabled && safe.hasSubject
         )
     }
 

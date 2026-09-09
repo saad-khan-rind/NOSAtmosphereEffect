@@ -32,6 +32,13 @@ internal object VulkanNative {
         bitmap: Bitmap
     ): Boolean
 
+    external fun nativeUploadSubjectMask(
+        handle: Long,
+        bitmap: Bitmap
+    ): Boolean
+
+    external fun nativeClearSubjectMask(handle: Long): Boolean
+
     external fun nativeUploadClock(
         handle: Long,
         bitmap: Bitmap
@@ -52,7 +59,8 @@ internal object VulkanNative {
         clockHeightFraction: Float,
         clockTextureAspect: Float,
         clockOpacity: Float,
-        clockUploaded: Boolean
+        clockUploaded: Boolean,
+        clockDepth: Boolean
     )
 
     external fun nativeRender(handle: Long): Int

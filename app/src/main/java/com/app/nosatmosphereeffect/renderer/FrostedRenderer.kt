@@ -7,6 +7,7 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GlesClockOverlay
+import com.app.nosatmosphereeffect.helper.GlesSubjectMask
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
@@ -77,6 +78,16 @@ class FrostedRenderer(
      */
     private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
 
+    /**
+     * Segmentation for the clock's depth effect. Frosted has no "background
+     * only" mode, so this is the mask's only consumer and it runs only while
+     * depth is switched on. Unit 3, after the sharp photo, the blurred photo
+     * and the clock.
+     */
+    private val subjectMask = GlesSubjectMask(context, "Frosted") {
+        onAnimationFrameRequested?.invoke()
+    }
+
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
         set(value) {
@@ -84,7 +95,17 @@ class FrostedRenderer(
             clockOverlay.onAnimationFrameRequested = value
         }
 
-    fun applyClockState(state: ClockOverlayState) = clockOverlay.applyState(state)
+    fun applyClockState(state: ClockOverlayState) {
+        clockOverlay.applyState(state)
+        // Reloading on the transition into "wanted" is what dispatches the
+        // extraction: the coordinator serves one request per image, so an
+        // image loaded while depth was off would otherwise never get a mask.
+        if (subjectMask.configure(state.needsSubjectMask()) &&
+            state.needsSubjectMask()
+        ) {
+            needsReload = true
+        }
+    }
 
     fun beginClockEntry() = clockOverlay.beginEntry()
 
@@ -93,6 +114,7 @@ class FrostedRenderer(
     fun release() {
         onAnimationFrameRequested = null
         clockOverlay.release()
+        subjectMask.close()
     }
 
     private var programId: Int = 0
@@ -171,6 +193,7 @@ class FrostedRenderer(
         needsReload = true
         // The clock's texture id belonged to the destroyed context.
         clockOverlay.resetForNewContext()
+        subjectMask.resetForNewContext()
     }
 
     private fun loadAndApplyTextures() {
@@ -206,6 +229,8 @@ class FrostedRenderer(
         } else {
             currentSet.blurId = gpuBlur(currentSet.sharpId, sharpBitmap.width, sharpBitmap.height, blurRadius)
         }
+        // Before the recycle: the extractor needs the pixels.
+        subjectMask.onImageLoaded(sharpBitmap)
         sharpBitmap.recycle()
     }
 
@@ -233,6 +258,7 @@ class FrostedRenderer(
         nextSet.width = bitmap.width
         nextSet.height = bitmap.height
 
+        subjectMask.onImageLoaded(bitmap)
         bitmap.recycle()
 
         val temp = currentSet
@@ -266,6 +292,8 @@ class FrostedRenderer(
             needsReload = false
             loadAndApplyTextures()
         }
+
+        subjectMask.applyPending()
 
         // gpuBlur/texture rebuilds change the viewport; restore it for screen drawing.
         if (surfaceWidth > 0 && surfaceHeight > 0) {
@@ -304,11 +332,12 @@ class FrostedRenderer(
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,currentSet.blurId )
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureBlur"), 1)
 
-        // No subject mask on this effect, so no depth argument.
+        subjectMask.bind(programId, GLES30.GL_TEXTURE3, 3, "uClockSubjectMask")
         clockOverlay.draw(
             programId = programId,
             progress = blurStrength,
-            screenAspect = aspectRatio
+            screenAspect = aspectRatio,
+            subjectMaskAvailable = subjectMask.ready
         )
 
         val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")

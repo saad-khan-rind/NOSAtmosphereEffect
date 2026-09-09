@@ -79,13 +79,6 @@ data class AdvancedConfig(
     val clockEnabled: Boolean,
     val clockDepthEnabled: Boolean,
     /**
-     * Whether this effect can composite the depth effect at all. Colour Fill
-     * and Frosted have no segmentation, and Sketch's mask is consumed by its
-     * off-screen edge bake, so the switch is hidden there rather than shown
-     * doing nothing.
-     */
-    val clockSupportsDepth: Boolean,
-    /**
      * Whether the lock/home/both choice is offered. True only for effects that
      * leave the photo's geometry intact at both ends of their transition —
      * Colour Fill, Sketch and Halftone. Everywhere else the side is forced by
@@ -94,8 +87,6 @@ data class AdvancedConfig(
      */
     val clockOffersScreenChoice: Boolean,
     val clockScreenId: String,
-    /** Human-readable side for the effects that do not offer a choice. */
-    val clockForcedScreenLabel: String,
     val glassReverse: Boolean,
     val showNoiseSwitch: Boolean,
     val showBlob: Boolean,
@@ -643,16 +634,17 @@ private fun EffectSettings(
                     }
                 )
                 if (clockEnabled) {
-                    Spacer(Modifier.height(18.dp))
-                    Text(
-                        "Show on",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                    Spacer(Modifier.height(8.dp))
+                    // Shown only where the side is actually the user's to
+                    // pick. Effects that blur or refract the photo on one side
+                    // get no control and no explanation — the clock simply
+                    // appears on the side that stays legible.
                     if (config.clockOffersScreenChoice) {
-                        // Offered only for the effects that leave the photo's
-                        // geometry intact at both ends of their transition, so
-                        // the clock reads either way. See ClockScreenPolicy.
+                        Spacer(Modifier.height(18.dp))
+                        Text(
+                            "Show on",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Spacer(Modifier.height(8.dp))
                         val screenOrder = listOf(
                             ClockScreen.LOCK,
                             ClockScreen.HOME,
@@ -672,38 +664,21 @@ private fun EffectSettings(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
-                    } else {
-                        // No control at all rather than a disabled one: this
-                        // effect blurs or refracts the photo on the other side,
-                        // so a clock there would be illegible and the choice is
-                        // not the user's to make.
-                        Text(
-                            "This effect keeps the photo sharp only on the " +
-                                config.clockForcedScreenLabel +
-                                ", so the clock appears there. Colour Fill, " +
-                                "Sketch and Halftone let you choose.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
-                    if (config.clockSupportsDepth) {
-                        Spacer(Modifier.height(18.dp))
-                        // Depth is the clock's own switch, not the Glass
-                        // effect's. Turning it on computes a subject mask
-                        // whether or not Glass is in use, which is the whole
-                        // point: an earlier version reused Glass's "background
-                        // only" flag, so the depth effect silently did nothing
-                        // unless Glass was on.
-                        SettingSwitchRow(
-                            title = "Depth effect",
-                            checked = clockDepthEnabled,
-                            onCheckedChange = onClockDepthEnabledChange,
-                            subtitle = "Draws the subject back over the clock, " +
-                                "so the clock sits behind them. Needs a photo " +
-                                "with a clear subject; works whether or not " +
-                                "the Glass effect is on."
-                        )
-                    }
+                    Spacer(Modifier.height(18.dp))
+                    // Depth is the clock's own switch, not the Glass effect's.
+                    // Turning it on computes a subject mask whether or not
+                    // Glass is in use, which is the whole point: an earlier
+                    // version reused Glass's "background only" flag, so the
+                    // depth effect silently did nothing unless Glass was on.
+                    SettingSwitchRow(
+                        title = "Depth effect",
+                        checked = clockDepthEnabled,
+                        onCheckedChange = onClockDepthEnabledChange,
+                        subtitle = "Draws the subject back over the clock, so " +
+                            "the clock sits behind them. Needs a photo with a " +
+                            "clear subject."
+                    )
                     Spacer(Modifier.height(8.dp))
                     val context = LocalContext.current
                     AtmoTextButton(

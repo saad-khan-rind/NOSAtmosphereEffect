@@ -31,6 +31,17 @@ internal class VulkanFrostedHost(
      */
     private val clockOverlay = VulkanClockOverlay(appContext, "Frosted")
 
+    /**
+     * Segmentation for the clock's depth effect. Frosted has no "background
+     * only" mode, so this is the mask's only consumer and it runs only while
+     * depth is switched on.
+     */
+    private val clockDepthMask = VulkanClockDepthMask(
+        appContext,
+        "Frosted",
+        ::requestRender
+    )
+
     /** Plays the clock's entry animation on the next prepared frame. */
     fun beginClockEntry() {
         clockOverlay.beginEntry()
@@ -95,7 +106,9 @@ internal class VulkanFrostedHost(
     }
 
     init {
-        clockOverlay.applyState(initialState.sanitized().clock)
+        val safeInitial = initialState.sanitized()
+        clockOverlay.applyState(safeInitial.clock)
+        clockDepthMask.configure(safeInitial.clock.needsSubjectMask())
         startNativeEngine()
     }
 
@@ -103,6 +116,14 @@ internal class VulkanFrostedHost(
         val safe = state.sanitized()
         updateEffectState { safe }
         syncClockState(safe.clock)
+        // Reloading on the transition into "wanted" is what dispatches the
+        // extraction: one request is served per image, so an image uploaded
+        // while depth was off would otherwise never get a mask.
+        if (clockDepthMask.configure(safe.clock.needsSubjectMask()) &&
+            safe.clock.needsSubjectMask()
+        ) {
+            reloadTexture()
+        }
     }
 
     override fun prepareFrameOnWorker(
@@ -110,19 +131,33 @@ internal class VulkanFrostedHost(
         textureGeneration: Long
     ): Boolean {
         uploadClockOnWorker(handle)
+        val hasSubject = clockDepthMask.uploadIfNeeded(
+            handle = handle,
+            textureGeneration = textureGeneration,
+            upload = VulkanFrostedNative::nativeUploadSubjectMask,
+            clear = VulkanFrostedNative::nativeClearSubjectMask
+        )
+        if (hasSubject != currentEffectState().hasSubject) {
+            updateEffectState { it.copy(hasSubject = hasSubject).sanitized() }
+        }
         return true
     }
 
     override fun onSurfaceResetOnWorker() {
-        // The new surface's descriptor set has no clock content yet.
+        // The new surface's descriptor set has no clock or mask content yet.
         clockOverlay.reset()
+        clockDepthMask.onSurfaceReset()
         updateEffectState {
-            it.copy(clock = it.clock.copy(faceUploaded = false)).sanitized()
+            it.copy(
+                clock = it.clock.copy(faceUploaded = false),
+                hasSubject = false
+            ).sanitized()
         }
     }
 
     override fun onEffectResourcesReleased() {
         clockOverlay.release()
+        clockDepthMask.close()
     }
 
     override fun onWallpaperUploadedOnWorker(
@@ -130,6 +165,7 @@ internal class VulkanFrostedHost(
         bitmap: Bitmap,
         textureGeneration: Long
     ): Boolean {
+        clockDepthMask.onImageUploaded(bitmap, textureGeneration)
         val radius = currentEffectState().blurRadiusPixels
         if (radius < 1) {
             return VulkanFrostedNative.nativeUploadBlurred(handle, bitmap)
@@ -214,7 +250,10 @@ private object FrostedBridge :
             // The lock/home fade is folded in here, once, so the shader has no
             // policy in it and both backends share one curve.
             clockOpacity = safe.clock.effectiveOpacity(safe.progress),
-            clockUploaded = safe.clock.faceUploaded
+            clockUploaded = safe.clock.faceUploaded,
+            // Depth needs a mask, so the user's switch is ANDed with one
+            // existing — the shader must never sample the clear texture.
+            clockDepth = safe.clock.depthEnabled && safe.hasSubject
         )
     }
 

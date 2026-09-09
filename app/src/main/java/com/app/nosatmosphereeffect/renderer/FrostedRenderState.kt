@@ -16,7 +16,13 @@ data class FrostedRenderState(
      * so that adding the clock to an effect is one field, not twelve chances
      * to forget one — see ClockOverlayState.
      */
-    val clock: ClockOverlayState = ClockOverlayState()
+    val clock: ClockOverlayState = ClockOverlayState(),
+    /**
+     * Whether a subject mask has been uploaded for the current image. Only the
+     * clock's depth effect consumes it here — this effect has no subject
+     * isolation of its own.
+     */
+    val hasSubject: Boolean = false
 ) {
     fun sanitized(): FrostedRenderState {
         return copy(
@@ -30,7 +36,8 @@ data class FrostedRenderState(
                 .roundToInt()
                 .toFloat(),
             drawerBlur = drawerBlur.finiteOr(0f).coerceIn(0f, 1f),
-            clock = clock.sanitized()
+            clock = clock.sanitized(),
+            hasSubject = hasSubject && clock.needsSubjectMask()
         )
     }
 

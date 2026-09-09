@@ -10,6 +10,7 @@ import android.opengl.GLUtils
 import androidx.core.graphics.createBitmap
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GlesClockOverlay
+import com.app.nosatmosphereeffect.helper.GlesSubjectMask
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.io.File
@@ -57,6 +58,15 @@ class ColorFillRenderer(
      */
     private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE1, 1)
 
+    /**
+     * Segmentation for the clock's depth effect. Colour Fill has no
+     * "background only" mode, so this is the mask's only consumer and it runs
+     * only while depth is switched on. Unit 2, after the photo and the clock.
+     */
+    private val subjectMask = GlesSubjectMask(context, "Colour Fill") {
+        onAnimationFrameRequested?.invoke()
+    }
+
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
         set(value) {
@@ -64,7 +74,17 @@ class ColorFillRenderer(
             clockOverlay.onAnimationFrameRequested = value
         }
 
-    fun applyClockState(state: ClockOverlayState) = clockOverlay.applyState(state)
+    fun applyClockState(state: ClockOverlayState) {
+        clockOverlay.applyState(state)
+        // Reloading on the transition into "wanted" is what dispatches the
+        // extraction: the coordinator serves one request per image, so an
+        // image loaded while depth was off would otherwise never get a mask.
+        if (subjectMask.configure(state.needsSubjectMask()) &&
+            state.needsSubjectMask()
+        ) {
+            needsReload = true
+        }
+    }
 
     fun beginClockEntry() = clockOverlay.beginEntry()
 
@@ -73,6 +93,7 @@ class ColorFillRenderer(
     fun release() {
         onAnimationFrameRequested = null
         clockOverlay.release()
+        subjectMask.close()
     }
     @Volatile private var needsReload: Boolean = false
 
@@ -127,6 +148,7 @@ class ColorFillRenderer(
         needsReload = true
         // The clock's texture id belonged to the destroyed context.
         clockOverlay.resetForNewContext()
+        subjectMask.resetForNewContext()
     }
 
     private fun loadAndApplyTextures() {
@@ -144,6 +166,8 @@ class ColorFillRenderer(
         currentSet.height = sharpBitmap.height
 
         currentSet.sharpId = uploadTexture(sharpBitmap)
+        // Before the recycle: the extractor needs the pixels.
+        subjectMask.onImageLoaded(sharpBitmap)
         sharpBitmap.recycle()
     }
 
@@ -161,6 +185,7 @@ class ColorFillRenderer(
         nextSet.width = bitmap.width
         nextSet.height = bitmap.height
 
+        subjectMask.onImageLoaded(bitmap)
         bitmap.recycle()
 
         val temp = currentSet
@@ -190,6 +215,7 @@ class ColorFillRenderer(
             needsReload = false
             loadAndApplyTextures()
         }
+        subjectMask.applyPending()
 
         if (!currentSet.isValid()) {
             GLES30.glClearColor(0f, 0f, 0f, 1f)
@@ -213,12 +239,12 @@ class ColorFillRenderer(
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.sharpId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureSharp"), 0)
 
-        // Colour Fill has no subject mask, so the depth effect is not offered
-        // for it and nothing is passed here.
+        subjectMask.bind(programId, GLES30.GL_TEXTURE2, 2, "uClockSubjectMask")
         clockOverlay.draw(
             programId = programId,
             progress = blurStrength,
-            screenAspect = aspectRatio
+            screenAspect = aspectRatio,
+            subjectMaskAvailable = subjectMask.ready
         )
 
         val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")

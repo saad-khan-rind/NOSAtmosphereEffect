@@ -14,6 +14,9 @@ constexpr char kFragmentShader[] =
     "shaders/vulkan/colorfill/colorfill.frag.spv";
 constexpr uint32_t kWallpaperBinding = 0;
 constexpr uint32_t kClockBinding = 1;
+// Exists purely for the clock's depth effect: Colour Fill has no
+// subject isolation of its own.
+constexpr uint32_t kClockSubjectMaskBinding = 2;
 
 struct ColorFillParams {
     float progress = 0.0F;
@@ -75,10 +78,10 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeCreate(
         "Atmo Color Fill",
         kVertexShader,
         kFragmentShader,
-        2,
-        // The clock binding is optional: it holds the engine's 1x1 clear
-        // texture until the first face is uploaded.
-        1U << kClockBinding,
+        3,
+        // Both extra bindings are optional: each holds the engine's 1x1 clear
+        // texture until real content is uploaded.
+        (1U << kClockBinding) | (1U << kClockSubjectMaskBinding),
         sizeof(ColorFillParams)
     };
     atmo::vulkan::OnePassHandle engine =
@@ -182,6 +185,33 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeClearClock(
         : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeUploadSubjectMask(
+    JNIEnv* env,
+    jobject,
+    jlong handle,
+    jobject bitmap
+) {
+    ColorFillHandle* colorFill = fromHandle(handle);
+    return colorFill != nullptr &&
+        atmo::vulkan::uploadBitmap(colorFill->engine, env, bitmap, kClockSubjectMaskBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeClearSubjectMask(
+    JNIEnv*,
+    jobject,
+    jlong handle
+) {
+    ColorFillHandle* colorFill = fromHandle(handle);
+    return colorFill != nullptr &&
+        atmo::vulkan::clearTexture(colorFill->engine, kClockSubjectMaskBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeSetState(
     JNIEnv*,
@@ -198,7 +228,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeSetState(
     jfloat clockHeightFraction,
     jfloat clockTextureAspect,
     jfloat clockOpacity,
-    jboolean clockUploaded
+    jboolean clockUploaded,
+    jboolean clockDepth
 ) {
     ColorFillHandle* colorFill = fromHandle(handle);
     if (colorFill == nullptr) return;
@@ -224,7 +255,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeSetState(
         clockTextureAspect,
         clockOpacity,
         clockUploaded == JNI_TRUE,
-        false
+        clockDepth == JNI_TRUE
     );
     atmo::vulkan::setPushConstants(
         colorFill->engine,

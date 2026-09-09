@@ -15,6 +15,9 @@ constexpr char kFragmentShader[] =
 constexpr uint32_t kWallpaperBinding = 0;
 constexpr uint32_t kContourBinding = 1;
 constexpr uint32_t kClockBinding = 2;
+// The mask Sketch already computes, bound a second time for the
+// on-screen pass. The contour bake consumes its own copy.
+constexpr uint32_t kClockSubjectMaskBinding = 3;
 constexpr float kLineMaximum = 6.0F;
 
 struct CanvasParams {
@@ -68,10 +71,10 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeCreate(
         "Atmo Canvas Sketch",
         kVertexShader,
         kFragmentShader,
-        3,
-        // The clock binding is optional: it holds the engine's 1x1 clear
-        // texture until the first face is uploaded.
-        1U << kClockBinding,
+        4,
+        // Both extra bindings are optional: each holds the engine's 1x1 clear
+        // texture until real content is uploaded.
+        (1U << kClockBinding) | (1U << kClockSubjectMaskBinding),
         sizeof(CanvasParams)
     };
     atmo::vulkan::OnePassHandle engine =
@@ -196,6 +199,33 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeClearClo
         : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadSubjectMask(
+    JNIEnv* env,
+    jobject,
+    jlong handle,
+    jobject bitmap
+) {
+    CanvasHandle* canvas = fromHandle(handle);
+    return canvas != nullptr &&
+        atmo::vulkan::uploadBitmap(canvas->engine, env, bitmap, kClockSubjectMaskBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeClearSubjectMask(
+    JNIEnv*,
+    jobject,
+    jlong handle
+) {
+    CanvasHandle* canvas = fromHandle(handle);
+    return canvas != nullptr &&
+        atmo::vulkan::clearTexture(canvas->engine, kClockSubjectMaskBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState(
     JNIEnv*,
@@ -211,7 +241,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState
     jfloat clockHeightFraction,
     jfloat clockTextureAspect,
     jfloat clockOpacity,
-    jboolean clockUploaded
+    jboolean clockUploaded,
+    jboolean clockDepth
 ) {
     CanvasHandle* canvas = fromHandle(handle);
     if (canvas == nullptr) return;
@@ -226,9 +257,6 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState
         scrollWindowX,
         kLineMaximum
     };
-    // Sketch computes a subject mask, but only for the off-screen edge bake;
-    // the on-screen pass samples the baked lines, so there is nothing to
-    // composite the subject back from and depth is never available here.
     atmo::vulkan::writeClockParams(
         params,
         aspect,
@@ -238,7 +266,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState
         clockTextureAspect,
         clockOpacity,
         clockUploaded == JNI_TRUE,
-        false
+        clockDepth == JNI_TRUE
     );
     atmo::vulkan::setPushConstants(
         canvas->engine,

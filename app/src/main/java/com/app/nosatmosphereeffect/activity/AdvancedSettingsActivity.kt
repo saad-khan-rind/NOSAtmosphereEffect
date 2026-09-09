@@ -117,18 +117,12 @@ class AdvancedSettingsActivity : ComponentActivity() {
                 activeEffect,
                 prefs.readBoolean(AtmosphereClockPolicy.ENABLED_KEY, false)
             ),
-            clockDepthEnabled = AtmosphereClockPolicy.supportsDepth(activeEffect) &&
-                prefs.readBoolean(
-                    AtmosphereClockPolicy.DEPTH_KEY,
-                    AtmosphereClockPolicy.DEFAULT_DEPTH
-                ),
-            clockSupportsDepth = AtmosphereClockPolicy.supportsDepth(activeEffect),
+            clockDepthEnabled = prefs.readBoolean(
+                AtmosphereClockPolicy.DEPTH_KEY,
+                AtmosphereClockPolicy.DEFAULT_DEPTH
+            ),
             clockOffersScreenChoice = ClockScreenPolicy.offersChoice(activeEffect),
             clockScreenId = resolvedClockScreen.id,
-            clockForcedScreenLabel = when (resolvedClockScreen) {
-                ClockScreen.HOME -> "home screen"
-                else -> "lock screen"
-            },
             showNoiseSwitch = showNoiseSwitch,
             showBlob = showBlob,
             isPlaylistMode = isPlaylistMode,
