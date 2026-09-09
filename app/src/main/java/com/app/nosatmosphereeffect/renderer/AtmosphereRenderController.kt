@@ -6,7 +6,8 @@ import android.util.Log
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockFramePump
 import com.app.nosatmosphereeffect.helper.ClockPalette
-import com.app.nosatmosphereeffect.helper.RendererDiagnosticsLog
+import com.app.nosatmosphereeffect.helper.ClockScreen
+import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
@@ -16,7 +17,6 @@ import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeSession
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatusRepository
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereHost
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereNative
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendChange
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendResolution
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendSelection
@@ -126,10 +126,27 @@ class AtmosphereRenderController(
         clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
         clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
         clockColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR,
-        clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
+        clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT,
+        clockScreenId: String? = null,
+        /**
+         * The effect's shader progress at each end of its transition, passed
+         * down from the wallpaper service. The clock's fade is computed from
+         * the normalised unlock fraction, not from raw progress, because
+         * effects disagree about which end is the lock screen.
+         */
+        clockLockedProgress: Float = 0f,
+        clockUnlockedProgress: Float = 1f
     ) {
         requestedClockColor = AtmosphereClockPolicy.sanitizeColor(clockColor)
         val resolvedClock = AtmosphereClockPolicy.resolveEnabled(effectId, clockEnabled)
+        // Collapsed here, once, rather than in each renderer: an effect that
+        // is only sharp on one side gets that side regardless of what is
+        // stored, so a preference carried over from another effect cannot
+        // put the clock somewhere it would be illegible.
+        val resolvedScreen = ClockScreenPolicy.resolveScreen(
+            effectId,
+            clockScreenId?.let { ClockScreen.fromId(it) }
+        )
         val snapshot = synchronized(lock) {
             configuredGlassEnabled = glassEnabled
             configuredGlassBackgroundOnly = glassBackgroundOnly
@@ -157,7 +174,10 @@ class AtmosphereRenderController(
                     requestedClockColor,
                     resolvedAutoClockColor
                 ),
-                clockHourFormat = clockHourFormat
+                clockHourFormat = clockHourFormat,
+                clockScreenId = resolvedScreen.id,
+                clockLockedProgress = clockLockedProgress,
+                clockUnlockedProgress = clockUnlockedProgress
             ).sanitized()
             state
         }
@@ -168,9 +188,20 @@ class AtmosphereRenderController(
         }
     }
 
-    /** Forwarded from the wallpaper engine so the pump idles when hidden. */
+    /**
+     * Forwarded from the wallpaper engine so the pump idles when hidden, and
+     * so the clock plays its entry animation when the wallpaper comes back.
+     *
+     * Both backends hold the request until the clock would actually be on
+     * screen, so becoming visible on the wrong side of the transition does
+     * not spend the animation invisibly.
+     */
     fun setEngineVisible(visible: Boolean) {
         clockPump.setVisible(visible)
+        if (!visible) return
+        val targets = synchronized(lock) { Pair(openGlAtmosphere, vulkanHost) }
+        targets.first?.beginClockEntry()
+        targets.second?.beginClockEntry()
     }
 
     /**
@@ -401,18 +432,6 @@ class AtmosphereRenderController(
         reloadTexture()
         currentEngine.requestRender()
         Log.w(TAG, "Atmosphere switched to OpenGL ES after Vulkan failed: $reason")
-        // The Kotlin-side reason says which stage gave up; the native drain
-        // says why. Neither is much use without the other, so record them
-        // together.
-        val nativeDetail = runCatching {
-            VulkanAtmosphereNative.nativeDrainDiagnostics()
-        }.getOrDefault("")
-        RendererDiagnosticsLog.recordBlock(
-            appContext,
-            "vulkan-fallback",
-            "Atmosphere fell back to OpenGL ES: $reason",
-            nativeDetail
-        )
     }
 
     private fun swapBackend(
@@ -593,6 +612,9 @@ class AtmosphereRenderController(
         clockTop = state.clockTop
         clockHeight = state.clockHeight
         clockOpacity = state.clockOpacity
+        clockScreen = state.clockScreen
+        clockLockedProgress = state.clockLockedProgress
+        clockUnlockedProgress = state.clockUnlockedProgress
     }
 
     private fun BlurToSharpRenderer.applyState(state: AtmosphereRenderState) {

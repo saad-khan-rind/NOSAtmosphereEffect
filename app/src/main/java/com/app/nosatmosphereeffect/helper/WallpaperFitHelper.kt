@@ -82,7 +82,6 @@ object WallpaperFitHelper {
     const val ACTIVE_SOURCE_FILE = "wallpaper_src.jpg"
     const val NEXT_SOURCE_FILE = "next_wallpaper_src.jpg"
 
-    private const val MAX_DECODE_DIM = 4096
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -266,7 +265,9 @@ object WallpaperFitHelper {
         val filesDir = context.filesDir
         var source: Bitmap? = null
         val srcFile = File(filesDir, ACTIVE_SOURCE_FILE)
-        if (srcFile.exists()) source = decodeFileSampled(srcFile, MAX_DECODE_DIM)
+        if (srcFile.exists()) {
+            source = decodeFileSampled(srcFile, ImageMemoryBudget.budgetBytes(context))
+        }
         if (source == null) {
             val file = File(filesDir, ACTIVE_WALLPAPER_FILE)
             if (file.exists()) source = BitmapFactory.decodeFile(file.absolutePath)
@@ -354,7 +355,7 @@ object WallpaperFitHelper {
         if (needsSourceImage(mode)) {
             val srcFile = File(filesDir, ACTIVE_SOURCE_FILE)
             if (srcFile.exists()) {
-                source = decodeFileSampled(srcFile, MAX_DECODE_DIM)
+                source = decodeFileSampled(srcFile, ImageMemoryBudget.budgetBytes(context))
             }
         }
 
@@ -556,7 +557,7 @@ object WallpaperFitHelper {
         if (isScrollEnabled(context) || needsSourceImage(getNextFitMode(context))) {
             val srcFile = File(filesDir, NEXT_SOURCE_FILE)
             if (srcFile.exists()) {
-                val bitmap = decodeFileSampled(srcFile, MAX_DECODE_DIM)
+                val bitmap = decodeFileSampled(srcFile, ImageMemoryBudget.budgetBytes(context))
                 if (bitmap != null) return bitmap
             }
         }
@@ -566,18 +567,33 @@ object WallpaperFitHelper {
     }
 
     /**
-     * Memory-safe decode of a file: downsamples to [maxDim] and applies EXIF
+     * Decodes a wallpaper source file at its native resolution, sampling only
+     * when the decoded bitmap would exceed [budgetBytes], and applies EXIF
      * rotation. Playlist originals are raw copies of the picked images, so
      * they can be huge and carry EXIF orientation.
+     *
+     * This used to downsample every source to a 4096px longest side, which
+     * threw away most of the pixels of an ordinary phone photo before the fit
+     * pass had a chance to resample it to the surface. The fit pass is a
+     * single high-quality reduction with FILTER_BITMAP; feeding it the full
+     * image is what makes that reduction worth having, and feeding it a
+     * pre-halved one is a reduction applied twice.
      */
-    fun decodeFileSampled(file: File, maxDim: Int = MAX_DECODE_DIM): Bitmap? {
+    fun decodeFileSampled(
+        file: File,
+        budgetBytes: Long = ImageMemoryBudget.DEFAULT_BUDGET_BYTES
+    ): Bitmap? {
         return try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.absolutePath, bounds)
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
             val options = BitmapFactory.Options().apply {
-                inSampleSize = calculateInSampleSize(bounds, maxDim)
+                inSampleSize = ImageMemoryBudget.sampleSizeForBudget(
+                    bounds.outWidth,
+                    bounds.outHeight,
+                    budgetBytes
+                )
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
             val raw = BitmapFactory.decodeFile(file.absolutePath, options) ?: return null
@@ -592,10 +608,6 @@ object WallpaperFitHelper {
             Log.w(TAG, "Invalid wallpaper image at ${file.absolutePath}", error)
             null
         }
-    }
-
-    private fun calculateInSampleSize(options: BitmapFactory.Options, maxDim: Int): Int {
-        return ImageSampling.sampleSize(options.outWidth, options.outHeight, maxDim)
     }
 
     private fun applyExifRotation(file: File, bitmap: Bitmap): Bitmap {

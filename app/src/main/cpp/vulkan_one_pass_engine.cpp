@@ -309,6 +309,15 @@ public:
         uint32_t requestedWidth,
         uint32_t requestedHeight
     ) {
+        // A resize — which on a foldable means every fold — does not need a
+        // new instance, device, pipeline or wallpaper texture. Rebuilding all
+        // of that took long enough that the compositor kept stretching the
+        // last frame across the whole fold animation, which is exactly the
+        // squeeze users see. Try to swap only the swapchain first.
+        if (resizeSurfaceInPlace(env, javaSurface, requestedWidth, requestedHeight)) {
+            return true;
+        }
+
         destroySurface();
         window_ = ANativeWindow_fromSurface(env, javaSurface);
         if (window_ == nullptr) {
@@ -718,6 +727,127 @@ public:
     }
 
 private:
+    /**
+     * Tears down only what is tied to the current swapchain: the sync objects
+     * sized to the swapchain image count, the framebuffers, the image views,
+     * the swapchain, the VkSurfaceKHR and the ANativeWindow.
+     *
+     * Everything above that — instance, physical device, logical device,
+     * descriptor set, render pass, pipeline, command pool, uniform buffer and
+     * the wallpaper textures — is independent of the surface size and stays
+     * alive across a resize.
+     */
+    void destroySwapchainDependents() {
+        if (device_ != VK_NULL_HANDLE) {
+            vkDeviceWaitIdle(device_);
+            if (imageAvailable_ != VK_NULL_HANDLE) {
+                vkDestroySemaphore(device_, imageAvailable_, nullptr);
+                imageAvailable_ = VK_NULL_HANDLE;
+            }
+            for (VkSemaphore semaphore : renderFinishedSemaphores_) {
+                if (semaphore != VK_NULL_HANDLE) {
+                    vkDestroySemaphore(device_, semaphore, nullptr);
+                }
+            }
+            renderFinishedSemaphores_.clear();
+            if (renderFence_ != VK_NULL_HANDLE) {
+                vkDestroyFence(device_, renderFence_, nullptr);
+                renderFence_ = VK_NULL_HANDLE;
+            }
+            for (VkFramebuffer framebuffer : framebuffers_) {
+                if (framebuffer != VK_NULL_HANDLE) {
+                    vkDestroyFramebuffer(device_, framebuffer, nullptr);
+                }
+            }
+            framebuffers_.clear();
+            for (VkImageView imageView : swapchainImageViews_) {
+                if (imageView != VK_NULL_HANDLE) {
+                    vkDestroyImageView(device_, imageView, nullptr);
+                }
+            }
+            swapchainImageViews_.clear();
+            swapchainImages_.clear();
+            if (swapchain_ != VK_NULL_HANDLE) {
+                vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+                swapchain_ = VK_NULL_HANDLE;
+            }
+        }
+        if (surface_ != VK_NULL_HANDLE && instance_ != VK_NULL_HANDLE) {
+            vkDestroySurfaceKHR(instance_, surface_, nullptr);
+        }
+        surface_ = VK_NULL_HANDLE;
+        if (window_ != nullptr) {
+            ANativeWindow_release(window_);
+            window_ = nullptr;
+        }
+        extent_ = {};
+    }
+
+    /**
+     * Rebuilds the swapchain for a new surface size while keeping the rest of
+     * the engine intact. Returns false — having left nothing half-built that
+     * [destroySurface] cannot clean up — whenever the cheap path does not
+     * apply, so the caller can fall back to a full rebuild.
+     *
+     * The wallpaper texture deliberately survives, which is what lets the
+     * first frame after a fold be a texture upload rather than a from-scratch
+     * Vulkan bring-up.
+     */
+    bool resizeSurfaceInPlace(
+        JNIEnv* env,
+        jobject javaSurface,
+        uint32_t requestedWidth,
+        uint32_t requestedHeight
+    ) {
+        // Nothing to reuse before the first successful bring-up, or after a
+        // real surface destruction.
+        if (instance_ == VK_NULL_HANDLE ||
+            physicalDevice_ == VK_NULL_HANDLE ||
+            device_ == VK_NULL_HANDLE ||
+            renderPass_ == VK_NULL_HANDLE ||
+            pipeline_ == VK_NULL_HANDLE ||
+            pipelineLayout_ == VK_NULL_HANDLE ||
+            descriptorSet_ == VK_NULL_HANDLE ||
+            commandBuffer_ == VK_NULL_HANDLE) {
+            return false;
+        }
+
+        const VkFormat previousFormat = swapchainFormat_;
+        destroySwapchainDependents();
+
+        window_ = ANativeWindow_fromSurface(env, javaSurface);
+        if (window_ == nullptr) {
+            logError("ANativeWindow_fromSurface returned null during resize");
+            return false;
+        }
+        requestedWidth_ = requestedWidth;
+        requestedHeight_ = requestedHeight;
+
+        if (!createAndroidSurface()) return false;
+
+        // The device was chosen for the previous surface. It is the same
+        // physical display in practice, but presentation support is cheap to
+        // confirm and a wrong answer here would be a validation error.
+        VkBool32 presentSupported = VK_FALSE;
+        if (vkGetPhysicalDeviceSurfaceSupportKHR(
+                physicalDevice_,
+                queueFamily_,
+                surface_,
+                &presentSupported
+            ) != VK_SUCCESS ||
+            presentSupported != VK_TRUE) {
+            return false;
+        }
+
+        if (!createSwapchain()) return false;
+        // The render pass and the pipeline are built against the swapchain
+        // format. It does not change across a fold, but if it ever does the
+        // full rebuild is the correct answer.
+        if (swapchainFormat_ != previousFormat) return false;
+        if (!createFramebuffers()) return false;
+        return createSyncResources();
+    }
+
     bool createNegotiatedInstanceAndSelectDevice() {
         const uint32_t loaderVersion = loaderCoreApiVersion();
         if (loaderVersion < VK_API_VERSION_1_1) {
@@ -1408,19 +1538,29 @@ private:
         };
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-        VkViewport viewport{};
-        viewport.width = static_cast<float>(extent_.width);
-        viewport.height = static_cast<float>(extent_.height);
-        viewport.minDepth = 0.0F;
-        viewport.maxDepth = 1.0F;
-        VkRect2D scissor{{0, 0}, extent_};
+        // Viewport and scissor are dynamic state. They are the only part of
+        // the pipeline that depends on the swapchain extent, and baking them
+        // in would mean recompiling the pipeline — shader modules and all —
+        // every time the surface is resized. On a foldable that happens on
+        // every fold, in front of the user.
         VkPipelineViewportStateCreateInfo viewportState{
             VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO
         };
         viewportState.viewportCount = 1;
-        viewportState.pViewports = &viewport;
+        viewportState.pViewports = nullptr;
         viewportState.scissorCount = 1;
-        viewportState.pScissors = &scissor;
+        viewportState.pScissors = nullptr;
+
+        const std::array<VkDynamicState, 2> dynamicStates{
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+        };
+        VkPipelineDynamicStateCreateInfo dynamicState{
+            VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO
+        };
+        dynamicState.dynamicStateCount =
+            static_cast<uint32_t>(dynamicStates.size());
+        dynamicState.pDynamicStates = dynamicStates.data();
 
         VkPipelineRasterizationStateCreateInfo rasterizer{
             VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO
@@ -1486,6 +1626,7 @@ private:
         pipelineInfo.pRasterizationState = &rasterizer;
         pipelineInfo.pMultisampleState = &multisampling;
         pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.layout = pipelineLayout_;
         pipelineInfo.renderPass = renderPass_;
         pipelineInfo.subpass = 0;
@@ -1499,6 +1640,20 @@ private:
         );
         vkDestroyShaderModule(device_, vertexModule, nullptr);
         vkDestroyShaderModule(device_, fragmentModule, nullptr);
+        if (result != VK_SUCCESS) {
+            // The last unlabelled bail-out in the setSurface chain, and the
+            // one that actually fired: a stage declaring a descriptor with a
+            // type the set layout disagrees about (an attempt at a uniform
+            // block over a sampler binding, say) is rejected here rather than
+            // at module creation, so it looked like a swapchain failure with
+            // no native detail behind it. VkResult is logged numerically
+            // because the driver's own reason rarely reaches us.
+            logError(
+                label_ +
+                " surface setup failed: vkCreateGraphicsPipelines (VkResult " +
+                std::to_string(static_cast<int32_t>(result)) + ")"
+            );
+        }
         return result == VK_SUCCESS;
     }
 
@@ -2111,6 +2266,14 @@ private:
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipeline_
         );
+        VkViewport viewport{};
+        viewport.width = static_cast<float>(extent_.width);
+        viewport.height = static_cast<float>(extent_.height);
+        viewport.minDepth = 0.0F;
+        viewport.maxDepth = 1.0F;
+        vkCmdSetViewport(commandBuffer_, 0, 1, &viewport);
+        const VkRect2D scissor{{0, 0}, extent_};
+        vkCmdSetScissor(commandBuffer_, 0, 1, &scissor);
         vkCmdBindDescriptorSets(
             commandBuffer_,
             VK_PIPELINE_BIND_POINT_GRAPHICS,

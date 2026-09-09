@@ -2,6 +2,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class AtmosphereImageProcessorTest {
@@ -130,6 +131,53 @@ class AtmosphereImageProcessorTest {
             }
         }
         return output
+    }
+
+    @Test
+    fun `a wide blur is computed at reduced resolution`() {
+        assertEquals(
+            4,
+            AtmosphereImageProcessor.blurDownscale(
+                radius = AtmosphereImageProcessor.BLUR_RADIUS,
+                width = 1812,
+                height = 2176
+            )
+        )
+    }
+
+    @Test
+    fun `a narrow blur keeps full resolution so its steps stay invisible`() {
+        assertEquals(
+            1,
+            AtmosphereImageProcessor.blurDownscale(radius = 20, width = 1080, height = 2316)
+        )
+        assertEquals(
+            2,
+            AtmosphereImageProcessor.blurDownscale(radius = 40, width = 1080, height = 2316)
+        )
+    }
+
+    @Test
+    fun `small images are never shrunk below a useful working size`() {
+        assertEquals(
+            1,
+            AtmosphereImageProcessor.blurDownscale(radius = 200, width = 96, height = 96)
+        )
+    }
+
+    @Test
+    fun `the reduction never exceeds its ceiling`() {
+        assertEquals(
+            4,
+            AtmosphereImageProcessor.blurDownscale(radius = 4096, width = 4096, height = 4096)
+        )
+    }
+
+    @Test
+    fun `an empty source is rejected rather than silently scaled`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AtmosphereImageProcessor.blurDownscale(radius = 200, width = 0, height = 100)
+        }
     }
 
     private fun rgb(red: Int, green: Int, blue: Int): Int {

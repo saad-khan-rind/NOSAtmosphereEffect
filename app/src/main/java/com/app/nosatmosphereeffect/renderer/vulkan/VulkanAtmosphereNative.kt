@@ -3,7 +3,6 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.view.Surface
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 
@@ -39,7 +38,6 @@ internal object VulkanAtmosphereNative {
      * handle — the buffer is global, so it still returns the reason after the
      * engine has been destroyed, which is when it is actually needed.
      */
-    external fun nativeDrainDiagnostics(): String
 
     external fun nativeSetState(
         handle: Long,
@@ -142,13 +140,9 @@ internal class VulkanAtmosphereBridge(
             clockTop = safe.clockTop,
             clockHeightFraction = safe.clockHeight,
             clockTextureAspect = safe.clockTextureAspect,
-            // The lock fade is applied here rather than in the shader so
-            // both backends share AtmosphereClockPolicy's single curve.
-            clockOpacity = if (safe.clockEnabled) {
-                safe.clockOpacity * AtmosphereClockPolicy.lockFade(safe.progress)
-            } else {
-                0f
-            },
+            // The lock/home fade is applied here rather than in the shader
+            // so both backends share ClockScreenPolicy's single curve.
+            clockOpacity = safe.effectiveClockOpacity(),
             clockUploaded = safe.clockEnabled && safe.clockFaceUploaded,
             clockDepth = safe.clockEnabled && safe.clockDepthEnabled,
             blobColors = safe.blobs.colors,

@@ -2,9 +2,50 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 
 import android.graphics.Bitmap
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 
 internal object AtmosphereImageProcessor {
     const val BLUR_RADIUS = 200
+
+    /**
+     * A blur this wide carries no detail finer than the radius, so running it
+     * over every pixel of a full-resolution wallpaper is wasted work — and it
+     * is CPU work on the render thread, repeated every time the wallpaper is
+     * re-fitted. On a foldable that is every fold, where it is the difference
+     * between the correct frame arriving promptly and the compositor stretching
+     * the old one while the blur grinds. Blurring a downscaled copy and scaling
+     * the result back is visually indistinguishable at these radii and costs
+     * the square of the factor less.
+     */
+    private const val MAX_DOWNSCALE = 4
+
+    /** Below this the reduced-resolution blur starts to show its steps. */
+    private const val MIN_EFFECTIVE_RADIUS = 16
+
+    /** Smallest dimension worth blurring; below it the scaling dominates. */
+    private const val MIN_WORKING_DIMENSION = 64
+
+    /**
+     * The factor to shrink by before blurring: the largest power of two that
+     * leaves the blur wide enough, in its own pixels, to still be smooth.
+     */
+    internal fun blurDownscale(
+        radius: Int,
+        width: Int,
+        height: Int,
+        maxFactor: Int = MAX_DOWNSCALE
+    ): Int {
+        require(width > 0 && height > 0) { "The blur source is empty" }
+        var factor = 1
+        while (factor * 2 <= maxFactor &&
+            radius / (factor * 2) >= MIN_EFFECTIVE_RADIUS &&
+            width / (factor * 2) >= MIN_WORKING_DIMENSION &&
+            height / (factor * 2) >= MIN_WORKING_DIMENSION
+        ) {
+            factor *= 2
+        }
+        return factor
+    }
 
     fun createBlurredBitmap(
         source: Bitmap,
@@ -15,6 +56,27 @@ internal object AtmosphereImageProcessor {
             "The Atmosphere source bitmap is empty"
         }
 
+        val safeRadius = radius.coerceAtLeast(1)
+        val factor = blurDownscale(safeRadius, source.width, source.height)
+        if (factor == 1) return blurPixels(source, safeRadius)
+
+        val reduced = source.scale(
+            (source.width / factor).coerceAtLeast(1),
+            (source.height / factor).coerceAtLeast(1)
+        )
+        val blurred = try {
+            blurPixels(reduced, (safeRadius / factor).coerceAtLeast(1))
+        } finally {
+            if (reduced !== source) reduced.recycle()
+        }
+        return try {
+            blurred.scale(source.width, source.height)
+        } finally {
+            blurred.recycle()
+        }
+    }
+
+    private fun blurPixels(source: Bitmap, radius: Int): Bitmap {
         val width = source.width
         val height = source.height
         val sourcePixels = IntArray(width * height)

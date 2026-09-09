@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
+import com.app.nosatmosphereeffect.helper.ImageMemoryBudget
 import com.app.nosatmosphereeffect.helper.ImageSampling
 import com.app.nosatmosphereeffect.storage.UriFiles
 import java.io.File
@@ -15,6 +16,22 @@ import java.io.IOException
 
 internal object BitmapDecoder {
     private const val TAG = "BitmapDecoder"
+
+    /**
+     * Decodes at the image's native resolution, sampling only if the decoded
+     * bitmap would not fit this device's memory budget.
+     *
+     * Use this for anything that becomes the wallpaper or its stored
+     * original. [decodeUri] with an explicit maxDimension is for thumbnails
+     * and list previews, where a bounded size is the actual requirement.
+     */
+    @Throws(IOException::class, SecurityException::class)
+    fun decodeUriFullSize(context: Context, uri: Uri): Bitmap {
+        val budget = ImageMemoryBudget.budgetBytes(context)
+        return decodeUri(context, uri) { width, height ->
+            ImageMemoryBudget.sampleSizeForBudget(width, height, budget)
+        }
+    }
 
     @Throws(IOException::class, SecurityException::class)
     fun decodeUri(context: Context, uri: Uri, maxDimension: Int = 4096): Bitmap {

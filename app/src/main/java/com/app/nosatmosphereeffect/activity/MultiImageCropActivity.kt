@@ -103,7 +103,7 @@ class MultiImageCropActivity : ComponentActivity() {
 
         ioExecutor.execute {
             try {
-                val bitmap = BitmapDecoder.decodeUri(this, uri)
+                val bitmap = BitmapDecoder.decodeUriFullSize(this, uri)
                 runOnUiThread {
                     if (isDestroyed || isFinishing) {
                         bitmap.recycle()
@@ -132,7 +132,7 @@ class MultiImageCropActivity : ComponentActivity() {
                     cacheDir,
                     "cropped_playlist_${System.currentTimeMillis()}.jpg"
                 )
-                BitmapStore.writeJpegAtomically(bitmap, destination, quality = 90)
+                BitmapStore.writeJpegAtomically(bitmap, destination, quality = 100)
 
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
