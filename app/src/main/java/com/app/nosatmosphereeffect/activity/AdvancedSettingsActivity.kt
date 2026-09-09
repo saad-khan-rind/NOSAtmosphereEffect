@@ -65,17 +65,6 @@ class AdvancedSettingsActivity : ComponentActivity() {
         // Every effect composites the clock now, on both backends, so this is
         // no longer an Atmosphere-only question.
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
-        val storedClockScreen = ClockScreen.fromId(
-            prefs.readString(
-                AtmosphereClockPolicy.SCREEN_KEY,
-                ClockScreenPolicy.defaultScreen(activeEffect).id
-            )
-        )
-        // Collapsed against what this effect can actually show, so a choice
-        // carried over from Colour Fill cannot leave Frosted claiming a
-        // home-screen clock it would never draw.
-        val resolvedClockScreen =
-            ClockScreenPolicy.resolveScreen(activeEffect, storedClockScreen)
         val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass
         val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
         val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere
@@ -87,6 +76,17 @@ class AdvancedSettingsActivity : ComponentActivity() {
 
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
         val wpPrefs = getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+        val storedClockScreen = ClockScreen.fromId(
+            prefs.readString(
+                AtmosphereClockPolicy.SCREEN_KEY,
+                ClockScreenPolicy.defaultScreen(activeEffect).id
+            )
+        )
+        // Collapsed against what this effect can actually show, so a choice
+        // carried over from Colour Fill cannot leave Frosted claiming a
+        // home-screen clock it would never draw.
+        val resolvedClockScreen =
+            ClockScreenPolicy.resolveScreen(activeEffect, storedClockScreen)
         val glassSettings = GlassEffectPreferences.readAndMigrate(prefs)
         val behaviorSettings = WallpaperBehaviorPreferences.read(this)
 
