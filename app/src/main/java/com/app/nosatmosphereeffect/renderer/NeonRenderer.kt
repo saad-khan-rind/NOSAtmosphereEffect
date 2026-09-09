@@ -6,6 +6,8 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import com.app.nosatmosphereeffect.helper.SubjectMaskExtractor
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
@@ -36,6 +38,34 @@ class NeonRenderer(
 
     @Volatile
     var onSketchUpdated: (() -> Unit)? = null
+
+    /**
+     * The wallpaper clock. Sketch replaces the photo with line art rather than
+     * blurring it, so the image stays high-contrast and geometrically intact
+     * at both ends of the transition and the clock reads on either side — the
+     * user chooses. Units 0 and 1 carry the photo and the baked line texture,
+     * so the clock takes 2.
+     *
+     * No depth here despite the effect having a subject mask: the mask is
+     * consumed by the off-screen edge bake, and the on-screen pass samples the
+     * baked lines rather than the mask, so there is nothing to composite the
+     * subject back from.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
+
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile
+    var onAnimationFrameRequested: (() -> Unit)? = null
+        set(value) {
+            field = value
+            clockOverlay.onAnimationFrameRequested = value
+        }
+
+    fun applyClockState(state: ClockOverlayState) = clockOverlay.applyState(state)
+
+    fun beginClockEntry() = clockOverlay.beginEntry()
+
+    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
     @Volatile
     private var scrollOffsetX = 0.5f
@@ -154,6 +184,8 @@ class NeonRenderer(
 
     fun release() {
         onSketchUpdated = null
+        onAnimationFrameRequested = null
+        clockOverlay.release()
         subjectMaskExtractor?.close()
         subjectMaskExtractor = null
         takePendingSubjectMask()?.bitmap?.recycle()
@@ -181,6 +213,8 @@ class NeonRenderer(
         nextSet.reset()
         takePendingSubjectMask()?.bitmap?.recycle()
         needsReload = true
+        // The clock's texture id belonged to the destroyed context.
+        clockOverlay.resetForNewContext()
     }
 
     private fun loadAndApplyTextures() {
@@ -458,6 +492,12 @@ class NeonRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.lineId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uLineTex"), 1)
+
+        clockOverlay.draw(
+            programId = programId,
+            progress = blurStrength,
+            screenAspect = aspectRatio
+        )
 
         drawQuad(programId)
     }

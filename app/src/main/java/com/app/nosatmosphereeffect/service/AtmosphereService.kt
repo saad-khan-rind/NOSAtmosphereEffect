@@ -2,10 +2,8 @@ package com.app.nosatmosphereeffect.service
 
 import android.content.SharedPreferences
 import android.graphics.Bitmap
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
-import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
-import com.app.nosatmosphereeffect.helper.ClockStyle
+import com.app.nosatmosphereeffect.helper.ClockPreferences
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
@@ -63,68 +61,21 @@ class AtmosphereService :
             contrast = preferences.readFloat("blob_contrast", 1f),
             noiseEnabled = preferences.readBoolean("enable_noise", false),
             noiseScale = preferences.readFloat("noise_scale", 2_000f),
-            noiseStrength = preferences.readFloat("noise_strength", 0.06f),
-            // Playlist and theme modes rotate the image underneath the clock,
-            // so the clock stays off there — see
-            // AtmosphereClockPolicy.resolveEnabled.
-            clockEnabled = AtmosphereClockPolicy.resolveEnabled(
+            noiseStrength = preferences.readFloat("noise_strength", 0.06f)
+        )
+        // Playlist and theme modes rotate the image underneath the clock, so
+        // the clock stays off there — a position calibrated against one photo
+        // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
+        renderer.configureClock(
+            ClockPreferences.read(
+                preferences = preferences,
                 effectId = effectId,
-                requested = preferences.readBoolean(
-                    AtmosphereClockPolicy.ENABLED_KEY,
-                    false
+                singleImageMode = !PlaylistModeManager.isPlaylistMode(
+                    applicationContext
                 ),
-                singleImageMode = !PlaylistModeManager.isPlaylistMode(applicationContext)
-            ),
-            clockDepthEnabled = preferences.readBoolean(
-                AtmosphereClockPolicy.DEPTH_KEY,
-                AtmosphereClockPolicy.DEFAULT_DEPTH
-            ),
-            clockStyleId = preferences.readString(
-                AtmosphereClockPolicy.STYLE_KEY,
-                ClockStyle.DEFAULT.id
-            ),
-            clockShowSeconds = preferences.readBoolean(
-                AtmosphereClockPolicy.SECONDS_KEY,
-                AtmosphereClockPolicy.DEFAULT_SECONDS
-            ),
-            clockAnimate = preferences.readBoolean(
-                AtmosphereClockPolicy.ANIMATE_KEY,
-                AtmosphereClockPolicy.DEFAULT_ANIMATE
-            ),
-            clockCenterX = preferences.readFloat(
-                AtmosphereClockPolicy.CENTER_X_KEY,
-                AtmosphereClockPolicy.DEFAULT_CENTER_X
-            ),
-            clockTop = preferences.readFloat(
-                AtmosphereClockPolicy.TOP_KEY,
-                AtmosphereClockPolicy.DEFAULT_TOP
-            ),
-            clockHeight = preferences.readFloat(
-                AtmosphereClockPolicy.HEIGHT_KEY,
-                AtmosphereClockPolicy.DEFAULT_HEIGHT
-            ),
-            clockOpacity = preferences.readFloat(
-                AtmosphereClockPolicy.OPACITY_KEY,
-                AtmosphereClockPolicy.DEFAULT_OPACITY
-            ),
-            clockColor = preferences.readInt(
-                AtmosphereClockPolicy.COLOR_KEY,
-                AtmosphereClockPolicy.DEFAULT_COLOR
-            ),
-            clockHourFormat = preferences.readString(
-                AtmosphereClockPolicy.HOUR_FORMAT_KEY,
-                AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
-            ),
-            // Original Atmosphere is only sharp while locked, so
-            // ClockScreenPolicy will collapse whatever is stored onto LOCK.
-            // Passed anyway so the effects that do offer the choice need no
-            // change here beyond the preference read.
-            clockScreenId = preferences.readString(
-                AtmosphereClockPolicy.SCREEN_KEY,
-                ClockScreenPolicy.defaultScreen(effectId).id
-            ),
-            clockLockedProgress = lockedProgress,
-            clockUnlockedProgress = unlockedProgress
+                lockedProgress = lockedProgress,
+                unlockedProgress = unlockedProgress
+            )
         )
     }
 
@@ -169,22 +120,6 @@ class AtmosphereService :
     private fun SharedPreferences.readFloat(key: String, fallback: Float): Float {
         return try {
             getFloat(key, fallback)
-        } catch (_: ClassCastException) {
-            fallback
-        }
-    }
-
-    private fun SharedPreferences.readInt(key: String, fallback: Int): Int {
-        return try {
-            getInt(key, fallback)
-        } catch (_: ClassCastException) {
-            fallback
-        }
-    }
-
-    private fun SharedPreferences.readString(key: String, fallback: String): String {
-        return try {
-            getString(key, fallback) ?: fallback
         } catch (_: ClassCastException) {
             fallback
         }

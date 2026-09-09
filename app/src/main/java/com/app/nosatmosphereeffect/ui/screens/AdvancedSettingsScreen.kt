@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.activity.ClockAdjustActivity
+import com.app.nosatmosphereeffect.helper.ClockScreen
 import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
@@ -77,6 +78,24 @@ data class AdvancedConfig(
     val showClockToggle: Boolean,
     val clockEnabled: Boolean,
     val clockDepthEnabled: Boolean,
+    /**
+     * Whether this effect can composite the depth effect at all. Colour Fill
+     * and Frosted have no segmentation, and Sketch's mask is consumed by its
+     * off-screen edge bake, so the switch is hidden there rather than shown
+     * doing nothing.
+     */
+    val clockSupportsDepth: Boolean,
+    /**
+     * Whether the lock/home/both choice is offered. True only for effects that
+     * leave the photo's geometry intact at both ends of their transition —
+     * Colour Fill, Sketch and Halftone. Everywhere else the side is forced by
+     * the effect and the UI says which, rather than showing a control that
+     * cannot take effect.
+     */
+    val clockOffersScreenChoice: Boolean,
+    val clockScreenId: String,
+    /** Human-readable side for the effects that do not offer a choice. */
+    val clockForcedScreenLabel: String,
     val glassReverse: Boolean,
     val showNoiseSwitch: Boolean,
     val showBlob: Boolean,
@@ -133,6 +152,7 @@ data class AdvancedResult(
     val atmosphereGlassEnabled: Boolean,
     val clockEnabled: Boolean,
     val clockDepthEnabled: Boolean,
+    val clockScreenId: String,
     val glassLineCount: Int,
     val glassLineThickness: Float,
     val glassTransitionStyle: GlassTransitionStyle,
@@ -185,6 +205,9 @@ fun AdvancedSettingsScreen(
     }
     var clockDepthEnabled by remember {
         mutableStateOf(config.clockDepthEnabled)
+    }
+    var clockScreenId by remember {
+        mutableStateOf(config.clockScreenId)
     }
     var glassLineCount by remember { mutableFloatStateOf(config.glassLineCount.toFloat()) }
     var glassLineThickness by remember {
@@ -269,6 +292,7 @@ fun AdvancedSettingsScreen(
         atmosphereGlassEnabled = atmosphereGlassEnabled,
         clockEnabled = clockEnabled,
         clockDepthEnabled = clockDepthEnabled,
+        clockScreenId = clockScreenId,
         glassLineCount = GlassEffectPolicy.sanitizeLineCount(glassLineCount),
         glassLineThickness = GlassEffectPolicy.sanitizeLineThickness(glassLineThickness),
         glassTransitionStyle = glassTransitionStyle,
@@ -372,6 +396,8 @@ fun AdvancedSettingsScreen(
                         onClockEnabledChange = { clockEnabled = it },
                         clockDepthEnabled = clockDepthEnabled,
                         onClockDepthEnabledChange = { clockDepthEnabled = it },
+                        clockScreenId = clockScreenId,
+                        onClockScreenIdChange = { clockScreenId = it },
                         glassLineCount = glassLineCount,
                         onGlassLineCountChange = { glassLineCount = it },
                         glassLineThickness = glassLineThickness,
@@ -471,6 +497,8 @@ private fun EffectSettings(
     onClockEnabledChange: (Boolean) -> Unit,
     clockDepthEnabled: Boolean,
     onClockDepthEnabledChange: (Boolean) -> Unit,
+    clockScreenId: String,
+    onClockScreenIdChange: (String) -> Unit,
     glassLineCount: Float,
     onGlassLineCountChange: (Float) -> Unit,
     glassLineThickness: Float,
@@ -615,20 +643,68 @@ private fun EffectSettings(
                     }
                 )
                 if (clockEnabled) {
-                    // Depth is the clock's own switch, not the Glass effect's.
-                    // Turning it on computes a subject mask whether or not
-                    // Glass is in use, which is the whole point: the previous
-                    // version reused Glass's "background only" flag, so the
-                    // depth effect silently did nothing unless Glass was on.
-                    SettingSwitchRow(
-                        title = "Depth effect",
-                        checked = clockDepthEnabled,
-                        onCheckedChange = onClockDepthEnabledChange,
-                        subtitle = "Draws the subject back over the clock, so " +
-                            "the clock sits behind them. Needs a photo with a " +
-                            "clear subject; works whether or not the Glass " +
-                            "effect is on."
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        "Show on",
+                        style = MaterialTheme.typography.labelLarge
                     )
+                    Spacer(Modifier.height(8.dp))
+                    if (config.clockOffersScreenChoice) {
+                        // Offered only for the effects that leave the photo's
+                        // geometry intact at both ends of their transition, so
+                        // the clock reads either way. See ClockScreenPolicy.
+                        val screenOrder = listOf(
+                            ClockScreen.LOCK,
+                            ClockScreen.HOME,
+                            ClockScreen.BOTH
+                        )
+                        AtmoSegmentedControl(
+                            options = listOf("Lock screen", "Home screen", "Both"),
+                            selectedIndex = screenOrder
+                                .indexOf(ClockScreen.fromId(clockScreenId))
+                                .coerceAtLeast(0),
+                            onSelected = { index ->
+                                onClockScreenIdChange(
+                                    screenOrder.getOrElse(index) {
+                                        ClockScreen.LOCK
+                                    }.id
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        // No control at all rather than a disabled one: this
+                        // effect blurs or refracts the photo on the other side,
+                        // so a clock there would be illegible and the choice is
+                        // not the user's to make.
+                        Text(
+                            "This effect keeps the photo sharp only on the " +
+                                config.clockForcedScreenLabel +
+                                ", so the clock appears there. Colour Fill, " +
+                                "Sketch and Halftone let you choose.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (config.clockSupportsDepth) {
+                        Spacer(Modifier.height(18.dp))
+                        // Depth is the clock's own switch, not the Glass
+                        // effect's. Turning it on computes a subject mask
+                        // whether or not Glass is in use, which is the whole
+                        // point: an earlier version reused Glass's "background
+                        // only" flag, so the depth effect silently did nothing
+                        // unless Glass was on.
+                        SettingSwitchRow(
+                            title = "Depth effect",
+                            checked = clockDepthEnabled,
+                            onCheckedChange = onClockDepthEnabledChange,
+                            subtitle = "Draws the subject back over the clock, " +
+                                "so the clock sits behind them. Needs a photo " +
+                                "with a clear subject; works whether or not " +
+                                "the Glass effect is on."
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
                     val context = LocalContext.current
                     AtmoTextButton(
                         text = "Choose style, position & size",

@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
@@ -95,6 +96,84 @@ class ColorFillRenderController(
         applyState(snapshot)
     }
 
+    /**
+     * Clock frame pump and wallpaper-tint resolution.
+     *
+     * One per controller, i.e. one per wallpaper engine. Anything service-wide
+     * would be torn down by whichever engine died first, silently leaving the
+     * survivor with a clock that never advanced.
+     */
+    private val clockRuntime = ClockRuntime(
+        context = appContext,
+        workerName = "AtmoClockColorFill",
+        onTick = ::onClockTick,
+        onColorResolved = ::onClockColorResolved
+    )
+
+    fun configureClock(clock: ClockOverlayState) {
+        // Resolved outside the lock: configuring the pump can fire an
+        // immediate tick, which comes straight back through onClockTick.
+        val resolved = clockRuntime.configure(clock)
+        val snapshot = synchronized(lock) {
+            state = state.copy(clock = resolved).sanitized()
+            state
+        }
+        applyState(snapshot)
+    }
+
+    /**
+     * Forwarded from the wallpaper engine so the pump idles when hidden, and
+     * so the clock plays its entry animation when the wallpaper comes back.
+     * Both backends hold the request until the clock would actually be on
+     * screen, so becoming visible on the wrong side of the transition does not
+     * spend the animation invisibly.
+     */
+    fun setEngineVisible(visible: Boolean) {
+        clockRuntime.setEngineVisible(visible)
+        if (!visible) return
+        forEachClockTarget { gl, vk ->
+            gl?.beginClockEntry()
+            vk?.beginClockEntry()
+        }
+    }
+
+    /** Kept for callers outside the pump (config updates, wallpaper swaps). */
+    fun onSystemTimeChanged() = onClockTick()
+
+    private fun onClockTick() {
+        forEachClockTarget { gl, vk ->
+            gl?.onClockTimeChanged()
+            vk?.onTimeChanged()
+        }
+        requestRenderForClock()
+    }
+
+    private fun onClockColorResolved(color: Int) {
+        val snapshot = synchronized(lock) {
+            if (closed) return
+            state = state.copy(clock = state.clock.copy(color = color)).sanitized()
+            state
+        }
+        applyState(snapshot)
+        requestRenderForClock()
+    }
+
+    private fun forEachClockTarget(
+        block: (ColorFillRenderer?, VulkanColorFillHost?) -> Unit
+    ) {
+        val gl: ColorFillRenderer?
+        val vk: VulkanColorFillHost?
+        synchronized(lock) {
+            gl = openGlRenderer
+            vk = vulkanHost
+        }
+        block(gl, vk)
+    }
+
+    private fun requestRenderForClock() {
+        synchronized(lock) { engine }?.requestRender()
+    }
+
     fun setProgress(progress: Float) {
         val snapshot = synchronized(lock) {
             state = state.copy(progress = progress).sanitized()
@@ -110,6 +189,8 @@ class ColorFillRenderController(
             gl = openGlRenderer
             vk = vulkanHost
         }
+        // The image is changing, so any wallpaper-derived clock tint is stale.
+        clockRuntime.invalidateWallpaperColor()
         gl?.reloadTexture()
         vk?.reloadTexture()
     }
@@ -132,11 +213,14 @@ class ColorFillRenderController(
     }
 
     fun release() {
+        clockRuntime.close()
+        val gl: ColorFillRenderer?
         val vk: VulkanColorFillHost?
         val session: RendererRuntimeSession?
         synchronized(lock) {
             if (closed) return
             closed = true
+            gl = openGlRenderer
             vk = vulkanHost
             session = runtimeSession
             vulkanHost = null
@@ -147,6 +231,7 @@ class ColorFillRenderController(
             runtimeSession = null
         }
         vk?.close()
+        gl?.release()
         session?.let {
             publishRendererStatus("releasing the renderer session", it) { runtimeSession ->
                 RendererRuntimeStatusRepository.recordReleased(
@@ -350,6 +435,8 @@ class ColorFillRenderController(
             dimLevel = snapshot.dimLevel
             originX = snapshot.originX
             originY = snapshot.originY
+            applyClockState(snapshot.clock)
+            onAnimationFrameRequested = ::requestRenderForClock
         }
     }
 
@@ -365,6 +452,7 @@ class ColorFillRenderController(
             dimLevel = snapshot.dimLevel
             originX = snapshot.originX
             originY = snapshot.originY
+            applyClockState(snapshot.clock)
         }
         vk?.updateState(snapshot)
     }

@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
@@ -103,6 +104,84 @@ class GlassRenderController(
         applyState(snapshot)
     }
 
+    /**
+     * Clock frame pump and wallpaper-tint resolution.
+     *
+     * One per controller, i.e. one per wallpaper engine. Anything service-wide
+     * would be torn down by whichever engine died first, silently leaving the
+     * survivor with a clock that never advanced.
+     */
+    private val clockRuntime = ClockRuntime(
+        context = appContext,
+        workerName = "AtmoClockGlass",
+        onTick = ::onClockTick,
+        onColorResolved = ::onClockColorResolved
+    )
+
+    fun configureClock(clock: ClockOverlayState) {
+        // Resolved outside the lock: configuring the pump can fire an
+        // immediate tick, which comes straight back through onClockTick.
+        val resolved = clockRuntime.configure(clock)
+        val snapshot = synchronized(lock) {
+            state = state.copy(clock = resolved).sanitized()
+            state
+        }
+        applyState(snapshot)
+    }
+
+    /**
+     * Forwarded from the wallpaper engine so the pump idles when hidden, and
+     * so the clock plays its entry animation when the wallpaper comes back.
+     * Both backends hold the request until the clock would actually be on
+     * screen, so becoming visible on the wrong side of the transition does not
+     * spend the animation invisibly.
+     */
+    fun setEngineVisible(visible: Boolean) {
+        clockRuntime.setEngineVisible(visible)
+        if (!visible) return
+        forEachClockTarget { gl, vk ->
+            gl?.beginClockEntry()
+            vk?.beginClockEntry()
+        }
+    }
+
+    /** Kept for callers outside the pump (config updates, wallpaper swaps). */
+    fun onSystemTimeChanged() = onClockTick()
+
+    private fun onClockTick() {
+        forEachClockTarget { gl, vk ->
+            gl?.onClockTimeChanged()
+            vk?.onTimeChanged()
+        }
+        requestRenderForClock()
+    }
+
+    private fun onClockColorResolved(color: Int) {
+        val snapshot = synchronized(lock) {
+            if (closed) return
+            state = state.copy(clock = state.clock.copy(color = color)).sanitized()
+            state
+        }
+        applyState(snapshot)
+        requestRenderForClock()
+    }
+
+    private fun forEachClockTarget(
+        block: (GlassRenderer?, VulkanGlassHost?) -> Unit
+    ) {
+        val gl: GlassRenderer?
+        val vk: VulkanGlassHost?
+        synchronized(lock) {
+            gl = openGlRenderer
+            vk = vulkanHost
+        }
+        block(gl, vk)
+    }
+
+    private fun requestRenderForClock() {
+        synchronized(lock) { engine }?.requestRender()
+    }
+
     fun setProgress(progress: Float) {
         val snapshot = synchronized(lock) {
             state = state.copy(progress = progress).sanitized()
@@ -115,6 +194,9 @@ class GlassRenderController(
         synchronized(lock) {
             openGlRenderer to vulkanHost
         }.let { (gl, vk) ->
+            // The image is changing, so any wallpaper-derived clock tint is
+            // stale.
+            clockRuntime.invalidateWallpaperColor()
             gl?.reloadTexture()
             vk?.reloadTexture()
         }
@@ -133,6 +215,7 @@ class GlassRenderController(
     }
 
     fun release() {
+        clockRuntime.close()
         val gl: GlassRenderer?
         val vk: VulkanGlassHost?
         val session: RendererRuntimeSession?
@@ -359,8 +442,10 @@ class GlassRenderController(
             lineThickness = snapshot.lineThickness
             transitionStyle = snapshot.transitionStyle
             configureBackgroundOnly(snapshot.backgroundOnly)
+            applyClockState(snapshot.clock)
             onRenderRetryRequested = engine::requestRender
             onSubjectMaskUpdated = engine::requestRender
+            onAnimationFrameRequested = engine::requestRender
         }
     }
 
@@ -375,6 +460,7 @@ class GlassRenderController(
             lineThickness = snapshot.lineThickness
             transitionStyle = snapshot.transitionStyle
             configureBackgroundOnly(snapshot.backgroundOnly)
+            applyClockState(snapshot.clock)
         }
         targets.second?.updateState(snapshot)
     }

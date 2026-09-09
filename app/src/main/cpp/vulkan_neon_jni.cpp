@@ -2,6 +2,7 @@
 
 #include <android/asset_manager_jni.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 
@@ -13,6 +14,7 @@ constexpr char kFragmentShader[] =
     "shaders/vulkan/neon/neon.frag.spv";
 constexpr uint32_t kWallpaperBinding = 0;
 constexpr uint32_t kContourBinding = 1;
+constexpr uint32_t kClockBinding = 2;
 constexpr float kLineMaximum = 6.0F;
 
 struct CanvasParams {
@@ -24,9 +26,22 @@ struct CanvasParams {
     float scrollOffsetX = 0.5F;
     float scrollWindowX = 1.0F;
     float lineMaximum = kLineMaximum;
+    // Clock overlay, appended after the existing fields so none of the
+    // offsets above shift.
+    //
+    // clockRect: centerX, top, width, height as screen fractions, with the
+    // width already divided by the surface aspect — see
+    // atmo::vulkan::writeClockParams.
+    //
+    // clockMeta: opacity (lock/home fade already folded in by the host), "a
+    // face has been uploaded", "depth enabled AND a mask exists", unused.
+    float clockRect[4]{};
+    float clockMeta[4]{};
 };
 
-static_assert(sizeof(CanvasParams) == 32);
+static_assert(offsetof(CanvasParams, clockRect) == 32);
+static_assert(offsetof(CanvasParams, clockMeta) == 48);
+static_assert(sizeof(CanvasParams) == 64);
 
 struct CanvasHandle {
     atmo::vulkan::OnePassHandle engine = nullptr;
@@ -53,8 +68,10 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeCreate(
         "Atmo Canvas Sketch",
         kVertexShader,
         kFragmentShader,
-        2,
-        0,
+        3,
+        // The clock binding is optional: it holds the engine's 1x1 clear
+        // texture until the first face is uploaded.
+        1U << kClockBinding,
         sizeof(CanvasParams)
     };
     atmo::vulkan::OnePassHandle engine =
@@ -152,6 +169,33 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadCo
         : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadClock(
+    JNIEnv* env,
+    jobject,
+    jlong handle,
+    jobject bitmap
+) {
+    CanvasHandle* canvas = fromHandle(handle);
+    return canvas != nullptr &&
+        atmo::vulkan::uploadBitmap(canvas->engine, env, bitmap, kClockBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeClearClock(
+    JNIEnv*,
+    jobject,
+    jlong handle
+) {
+    CanvasHandle* canvas = fromHandle(handle);
+    return canvas != nullptr &&
+        atmo::vulkan::clearTexture(canvas->engine, kClockBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState(
     JNIEnv*,
@@ -161,20 +205,41 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState
     jfloat dimLevel,
     jfloat lineWidth,
     jfloat scrollOffsetX,
-    jfloat scrollWindowX
+    jfloat scrollWindowX,
+    jfloat clockCenterX,
+    jfloat clockTop,
+    jfloat clockHeightFraction,
+    jfloat clockTextureAspect,
+    jfloat clockOpacity,
+    jboolean clockUploaded
 ) {
     CanvasHandle* canvas = fromHandle(handle);
     if (canvas == nullptr) return;
-    const CanvasParams params{
+    const float aspect = atmo::vulkan::surfaceAspectRatio(canvas->engine);
+    CanvasParams params{
         progress,
         dimLevel,
-        atmo::vulkan::surfaceAspectRatio(canvas->engine),
+        aspect,
         canvas->reverse ? 1.0F : 0.0F,
         lineWidth,
         scrollOffsetX,
         scrollWindowX,
         kLineMaximum
     };
+    // Sketch computes a subject mask, but only for the off-screen edge bake;
+    // the on-screen pass samples the baked lines, so there is nothing to
+    // composite the subject back from and depth is never available here.
+    atmo::vulkan::writeClockParams(
+        params,
+        aspect,
+        clockCenterX,
+        clockTop,
+        clockHeightFraction,
+        clockTextureAspect,
+        clockOpacity,
+        clockUploaded == JNI_TRUE,
+        false
+    );
     atmo::vulkan::setPushConstants(
         canvas->engine,
         &params,

@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.renderer
 
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockScreen
 import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
@@ -170,6 +171,39 @@ data class AtmosphereRenderState(
             unlockedProgress = clockUnlockedProgress
         )
     }
+
+    /**
+     * The clock settings as the shared [ClockOverlayState] the other effects
+     * carry.
+     *
+     * Atmosphere keeps its flat fields — they are load-bearing for its Vulkan
+     * host and its unit tests, and rewriting working code to match a newer
+     * convention is how working code stops working. This bridges the two so
+     * BlurToSharpRenderer can use the same GlesClockOverlay as everything
+     * else instead of a seventh hand-written copy of the compositing rules.
+     *
+     * [clockColor] is already resolved by the controller, so it stands in for
+     * both the request and the result.
+     */
+    fun clockOverlay(): ClockOverlayState = ClockOverlayState(
+        enabled = clockEnabled,
+        depthEnabled = clockDepthEnabled,
+        styleId = clockStyleId,
+        showSeconds = clockShowSeconds,
+        animate = clockAnimate,
+        centerX = clockCenterX,
+        top = clockTop,
+        height = clockHeight,
+        opacity = clockOpacity,
+        requestedColor = clockColor,
+        color = clockColor,
+        hourFormat = clockHourFormat,
+        screenId = clockScreenId,
+        lockedProgress = clockLockedProgress,
+        unlockedProgress = clockUnlockedProgress,
+        textureAspect = clockTextureAspect,
+        faceUploaded = clockFaceUploaded
+    )
 
     private fun Float.finiteOr(fallback: Float): Float {
         return if (isFinite()) this else fallback

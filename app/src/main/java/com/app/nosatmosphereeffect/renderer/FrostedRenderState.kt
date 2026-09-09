@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.renderer
 
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import kotlin.math.roundToInt
 
 data class FrostedRenderState(
@@ -9,7 +10,13 @@ data class FrostedRenderState(
     val noiseScale: Float = 2_000f,
     val noiseStrength: Float = 0.06f,
     val blurRadius: Float = 200f,
-    val drawerBlur: Float = 0f
+    val drawerBlur: Float = 0f,
+    /**
+     * The wallpaper clock. Grouped rather than flattened into a dozen fields
+     * so that adding the clock to an effect is one field, not twelve chances
+     * to forget one — see ClockOverlayState.
+     */
+    val clock: ClockOverlayState = ClockOverlayState()
 ) {
     fun sanitized(): FrostedRenderState {
         return copy(
@@ -22,7 +29,8 @@ data class FrostedRenderState(
                 .coerceIn(0f, 400f)
                 .roundToInt()
                 .toFloat(),
-            drawerBlur = drawerBlur.finiteOr(0f).coerceIn(0f, 1f)
+            drawerBlur = drawerBlur.finiteOr(0f).coerceIn(0f, 1f),
+            clock = clock.sanitized()
         )
     }
 

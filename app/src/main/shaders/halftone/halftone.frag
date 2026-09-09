@@ -2,15 +2,92 @@
 
 layout(set = 0, binding = 0) uniform sampler2D wallpaperTexture;
 layout(set = 0, binding = 1) uniform sampler2D subjectMask;
+layout(set = 0, binding = 2) uniform sampler2D clockTexture;
 
 layout(location = 0) in vec2 vTexCoord;
+layout(location = 1) in vec2 vEffectCoord;
 layout(location = 0) out vec4 fragColor;
 
 layout(push_constant) uniform HalftoneParams {
     vec4 render;
     vec4 controls;
     vec4 scroll;
+    // Appended after the existing vec4s so none of the offsets above shift.
+    //
+    // clockRect: centerX, top, widthFraction, heightFraction — all in the
+    // screen-locked vEffectCoord space. The width arrives already divided by
+    // the surface aspect (see the JNI), because this shader has no
+    // surface-aspect field of its own.
+    //
+    // clockMeta: opacity (with the lock/home fade already folded in by the
+    // host), "a face has been uploaded", "depth enabled AND a subject mask
+    // exists", unused.
+    vec4 clockRect;
+    vec4 clockMeta;
 } params;
+
+// Mirrors the GLES path in assets/shaders/halftone/sharp_to_halftone.frag; keep the two in step.
+//
+// clockMeta.y is "a face has been uploaded", NOT the user's toggle: the
+// engine fills unwritten optional bindings with an opaque-black 1x1 clear
+// texture, so sampling before the first upload would paint a solid black
+// rectangle where the clock belongs. The lock/home fade arrives already
+// folded into clockMeta.x, so there is no policy in this shader.
+vec3 compositeClock(vec3 color, vec2 screenCoord) {
+    if (params.clockMeta.y <= 0.5 || params.clockMeta.x <= 0.0) return color;
+    vec2 clockSize = max(params.clockRect.zw, vec2(1e-5));
+    vec2 clockOrigin = vec2(
+        params.clockRect.x - clockSize.x * 0.5,
+        params.clockRect.y
+    );
+    vec2 clockUv = (screenCoord - clockOrigin) / clockSize;
+    if (
+        clockUv.x < 0.0 || clockUv.x > 1.0 ||
+        clockUv.y < 0.0 || clockUv.y > 1.0
+    ) {
+        return color;
+    }
+    vec4 clockSample = texture(clockTexture, clockUv);
+    return mix(color, clockSample.rgb, clockSample.a * params.clockMeta.x);
+}
+
+// Draws the sharp subject back over the clock, so the clock reads as sitting
+// behind them. Fades with the clock itself, so the subject is not left
+// re-sharpened over a stylised background once the clock has gone.
+vec3 applyClockDepth(vec3 color, vec3 subjectColor, float subjectMask) {
+    if (params.clockMeta.y <= 0.5 || params.clockMeta.z <= 0.5) return color;
+    float coverage = smoothstep(0.30, 0.72, subjectMask);
+    return mix(color, subjectColor, coverage * params.clockMeta.x);
+}
+
+// Raw subject coverage for the clock's depth effect.
+//
+// Deliberately not foregroundProtection() below: that one returns 0 whenever
+// the Halftone effect's own "background only" mode is off, because it exists
+// to decide where the halftone is suppressed. The clock's depth is a separate
+// user setting that must work with background-only switched off, so it reads
+// the mask directly.
+float clockSubjectMask(vec2 uv) {
+    vec2 stepSize = 2.0 / vec2(textureSize(subjectMask, 0));
+    float mask = texture(subjectMask, uv).r;
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv + vec2(stepSize.x, 0.0), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv - vec2(stepSize.x, 0.0), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv + vec2(0.0, stepSize.y), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv - vec2(0.0, stepSize.y), 0.0, 1.0)).r
+    );
+    return mask;
+}
 
 mat2 rotate2d(float angle) {
     float sine = sin(angle);
@@ -134,5 +211,13 @@ void main() {
         sharp,
         foregroundProtection(vTexCoord)
     );
+
+    finalColor = compositeClock(finalColor, vEffectCoord);
+    finalColor = applyClockDepth(
+        finalColor,
+        sharp,
+        clockSubjectMask(vTexCoord)
+    );
+
     fragColor = vec4(finalColor, 1.0);
 }

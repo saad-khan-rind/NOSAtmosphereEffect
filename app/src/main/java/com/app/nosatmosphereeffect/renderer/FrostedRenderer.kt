@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
@@ -65,6 +67,33 @@ class FrostedRenderer(
     @Volatile var noiseScale: Float = 2000.0f
     @Volatile var noiseStrength: Float = 0.06f
     @Volatile var blurRadius: Float = 200.0f
+
+    /**
+     * The wallpaper clock. Frosted blurs the photo at one end of its
+     * transition, so the clock is pinned to whichever end stays sharp rather
+     * than offered as a choice — glyph edges over a heavy blur read as
+     * smeared, and there is no subject mask here to draw depth from. Units 0
+     * and 1 carry the sharp and blurred images, so the clock takes 2.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
+
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
+        set(value) {
+            field = value
+            clockOverlay.onAnimationFrameRequested = value
+        }
+
+    fun applyClockState(state: ClockOverlayState) = clockOverlay.applyState(state)
+
+    fun beginClockEntry() = clockOverlay.beginEntry()
+
+    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+
+    fun release() {
+        onAnimationFrameRequested = null
+        clockOverlay.release()
+    }
 
     private var programId: Int = 0
     private var blurProgramId: Int = 0
@@ -140,6 +169,8 @@ class FrostedRenderer(
         tempTextureWidth = 0
         tempTextureHeight = 0
         needsReload = true
+        // The clock's texture id belonged to the destroyed context.
+        clockOverlay.resetForNewContext()
     }
 
     private fun loadAndApplyTextures() {
@@ -272,6 +303,13 @@ class FrostedRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,currentSet.blurId )
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureBlur"), 1)
+
+        // No subject mask on this effect, so no depth argument.
+        clockOverlay.draw(
+            programId = programId,
+            progress = blurStrength,
+            screenAspect = aspectRatio
+        )
 
         val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
         val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")

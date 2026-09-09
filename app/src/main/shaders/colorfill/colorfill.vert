@@ -1,10 +1,29 @@
 #version 450
 
 layout(location = 0) out vec2 vTexCoord;
+// Screen-locked: the scroll window below is deliberately NOT applied,
+// so the clock stays put while the photo pans.
+layout(location = 1) out vec2 vEffectCoord;
 
 layout(push_constant) uniform ColorFillParams {
     vec4 render;
     vec4 position;
+    // Appended after the existing vec4s so none of the offsets above shift.
+    //
+    // clockRect: centerX, top, widthFraction, heightFraction — all in the
+    // screen-locked vEffectCoord space. Unlike the Atmosphere shader, which
+    // is handed the face's own texture aspect and divides by the surface
+    // aspect here, the width arrives already divided: these effects have no
+    // surface-aspect field in their push constants, and the JNI knows the
+    // surface aspect anyway, so doing the division there costs nothing and
+    // keeps the shader free of geometry it would otherwise need a new
+    // parameter to compute.
+    //
+    // clockMeta: opacity (with the lock/home fade already folded in by the
+    // host), "a face has been uploaded", "depth enabled AND a subject mask
+    // exists", unused.
+    vec4 clockRect;
+    vec4 clockMeta;
 } params;
 
 void main() {
@@ -25,4 +44,5 @@ void main() {
     coordinate.x = params.position.z * (1.0 - windowWidth) +
         coordinate.x * windowWidth;
     vTexCoord = coordinate;
+    vEffectCoord = coordinates[gl_VertexIndex];
 }

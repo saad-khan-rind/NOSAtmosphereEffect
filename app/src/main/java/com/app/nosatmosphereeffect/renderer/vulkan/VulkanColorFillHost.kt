@@ -35,6 +35,14 @@ internal class VulkanColorFillHost(
     private val activeReported = AtomicBoolean(false)
 
     private val latestState = AtomicReference(initialState.sanitized())
+
+    /**
+     * The wallpaper clock. Colour Fill has its own standalone host rather than
+     * sharing VulkanSingleImageHost, so the hooks the other effects override
+     * are open-coded here — [uploadClockOnWorker] is called from the draw path
+     * and [clockOverlay] is reset with the surface.
+     */
+    private val clockOverlay = VulkanClockOverlay(appContext, "Colour Fill")
     private val nativeHandle = AtomicLong(0L)
     private val pendingPlaylistBitmap = AtomicReference<Bitmap?>(null)
     private val swapchainRetryBudget =
@@ -97,16 +105,66 @@ internal class VulkanColorFillHost(
 
     fun updateState(state: ColorFillRenderState) {
         val sanitized = state.sanitized()
+        clockOverlay.applyState(sanitized.clock)
         latestState.updateAndGet { current ->
             current.copy(
                 progress = sanitized.progress,
                 dimLevel = sanitized.dimLevel,
                 originX = sanitized.originX,
-                originY = sanitized.originY
+                originY = sanitized.originY,
+                // The dynamic fields are read from the overlay rather than
+                // carried forward from a snapshot: this runs on whichever
+                // thread changed a preference while uploadClockOnWorker runs
+                // on the render worker, and a stale read would silently lose
+                // whichever landed second.
+                clock = sanitized.clock.copy(
+                    textureAspect = if (clockOverlay.hasUploadedFace) {
+                        clockOverlay.aspectRatio
+                    } else {
+                        current.clock.textureAspect
+                    },
+                    faceUploaded = clockOverlay.hasUploadedFace &&
+                        sanitized.clock.enabled
+                )
             ).sanitized()
         }
         postIfActive {
             applyStateOnWorker()
+        }
+    }
+
+    /** Plays the clock's entry animation on the next drawn frame. */
+    fun beginClockEntry() {
+        clockOverlay.beginEntry()
+        requestRender()
+    }
+
+    /** Re-reads the system 12/24-hour setting and forces a redraw. */
+    fun onTimeChanged() {
+        clockOverlay.onTimeChanged()
+        requestRender()
+    }
+
+    /**
+     * Uploads a clock face when there is one to upload. Failures are logged
+     * and skipped rather than failing the renderer: a decorative overlay must
+     * not be able to take the whole Vulkan backend down.
+     */
+    private fun uploadClockOnWorker(handle: Long) {
+        val current = latestState.get()
+        val changed = clockOverlay.uploadIfNeeded(
+            effectiveOpacity = current.clock.effectiveOpacity(current.progress),
+            upload = { bitmap -> VulkanNative.nativeUploadClock(handle, bitmap) },
+            requestRender = ::requestRender
+        )
+        if (!changed) return
+        latestState.updateAndGet { state ->
+            state.copy(
+                clock = state.clock.copy(
+                    textureAspect = clockOverlay.aspectRatio,
+                    faceUploaded = true
+                )
+            ).sanitized()
         }
     }
 
@@ -390,7 +448,15 @@ internal class VulkanColorFillHost(
                 originX = state.originX,
                 originY = state.originY,
                 scrollOffsetX = state.scrollOffsetX,
-                scrollWindowX = state.scrollWindowX
+                scrollWindowX = state.scrollWindowX,
+                clockCenterX = state.clock.centerX,
+                clockTop = state.clock.top,
+                clockHeightFraction = state.clock.height,
+                clockTextureAspect = state.clock.textureAspect,
+                // The lock/home fade is folded in here, once, so the shader
+                // has no policy in it and both backends share one curve.
+                clockOpacity = state.clock.effectiveOpacity(state.progress),
+                clockUploaded = state.clock.faceUploaded
             )
             true
         } catch (failure: Throwable) {
@@ -408,6 +474,9 @@ internal class VulkanColorFillHost(
             return
         }
         if (needsReload && !loadActiveTextureOnWorker(generation)) return
+        // Before the state is pushed, so this frame's uniforms already carry
+        // whatever the upload just changed.
+        uploadClockOnWorker(handle)
         if (!applyStateOnWorker()) return
         val result = try {
             VulkanNative.nativeRender(handle)
@@ -498,6 +567,14 @@ internal class VulkanColorFillHost(
         needsReload = true
         swapchainRecoveryQueued = false
         swapchainRetryBudget.reset()
+        // The new surface's descriptor set has no clock content yet, so the
+        // next frame must re-upload even though the time has not changed.
+        clockOverlay.reset()
+        latestState.updateAndGet { state ->
+            state.copy(
+                clock = state.clock.copy(faceUploaded = false)
+            ).sanitized()
+        }
     }
 
     private fun discardStaleSurfaceOnWorker() {
@@ -654,6 +731,7 @@ internal class VulkanColorFillHost(
     }
 
     private fun releaseNativeResources() {
+        clockOverlay.release()
         ready = false
         readyGeneration = NO_SURFACE_GENERATION
         initializedApiVersion = null

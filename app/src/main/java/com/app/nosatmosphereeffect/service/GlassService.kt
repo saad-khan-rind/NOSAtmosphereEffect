@@ -3,9 +3,11 @@ package com.app.nosatmosphereeffect.service
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.ClockPreferences
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.renderer.GlassRenderController
 
 abstract class GlassWallpaperService protected constructor(
@@ -41,6 +43,31 @@ abstract class GlassWallpaperService protected constructor(
             transitionStyle = settings.transitionStyle,
             backgroundOnly = settings.backgroundOnly
         )
+        // Playlist and theme modes rotate the image underneath the clock, so
+        // the clock stays off there — a position calibrated against one photo
+        // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
+        renderer.configureClock(
+            ClockPreferences.read(
+                preferences = preferences,
+                effectId = effectId,
+                singleImageMode = !PlaylistModeManager.isPlaylistMode(
+                    applicationContext
+                ),
+                lockedProgress = lockedProgress,
+                unlockedProgress = unlockedProgress
+            )
+        )
+    }
+
+    /**
+     * The clock's frame cadence is owned by the controller's ClockFramePump,
+     * one per engine — see the same override on the other effect services.
+     */
+    final override fun onEngineVisibilityChanged(
+        renderer: GlassRenderController?,
+        visible: Boolean
+    ) {
+        renderer?.setEngineVisible(visible)
     }
 
     final override fun setEffectProgress(

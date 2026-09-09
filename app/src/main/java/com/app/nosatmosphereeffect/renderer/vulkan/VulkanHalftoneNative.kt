@@ -34,6 +34,13 @@ internal object VulkanHalftoneNative {
 
     external fun nativeClearSubjectMask(handle: Long): Boolean
 
+    external fun nativeUploadClock(
+        handle: Long,
+        bitmap: Bitmap
+    ): Boolean
+
+    external fun nativeClearClock(handle: Long): Boolean
+
     external fun nativeSetState(
         handle: Long,
         progress: Float,
@@ -43,7 +50,14 @@ internal object VulkanHalftoneNative {
         backgroundOnly: Boolean,
         hasSubject: Boolean,
         scrollOffsetX: Float,
-        scrollWindowX: Float
+        scrollWindowX: Float,
+        clockCenterX: Float,
+        clockTop: Float,
+        clockHeightFraction: Float,
+        clockTextureAspect: Float,
+        clockOpacity: Float,
+        clockUploaded: Boolean,
+        clockDepth: Boolean
     )
 
     external fun nativeRender(handle: Long): Int

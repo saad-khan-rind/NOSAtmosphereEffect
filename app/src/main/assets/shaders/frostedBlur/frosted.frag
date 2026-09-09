@@ -4,6 +4,9 @@ precision highp float;
 precision highp int;
 
 in vec2 vTexCoord;
+// Screen-locked, unaffected by the wallpaper's scroll window — the clock
+// overlay is positioned against the physical screen.
+in vec2 vEffectCoord;
 out vec4 fragColor;
 
 uniform sampler2D uTextureSharp;
@@ -35,6 +38,31 @@ float random(vec2 co) {
     return float(hashU(uvec2(co)) & 0xFFFFFFu) / float(0x1000000u);
 }
 
+// ---------------------------------------------------------------- clock
+// Wallpaper clock overlay. uClockEnabled is 1.0 only once a real face has
+// been uploaded — it is NOT the user's toggle, because the texture starts
+// out as unwritten storage and sampling that would paint a rectangle of
+// garbage where the clock belongs. uClockRect is x, y, width, height in the
+// screen-locked vEffectCoord space, so the clock stays put while the photo
+// pans. uClockOpacity already has the lock/home fade folded in by the
+// renderer, so both backends share one curve.
+uniform sampler2D uClockTexture;
+uniform float uClockEnabled;
+uniform vec4 uClockRect;
+uniform float uClockOpacity;
+uniform float uClockDepth;
+
+vec3 compositeClock(vec3 color, vec2 screenCoord) {
+    if (uClockEnabled <= 0.5 || uClockOpacity <= 0.0) return color;
+    vec2 clockUv = (screenCoord - uClockRect.xy) / max(uClockRect.zw, vec2(1e-5));
+    if (clockUv.x < 0.0 || clockUv.x > 1.0 ||
+        clockUv.y < 0.0 || clockUv.y > 1.0) {
+        return color;
+    }
+    vec4 clockSample = texture(uClockTexture, clockUv);
+    return mix(color, clockSample.rgb, clockSample.a * uClockOpacity);
+}
+
 void main() {
     float t = clamp(uBlurStrength, 0.0, 1.0);
 
@@ -58,6 +86,8 @@ void main() {
     // App-drawer / recents: reverse Frosted sets this to 1 when out of view, blending
     // toward the frosted image so the drawer shows a blur. In view -> 0 -> sharp.
     finalColor = mix(finalColor, frosted, clamp(uDrawerBlur, 0.0, 1.0));
+
+    finalColor = compositeClock(finalColor, vEffectCoord);
 
     fragColor = vec4(finalColor, 1.0);
 }

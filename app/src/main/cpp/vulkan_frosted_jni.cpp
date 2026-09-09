@@ -2,6 +2,7 @@
 
 #include <android/asset_manager_jni.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 
@@ -13,6 +14,7 @@ constexpr char kFragmentShader[] =
     "shaders/vulkan/frosted/frosted.frag.spv";
 constexpr uint32_t kSharpBinding = 0;
 constexpr uint32_t kBlurredBinding = 1;
+constexpr uint32_t kClockBinding = 2;
 
 struct FrostedParams {
     float progress = 0.0F;
@@ -27,9 +29,22 @@ struct FrostedParams {
     float scrollWindowX = 1.0F;
     float padding1 = 0.0F;
     float padding2 = 0.0F;
+    // Clock overlay, appended after the existing fields so none of the
+    // offsets above shift.
+    //
+    // clockRect: centerX, top, width, height as screen fractions, with the
+    // width already divided by the surface aspect — see
+    // atmo::vulkan::writeClockParams.
+    //
+    // clockMeta: opacity (lock/home fade already folded in by the host), "a
+    // face has been uploaded", "depth enabled AND a mask exists", unused.
+    float clockRect[4]{};
+    float clockMeta[4]{};
 };
 
-static_assert(sizeof(FrostedParams) == 48);
+static_assert(offsetof(FrostedParams, clockRect) == 48);
+static_assert(offsetof(FrostedParams, clockMeta) == 64);
+static_assert(sizeof(FrostedParams) == 80);
 
 struct FrostedHandle {
     atmo::vulkan::OnePassHandle engine = nullptr;
@@ -53,8 +68,10 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanFrostedNative_nativeCreat
         "Atmo Frosted",
         kVertexShader,
         kFragmentShader,
-        2,
-        0,
+        3,
+        // The clock binding is optional: it holds the engine's 1x1 clear
+        // texture until the first face is uploaded.
+        1U << kClockBinding,
         sizeof(FrostedParams),
         atmo::vulkan::kNoUniformBinding,
         0,
@@ -145,6 +162,33 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanFrostedNative_nativeUploa
         : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanFrostedNative_nativeUploadClock(
+    JNIEnv* env,
+    jobject,
+    jlong handle,
+    jobject bitmap
+) {
+    FrostedHandle* frosted = fromHandle(handle);
+    return frosted != nullptr &&
+        atmo::vulkan::uploadBitmap(frosted->engine, env, bitmap, kClockBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanFrostedNative_nativeClearClock(
+    JNIEnv*,
+    jobject,
+    jlong handle
+) {
+    FrostedHandle* frosted = fromHandle(handle);
+    return frosted != nullptr &&
+        atmo::vulkan::clearTexture(frosted->engine, kClockBinding)
+        ? JNI_TRUE
+        : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanFrostedNative_nativeSetState(
     JNIEnv*,
@@ -157,14 +201,21 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanFrostedNative_nativeSetSt
     jfloat noiseStrength,
     jfloat drawerBlur,
     jfloat scrollOffsetX,
-    jfloat scrollWindowX
+    jfloat scrollWindowX,
+    jfloat clockCenterX,
+    jfloat clockTop,
+    jfloat clockHeightFraction,
+    jfloat clockTextureAspect,
+    jfloat clockOpacity,
+    jboolean clockUploaded
 ) {
     FrostedHandle* frosted = fromHandle(handle);
     if (frosted == nullptr) return;
-    const FrostedParams params{
+    const float aspect = atmo::vulkan::surfaceAspectRatio(frosted->engine);
+    FrostedParams params{
         progress,
         dimLevel,
-        atmo::vulkan::surfaceAspectRatio(frosted->engine),
+        aspect,
         drawerBlur,
         enableNoise == JNI_TRUE ? 1.0F : 0.0F,
         noiseScale,
@@ -175,6 +226,18 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanFrostedNative_nativeSetSt
         0.0F,
         0.0F
     };
+    // Frosted has no subject mask, so depth is never available here.
+    atmo::vulkan::writeClockParams(
+        params,
+        aspect,
+        clockCenterX,
+        clockTop,
+        clockHeightFraction,
+        clockTextureAspect,
+        clockOpacity,
+        clockUploaded == JNI_TRUE,
+        false
+    );
     atmo::vulkan::setPushConstants(
         frosted->engine,
         &params,

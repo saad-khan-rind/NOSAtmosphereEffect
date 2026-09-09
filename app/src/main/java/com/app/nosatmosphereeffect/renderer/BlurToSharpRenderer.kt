@@ -9,7 +9,9 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.util.Log
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
@@ -79,6 +81,32 @@ class BlurToSharpRenderer(
     @Volatile private var released = false
     @Volatile var onRenderRetryRequested: (() -> Unit)? = null
     @Volatile var onSubjectMaskUpdated: (() -> Unit)? = null
+
+    /**
+     * Glass's own "background only" setting, kept separate from
+     * [SubjectMaskCoordinator.enabled] — the clock's depth effect is a second,
+     * independent reason to want a mask.
+     */
+    @Volatile private var glassBackgroundOnly: Boolean = false
+
+    /**
+     * The wallpaper clock.
+     *
+     * Reverse Atmosphere was the one effect the clock deliberately skipped:
+     * on Vulkan it shares the Atmosphere host and would have worked, but on
+     * GLES it runs through this renderer, which had no clock pass, and half a
+     * pair is worse than neither. This closes that gap. Units 0-2 carry the
+     * sharp photo, the blurred photo and the subject mask, so the clock takes
+     * 3 — the same slot the forward Atmosphere renderer uses.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE3, 3)
+
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
+        set(value) {
+            field = value
+            clockOverlay.onAnimationFrameRequested = value
+        }
     private var renderFailureLogged = false
     private var renderRetryCount = 0
     private var generationCounter = 0L
@@ -162,9 +190,25 @@ class BlurToSharpRenderer(
     }
 
     fun configureGlassBackgroundOnly(enabled: Boolean) {
-        val changed = subjectMasks.configure(enabled)
+        glassBackgroundOnly = enabled
+        refreshSubjectMaskNeed()
+    }
+
+    fun applyClockState(state: ClockOverlayState) {
+        clockOverlay.applyState(state)
+        refreshSubjectMaskNeed()
+    }
+
+    fun beginClockEntry() = clockOverlay.beginEntry()
+
+    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+
+    /** Segmentation runs when either consumer wants it, and only then. */
+    private fun refreshSubjectMaskNeed() {
+        val wanted = glassBackgroundOnly || clockOverlay.state.needsSubjectMask()
+        val changed = subjectMasks.configure(wanted)
         if (
-            enabled &&
+            wanted &&
             currentSet.isValid() &&
             (changed || !currentSet.hasSubject)
         ) {
@@ -172,8 +216,14 @@ class BlurToSharpRenderer(
         }
     }
 
+    /**
+     * Glass's own background-only setting. Reads the field rather than
+     * [SubjectMaskCoordinator.enabled] now that the clock's depth effect can
+     * turn masks on by itself: "a mask is being computed" and "Glass is in
+     * background-only mode" stopped being the same question.
+     */
     internal val glassBackgroundOnlyEnabled: Boolean
-        get() = subjectMasks.enabled
+        get() = glassBackgroundOnly
 
     fun queuePlaylistTransition(bitmap: Bitmap) {
         if (bitmap.isRecycled) return
@@ -204,6 +254,8 @@ class BlurToSharpRenderer(
         }
         onRenderRetryRequested = null
         onSubjectMaskUpdated = null
+        onAnimationFrameRequested = null
+        clockOverlay.release()
         subjectMasks.close()
         if (pending != null && !pending.isRecycled) {
             pending.recycle()
@@ -222,6 +274,8 @@ class BlurToSharpRenderer(
         currentSet.reset()
         nextSet.reset()
         subjectMasks.discardPending()
+        // The clock's texture id belonged to the destroyed context.
+        clockOverlay.resetForNewContext()
         tempTextureId = 0
         tempTextureWidth = 0
         tempTextureHeight = 0
@@ -595,13 +649,16 @@ class BlurToSharpRenderer(
             GLES30.glGetUniformLocation(programId, "uGlassLineThickness"),
             glassLineThickness
         )
+        // Gated on Glass's own setting, not on whether a mask exists: the
+        // clock's depth effect can be the reason a mask is being computed.
+        val maskReady = subjectMasks.enabled && currentSet.hasSubject
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uBackgroundOnly"),
-            if (subjectMasks.enabled) 1f else 0f
+            if (glassBackgroundOnly && subjectMasks.enabled) 1f else 0f
         )
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uHasSubject"),
-            if (subjectMasks.enabled && currentSet.hasSubject) 1f else 0f
+            if (glassBackgroundOnly && maskReady) 1f else 0f
         )
 
         // Drawer/recents blur (0 = in view, sharp; 1 = out of view, blurred).
@@ -622,6 +679,13 @@ class BlurToSharpRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 2)
+
+            clockOverlay.draw(
+                programId = programId,
+                progress = blurStrength,
+                screenAspect = aspectRatio,
+                subjectMaskAvailable = maskReady
+            )
 
             val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
             val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")

@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
@@ -110,9 +111,98 @@ class NeonRenderController(
             this.lineWidth = snapshot.lineWidth
             this.sensitivity = snapshot.sensitivity
             configureSubjectSegmentation(snapshot.subjectSegmentationEnabled)
+            applyClockState(snapshot.clock)
             rebuildSketch()
         }
         vk?.updateState(snapshot)
+    }
+
+    /**
+     * Clock frame pump and wallpaper-tint resolution.
+     *
+     * One per controller, i.e. one per wallpaper engine. Anything service-wide
+     * would be torn down by whichever engine died first, silently leaving the
+     * survivor with a clock that never advanced.
+     */
+    private val clockRuntime = ClockRuntime(
+        context = appContext,
+        workerName = "AtmoClockCanvas",
+        onTick = ::onClockTick,
+        onColorResolved = ::onClockColorResolved
+    )
+
+    fun configureClock(clock: ClockOverlayState) {
+        // Resolved outside the lock: configuring the pump can fire an
+        // immediate tick, which comes straight back through onClockTick.
+        val resolved = clockRuntime.configure(clock)
+        val snapshot = synchronized(lock) {
+            state = state.copy(clock = resolved).sanitized()
+            state
+        }
+        applyClockToTargets(snapshot)
+    }
+
+    /**
+     * Forwarded from the wallpaper engine so the pump idles when hidden, and
+     * so the clock plays its entry animation when the wallpaper comes back.
+     */
+    fun setEngineVisible(visible: Boolean) {
+        clockRuntime.setEngineVisible(visible)
+        if (!visible) return
+        forEachClockTarget { gl, vk ->
+            gl?.beginClockEntry()
+            vk?.beginClockEntry()
+        }
+    }
+
+    /** Kept for callers outside the pump (config updates, wallpaper swaps). */
+    fun onSystemTimeChanged() = onClockTick()
+
+    private fun onClockTick() {
+        forEachClockTarget { gl, vk ->
+            gl?.onClockTimeChanged()
+            vk?.onTimeChanged()
+        }
+        requestRenderForClock()
+    }
+
+    private fun onClockColorResolved(color: Int) {
+        val snapshot = synchronized(lock) {
+            if (closed) return
+            state = state.copy(clock = state.clock.copy(color = color)).sanitized()
+            state
+        }
+        applyClockToTargets(snapshot)
+        requestRenderForClock()
+    }
+
+    /**
+     * Sketch has no single applyState(): its configure and setProgress paths
+     * each push their own subset, because rebuilding the sketch is expensive
+     * and must not happen on a progress tick. The clock needs neither, so it
+     * gets its own narrow push.
+     */
+    private fun applyClockToTargets(snapshot: NeonRenderState) {
+        forEachClockTarget { gl, vk ->
+            gl?.applyClockState(snapshot.clock)
+            vk?.updateState(snapshot)
+        }
+    }
+
+    private fun forEachClockTarget(
+        block: (NeonRenderer?, VulkanNeonHost?) -> Unit
+    ) {
+        val gl: NeonRenderer?
+        val vk: VulkanNeonHost?
+        synchronized(lock) {
+            gl = openGlRenderer
+            vk = vulkanHost
+        }
+        block(gl, vk)
+    }
+
+    private fun requestRenderForClock() {
+        synchronized(lock) { engine }?.requestRender()
     }
 
     fun setProgress(progress: Float) {
@@ -137,6 +227,8 @@ class NeonRenderController(
             gl = openGlRenderer
             vk = vulkanHost
         }
+        // The image is changing, so any wallpaper-derived clock tint is stale.
+        clockRuntime.invalidateWallpaperColor()
         gl?.reloadTexture()
         vk?.reloadTexture()
     }
@@ -159,6 +251,7 @@ class NeonRenderController(
     }
 
     fun release() {
+        clockRuntime.close()
         val vk: VulkanNeonHost?
         val gl: NeonRenderer?
         val session: RendererRuntimeSession?
@@ -398,7 +491,9 @@ class NeonRenderController(
             lineWidth = snapshot.lineWidth
             sensitivity = snapshot.sensitivity
             configureSubjectSegmentation(snapshot.subjectSegmentationEnabled)
+            applyClockState(snapshot.clock)
             onSketchUpdated = renderEngine::requestRender
+            onAnimationFrameRequested = renderEngine::requestRender
         }
     }
 

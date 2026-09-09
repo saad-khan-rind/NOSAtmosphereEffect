@@ -8,6 +8,8 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.io.File
@@ -45,6 +47,33 @@ class ColorFillRenderer(
 
     @Volatile var blurStrength: Float = 0.0f
     @Volatile var dimLevel: Float = 0.0f
+
+    /**
+     * The wallpaper clock. Colour Fill leaves the photo's geometry untouched
+     * at both ends of its transition — monochrome and colour are the same
+     * image — so the clock is legible on the lock screen, the home screen or
+     * both, and the user picks. Unit 1 is free here: this effect samples only
+     * the wallpaper.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE1, 1)
+
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
+        set(value) {
+            field = value
+            clockOverlay.onAnimationFrameRequested = value
+        }
+
+    fun applyClockState(state: ClockOverlayState) = clockOverlay.applyState(state)
+
+    fun beginClockEntry() = clockOverlay.beginEntry()
+
+    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+
+    fun release() {
+        onAnimationFrameRequested = null
+        clockOverlay.release()
+    }
     @Volatile private var needsReload: Boolean = false
 
     // The shader expects normalized fingerprint-origin coordinates.
@@ -96,6 +125,8 @@ class ColorFillRenderer(
         currentSet.reset()
         nextSet.reset()
         needsReload = true
+        // The clock's texture id belonged to the destroyed context.
+        clockOverlay.resetForNewContext()
     }
 
     private fun loadAndApplyTextures() {
@@ -181,6 +212,14 @@ class ColorFillRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.sharpId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureSharp"), 0)
+
+        // Colour Fill has no subject mask, so the depth effect is not offered
+        // for it and nothing is passed here.
+        clockOverlay.draw(
+            programId = programId,
+            progress = blurStrength,
+            screenAspect = aspectRatio
+        )
 
         val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
         val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")

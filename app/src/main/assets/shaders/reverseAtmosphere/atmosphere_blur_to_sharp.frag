@@ -162,6 +162,46 @@ float random(vec2 co) {
     return float(hashU(uvec2(co)) & 0xFFFFFFu) / float(0x1000000u);
 }
 
+// ---------------------------------------------------------------- clock
+// Wallpaper clock overlay. uClockEnabled is 1.0 only once a real face has
+// been uploaded — it is NOT the user's toggle, because the texture starts
+// out as unwritten storage and sampling that would paint a rectangle of
+// garbage where the clock belongs. uClockRect is x, y, width, height in the
+// screen-locked vEffectCoord space, so the clock stays put while the photo
+// pans. uClockOpacity already has the lock/home fade folded in by the
+// renderer, so both backends share one curve.
+uniform sampler2D uClockTexture;
+uniform float uClockEnabled;
+uniform vec4 uClockRect;
+uniform float uClockOpacity;
+// The clock's own depth switch, already ANDed with "a real subject mask is
+// bound" by the renderer. Deliberately independent of the effect's own
+// background-only mode: the depth effect has to work whether or not the user
+// has asked for subject isolation elsewhere.
+uniform float uClockDepth;
+
+vec3 compositeClock(vec3 color, vec2 screenCoord) {
+    if (uClockEnabled <= 0.5 || uClockOpacity <= 0.0) return color;
+    vec2 clockUv = (screenCoord - uClockRect.xy) / max(uClockRect.zw, vec2(1e-5));
+    if (clockUv.x < 0.0 || clockUv.x > 1.0 ||
+        clockUv.y < 0.0 || clockUv.y > 1.0) {
+        return color;
+    }
+    vec4 clockSample = texture(uClockTexture, clockUv);
+    return mix(color, clockSample.rgb, clockSample.a * uClockOpacity);
+}
+
+// Draws the sharp subject back over the clock, which is what sells "the clock
+// is behind them". Fades with the clock itself, so the subject is not left
+// re-sharpened over a stylised background once the clock has gone.
+vec3 applyClockDepth(vec3 color, vec3 subjectColor, float subjectMask) {
+    if (uClockEnabled <= 0.5 || uClockDepth <= 0.5 || uClockOpacity <= 0.0) {
+        return color;
+    }
+    float coverage = smoothstep(0.30, 0.72, subjectMask);
+    return mix(color, subjectColor, coverage * uClockOpacity);
+}
+
 void main() {
     float t = uBlurStrength;
     vec2 uv = vTexCoord;
@@ -240,6 +280,15 @@ void main() {
     // engine sets this to 1, blending toward the clean blurred image so a translucent
     // drawer shows a strong blur. In view -> 0 -> sharp.
     finalColor = mix(finalColor, frosted, clamp(uDrawerBlur, 0.0, 1.0));
+
+    // Composited after the drawer blur so the clock is never washed out by
+    // it, then the sharp subject goes back on top when depth is on.
+    finalColor = compositeClock(finalColor, vEffectCoord);
+    finalColor = applyClockDepth(
+        finalColor,
+        texture(uTextureSharp, vTexCoord).rgb,
+        sampleSubject(vTexCoord)
+    );
 
     fragColor = vec4(finalColor, 1.0);
 }

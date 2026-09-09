@@ -24,6 +24,13 @@ internal object VulkanGlassNative {
 
     external fun nativeClearMask(handle: Long): Boolean
 
+    external fun nativeUploadClock(
+        handle: Long,
+        bitmap: Bitmap
+    ): Boolean
+
+    external fun nativeClearClock(handle: Long): Boolean
+
     external fun nativeSetState(
         handle: Long,
         progress: Float,
@@ -34,7 +41,14 @@ internal object VulkanGlassNative {
         scrollWindowX: Float,
         dimLevel: Float,
         backgroundOnly: Boolean,
-        hasSubject: Boolean
+        hasSubject: Boolean,
+        clockCenterX: Float,
+        clockTop: Float,
+        clockHeightFraction: Float,
+        clockTextureAspect: Float,
+        clockOpacity: Float,
+        clockUploaded: Boolean,
+        clockDepth: Boolean
     ): Boolean
 
     external fun nativeRender(handle: Long): Int
@@ -94,7 +108,16 @@ internal object VulkanGlassBridge : VulkanSingleImageBridge<GlassRenderState> {
             scrollWindowX = scrollWindowX,
             dimLevel = safe.dimLevel,
             backgroundOnly = safe.backgroundOnly,
-            hasSubject = safe.hasSubject
+            hasSubject = safe.hasSubject,
+            clockCenterX = safe.clock.centerX,
+            clockTop = safe.clock.top,
+            clockHeightFraction = safe.clock.height,
+            clockTextureAspect = safe.clock.textureAspect,
+            // The lock/home fade is folded in here, once, so the shader has no
+            // policy in it and both backends share one curve.
+            clockOpacity = safe.clock.effectiveOpacity(safe.progress),
+            clockUploaded = safe.clock.faceUploaded,
+            clockDepth = safe.clock.depthEnabled
         )) {
             "The native Vulkan Glass state could not be updated"
         }

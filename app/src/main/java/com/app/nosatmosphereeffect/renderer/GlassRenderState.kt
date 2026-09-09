@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.renderer
 
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
 
@@ -12,7 +13,13 @@ data class GlassRenderState(
     val backgroundOnly: Boolean = false,
     val hasSubject: Boolean = false,
     val scrollOffsetX: Float = 0.5f,
-    val scrollWindowX: Float = 1f
+    val scrollWindowX: Float = 1f,
+    /**
+     * The wallpaper clock. Grouped rather than flattened into a dozen fields
+     * so that adding the clock to an effect is one field, not twelve chances
+     * to forget one — see ClockOverlayState.
+     */
+    val clock: ClockOverlayState = ClockOverlayState()
 ) {
     fun sanitized(): GlassRenderState {
         return copy(
@@ -21,7 +28,8 @@ data class GlassRenderState(
             lineCount = GlassEffectPolicy.sanitizeLineCount(lineCount),
             lineThickness = GlassEffectPolicy.sanitizeLineThickness(lineThickness),
             scrollOffsetX = scrollOffsetX.finiteOr(0.5f).coerceIn(0f, 1f),
-            scrollWindowX = scrollWindowX.finiteOr(1f).coerceIn(MIN_SCROLL_WINDOW, 1f)
+            scrollWindowX = scrollWindowX.finiteOr(1f).coerceIn(MIN_SCROLL_WINDOW, 1f),
+            clock = clock.sanitized()
         )
     }
 

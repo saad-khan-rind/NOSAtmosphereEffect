@@ -6,8 +6,10 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
+import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
@@ -39,6 +41,33 @@ class GlassRenderer(
 
     @Volatile
     var onSubjectMaskUpdated: (() -> Unit)? = null
+
+    /**
+     * The effect's own "background only" setting, kept separate from
+     * [SubjectMaskCoordinator.enabled] — the clock's depth effect is a second,
+     * independent reason to want a mask, and conflating the two would mean
+     * switching depth on silently started protecting the subject from the
+     * glass ribs as well.
+     */
+    @Volatile
+    private var backgroundOnly = false
+
+    /**
+     * The wallpaper clock. Glass refracts the photo sideways through the ribs,
+     * which both smears glyph edges and moves the pixels the depth mask was
+     * computed against, so the clock is pinned to whichever side of the
+     * transition stays sharp rather than offered as a choice. Units 0 and 1
+     * carry the photo and the subject mask, so the clock takes 2.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
+
+    /** Asks the host surface for another frame; used by the clock animation. */
+    @Volatile
+    var onAnimationFrameRequested: (() -> Unit)? = null
+        set(value) {
+            field = value
+            clockOverlay.onAnimationFrameRequested = value
+        }
 
     @Volatile
     var progress = 0f
@@ -165,8 +194,29 @@ class GlassRenderer(
     }
 
     fun configureBackgroundOnly(enabled: Boolean) {
-        val changed = subjectMasks.configure(enabled)
-        if (enabled && (changed || currentSet.isValid())) {
+        backgroundOnly = enabled
+        refreshSubjectMaskNeed()
+    }
+
+    fun applyClockState(state: ClockOverlayState) {
+        clockOverlay.applyState(state)
+        refreshSubjectMaskNeed()
+    }
+
+    fun beginClockEntry() = clockOverlay.beginEntry()
+
+    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+
+    /**
+     * Segmentation runs when either consumer wants it. Reloading on the
+     * transition into "wanted" is what dispatches the extraction: the
+     * coordinator serves one request per image generation, so an image loaded
+     * while no one wanted a mask would otherwise never get one.
+     */
+    private fun refreshSubjectMaskNeed() {
+        val wanted = backgroundOnly || clockOverlay.state.needsSubjectMask()
+        val changed = subjectMasks.configure(wanted)
+        if (wanted && (changed || currentSet.isValid())) {
             needsReload = true
         }
     }
@@ -179,6 +229,8 @@ class GlassRenderer(
         }
         onRenderRetryRequested = null
         onSubjectMaskUpdated = null
+        onAnimationFrameRequested = null
+        clockOverlay.release()
         subjectMasks.close()
         if (pending != null && !pending.isRecycled) {
             pending.recycle()
@@ -195,6 +247,8 @@ class GlassRenderer(
         currentSet.reset()
         nextSet.reset()
         subjectMasks.discardPending()
+        // The clock's texture id belonged to the destroyed context.
+        clockOverlay.resetForNewContext()
         programHandles = null
         renderFailureLogged = false
         renderRetryCount = 0
@@ -365,13 +419,16 @@ class GlassRenderer(
         GLES30.glUniform1f(handles.dimLevel, dimLevel)
         GLES30.glUniform1f(handles.scrollOffsetX, scrollOffsetX)
         GLES30.glUniform1f(handles.scrollWindowX, currentWindowX)
+        // Gated on the effect's own setting, not on whether a mask exists:
+        // the clock's depth effect can be the reason a mask is being computed.
+        val maskReady = subjectMasks.enabled && currentSet.hasSubject
         GLES30.glUniform1f(
             handles.backgroundOnly,
-            if (subjectMasks.enabled) 1f else 0f
+            if (backgroundOnly && subjectMasks.enabled) 1f else 0f
         )
         GLES30.glUniform1f(
             handles.hasSubject,
-            if (subjectMasks.enabled && currentSet.hasSubject) 1f else 0f
+            if (backgroundOnly && maskReady) 1f else 0f
         )
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
@@ -381,6 +438,17 @@ class GlassRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
         GLES30.glUniform1i(handles.subjectMask, 1)
+
+        clockOverlay.draw(
+            programId = handles.program,
+            progress = progress,
+            screenAspect = if (surfaceHeight > 0) {
+                surfaceWidth.toFloat() / surfaceHeight.toFloat()
+            } else {
+                1f
+            },
+            subjectMaskAvailable = maskReady
+        )
 
         vertexBuffer.position(0)
         GLES30.glVertexAttribPointer(

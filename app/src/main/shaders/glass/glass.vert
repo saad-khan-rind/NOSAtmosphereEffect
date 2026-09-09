@@ -7,6 +7,18 @@ layout(push_constant) uniform GlassParams {
     vec4 transition;
     vec4 viewport;
     vec4 mask;
+    // Appended after the existing vec4s so none of the offsets above shift.
+    //
+    // clockRect: centerX, top, widthFraction, heightFraction — all in the
+    // screen-locked vEffectCoord space. The width arrives already divided by
+    // the surface aspect (see the JNI), because this shader has no
+    // surface-aspect field of its own.
+    //
+    // clockMeta: opacity (with the lock/home fade already folded in by the
+    // host), "a face has been uploaded", "depth enabled AND a subject mask
+    // exists", unused.
+    vec4 clockRect;
+    vec4 clockMeta;
 } params;
 
 void main() {

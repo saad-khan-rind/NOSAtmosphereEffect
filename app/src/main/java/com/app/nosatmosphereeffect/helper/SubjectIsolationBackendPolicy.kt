@@ -74,6 +74,11 @@ object SubjectIsolationBackendPolicy {
             }.getOrDefault(true)
         )
         if (!clockEnabled) return false
+        // Effects whose display pass has no subject mask hide the depth switch
+        // and force it off, so a stale "true" left in preferences from another
+        // effect must not make this one download the segmentation model for
+        // something it would never draw.
+        if (!AtmosphereClockPolicy.supportsDepth(effectId)) return false
         return runCatching {
             preferences.getBoolean(
                 AtmosphereClockPolicy.DEPTH_KEY,
