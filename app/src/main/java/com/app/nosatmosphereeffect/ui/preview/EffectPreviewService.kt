@@ -160,12 +160,16 @@ class EffectPreviewService(
         centerX: Float,
         top: Float,
         height: Float,
+        widthScale: Float,
+        heightScale: Float,
         opacity: Float
     ) {
         withLiveAtmosphereRenderer { renderer ->
             renderer.clockCenterX = centerX
             renderer.clockTop = top
             renderer.clockHeight = height
+            renderer.clockWidthScale = widthScale
+            renderer.clockHeightScale = heightScale
             renderer.clockOpacity = opacity
         }
     }
@@ -367,6 +371,16 @@ class EffectPreviewService(
                             prefs,
                             AtmosphereClockPolicy.HEIGHT_KEY,
                             AtmosphereClockPolicy.DEFAULT_HEIGHT
+                        ),
+                        clockWidthScale = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.WIDTH_SCALE_KEY,
+                            AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE
+                        ),
+                        clockHeightScale = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.HEIGHT_SCALE_KEY,
+                            AtmosphereClockPolicy.DEFAULT_HEIGHT_SCALE
                         ),
                         clockOpacity = previewFloat(
                             prefs,
@@ -657,6 +671,8 @@ class EffectPreviewService(
                 renderer.clockCenterX = value.clockCenterX
                 renderer.clockTop = value.clockTop
                 renderer.clockHeight = value.clockHeight
+                renderer.clockWidthScale = value.clockWidthScale
+                renderer.clockHeightScale = value.clockHeightScale
                 renderer.clockOpacity = value.clockOpacity
                 renderer.clockScreen = value.clockScreen
                 renderer.clockLockedProgress = value.clockLockedProgress

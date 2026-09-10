@@ -32,6 +32,16 @@ object AtmosphereClockPolicy {
     const val CENTER_X_KEY = "atmosphere_clock_center_x"
     const val TOP_KEY = "atmosphere_clock_top"
     const val HEIGHT_KEY = "atmosphere_clock_height"
+    /**
+     * Per-axis stretch, applied on top of [HEIGHT_KEY].
+     *
+     * [HEIGHT_KEY] is the overall size; these two reshape it. Kept as separate
+     * multipliers rather than folded into one "width" fraction so that
+     * changing the size does not silently undo a shape the user tuned, and so
+     * both default to a no-op 1.0 for everyone who never touches them.
+     */
+    const val WIDTH_SCALE_KEY = "atmosphere_clock_width_scale"
+    const val HEIGHT_SCALE_KEY = "atmosphere_clock_height_scale"
     const val OPACITY_KEY = "atmosphere_clock_opacity"
     /**
      * Stored as an ARGB int. [ClockPalette.AUTO] (0) means "follow the
@@ -59,6 +69,10 @@ object AtmosphereClockPolicy {
      * rather than a tall caption.
      */
     const val DEFAULT_HEIGHT = 0.24f
+    const val DEFAULT_WIDTH_SCALE = 1f
+    const val DEFAULT_HEIGHT_SCALE = 1f
+    const val MIN_AXIS_SCALE = 0.55f
+    const val MAX_AXIS_SCALE = 1.8f
     const val DEFAULT_OPACITY = 1f
     const val DEFAULT_DEPTH = true
     const val DEFAULT_SECONDS = false
@@ -89,6 +103,8 @@ object AtmosphereClockPolicy {
         CENTER_X_KEY,
         TOP_KEY,
         HEIGHT_KEY,
+        WIDTH_SCALE_KEY,
+        HEIGHT_SCALE_KEY,
         OPACITY_KEY
     )
 
@@ -162,6 +178,16 @@ object AtmosphereClockPolicy {
     fun sanitizeTop(value: Float): Float {
         if (!value.isFinite()) return DEFAULT_TOP
         return value.coerceIn(MIN_TOP, MAX_TOP)
+    }
+
+    /**
+     * Both axes share one range and one sanitizer: they are the same kind of
+     * quantity, and letting them drift apart is how a "width" slider ends up
+     * able to reach a shape the "height" slider cannot.
+     */
+    fun sanitizeAxisScale(value: Float): Float {
+        if (!value.isFinite()) return 1f
+        return value.coerceIn(MIN_AXIS_SCALE, MAX_AXIS_SCALE)
     }
 
     fun sanitizeHeight(value: Float): Float {

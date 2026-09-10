@@ -49,7 +49,19 @@ enum class ClockStyle(
      * Tuned per style: a thin face carries more stretch gracefully than a
      * 900-weight one, where the stems thicken visually as they lengthen.
      */
-    val verticalStretch: Float
+    val verticalStretch: Float,
+    /**
+     * How far the glyph outline is condensed horizontally, 1.0 = untouched.
+     *
+     * Applied through Paint.textScaleX, so it narrows the advance as well as
+     * the outline — the layout measures with it set, and the slots shrink to
+     * match. That matters: condensing only the drawing would leave the digits
+     * rattling around inside slots sized for the wide form.
+     *
+     * Paired with [verticalStretch] rather than used alone. Tall-and-narrow is
+     * what reads as a display clock; tall-and-wide just reads as large.
+     */
+    val horizontalScale: Float = 1f
 ) {
     MODERN(
         id = "modern",
@@ -60,7 +72,8 @@ enum class ClockStyle(
         letterSpacingEm = 0.06f,
         stacked = false,
         separatorAlpha = 0.55f,
-        verticalStretch = 1.62f
+        verticalStretch = 1.86f,
+        horizontalScale = 0.90f
     ),
     DISPLAY(
         id = "display",
@@ -71,7 +84,10 @@ enum class ClockStyle(
         letterSpacingEm = -0.02f,
         stacked = false,
         separatorAlpha = 0.8f,
-        verticalStretch = 1.38f
+        // A 900-weight face thickens visually as it lengthens, so it carries
+        // less stretch than the thin ones before the stems look bloated.
+        verticalStretch = 1.58f,
+        horizontalScale = 0.88f
     ),
     SERIF(
         id = "serif",
@@ -82,7 +98,8 @@ enum class ClockStyle(
         letterSpacingEm = 0.02f,
         stacked = false,
         separatorAlpha = 0.7f,
-        verticalStretch = 1.46f
+        verticalStretch = 1.66f,
+        horizontalScale = 0.92f
     ),
     MONO(
         id = "mono",
@@ -93,7 +110,10 @@ enum class ClockStyle(
         letterSpacingEm = 0.04f,
         stacked = false,
         separatorAlpha = 0.6f,
-        verticalStretch = 1.52f
+        verticalStretch = 1.74f,
+        // Monospace is already wide by design, so it takes the most
+        // condensing before the digits start to touch.
+        horizontalScale = 0.84f
     ),
     STACKED(
         id = "stacked",
@@ -104,7 +124,68 @@ enum class ClockStyle(
         letterSpacingEm = 0f,
         stacked = true,
         separatorAlpha = 0f,
-        verticalStretch = 1.40f
+        verticalStretch = 1.60f,
+        horizontalScale = 0.94f
+    ),
+
+    /**
+     * The heavy, tightly-set inline clock that large-phone lock screens have
+     * converged on.
+     *
+     * Named for the look rather than for any vendor: shipping a face called
+     * after someone else's OS invites a trademark argument that a wallpaper
+     * app does not need, and the point here is the shape, which nobody owns.
+     * Android has no rounded-geometric family in its standard aliases, so
+     * this leans on weight and tight tracking to get the same density.
+     */
+    CUPERTINO(
+        id = "cupertino",
+        label = "Cupertino",
+        description = "Heavy and tightly set, big-digit lock screen",
+        familyName = "sans-serif",
+        weight = 800,
+        letterSpacingEm = -0.045f,
+        stacked = false,
+        separatorAlpha = 0.92f,
+        verticalStretch = 1.52f,
+        horizontalScale = 0.93f
+    ),
+
+    /**
+     * Tall condensed digits stacked in two rows — the shape used by several
+     * OEM lock screens, and the most extreme of the set: it spends the entire
+     * height budget on two rows, so each row is narrow relative to its
+     * height and the face reads as a column.
+     */
+    COLUMN(
+        id = "column",
+        label = "Column",
+        description = "Tall condensed digits, hours above minutes",
+        familyName = "sans-serif-condensed",
+        weight = 300,
+        letterSpacingEm = 0.01f,
+        stacked = true,
+        separatorAlpha = 0f,
+        verticalStretch = 1.74f,
+        horizontalScale = 0.86f
+    ),
+
+    /**
+     * Ultra-thin and very tall. The hairline weight is what lets the stretch
+     * go this far — at 100 weight the stems stay hairlines however long they
+     * get, where a heavier face would read as smeared.
+     */
+    AURORA(
+        id = "aurora",
+        label = "Aurora",
+        description = "Ultra-thin and very tall",
+        familyName = "sans-serif-thin",
+        weight = 100,
+        letterSpacingEm = 0.10f,
+        stacked = false,
+        separatorAlpha = 0.40f,
+        verticalStretch = 2.05f,
+        horizontalScale = 0.88f
     );
 
     fun typeface(): Typeface {
@@ -530,6 +611,11 @@ class ClockFaceRenderer(private val context: Context) {
 
         textPaint.color = color
         textPaint.alpha = (finalAlpha * 255f).toInt().coerceIn(0, 255)
+        // Re-asserted per glyph rather than trusted to persist from
+        // ensureLayout: the layout is only rebuilt when the rows change, so a
+        // paint reset anywhere else would silently draw wide glyphs into
+        // narrow slots.
+        textPaint.textScaleX = style.horizontalScale
         // Shadow strength tracks alpha so a fading digit does not leave a
         // hard drop shadow behind it.
         textPaint.setShadowLayer(
@@ -574,6 +660,9 @@ class ClockFaceRenderer(private val context: Context) {
         textPaint.typeface = style.typeface()
         textPaint.textSize = TEXT_SIZE_PX
         textPaint.letterSpacing = style.letterSpacingEm
+        // Set before the advances are measured, so the slots below are sized
+        // for the condensed form rather than the wide one.
+        textPaint.textScaleX = style.horizontalScale
         textPaint.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
 
         // Slot width is the widest digit, so the layout never reflows.
@@ -674,16 +763,16 @@ class ClockFaceRenderer(private val context: Context) {
         val minute = calendar.get(Calendar.MINUTE)
         val second = calendar.get(Calendar.SECOND)
 
+        // Always two digits, in both formats. A bare "1:30" is a digit
+        // narrower than "12:30", and because the face is centred on screen
+        // that missing digit pulls the whole clock off centre — the colon
+        // lands right of where it sat a minute ago. Padding costs one leading
+        // zero and buys a clock that never moves. Stacked faces needed this
+        // anyway, since their rows are centred on each other.
         val hourText = if (is24Hour) {
             twoDigits(hour24)
         } else {
-            val hour12 = if (hour24 % 12 == 0) 12 else hour24 % 12
-            // Stacked faces pad to two digits: the rows are centred on each
-            // other, so a single-digit hour sits visibly narrower than the
-            // minutes below it and the whole face looks lopsided. Inline
-            // faces keep the unpadded hour, which is what a 12-hour clock
-            // normally shows.
-            if (style.stacked) twoDigits(hour12) else hour12.toString()
+            twoDigits(if (hour24 % 12 == 0) 12 else hour24 % 12)
         }
         val minuteText = twoDigits(minute)
 

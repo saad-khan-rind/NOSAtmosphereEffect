@@ -170,6 +170,8 @@ class AtmosphereRenderController(
                 clockCenterX = safe.centerX,
                 clockTop = safe.top,
                 clockHeight = safe.height,
+                clockWidthScale = safe.widthScale,
+                clockHeightScale = safe.heightScale,
                 clockOpacity = safe.opacity,
                 clockColor = ClockPalette.resolve(
                     requestedClockColor,

@@ -236,3 +236,80 @@ class ClockOverlayStateTest {
         )
     }
 }
+
+/** The clock face's geometry rules. */
+class ClockFaceGeometryTest {
+
+    @Test
+    fun `per-axis stretch reproduces the requested shape exactly`() {
+        // The stretch is folded into height and texture aspect rather than
+        // passed as its own uniform, so this is the algebra the whole feature
+        // rests on: if it drifts, every effect silently mis-sizes the clock.
+        val state = ClockOverlayState(
+            enabled = true,
+            height = 0.24f,
+            widthScale = 0.7f,
+            heightScale = 1.3f
+        ).sanitized()
+
+        val rawAspect = 2.5f
+        val renderedHeight = state.renderHeight
+        val renderedWidth = renderedHeight * state.renderTextureAspect(rawAspect)
+
+        assertEquals(0.24f * 1.3f, renderedHeight, 1e-5f)
+        // Width must depend on widthScale alone — the heightScale in the
+        // aspect has to cancel the one in the height.
+        assertEquals(0.24f * rawAspect * 0.7f, renderedWidth, 1e-5f)
+    }
+
+    @Test
+    fun `default scales leave the face untouched`() {
+        val state = ClockOverlayState(enabled = true, height = 0.24f).sanitized()
+        assertEquals(0.24f, state.renderHeight, 1e-5f)
+        assertEquals(2f, state.renderTextureAspect(2f), 1e-5f)
+    }
+
+    @Test
+    fun `a degenerate texture aspect cannot produce a zero-width clock`() {
+        val state = ClockOverlayState(enabled = true).sanitized()
+        assertTrue(state.renderTextureAspect(0f) > 0f)
+        assertTrue(state.renderTextureAspect(Float.NaN) > 0f)
+    }
+
+    @Test
+    fun `axis scales are clamped to the shared range`() {
+        val wild = ClockOverlayState(
+            widthScale = 99f,
+            heightScale = -4f
+        ).sanitized()
+        assertEquals(AtmosphereClockPolicy.MAX_AXIS_SCALE, wild.widthScale, 1e-5f)
+        assertEquals(AtmosphereClockPolicy.MIN_AXIS_SCALE, wild.heightScale, 1e-5f)
+    }
+
+    @Test
+    fun `every style is condensed horizontally and stretched vertically`() {
+        // Tall-and-narrow is the whole point of the set; a style that lost
+        // either half would read as a caption next to the others.
+        ClockStyle.entries.forEach { style ->
+            assertTrue(
+                "${style.id} should be stretched vertically",
+                style.verticalStretch > 1.3f
+            )
+            assertTrue(
+                "${style.id} should be condensed horizontally",
+                style.horizontalScale in 0.7f..1f
+            )
+        }
+    }
+
+    @Test
+    fun `style ids are unique and stable`() {
+        val ids = ClockStyle.entries.map { it.id }
+        assertEquals(ids.size, ids.toSet().size)
+        // Stored in preferences, so renaming one silently resets everyone
+        // using it back to the default.
+        listOf("modern", "display", "serif", "mono", "stacked").forEach { id ->
+            assertEquals(id, ClockStyle.fromId(id).id)
+        }
+    }
+}

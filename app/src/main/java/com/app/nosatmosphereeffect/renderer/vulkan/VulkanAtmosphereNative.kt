@@ -138,8 +138,13 @@ internal class VulkanAtmosphereBridge(
             drawerBlur = safe.drawerBlur,
             clockCenterX = safe.clockCenterX,
             clockTop = safe.clockTop,
-            clockHeightFraction = safe.clockHeight,
-            clockTextureAspect = safe.clockTextureAspect,
+            // Per-axis stretch is folded into these two numbers rather than
+            // passed separately — see ClockOverlayState.renderHeight. Routed
+            // through the shared overlay state so Atmosphere's flat fields
+            // and the other effects cannot drift apart on the geometry.
+            clockHeightFraction = safe.clockOverlay().renderHeight,
+            clockTextureAspect = safe.clockOverlay()
+                .renderTextureAspect(safe.clockTextureAspect),
             // The lock/home fade is applied here rather than in the shader
             // so both backends share ClockScreenPolicy's single curve.
             clockOpacity = safe.effectiveClockOpacity(),

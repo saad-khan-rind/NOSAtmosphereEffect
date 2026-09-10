@@ -147,6 +147,10 @@ class AtmosphereRenderer(
             field = AtmosphereClockPolicy.sanitizeTop(value)
         }
     @Volatile var clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT
+    @Volatile var clockWidthScale: Float =
+        AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE
+    @Volatile var clockHeightScale: Float =
+        AtmosphereClockPolicy.DEFAULT_HEIGHT_SCALE
         set(value) {
             field = AtmosphereClockPolicy.sanitizeHeight(value)
         }
@@ -810,8 +814,14 @@ class AtmosphereRenderer(
         // Height is expressed as a fraction of screen height; width follows
         // from the face's own pixel aspect, divided by the screen aspect so
         // the glyphs are not stretched.
-        val heightUv = clockHeight
-        val widthUv = heightUv * clockTexture.aspectRatio / aspectRatio
+        // The per-axis stretch is folded in the same way the other effects
+        // do it — see ClockOverlayState.renderHeight for why that needs no
+        // extra uniform.
+        val safeHeightScale = if (clockHeightScale > 0f) clockHeightScale else 1f
+        val heightUv = clockHeight * safeHeightScale
+        val widthUv = heightUv *
+            (clockTexture.aspectRatio * clockWidthScale / safeHeightScale) /
+            aspectRatio
         GLES30.glUniform4f(
             GLES30.glGetUniformLocation(programId, "uClockRect"),
             clockCenterX - widthUv / 2f,
