@@ -65,6 +65,25 @@ internal class VulkanEffectPreviewSession(
         }
     }
 
+    /**
+     * Replays the clock's entry animation. Dispatched by host type for the
+     * same reason [updateState] is: the hosts share no common clock
+     * interface, and inventing one would put a decorative overlay into the
+     * render-host contract every backend has to implement.
+     */
+    fun beginClockEntry() {
+        if (closed.get()) return
+        when (val target = host) {
+            is VulkanAtmosphereHost -> target.beginClockEntry()
+            is VulkanFrostedHost -> target.beginClockEntry()
+            is VulkanGlassHost -> target.beginClockEntry()
+            is VulkanHalftoneHost -> target.beginClockEntry()
+            is VulkanColorFillHost -> target.beginClockEntry()
+            is VulkanNeonHost -> target.beginClockEntry()
+            else -> Unit
+        }
+    }
+
     fun resume() {
         if (!closed.get()) surfaceView.resumeRendering()
     }

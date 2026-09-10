@@ -18,6 +18,7 @@ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPreferences
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.ClockStyle
@@ -150,13 +151,17 @@ class EffectPreviewService(
     }
 
     /**
-     * Pushes clock geometry straight to the live GLES renderer, bypassing
-     * the state/prefs machinery entirely — for interactive dragging in
-     * ClockAdjustActivity, where recreating the whole preview per pointer
-     * event would be too janky. Call [setRendererProgress]'s normal path
-     * (or just rely on the next full state rebuild) for anything else.
+     * Pushes clock geometry to the live preview.
+     *
+     * Works for every effect and both backends: the settings are folded into
+     * the preview's own render state and dispatched through the same path a
+     * progress change uses. The previous version reached directly into an
+     * AtmosphereRenderer and silently did nothing otherwise, so on a Vulkan
+     * device — or on any effect but Atmosphere — the calibration screen
+     * showed no clock at all until the settings had been saved and the real
+     * wallpaper picked them up.
      */
-    fun setAtmosphereClockGeometry(
+    fun setClockGeometry(
         centerX: Float,
         top: Float,
         height: Float,
@@ -164,55 +169,103 @@ class EffectPreviewService(
         heightScale: Float,
         opacity: Float
     ) {
-        withLiveAtmosphereRenderer { renderer ->
-            renderer.clockCenterX = centerX
-            renderer.clockTop = top
-            renderer.clockHeight = height
-            renderer.clockWidthScale = widthScale
-            renderer.clockHeightScale = heightScale
-            renderer.clockOpacity = opacity
+        updateClock { current ->
+            current.copy(
+                enabled = true,
+                centerX = centerX,
+                top = top,
+                height = height,
+                widthScale = widthScale,
+                heightScale = heightScale,
+                opacity = opacity
+            )
         }
     }
 
     /**
-     * Pushes face settings (style, seconds, animation) straight to the live
-     * renderer. Separate from the geometry call because these change the
+     * Pushes face settings (style, seconds, animation, colour) to the live
+     * preview. Separate from the geometry call because these change the
      * rendered bitmap rather than how the shader places it.
      */
-    fun setAtmosphereClockFace(
+    fun setClockFace(
         styleId: String,
         showSeconds: Boolean,
         animate: Boolean,
         color: Int,
         hourFormat: String
     ) {
-        withLiveAtmosphereRenderer { renderer ->
-            renderer.clockEnabled = true
-            renderer.clockStyle = ClockStyle.fromId(styleId)
-            renderer.clockShowSeconds = showSeconds
-            renderer.clockAnimate = animate
-            renderer.clockColor = color
-            renderer.clockHourFormat = hourFormat
-            // Replay the entry animation on every face change so the adjust
-            // screen shows what the wallpaper will actually do rather than
-            // just the settled result.
-            renderer.beginClockEntry()
+        updateClock { current ->
+            current.copy(
+                enabled = true,
+                styleId = styleId,
+                showSeconds = showSeconds,
+                animate = animate,
+                requestedColor = color,
+                color = color,
+                hourFormat = hourFormat
+            )
+        }
+        // Replay the entry animation on every face change so the adjust
+        // screen shows what the wallpaper will actually do rather than just
+        // the settled result.
+        beginClockEntry()
+    }
+
+    private fun updateClock(
+        transform: (ClockOverlayState) -> ClockOverlayState
+    ) {
+        if (released.get()) return
+        val snapshot = renderState.updateAndGet { state ->
+            EffectPreviewStatePolicy.withClock(
+                state,
+                transform(EffectPreviewStatePolicy.clockOf(state))
+            )
+        }
+        when (activeBackend) {
+            GraphicsBackend.VULKAN -> vulkanSession?.updateState(snapshot)
+            GraphicsBackend.OPENGL_ES -> {
+                val surface = openGlSurface
+                val renderer = openGlRenderer
+                if (surface != null && renderer != null) {
+                    surface.queueEvent {
+                        if (!released.get() && openGlRenderer === renderer) {
+                            applyStateToOpenGl(renderer, snapshot)
+                        }
+                    }
+                    surface.requestRender()
+                }
+            }
         }
     }
 
-    private fun withLiveAtmosphereRenderer(block: (AtmosphereRenderer) -> Unit) {
-        if (released.get() || activeBackend != GraphicsBackend.OPENGL_ES) return
-        val surface = openGlSurface
-        val renderer = openGlRenderer
-        if (surface != null && renderer is AtmosphereRenderer) {
-            surface.queueEvent {
-                if (!released.get() && openGlRenderer === renderer) {
-                    block(renderer)
+    private fun beginClockEntry() {
+        if (released.get()) return
+        when (activeBackend) {
+            GraphicsBackend.VULKAN -> vulkanSession?.beginClockEntry()
+            GraphicsBackend.OPENGL_ES -> {
+                val surface = openGlSurface
+                val renderer = openGlRenderer
+                if (surface != null && renderer != null) {
+                    surface.queueEvent {
+                        if (released.get() || openGlRenderer !== renderer) {
+                            return@queueEvent
+                        }
+                        when (renderer) {
+                            is AtmosphereRenderer -> renderer.beginClockEntry()
+                            is BlurToSharpRenderer -> renderer.beginClockEntry()
+                            is FrostedRenderer -> renderer.beginClockEntry()
+                            is GlassRenderer -> renderer.beginClockEntry()
+                            is HalftoneRenderer -> renderer.beginClockEntry()
+                            is ColorFillRenderer -> renderer.beginClockEntry()
+                            is NeonRenderer -> renderer.beginClockEntry()
+                        }
+                    }
+                    surface.requestRender()
                 }
             }
-            requestActiveRender()
         }
     }
+
 
     private fun setRendererProgress(
         rendererProgress: Float,

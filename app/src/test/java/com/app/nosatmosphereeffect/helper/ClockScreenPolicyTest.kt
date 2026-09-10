@@ -287,19 +287,39 @@ class ClockFaceGeometryTest {
     }
 
     @Test
-    fun `every style is condensed horizontally and stretched vertically`() {
-        // Tall-and-narrow is the whole point of the set; a style that lost
-        // either half would read as a caption next to the others.
+    fun `every style stays inside its shaping limits`() {
+        // Bounds rather than a single rule, because the set deliberately
+        // spans two shapes: the tall narrow faces and the heavy wide ones.
+        // Both still need a floor, or a face would read as a caption sitting
+        // where a clock should be.
         ClockStyle.entries.forEach { style ->
             assertTrue(
                 "${style.id} should be stretched vertically",
-                style.verticalStretch > 1.3f
+                style.verticalStretch >= 1.3f
             )
             assertTrue(
-                "${style.id} should be condensed horizontally",
-                style.horizontalScale in 0.7f..1f
+                "${style.id} should not be stretched past legibility",
+                style.verticalStretch <= 2.2f
+            )
+            assertTrue(
+                "${style.id} has an out-of-range horizontal scale",
+                style.horizontalScale in 0.8f..1f
             )
         }
+    }
+
+    @Test
+    fun `raising the height scale does not move the clock down the screen`() {
+        // The regression this guards: `top` is the top edge at the
+        // unstretched size, so growing heightScale used to extend the box
+        // downwards only and the clock visibly sank as the slider went up.
+        val base = ClockOverlayState(enabled = true, top = 0.30f, height = 0.24f)
+        val stretched = base.copy(heightScale = 1.7f).sanitized()
+
+        val baseCentre = base.sanitized().let { it.renderTop + it.renderHeight / 2f }
+        val stretchedCentre = stretched.renderTop + stretched.renderHeight / 2f
+        assertEquals(baseCentre, stretchedCentre, 1e-5f)
+        assertTrue(stretched.renderTop < base.top)
     }
 
     @Test

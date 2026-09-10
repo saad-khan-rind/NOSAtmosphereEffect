@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.ui.preview
 
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState
@@ -44,6 +45,79 @@ internal sealed interface EffectPreviewOpenGlFrameUpdate {
 }
 
 internal object EffectPreviewStatePolicy {
+
+    /** The clock settings carried by [state], whichever effect it is. */
+    fun clockOf(state: EffectPreviewRenderState): ClockOverlayState {
+        return when (state) {
+            // Atmosphere keeps flat clock fields; clockOverlay() bridges them
+            // to the shared object the other five carry directly.
+            is EffectPreviewRenderState.Atmosphere -> state.value.clockOverlay()
+            is EffectPreviewRenderState.Frosted -> state.value.clock
+            is EffectPreviewRenderState.Glass -> state.value.clock
+            is EffectPreviewRenderState.Halftone -> state.value.clock
+            is EffectPreviewRenderState.ColorFill -> state.value.clock
+            is EffectPreviewRenderState.Neon -> state.value.clock
+        }
+    }
+
+    /**
+     * Replaces the clock settings on [state], whichever effect it is.
+     *
+     * Exists so the calibration screen can drive a live preview of ANY
+     * effect on EITHER backend. The previous version reached straight into
+     * an AtmosphereRenderer and gave up otherwise, which meant the clock
+     * simply did not appear while adjusting it on a Vulkan device or on any
+     * effect but Atmosphere — it only showed up once the settings had been
+     * saved and the real wallpaper reloaded them.
+     */
+    fun withClock(
+        state: EffectPreviewRenderState,
+        clock: ClockOverlayState
+    ): EffectPreviewRenderState {
+        val safe = clock.sanitized()
+        return when (state) {
+            is EffectPreviewRenderState.Atmosphere ->
+                EffectPreviewRenderState.Atmosphere(
+                    state.value.copy(
+                        clockEnabled = safe.enabled,
+                        clockDepthEnabled = safe.depthEnabled,
+                        clockStyleId = safe.styleId,
+                        clockShowSeconds = safe.showSeconds,
+                        clockAnimate = safe.animate,
+                        clockCenterX = safe.centerX,
+                        clockTop = safe.top,
+                        clockHeight = safe.height,
+                        clockWidthScale = safe.widthScale,
+                        clockHeightScale = safe.heightScale,
+                        clockOpacity = safe.opacity,
+                        clockColor = safe.color,
+                        clockHourFormat = safe.hourFormat,
+                        clockScreenId = safe.screenId
+                    ).sanitized()
+                )
+            is EffectPreviewRenderState.Frosted ->
+                EffectPreviewRenderState.Frosted(
+                    state.value.copy(clock = safe).sanitized()
+                )
+            is EffectPreviewRenderState.Glass ->
+                EffectPreviewRenderState.Glass(
+                    state.value.copy(clock = safe).sanitized()
+                )
+            is EffectPreviewRenderState.Halftone ->
+                EffectPreviewRenderState.Halftone(
+                    state.value.copy(clock = safe).sanitized()
+                )
+            is EffectPreviewRenderState.ColorFill ->
+                EffectPreviewRenderState.ColorFill(
+                    state.value.copy(clock = safe).sanitized()
+                )
+            is EffectPreviewRenderState.Neon ->
+                EffectPreviewRenderState.Neon(
+                    state.value.copy(clock = safe).sanitized()
+                )
+        }
+    }
+
     fun withProgress(
         state: EffectPreviewRenderState,
         progress: Float,
