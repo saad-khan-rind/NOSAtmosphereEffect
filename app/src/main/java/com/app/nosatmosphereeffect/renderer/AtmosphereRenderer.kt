@@ -822,10 +822,13 @@ class AtmosphereRenderer(
         val widthUv = heightUv *
             (clockTexture.aspectRatio * clockWidthScale / safeHeightScale) /
             aspectRatio
+        // Re-centred rather than anchored at the top edge, so raising the
+        // height slider grows the clock both ways instead of sinking it.
+        val topUv = clockTop + (clockHeight - heightUv) / 2f
         GLES30.glUniform4f(
             GLES30.glGetUniformLocation(programId, "uClockRect"),
             clockCenterX - widthUv / 2f,
-            clockTop,
+            topUv,
             widthUv,
             heightUv
         )

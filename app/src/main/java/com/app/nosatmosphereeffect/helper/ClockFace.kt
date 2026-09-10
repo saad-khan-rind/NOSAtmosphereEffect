@@ -129,63 +129,121 @@ enum class ClockStyle(
     ),
 
     /**
-     * The heavy, tightly-set inline clock that large-phone lock screens have
-     * converged on.
+     * The big, heavy, tightly-set inline clock that large-phone lock screens
+     * have converged on — the one people mean when they say "make it look
+     * like the iPhone one".
      *
-     * Named for the look rather than for any vendor: shipping a face called
-     * after someone else's OS invites a trademark argument that a wallpaper
-     * app does not need, and the point here is the shape, which nobody owns.
-     * Android has no rounded-geometric family in its standard aliases, so
-     * this leans on weight and tight tracking to get the same density.
+     * Named for the look rather than the vendor: shipping a face called after
+     * someone else's OS invites a trademark argument a wallpaper app does not
+     * need, and the shape is the part nobody owns.
+     *
+     * sans-serif-black rather than sans-serif at weight 900: the black family
+     * is a genuinely separate cut on most devices, where asking the regular
+     * family for weight 900 often gets a synthesised bold that thins out at
+     * large sizes. Barely condensed and only lightly stretched, because at
+     * this weight the digits are meant to read as massive, not as narrow.
      */
-    CUPERTINO(
+    HEADLINE(
         id = "cupertino",
-        label = "Cupertino",
-        description = "Heavy and tightly set, big-digit lock screen",
-        familyName = "sans-serif",
-        weight = 800,
-        letterSpacingEm = -0.045f,
+        label = "Headline",
+        description = "Very heavy and very large",
+        familyName = "sans-serif-black",
+        weight = 900,
+        letterSpacingEm = -0.055f,
         stacked = false,
-        separatorAlpha = 0.92f,
-        verticalStretch = 1.52f,
-        horizontalScale = 0.93f
+        separatorAlpha = 1f,
+        verticalStretch = 1.42f,
+        horizontalScale = 0.97f
     ),
 
     /**
-     * Tall condensed digits stacked in two rows — the shape used by several
-     * OEM lock screens, and the most extreme of the set: it spends the entire
-     * height budget on two rows, so each row is narrow relative to its
-     * height and the face reads as a column.
+     * The same weight stacked into two rows, which is how a clock gets truly
+     * enormous on a phone: freed from fitting "00:00" across the width, each
+     * row can be roughly twice the size before it runs out of room.
+     */
+    POSTER(
+        id = "poster",
+        label = "Poster",
+        description = "Enormous stacked digits",
+        familyName = "sans-serif-black",
+        weight = 900,
+        letterSpacingEm = -0.06f,
+        stacked = true,
+        separatorAlpha = 0f,
+        verticalStretch = 1.34f,
+        horizontalScale = 0.95f
+    ),
+
+    /**
+     * Tall condensed digits stacked in two rows. Mid-weight rather than the
+     * hairline it started as — at 300 it read as a caption sitting where a
+     * clock should be.
      */
     COLUMN(
         id = "column",
         label = "Column",
         description = "Tall condensed digits, hours above minutes",
         familyName = "sans-serif-condensed",
-        weight = 300,
+        weight = 600,
         letterSpacingEm = 0.01f,
         stacked = true,
         separatorAlpha = 0f,
-        verticalStretch = 1.74f,
+        verticalStretch = 1.72f,
         horizontalScale = 0.86f
     ),
 
     /**
-     * Ultra-thin and very tall. The hairline weight is what lets the stretch
-     * go this far — at 100 weight the stems stay hairlines however long they
-     * get, where a heavier face would read as smeared.
+     * Ultra-thin, very tall and widely tracked. The hairline weight is what
+     * lets the stretch go this far — at 100 the stems stay hairlines however
+     * long they get, where a heavier face would read as smeared.
      */
     AURORA(
         id = "aurora",
         label = "Aurora",
-        description = "Ultra-thin and very tall",
+        description = "Ultra-thin, tall and widely spaced",
         familyName = "sans-serif-thin",
         weight = 100,
-        letterSpacingEm = 0.10f,
+        letterSpacingEm = 0.14f,
         stacked = false,
-        separatorAlpha = 0.40f,
+        separatorAlpha = 0.35f,
         verticalStretch = 2.05f,
         horizontalScale = 0.88f
+    ),
+
+    /**
+     * Handwritten. The one face in the set with no straight verticals, so it
+     * is the obvious pick when nothing else feels personal enough — and the
+     * one that carries the least stretch, because a script's curves distort
+     * far more visibly than a grotesque's stems.
+     */
+    SCRIPT(
+        id = "script",
+        label = "Script",
+        description = "Handwritten and flowing",
+        familyName = "cursive",
+        weight = 400,
+        letterSpacingEm = 0.02f,
+        stacked = false,
+        separatorAlpha = 0.6f,
+        verticalStretch = 1.30f,
+        horizontalScale = 0.96f
+    ),
+
+    /**
+     * Typewriter. Slab serifs on a fixed pitch, which makes the digits sit in
+     * a visibly mechanical grid — the opposite end of the set from [SCRIPT].
+     */
+    TYPEWRITER(
+        id = "typewriter",
+        label = "Typewriter",
+        description = "Slab serif, fixed pitch",
+        familyName = "serif-monospace",
+        weight = 500,
+        letterSpacingEm = 0.03f,
+        stacked = false,
+        separatorAlpha = 0.75f,
+        verticalStretch = 1.56f,
+        horizontalScale = 0.86f
     );
 
     fun typeface(): Typeface {

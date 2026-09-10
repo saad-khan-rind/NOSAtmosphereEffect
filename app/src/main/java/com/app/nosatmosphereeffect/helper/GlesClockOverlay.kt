@@ -186,7 +186,7 @@ class GlesClockOverlay(
         GLES30.glUniform4f(
             GLES30.glGetUniformLocation(programId, "uClockRect"),
             current.centerX - widthUv / 2f,
-            current.top,
+            current.renderTop,
             widthUv,
             heightUv
         )

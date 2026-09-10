@@ -87,8 +87,8 @@ object AtmosphereClockPolicy {
     private const val MAX_CENTER_X = 0.95f
     private const val MIN_TOP = 0.02f
     private const val MAX_TOP = 0.90f
-    private const val MIN_HEIGHT = 0.03f
-    private const val MAX_HEIGHT = 0.65f
+    const val MIN_HEIGHT = 0.03f
+    const val MAX_HEIGHT = 0.65f
 
     /** All keys this feature owns, for the Advanced Settings reset path. */
     val ALL_KEYS: List<String> = listOf(

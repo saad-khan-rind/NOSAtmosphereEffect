@@ -225,7 +225,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     var lastInteractionMs by remember { mutableStateOf(0L) }
 
     fun pushGeometry() {
-        activePreview?.setAtmosphereClockGeometry(
+        activePreview?.setClockGeometry(
             centerX = centerX,
             top = top,
             height = heightFraction,
@@ -236,7 +236,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
 
     fun pushFace() {
-        activePreview?.setAtmosphereClockFace(
+        activePreview?.setClockFace(
             style.id,
             showSeconds,
             animate,
@@ -631,10 +631,14 @@ private fun ClockControls(
         }
 
         Spacer(Modifier.height(10.dp))
+        // Runs to the policy's real ceiling rather than stopping at 0.40.
+        // The clamp always allowed 0.65; the slider just would not go there,
+        // so the biggest faces could never actually be made big.
         LabelledSlider(
             label = "Size",
             value = heightFraction,
-            valueRange = 0.03f..0.40f,
+            valueRange = AtmosphereClockPolicy.MIN_HEIGHT..
+                AtmosphereClockPolicy.MAX_HEIGHT,
             onValueChange = onHeightChange
         )
         // Separate from Size on purpose: Size is one number everyone

@@ -497,7 +497,7 @@ internal class VulkanColorFillHost(
                 scrollOffsetX = state.scrollOffsetX,
                 scrollWindowX = state.scrollWindowX,
                 clockCenterX = state.clock.centerX,
-                clockTop = state.clock.top,
+                clockTop = state.clock.renderTop,
                 // Per-axis stretch is folded into these two numbers rather
                 // than passed separately — see ClockOverlayState.renderHeight.
                 clockHeightFraction = state.clock.renderHeight,

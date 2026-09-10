@@ -150,6 +150,19 @@ data class ClockOverlayState(
         get() = height * heightScale
 
     /**
+     * The top edge the renderers should actually use.
+     *
+     * [top] is the top of the box at the *unstretched* size, because that is
+     * what the drag gesture on the calibration screen sets. Growing
+     * [heightScale] from there would extend the box downwards only, so the
+     * clock would visibly sink as the height slider went up — which is
+     * exactly what it did before this existed. Re-centring means the height
+     * slider changes the shape and nothing else.
+     */
+    val renderTop: Float
+        get() = top + (height - renderHeight) / 2f
+
+    /**
      * The texture aspect the renderers should actually use, given the face
      * bitmap's real [rawAspect]. See [renderHeight] for the algebra.
      */
