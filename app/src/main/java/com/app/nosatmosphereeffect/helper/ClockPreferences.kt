@@ -80,6 +80,14 @@ object ClockPreferences {
                 AtmosphereClockPolicy.HEIGHT_KEY,
                 AtmosphereClockPolicy.DEFAULT_HEIGHT
             ),
+            widthScale = preferences.readFloat(
+                AtmosphereClockPolicy.WIDTH_SCALE_KEY,
+                AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE
+            ),
+            heightScale = preferences.readFloat(
+                AtmosphereClockPolicy.HEIGHT_SCALE_KEY,
+                AtmosphereClockPolicy.DEFAULT_HEIGHT_SCALE
+            ),
             opacity = preferences.readFloat(
                 AtmosphereClockPolicy.OPACITY_KEY,
                 AtmosphereClockPolicy.DEFAULT_OPACITY

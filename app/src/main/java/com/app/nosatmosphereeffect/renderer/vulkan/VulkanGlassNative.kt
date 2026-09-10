@@ -110,9 +110,12 @@ internal object VulkanGlassBridge : VulkanSingleImageBridge<GlassRenderState> {
             backgroundOnly = safe.backgroundOnly,
             hasSubject = safe.hasSubject,
             clockCenterX = safe.clock.centerX,
-            clockTop = safe.clock.top,
-            clockHeightFraction = safe.clock.height,
-            clockTextureAspect = safe.clock.textureAspect,
+            clockTop = safe.clock.renderTop,
+            // Per-axis stretch is folded into these two numbers rather
+            // than passed separately — see ClockOverlayState.renderHeight.
+            clockHeightFraction = safe.clock.renderHeight,
+            clockTextureAspect =
+                safe.clock.renderTextureAspect(safe.clock.textureAspect),
             // The lock/home fade is folded in here, once, so the shader has no
             // policy in it and both backends share one curve.
             clockOpacity = safe.clock.effectiveOpacity(safe.progress),

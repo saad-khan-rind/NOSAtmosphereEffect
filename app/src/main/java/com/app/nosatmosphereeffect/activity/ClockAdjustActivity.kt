@@ -154,6 +154,22 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             )
         )
     }
+    var widthScale by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                AtmosphereClockPolicy.WIDTH_SCALE_KEY,
+                AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE
+            )
+        )
+    }
+    var heightScale by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                AtmosphereClockPolicy.HEIGHT_SCALE_KEY,
+                AtmosphereClockPolicy.DEFAULT_HEIGHT_SCALE
+            )
+        )
+    }
     var opacity by remember {
         mutableFloatStateOf(
             prefs.getFloat(
@@ -209,11 +225,18 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     var lastInteractionMs by remember { mutableStateOf(0L) }
 
     fun pushGeometry() {
-        activePreview?.setAtmosphereClockGeometry(centerX, top, heightFraction, opacity)
+        activePreview?.setClockGeometry(
+            centerX = centerX,
+            top = top,
+            height = heightFraction,
+            widthScale = widthScale,
+            heightScale = heightScale,
+            opacity = opacity
+        )
     }
 
     fun pushFace() {
-        activePreview?.setAtmosphereClockFace(
+        activePreview?.setClockFace(
             style.id,
             showSeconds,
             animate,
@@ -257,11 +280,15 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         centerX = AtmosphereClockPolicy.sanitizeCenterX(centerX)
         top = AtmosphereClockPolicy.sanitizeTop(top)
         heightFraction = AtmosphereClockPolicy.sanitizeHeight(heightFraction)
+        widthScale = AtmosphereClockPolicy.sanitizeAxisScale(widthScale)
+        heightScale = AtmosphereClockPolicy.sanitizeAxisScale(heightScale)
         opacity = AtmosphereClockPolicy.sanitizeOpacity(opacity)
         prefs.edit {
             putFloat(AtmosphereClockPolicy.CENTER_X_KEY, centerX)
             putFloat(AtmosphereClockPolicy.TOP_KEY, top)
             putFloat(AtmosphereClockPolicy.HEIGHT_KEY, heightFraction)
+            putFloat(AtmosphereClockPolicy.WIDTH_SCALE_KEY, widthScale)
+            putFloat(AtmosphereClockPolicy.HEIGHT_SCALE_KEY, heightScale)
             putFloat(AtmosphereClockPolicy.OPACITY_KEY, opacity)
             putString(AtmosphereClockPolicy.STYLE_KEY, style.id)
             putBoolean(AtmosphereClockPolicy.SECONDS_KEY, showSeconds)
@@ -457,6 +484,16 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                     heightFraction = AtmosphereClockPolicy.sanitizeHeight(it)
                     pushGeometry()
                 },
+                widthScale = widthScale,
+                onWidthScaleChange = {
+                    widthScale = AtmosphereClockPolicy.sanitizeAxisScale(it)
+                    pushGeometry()
+                },
+                heightScale = heightScale,
+                onHeightScaleChange = {
+                    heightScale = AtmosphereClockPolicy.sanitizeAxisScale(it)
+                    pushGeometry()
+                },
                 opacity = opacity,
                 onOpacityChange = {
                     opacity = AtmosphereClockPolicy.sanitizeOpacity(it)
@@ -499,6 +536,10 @@ private fun ClockControls(
     onStyleSelected: (ClockStyle) -> Unit,
     heightFraction: Float,
     onHeightChange: (Float) -> Unit,
+    widthScale: Float,
+    onWidthScaleChange: (Float) -> Unit,
+    heightScale: Float,
+    onHeightScaleChange: (Float) -> Unit,
     opacity: Float,
     onOpacityChange: (Float) -> Unit,
     showSeconds: Boolean,
@@ -590,11 +631,33 @@ private fun ClockControls(
         }
 
         Spacer(Modifier.height(10.dp))
+        // Runs to the policy's real ceiling rather than stopping at 0.40.
+        // The clamp always allowed 0.65; the slider just would not go there,
+        // so the biggest faces could never actually be made big.
         LabelledSlider(
             label = "Size",
             value = heightFraction,
-            valueRange = 0.03f..0.40f,
+            valueRange = AtmosphereClockPolicy.MIN_HEIGHT..
+                AtmosphereClockPolicy.MAX_HEIGHT,
             onValueChange = onHeightChange
+        )
+        // Separate from Size on purpose: Size is one number everyone
+        // understands, and these two reshape whatever it is set to. Someone
+        // who never opens them keeps the face's natural proportions, because
+        // both default to a no-op 1.0.
+        LabelledSlider(
+            label = "Width",
+            value = widthScale,
+            valueRange = AtmosphereClockPolicy.MIN_AXIS_SCALE..
+                AtmosphereClockPolicy.MAX_AXIS_SCALE,
+            onValueChange = onWidthScaleChange
+        )
+        LabelledSlider(
+            label = "Height",
+            value = heightScale,
+            valueRange = AtmosphereClockPolicy.MIN_AXIS_SCALE..
+                AtmosphereClockPolicy.MAX_AXIS_SCALE,
+            onValueChange = onHeightScaleChange
         )
         LabelledSlider(
             label = "Opacity",
@@ -707,7 +770,11 @@ private fun StyleCard(
             .clickable(onClick = onClick)
             .padding(8.dp)
     ) {
-        Box(Modifier.fillMaxWidth().height(46.dp), contentAlignment = Alignment.Center) {
+        // Taller than the old 46dp: the faces are now stretched vertically,
+        // and ContentScale.Fit would otherwise shrink a tall face until its
+        // digits were unreadable in the picker — which is the one place the
+        // shape is what the user is choosing between.
+        Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) {
             if (thumbnail != null) {
                 Image(
                     bitmap = thumbnail,

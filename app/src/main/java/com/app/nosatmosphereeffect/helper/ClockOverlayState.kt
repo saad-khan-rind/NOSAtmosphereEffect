@@ -40,6 +40,12 @@ data class ClockOverlayState(
     val centerX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
     val top: Float = AtmosphereClockPolicy.DEFAULT_TOP,
     val height: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
+    /**
+     * Per-axis stretch on top of [height]. 1.0 leaves the face at its natural
+     * proportions; below 1 on width gives the tall, narrow column look.
+     */
+    val widthScale: Float = AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE,
+    val heightScale: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT_SCALE,
     val opacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
     /** The stored preference; may be [ClockPalette.AUTO]. */
     val requestedColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR,
@@ -86,6 +92,8 @@ data class ClockOverlayState(
             centerX = AtmosphereClockPolicy.sanitizeCenterX(centerX),
             top = AtmosphereClockPolicy.sanitizeTop(top),
             height = AtmosphereClockPolicy.sanitizeHeight(height),
+            widthScale = AtmosphereClockPolicy.sanitizeAxisScale(widthScale),
+            heightScale = AtmosphereClockPolicy.sanitizeAxisScale(heightScale),
             opacity = AtmosphereClockPolicy.sanitizeOpacity(opacity),
             requestedColor = AtmosphereClockPolicy.sanitizeColor(requestedColor),
             // A stray AUTO reaching a renderer would draw an opaque black
@@ -117,6 +125,51 @@ data class ClockOverlayState(
             lockedProgress = lockedProgress,
             unlockedProgress = unlockedProgress
         )
+    }
+
+    /**
+     * The height fraction the renderers should actually use.
+     *
+     * ## Why the stretch is folded in here rather than passed down
+     *
+     * Both backends already size the clock as `height` and
+     * `height * textureAspect / surfaceAspect`. Feeding them a pre-stretched
+     * height and a pre-stretched aspect reproduces any width/height pair
+     * exactly, with no new uniform, no new push-constant field, and no shader
+     * change on either backend:
+     *
+     *     width  = (height * heightScale) * (aspect * widthScale / heightScale)
+     *            = height * aspect * widthScale                        (as wanted)
+     *     height = height * heightScale                                (as wanted)
+     *
+     * The alternative — two more floats threaded through five JNI signatures
+     * and ten shaders — buys nothing, because the shaders only ever multiply
+     * these two numbers together anyway.
+     */
+    val renderHeight: Float
+        get() = height * heightScale
+
+    /**
+     * The top edge the renderers should actually use.
+     *
+     * [top] is the top of the box at the *unstretched* size, because that is
+     * what the drag gesture on the calibration screen sets. Growing
+     * [heightScale] from there would extend the box downwards only, so the
+     * clock would visibly sink as the height slider went up — which is
+     * exactly what it did before this existed. Re-centring means the height
+     * slider changes the shape and nothing else.
+     */
+    val renderTop: Float
+        get() = top + (height - renderHeight) / 2f
+
+    /**
+     * The texture aspect the renderers should actually use, given the face
+     * bitmap's real [rawAspect]. See [renderHeight] for the algebra.
+     */
+    fun renderTextureAspect(rawAspect: Float): Float {
+        val safeRaw = if (rawAspect.isFinite() && rawAspect > 0f) rawAspect else 1f
+        val safeHeightScale = if (heightScale > 0f) heightScale else 1f
+        return safeRaw * widthScale / safeHeightScale
     }
 
     /** True when anything on screen needs a subject mask for the clock. */

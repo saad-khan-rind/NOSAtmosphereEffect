@@ -173,18 +173,20 @@ class GlesClockOverlay(
 
         // Height is a fraction of screen height; width follows from the face's
         // own pixel aspect, divided by the screen aspect so glyphs are not
-        // stretched.
-        val heightUv = current.height
+        // stretched. The user's per-axis stretch is already folded into both
+        // numbers — see ClockOverlayState.renderHeight.
+        val heightUv = current.renderHeight
         val safeAspect = if (screenAspect.isFinite() && screenAspect > 0f) {
             screenAspect
         } else {
             1f
         }
-        val widthUv = heightUv * provider.aspectRatio / safeAspect
+        val widthUv =
+            heightUv * current.renderTextureAspect(provider.aspectRatio) / safeAspect
         GLES30.glUniform4f(
             GLES30.glGetUniformLocation(programId, "uClockRect"),
             current.centerX - widthUv / 2f,
-            current.top,
+            current.renderTop,
             widthUv,
             heightUv
         )

@@ -497,9 +497,12 @@ internal class VulkanColorFillHost(
                 scrollOffsetX = state.scrollOffsetX,
                 scrollWindowX = state.scrollWindowX,
                 clockCenterX = state.clock.centerX,
-                clockTop = state.clock.top,
-                clockHeightFraction = state.clock.height,
-                clockTextureAspect = state.clock.textureAspect,
+                clockTop = state.clock.renderTop,
+                // Per-axis stretch is folded into these two numbers rather
+                // than passed separately — see ClockOverlayState.renderHeight.
+                clockHeightFraction = state.clock.renderHeight,
+                clockTextureAspect =
+                    state.clock.renderTextureAspect(state.clock.textureAspect),
                 // The lock/home fade is folded in here, once, so the shader
                 // has no policy in it and both backends share one curve.
                 clockOpacity = state.clock.effectiveOpacity(state.progress),

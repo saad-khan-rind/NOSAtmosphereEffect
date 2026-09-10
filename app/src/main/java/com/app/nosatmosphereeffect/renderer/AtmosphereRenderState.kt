@@ -77,6 +77,9 @@ data class AtmosphereRenderState(
     val clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
     val clockTop: Float = AtmosphereClockPolicy.DEFAULT_TOP,
     val clockHeight: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT,
+    /** Per-axis stretch on top of [clockHeight]; 1.0 is a no-op. */
+    val clockWidthScale: Float = AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE,
+    val clockHeightScale: Float = AtmosphereClockPolicy.DEFAULT_HEIGHT_SCALE,
     val clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
     /**
      * Already-resolved ARGB glyph colour — never [ClockPalette.AUTO]. The
@@ -129,6 +132,10 @@ data class AtmosphereRenderState(
             clockCenterX = AtmosphereClockPolicy.sanitizeCenterX(clockCenterX),
             clockTop = AtmosphereClockPolicy.sanitizeTop(clockTop),
             clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
+            clockWidthScale =
+                AtmosphereClockPolicy.sanitizeAxisScale(clockWidthScale),
+            clockHeightScale =
+                AtmosphereClockPolicy.sanitizeAxisScale(clockHeightScale),
             clockOpacity = AtmosphereClockPolicy.sanitizeOpacity(clockOpacity),
             clockColor = clockColor or (0xFF shl 24),
             clockHourFormat = AtmosphereClockPolicy.sanitizeHourFormat(clockHourFormat),
@@ -194,6 +201,8 @@ data class AtmosphereRenderState(
         centerX = clockCenterX,
         top = clockTop,
         height = clockHeight,
+        widthScale = clockWidthScale,
+        heightScale = clockHeightScale,
         opacity = clockOpacity,
         requestedColor = clockColor,
         color = clockColor,
