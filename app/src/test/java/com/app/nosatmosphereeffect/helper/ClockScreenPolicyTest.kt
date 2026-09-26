@@ -300,6 +300,9 @@ class ClockFaceGeometryTest {
                 "${style.id} has an out-of-range horizontal scale",
                 style.horizontalScale in 0.8f..1f
             )
+            // The Adaptive face draws its digits from skeletons at whatever
+            // length the subject allows; its typeface only sets the date.
+            if (style.treatment == ClockTreatment.ADAPTIVE) return@forEach
             // Tall and narrow is what reads as a display clock rather than a
             // caption, but past this it reads as a distortion.
             assertTrue(
@@ -330,7 +333,14 @@ class ClockFaceGeometryTest {
     @Test
     fun `each treatment is offered in one row and in two`() {
         assertEquals(
-            listOf("liquid_glass", "liquid_glass_stacked", "translucent", "translucent_stacked"),
+            listOf(
+                "liquid_glass",
+                "liquid_glass_stacked",
+                "translucent",
+                "translucent_stacked",
+                "adaptive",
+                "adaptive_stacked"
+            ),
             ClockStyle.entries.map { it.id }
         )
         ClockTreatment.entries.forEach { treatment ->
@@ -358,10 +368,10 @@ class ClockFaceGeometryTest {
         // backends; 3 is the original face and 1 + frost a translucent one.
         val glass = ClockOverlayState(styleId = "liquid_glass", frost = 0.8f)
         val translucent = ClockOverlayState(styleId = "translucent", frost = 0.8f)
-        assertEquals(3f, glass.glassMeta, 1e-5f)
-        assertEquals(1.8f, translucent.glassMeta, 1e-5f)
+        assertEquals(3f, glass.glassMode, 1e-5f)
+        assertEquals(1.8f, translucent.glassMode, 1e-5f)
         // Frost cannot leak into the original face, whatever is stored.
-        assertEquals(glass.glassMeta, glass.copy(frost = 0f).glassMeta, 0f)
+        assertEquals(glass.glassMode, glass.copy(frost = 0f).glassMode, 0f)
     }
 
     @Test

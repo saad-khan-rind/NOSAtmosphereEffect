@@ -31,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,7 +46,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.activity.ClockAdjustActivity
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockScreen
+import com.app.nosatmosphereeffect.helper.ClockStyle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
@@ -678,15 +684,24 @@ private fun EffectSettings(
                     // Glass is in use, which is the whole point: an earlier
                     // version reused Glass's "background only" flag, so the
                     // depth effect silently did nothing unless Glass was on.
+                    // The style is chosen on the clock screen, which this one
+                    // opens, so it is read again whenever this comes back.
+                    val context = LocalContext.current
+                    val adaptiveStyle = rememberClockStyleIsAdaptive()
                     SettingSwitchRow(
                         title = "Depth effect",
-                        checked = clockDepthEnabled,
+                        checked = clockDepthEnabled && !adaptiveStyle,
                         onCheckedChange = onClockDepthEnabledChange,
-                        subtitle = "Draws the subject back over the clock, so " +
-                            "the clock sits behind them. Needs a photo with a " +
-                            "clear subject."
+                        enabled = !adaptiveStyle,
+                        subtitle = if (adaptiveStyle) {
+                            "The Adaptive clock fits itself around the subject " +
+                                "and always stays in front, so depth does not apply."
+                        } else {
+                            "Draws the subject back over the clock, so " +
+                                "the clock sits behind them. Needs a photo with a " +
+                                "clear subject."
+                        }
                     )
-                    val context = LocalContext.current
                     AtmoTextButton(
                         text = "Choose style, position & size",
                         onClick = {
@@ -1133,6 +1148,26 @@ private fun SettingsGroup(
             content()
         }
     }
+}
+
+/** Whether the chosen clock face is the Adaptive one, re-read on every resume. */
+@Composable
+private fun rememberClockStyleIsAdaptive(): Boolean {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    fun read(): Boolean = ClockStyle.fromId(
+        context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .getString(AtmosphereClockPolicy.STYLE_KEY, null)
+    ).adaptsToSubject
+    var adaptive by remember { mutableStateOf(read()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) adaptive = read()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return adaptive
 }
 
 private enum class InfoDialog(val title: String, val message: String) {

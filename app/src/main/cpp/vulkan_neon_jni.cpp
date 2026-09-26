@@ -40,11 +40,15 @@ struct CanvasParams {
     // face has been uploaded", "depth enabled AND a mask exists", unused.
     float clockRect[4]{};
     float clockMeta[4]{};
+    // x: the Adaptive clock's arrival zoom on the wallpaper (1 = none).
+    // Appended, so nothing above moves.
+    float motion[4]{1.0F, 0.0F, 0.0F, 0.0F};
 };
 
 static_assert(offsetof(CanvasParams, clockRect) == 32);
 static_assert(offsetof(CanvasParams, clockMeta) == 48);
-static_assert(sizeof(CanvasParams) == 64);
+static_assert(offsetof(CanvasParams, motion) == 64);
+static_assert(sizeof(CanvasParams) == 80);
 
 struct CanvasHandle {
     atmo::vulkan::OnePassHandle engine = nullptr;
@@ -243,7 +247,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState
     jfloat clockOpacity,
     jboolean clockUploaded,
     jboolean clockDepth,
-    jfloat clockGlass
+    jfloat clockGlass,
+    jfloat wallpaperZoom
 ) {
     CanvasHandle* canvas = fromHandle(handle);
     if (canvas == nullptr) return;
@@ -258,6 +263,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState
         scrollWindowX,
         kLineMaximum
     };
+    // The Adaptive clock's arrival zoom on the wallpaper; 1 when none.
+    params.motion[0] = wallpaperZoom;
     atmo::vulkan::writeClockParams(
         params,
         aspect,

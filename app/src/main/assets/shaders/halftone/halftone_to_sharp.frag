@@ -101,6 +101,28 @@ vec3 behindGlass(vec3 color, vec3 photoThere, vec2 uvThere) {
     return color + clockPhotoWeight * photoDelta + clockToneWeight * toneDelta;
 }
 
+// ------------------------------------------------------- clock colour
+// A clock whose colour comes from the wallpaper — Auto, or the Adaptive
+// face's shading — follows the effect too: where the effect has drained the
+// colour out of the photo (Colour Fill's black and white, the sketch, a grey
+// halftone) the clock is drained with it, frame by frame through the
+// transition. Only the colour goes, never the brightness: a clock that dimmed
+// with the screen would vanish into it.
+//
+// [clockChroma] is how much of the photo's colour this effect is showing at
+// this pixel, 0 (none) .. 1 (all of it).
+float clockChroma() {
+    // A grey halftone keeps only the photo's own share of the colour.
+    if (uGrayscale <= 0.5) return 1.0;
+    return clockPhotoWeight / max(clockPhotoWeight + clockToneWeight, 1e-4);
+}
+
+vec4 clockFollowEffect(vec4 clockSample) {
+    // Linear, so it applies to the texture's premultiplied colour directly.
+    vec3 grey = vec3(dot(clockSample.rgb, vec3(0.299, 0.587, 0.114)));
+    return vec4(mix(grey, clockSample.rgb, clamp(clockChroma(), 0.0, 1.0)), clockSample.a);
+}
+
 // ------------------------------------------------------- liquid glass clock
 // Drawn instead of the flat face when the style asks for glass. The face
 // texture only supplies the glyph SHAPE (its alpha); everything visible is the
@@ -347,7 +369,14 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
         return color;
     }
     vec4 clockSample = texture(uClockTexture, clockUv);
-    if (uClockGlass > 0.5) {
+    // 100 added to the mode says the colour follows the wallpaper — see
+    // ClockOverlayState.glassMeta — and so follows the effect as well.
+    float clockMode = uClockGlass;
+    if (clockMode > 50.0) {
+        clockMode -= 100.0;
+        clockSample = clockFollowEffect(clockSample);
+    }
+    if (clockMode > 0.5) {
         // 3 is the original glass face and 1 + frost a translucent one —
         // see ClockOverlayState.glassMeta.
         return clockGlass(
@@ -356,7 +385,7 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
             clockSample,
             uClockRect.zw,
             uClockOpacity,
-            uClockGlass
+            clockMode
         );
     }
     // A flat face: no glass, but the silhouette still comes from the field

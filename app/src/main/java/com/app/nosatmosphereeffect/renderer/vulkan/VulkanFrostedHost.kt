@@ -42,6 +42,13 @@ internal class VulkanFrostedHost(
         ::requestRender
     )
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        clockDepthMask.sceneSink = clockOverlay.sceneSink
+    }
+
+
     /** Plays the clock's entry animation on the next prepared frame. */
     fun beginClockEntry() {
         clockOverlay.beginEntry()
@@ -67,6 +74,7 @@ internal class VulkanFrostedHost(
     private fun uploadClockOnWorker(handle: Long) {
         val current = currentEffectState()
         val changed = clockOverlay.uploadIfNeeded(
+            scrollOffsetX = wallpaperScrollOffsetX,
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
             upload = { bitmap -> VulkanFrostedNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender
@@ -251,7 +259,8 @@ private object FrostedBridge :
             // Depth needs a mask, so the user's switch is ANDed with one
             // existing — the shader must never sample the clear texture.
             clockDepth = safe.clock.depthEnabled && safe.hasSubject,
-            clockGlass = safe.clock.glassMeta
+            clockGlass = safe.clock.glassMeta,
+            wallpaperZoom = safe.clock.wallpaperZoom
         )
     }
 

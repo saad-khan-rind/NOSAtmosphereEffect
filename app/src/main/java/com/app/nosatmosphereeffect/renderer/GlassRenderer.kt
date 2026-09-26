@@ -152,6 +152,13 @@ class GlassRenderer(
         onSubjectMaskUpdated?.invoke()
     }
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
+
     private val vertices = floatArrayOf(
         -1f, -1f, 0f, 1f,
         1f, -1f, 1f, 1f,
@@ -443,6 +450,7 @@ class GlassRenderer(
         GLES30.glUniform1i(handles.subjectMask, 1)
 
         clockOverlay.draw(
+            scrollOffsetX = scrollOffsetX,
             programId = handles.program,
             progress = progress,
             screenAspect = if (surfaceHeight > 0) {

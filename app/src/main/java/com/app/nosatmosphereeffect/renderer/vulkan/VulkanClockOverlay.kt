@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.ClockSceneSink
 
 /**
  * The Vulkan half of the wallpaper clock, packaged so an effect host gains the
@@ -66,19 +67,28 @@ internal class VulkanClockOverlay(
             return state.copy(
                 textureAspect = fallback.textureAspect,
                 faceContentTop = fallback.faceContentTop,
-                faceContentHeight = fallback.faceContentHeight
+                faceContentHeight = fallback.faceContentHeight,
+                wallpaperZoom = 1f
             )
         }
         val box = uploader.faceBox
         return state.copy(
             textureAspect = uploader.aspectRatio,
             faceContentTop = box.top,
-            faceContentHeight = box.heightFraction
+            faceContentHeight = box.heightFraction,
+            wallpaperZoom = uploader.wallpaperZoom
         )
     }
 
     val hasUploadedFace: Boolean
         get() = uploader.hasUploadedFace
+
+    /**
+     * Give this to the host's SubjectMaskCoordinator, so the Adaptive face sees
+     * the image and mask the host draws with.
+     */
+    val sceneSink: ClockSceneSink
+        get() = uploader.sceneSink
 
     fun applyState(next: ClockOverlayState) {
         pendingState = next.sanitized()
@@ -112,7 +122,9 @@ internal class VulkanClockOverlay(
     fun uploadIfNeeded(
         effectiveOpacity: Float,
         upload: (Bitmap) -> Boolean,
-        requestRender: () -> Unit
+        requestRender: () -> Unit,
+        /** The launcher's page offset; the Adaptive face fits to what is on screen. */
+        scrollOffsetX: Float = 0.5f
     ): Boolean {
         pendingState?.let { next ->
             pendingState = null
@@ -122,6 +134,8 @@ internal class VulkanClockOverlay(
             uploader.animateDigits = next.animate
             uploader.animateEntry = next.animate
             uploader.color = next.color
+            uploader.weight = next.weight
+            uploader.adaptiveColors = next.adaptiveColors
             uploader.clockPlacement = next.placement
             uploader.datePlacement = next.datePlacement
             uploader.hourFormatOverride = next.hourFormatOverride
@@ -131,6 +145,7 @@ internal class VulkanClockOverlay(
             uploader.refreshClockFormatPreference()
             uploader.reset()
         }
+        uploader.scrollOffsetX = scrollOffsetX
         if (!appliedState.enabled) return false
 
         // Held until the clock would actually be on screen, so waking onto the
@@ -140,6 +155,12 @@ internal class VulkanClockOverlay(
             pendingEntry = false
             uploader.beginEntry()
         }
+
+        // Nothing is drawn at zero opacity, so there is nothing to redraw —
+        // the same rule as the GLES path. It matters for the Adaptive face,
+        // which would otherwise refit and repaint on every frame of a home
+        // screen swipe behind a clock that is not showing.
+        if (effectiveOpacity <= 0f && uploader.hasUploadedFace) return false
 
         var changed = false
         val bitmap = try {

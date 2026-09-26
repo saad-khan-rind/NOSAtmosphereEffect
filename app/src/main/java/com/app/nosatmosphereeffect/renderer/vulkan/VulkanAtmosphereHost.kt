@@ -40,6 +40,13 @@ internal class VulkanAtmosphereHost(
     }
     private val clockTexture = VulkanClockTextureUploader(appContext)
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockTexture.sceneSink
+    }
+
+
     /**
      * Set on the main thread when the engine becomes visible, consumed on the
      * worker. Same reason as the GLES path: ClockFaceRenderer is confined to
@@ -86,6 +93,8 @@ internal class VulkanAtmosphereHost(
         clockTexture.animateDigits = state.clockAnimate
         clockTexture.animateEntry = state.clockAnimate
         clockTexture.color = state.clockColor
+        clockTexture.weight = state.clockWeight
+        clockTexture.adaptiveColors = state.clockAdaptiveColors
         clockTexture.hourFormatOverride =
             AtmosphereClockPolicy.hourFormatOverride(state.clockHourFormat)
     }
@@ -144,6 +153,11 @@ internal class VulkanAtmosphereHost(
                     previous.clockFaceContentHeight
                 },
                 clockFaceUploaded = clockTexture.hasUploadedFace && safe.clockEnabled,
+                clockWallpaperZoom = if (clockTexture.hasUploadedFace) {
+                    clockTexture.wallpaperZoom
+                } else {
+                    1f
+                },
                 blobs = blobPlanner.frame(safe.progress)
             )
         }
@@ -271,6 +285,7 @@ internal class VulkanAtmosphereHost(
             pendingClockEntry = false
             clockTexture.beginEntry()
         }
+        clockTexture.scrollOffsetX = wallpaperScrollOffsetX
         val bitmap = try {
             clockTexture.renderIfChanged()
         } catch (failure: RuntimeException) {
@@ -291,7 +306,8 @@ internal class VulkanAtmosphereHost(
                         clockTextureAspect = aspect,
                         clockFaceContentTop = box.top,
                         clockFaceContentHeight = box.heightFraction,
-                        clockFaceUploaded = true
+                        clockFaceUploaded = true,
+                        clockWallpaperZoom = clockTexture.wallpaperZoom
                     )
                 }
             } else {
@@ -315,6 +331,7 @@ internal class VulkanAtmosphereHost(
             it.copy(
                 hasSubject = false,
                 clockFaceUploaded = false,
+                clockWallpaperZoom = 1f,
                 blobs = AtmosphereBlobFrame()
             )
         }

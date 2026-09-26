@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.ui.preview
 
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState
@@ -95,6 +96,10 @@ internal object EffectPreviewStatePolicy {
                         clockDateWidthScale = safe.dateWidthScale,
                         clockOpacity = safe.opacity,
                         clockFrost = safe.frost,
+                        clockWeight = safe.weight,
+                        clockAdaptiveColors = safe.adaptiveColors,
+                        clockColorFollowsWallpaper =
+                            ClockPalette.followsWallpaper(safe.requestedColor),
                         clockColor = safe.color,
                         clockHourFormat = safe.hourFormat,
                         clockScreenId = safe.screenId
