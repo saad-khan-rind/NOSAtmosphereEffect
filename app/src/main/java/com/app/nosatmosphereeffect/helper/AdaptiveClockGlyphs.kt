@@ -197,34 +197,45 @@ internal object AdaptiveClockGlyphs {
                 builder.hookedBottom(centre, radius, left, bottom, hookTop = top + 1.55f + extra * 0.65f)
             }
             '4' -> {
-                // Not an open 4: the left stroke curves down from the top
-                // middle to the left edge and on into the crossbar, and the
-                // right stem only starts partway down.
-                val start = 0.565f + extra * 0.06f
-                val bendEnd = top + 1.13f + extra * 0.35f
-                val cross = top + 1.5f + extra * 0.8f
+                // Not an open 4: the left stroke drops from the top middle
+                // and bends in one smooth S to the left edge, runs on down
+                // into the crossbar, and the right stem only starts partway
+                // down.
+                val start = 0.56f
+                val bendTop = top + 0.01f + extra * 0.23f
+                val bendEnd = top + 1.31f + extra * 0.37f
+                val drop = bendEnd - bendTop
+                val cross = top + 1.5f + extra * 0.77f
+                builder.line(start, top, start, bendTop)
                 builder.cubic(
-                    start, top,
-                    start, top + max(0.43f - extra * 0.11f, 0.2f),
-                    left, bendEnd - max(0.21f - extra * 0.23f, 0.02f),
+                    start, bendTop,
+                    start, bendTop + drop * 0.49f,
+                    left, bendEnd - drop * 0.48f,
                     left, bendEnd
                 )
                 builder.line(left, bendEnd, left, cross)
                 builder.line(left, cross, right, cross)
-                builder.line(right, top + 0.975f + extra * 0.51f, right, bottom)
+                builder.line(right, top + 0.98f + extra * 0.52f, right, bottom)
             }
             '5' -> {
-                // Bar across the top and the stem down the left; the bowl
-                // springs from the stem's side a little above its end, arches
-                // over into a straight right side, and ends in a J.
-                // Its left end, 30° short of the circle's side, sits on the stem.
-                val bowl = min(0.36f, (right - left) / 1.866f)
-                val shoulder = top + 1.12f + extra * 0.42f
+                // Bar across the top and the stem down the left, which turns
+                // at its foot and sweeps back up into the arch of the bowl in
+                // one stroke; then a straight right side and a J.
+                val bowl = 0.33f
+                val bowlLeft = right - bowl
+                val stemEnd = top + 0.86f + extra * 0.41f
+                val shoulder = top + 1.11f + extra * 0.4f
                 builder.line(right, top, left, top)
-                builder.line(left, top, left, top + 0.89f + extra * 0.4f)
-                builder.arc(right - bowl, shoulder, bowl, 210f, 150f)
+                builder.line(left, top, left, stemEnd)
+                builder.cubic(
+                    left, stemEnd,
+                    left, stemEnd + 0.24f,
+                    max(bowlLeft - 0.34f, left), shoulder - bowl,
+                    bowlLeft, shoulder - bowl
+                )
+                builder.arc(bowlLeft, shoulder, bowl, 270f, 90f)
                 builder.line(right, shoulder, right, bottom - radius)
-                builder.hookedBottom(centre, radius, left, bottom, hookTop = top + 1.53f + extra * 0.65f)
+                builder.hookedBottom(centre, radius, left, bottom, hookTop = top + 1.535f + extra * 0.645f)
             }
             '6' -> {
                 // A hook over the top whose right end hangs down, a straight
@@ -244,7 +255,7 @@ internal object AdaptiveClockGlyphs {
                 val bendTop = top + 0.35f * grow
                 val bendBottom = top + 1.74f * grow
                 val foot = left + 0.16f
-                builder.line(left, top + 0.445f * grow, left, top)
+                builder.line(left, top + 0.38f * grow, left, top)
                 builder.line(left, top, right, top)
                 builder.line(right, top, right, bendTop)
                 builder.cubic(
