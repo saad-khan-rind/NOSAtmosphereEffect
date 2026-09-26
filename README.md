@@ -215,6 +215,7 @@ I've made a Telegram group for discussing issues and feature suggestions. You ca
 
 ## Known Issues
 
+* **Clock setup screen:** The screen for choosing the clock's style, position, and size (**Choose style, position & size**) is still buggy and unpolished. I'm actively working on it, so expect rough edges in how its controls behave and look. Bug reports and ideas are very welcome in the [Telegram group](https://t.me/atmosphereEffect) or as GitHub issues.
 * **Samsung's own adaptive clock:** One UI may disable or limit its built-in adaptive lock-screen clock while a live wallpaper is active. Atmo's **Adaptive** wallpaper clock (see [Wallpaper Clock](#wallpaper-clock)) is drawn by the wallpaper itself and is not affected.
 
 ## Build & Installation
