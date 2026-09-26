@@ -36,6 +36,30 @@ layout(push_constant) uniform ColorFillParams {
 // texture, so sampling before the first upload would paint a solid black
 // rectangle where the clock belongs. The lock/home fade arrives already
 // folded into clockMeta.x, so there is no policy in this shader.
+
+// ------------------------------------------------------- the effect's grade
+// What shows through the glass is the photo from a little way off, so it is
+// graded here the way main() grades the wallpaper, rather than patched with
+// (graded - raw) taken at this pixel. That patch only cancels for a grade that
+// adds, and this one doesn't: it is greyscale, then a dim. Wherever the bend
+// crossed an edge in the photo — blue sky meeting a brown wall — the raw
+// colours stopped cancelling, and with the lock screen dimmed to black the
+// leftover was the photo's own colour, lit up inside the digit.
+//
+// This pixel's paint state, filled in by main() before the clock is drawn.
+float fillCoverage;
+float fillRim;
+
+vec3 gradeWallpaper(vec3 raw) {
+    vec3 monochrome = vec3(dot(raw, vec3(0.299, 0.587, 0.114)));
+    bool reverse = params.render.w > 0.5;
+    vec3 startColor = reverse ? raw : monochrome;
+    vec3 endColor = reverse ? monochrome : raw;
+    vec3 graded = mix(startColor, endColor, fillCoverage);
+    graded += fillRim * (reverse ? 0.06 : 0.10);
+    return graded * mix(1.0, 1.0 - params.render.y, params.render.x);
+}
+
 // ------------------------------------------------------- liquid glass clock
 // Drawn instead of the flat face when the style asks for glass. The face
 // texture only supplies the glyph SHAPE (its alpha); everything visible is the
@@ -44,9 +68,9 @@ layout(push_constant) uniform ColorFillParams {
 // gradient over a few texels, so the bevel costs no extra texture and no CPU
 // work per frame.
 //
-// wallpaperTexture is the sharp photo. What the effect had already drawn here ([color])
-// is folded back in as a correction, so the glass keeps the effect's grade
-// (dim, monochrome, ...) instead of punching through to the raw photo.
+// wallpaperTexture is the sharp photo, run through gradeWallpaper so the glass keeps
+// the effect's grade (dim, monochrome, ...) instead of punching through to
+// the raw photo.
 vec3 clockGlass(
     vec3 color,
     vec2 clockUv,
@@ -179,11 +203,7 @@ vec3 clockGlass(
             texture(wallpaperTexture, clamp(classicUv + vec2(0.0, classicBlur), 0.0, 1.0)).rgb +
             texture(wallpaperTexture, clamp(classicUv - vec2(0.0, classicBlur), 0.0, 1.0)).rgb
         ) / 6.0;
-        classicRefracted = clamp(
-            classicRefracted + (color - texture(wallpaperTexture, vTexCoord).rgb),
-            0.0,
-            1.0
-        );
+        classicRefracted = clamp(gradeWallpaper(classicRefracted), 0.0, 1.0);
         vec3 classicNormal = normalize(vec3(-slope * 2.4, 1.0));
         float specular = pow(max(dot(classicNormal, light), 0.0), 22.0) * edge;
         float rim = smoothstep(0.12, 0.85, edge);
@@ -238,7 +258,7 @@ vec3 clockGlass(
     }
     // Whatever the effect did to the wallpaper behind the clock applies to
     // what shows through it too.
-    refracted = clamp(refracted + (color - texture(wallpaperTexture, vTexCoord).rgb), 0.0, 1.0);
+    refracted = clamp(gradeWallpaper(refracted), 0.0, 1.0);
 
     vec3 glass = mix(refracted, refracted * tint, 0.55);
     if (frostLevel > 0.004) {
@@ -463,8 +483,6 @@ float paintCoverage(
 
 void main() {
     vec4 color = texture(wallpaperTexture, vTexCoord);
-    float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-    vec3 monochrome = vec3(gray);
 
     float aspect = params.render.z;
     vec2 uv = vTexCoord;
@@ -474,20 +492,15 @@ void main() {
 
     bool reverse = params.render.w > 0.5;
     float fillProgress = reverse ? params.render.x : 1.0 - params.render.x;
-    float rim;
-    float coverage = paintCoverage(
+    fillCoverage = paintCoverage(
         uv,
         origin,
         aspect,
         fillProgress,
-        rim
+        fillRim
     );
 
-    vec3 startColor = reverse ? color.rgb : monochrome;
-    vec3 endColor = reverse ? monochrome : color.rgb;
-    vec3 finalColor = mix(startColor, endColor, coverage);
-    finalColor += rim * (reverse ? 0.06 : 0.10);
-    finalColor *= mix(1.0, 1.0 - params.render.y, params.render.x);
+    vec3 finalColor = gradeWallpaper(color.rgb);
     vec3 beforeClock = finalColor;
     finalColor = compositeClock(finalColor, vEffectCoord);
     finalColor = applyClockDepth(finalColor, beforeClock, vTexCoord);

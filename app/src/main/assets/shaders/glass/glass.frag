@@ -57,6 +57,25 @@ uniform float uClockDepth;
 // 1 when the face is drawn as refracting glass (ClockStyle.liquidGlass).
 uniform float uClockGlass;
 
+// ------------------------------------------------------- what the glass shows
+// The glass shows the wallpaper from a little way off. It used to add
+// (photo there - photo here) to what the effect drew here, which only holds
+// while the effect shows the photo as it is. Once the effect has dimmed,
+// blurred or replaced the photo, nothing is left to cancel that difference and
+// it lands in the digit as raw photo colour: where blue sky meets a brown wall
+// under a digit, the digit showed brown, or a blue the frame never had,
+// against a lock screen dimmed to black. So each layer's difference is taken
+// only as strongly as that layer shows here.
+//
+// How strongly each layer shows at this pixel, filled in by main() before the
+// clock is drawn.
+float clockPhotoWeight;
+
+vec3 behindGlass(vec3 color, vec3 photoThere, vec2 uvThere) {
+    vec3 photoDelta = photoThere - texture(uTexture, vTexCoord).rgb;
+    return color + clockPhotoWeight * photoDelta;
+}
+
 // ------------------------------------------------------- liquid glass clock
 // Drawn instead of the flat face when the style asks for glass. The face
 // texture only supplies the glyph SHAPE (its alpha); everything visible is the
@@ -65,9 +84,9 @@ uniform float uClockGlass;
 // gradient over a few texels, so the bevel costs no extra texture and no CPU
 // work per frame.
 //
-// uTexture is the sharp photo. What the effect had already drawn here ([color])
-// is folded back in as a correction, so the glass keeps the effect's grade
-// (dim, monochrome, ...) instead of punching through to the raw photo.
+// uTexture is the sharp photo. It reaches the glass through behindGlass, so
+// the glass keeps the effect's grade (dim, monochrome, ...) instead of
+// punching through to the raw photo.
 vec3 clockGlass(
     vec3 color,
     vec2 clockUv,
@@ -201,7 +220,7 @@ vec3 clockGlass(
             texture(uTexture, clamp(classicUv - vec2(0.0, classicBlur), 0.0, 1.0)).rgb
         ) / 6.0;
         classicRefracted = clamp(
-            classicRefracted + (color - texture(uTexture, vTexCoord).rgb),
+            behindGlass(color, classicRefracted, classicUv),
             0.0,
             1.0
         );
@@ -259,7 +278,7 @@ vec3 clockGlass(
     }
     // Whatever the effect did to the wallpaper behind the clock applies to
     // what shows through it too.
-    refracted = clamp(refracted + (color - texture(uTexture, vTexCoord).rgb), 0.0, 1.0);
+    refracted = clamp(behindGlass(color, refracted, sampleUv), 0.0, 1.0);
 
     vec3 glass = mix(refracted, refracted * tint, 0.55);
     if (frostLevel > 0.004) {
@@ -400,11 +419,10 @@ void main() {
         }
     }
 
-    vec3 finalColor = mix(
-        sharpColor,
-        glassColor,
-        transition * backgroundCoverage
-    );
+    float glassAmount = transition * backgroundCoverage;
+    vec3 finalColor = mix(sharpColor, glassColor, glassAmount);
+    // The ribs still show the photo, only dimmed — for the glass clock.
+    clockPhotoWeight = 1.0 - glassAmount * clamp(uDimLevel, 0.0, 1.0);
 
     // Depth restores the frame exactly as the effect drew it before the
     // clock, so it only ever changes pixels the clock touched. Mixing
