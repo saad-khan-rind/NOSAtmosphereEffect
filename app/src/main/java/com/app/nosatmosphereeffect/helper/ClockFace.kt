@@ -31,7 +31,12 @@ import kotlin.math.sqrt
  */
 enum class ClockTreatment {
     GLASS,
-    TRANSLUCENT
+    TRANSLUCENT,
+    /**
+     * Not glass at all: solid digits that stretch around the subject — see
+     * [AdaptiveClockFace].
+     */
+    ADAPTIVE
 }
 
 /**
@@ -157,11 +162,55 @@ enum class ClockStyle(
         verticalStretch = 1.52f,
         horizontalScale = 1f,
         treatment = ClockTreatment.TRANSLUCENT
+    ),
+
+    /**
+     * Samsung's adaptive lock screen clock: tall rounded digits that each run
+     * down to just above the subject. The digits are drawn from skeletons —
+     * see [AdaptiveClockGlyphs] — so the typeface here only sets the date.
+     */
+    ADAPTIVE(
+        id = "adaptive",
+        label = "Adaptive",
+        description = "Digits stretch around the subject",
+        familyName = "sans-serif",
+        weight = 400,
+        letterSpacingEm = 0f,
+        stacked = false,
+        verticalStretch = 1f,
+        horizontalScale = 1f,
+        treatment = ClockTreatment.ADAPTIVE
+    ),
+
+    /**
+     * The Adaptive face stacked: hours over minutes in two columns, with no
+     * colon. Each column stretches as one, the minute hanging just under the
+     * hour above it.
+     */
+    ADAPTIVE_STACKED(
+        id = "adaptive_stacked",
+        label = "Adaptive Stacked",
+        description = "Hours over minutes, stretching around the subject",
+        familyName = "sans-serif",
+        weight = 400,
+        letterSpacingEm = 0f,
+        stacked = true,
+        verticalStretch = 1f,
+        horizontalScale = 1f,
+        treatment = ClockTreatment.ADAPTIVE
     );
 
     /** Only the translucent faces are glass all the way through to frost. */
     val usesFrost: Boolean
         get() = treatment == ClockTreatment.TRANSLUCENT
+
+    /** Needs the subject mask to draw at all, not just for depth. */
+    val adaptsToSubject: Boolean
+        get() = treatment == ClockTreatment.ADAPTIVE
+
+    /** Has a stroke weight the user can set. */
+    val hasWeight: Boolean
+        get() = treatment == ClockTreatment.ADAPTIVE
 
     fun typeface(): Typeface {
         return try {
@@ -256,6 +305,7 @@ class ClockFaceRenderer(private val context: Context) {
             if (field != value) {
                 field = value
                 atlas = ClockGlyphAtlas.of(value)
+                adaptiveFace.stacked = value.stacked
                 invalidateLayout()
             }
         }
@@ -319,9 +369,75 @@ class ClockFaceRenderer(private val context: Context) {
             val opaque = value or (0xFF shl 24)
             if (field != opaque) {
                 field = opaque
+                adaptiveFace.color = opaque
                 invalidate()
             }
         }
+
+    /**
+     * Everything particular to the Adaptive face. Held whatever the style, so
+     * the scene it collects is already there when the user switches to it.
+     */
+    private val adaptiveFace = AdaptiveClockFace()
+
+    /**
+     * What is behind the clock, for the Adaptive face. Renderers hand this to
+     * their [SubjectMaskCoordinator] so it sees the same image and mask they
+     * draw with.
+     */
+    val sceneSource: ClockSceneSource
+        get() = adaptiveFace.sceneSource
+
+    /** The Adaptive face's stroke weight, 0 thin .. 1 bold. */
+    var weight: Float = AtmosphereClockPolicy.DEFAULT_WEIGHT
+        set(value) {
+            val safe = AtmosphereClockPolicy.sanitizeWeight(value)
+            if (field != safe) {
+                field = safe
+                adaptiveFace.weight = safe
+                if (isAdaptive) invalidate()
+            }
+        }
+
+    /** The Adaptive face tints each digit by what is behind it. */
+    var adaptiveColors: Boolean = false
+        set(value) {
+            if (field != value) {
+                field = value
+                adaptiveFace.adaptiveColors = value
+                if (isAdaptive) invalidate()
+            }
+        }
+
+    /**
+     * The launcher's page offset. The Adaptive face fits its digits to the
+     * part of the image that is actually on screen.
+     */
+    var scrollOffsetX: Float
+        get() = adaptiveFace.scrollOffsetX
+        set(value) {
+            adaptiveFace.scrollOffsetX = if (value.isFinite()) value.coerceIn(0f, 1f) else 0.5f
+        }
+
+    /** See [AdaptiveClockFace.centerCropScene]; the calibration screen sets it. */
+    var centerCropScene: Boolean
+        get() = adaptiveFace.centerCropScene
+        set(value) { adaptiveFace.centerCropScene = value }
+
+    private val isAdaptive: Boolean
+        get() = style.treatment == ClockTreatment.ADAPTIVE
+
+    /** Reused between Adaptive frames; sized to the bitmap. */
+    private var adaptivePixels: IntArray? = null
+
+    /**
+     * How much the renderers should magnify the wallpaper for the frame last
+     * rendered: the Adaptive face's arrival zoom, and 1 for every other face.
+     * Read alongside the face texture, so the photo and the clock always
+     * show the same instant of the animation.
+     */
+    var wallpaperZoom: Float = 1f
+        private set
 
     var animateDigits: Boolean = true
         set(value) {
@@ -433,6 +549,7 @@ class ClockFaceRenderer(private val context: Context) {
         }
         entryStartUptimeMs = uptimeMs
         transitionStartUptimeMs = NO_TRANSITION
+        adaptiveFace.beginEntry(uptimeMs)
         // The displayed time has not necessarily changed, but the pixels
         // have — force the next render rather than letting the key check
         // short-circuit it.
@@ -451,7 +568,35 @@ class ClockFaceRenderer(private val context: Context) {
     }
 
     fun isAnimating(uptimeMs: Long): Boolean =
-        incomplete || isEntering(uptimeMs) || isChangingDigits(uptimeMs)
+        incomplete ||
+            isEntering(uptimeMs) ||
+            isChangingDigits(uptimeMs) ||
+            // An animation whose time is up still owes one frame: the render
+            // that notices it is over and draws the end state. Without it the
+            // last frame drawn was whichever landed just before the end — a
+            // digit change frozen with the old digit still showing, until the
+            // next minute redrew the face.
+            transitionStartUptimeMs != NO_TRANSITION ||
+            entryStartUptimeMs != NO_TRANSITION ||
+            adaptiveNeedsFrame(uptimeMs)
+
+    /**
+     * The Adaptive face redraws on its own account when what is behind it
+     * changes — a mask arriving, the page scrolling, the box moving — and
+     * while its digits ease to their new lengths.
+     */
+    private fun adaptiveNeedsFrame(uptimeMs: Long): Boolean =
+        isAdaptive &&
+            layout != null &&
+            adaptiveFace.needsFrame(adaptiveScreenBox(), screenAspect, uptimeMs)
+
+    /** The digits' box on screen, which the Adaptive face measures against. */
+    private fun adaptiveScreenBox(): ClockBoxRect = ClockBoxPlacement.contentBox(
+        placement = clockPlacement,
+        contentAspect = AdaptiveClockGlyphs.boxWidth(style.stacked) /
+            AdaptiveClockGlyphs.boxHeight(style.stacked),
+        screenAspect = screenAspect
+    )
 
     /**
      * True only while the entry animation is running. Separate from
@@ -487,10 +632,13 @@ class ClockFaceRenderer(private val context: Context) {
         val timeChanged = key != lastRenderedKey
         val animating = isAnimating(uptimeMs)
         if (!timeChanged && !animating && bitmap != null) return null
+        // The Adaptive face's motion is only smooth at the display's own
+        // rate, so it is never throttled; its frames are cheap enough.
+        val interval = if (isAdaptive) 0L else minimumIntervalMs
         if (
             !timeChanged &&
             bitmap != null &&
-            uptimeMs - lastRenderUptimeMs < minimumIntervalMs
+            uptimeMs - lastRenderUptimeMs < interval
         ) {
             return null
         }
@@ -521,7 +669,13 @@ class ClockFaceRenderer(private val context: Context) {
         // a redraw, which is exactly what it used to do on the first frame.
         // Leaving the key unstamped makes the next call render again, and
         // reporting it as animating is what asks for that call.
-        if (drawFace(target2d, face, uptimeMs)) {
+        val drawn = if (isAdaptive) {
+            drawAdaptiveFace(target, target2d, face, uptimeMs)
+        } else {
+            drawFace(target2d, face, uptimeMs)
+        }
+        wallpaperZoom = if (isAdaptive) adaptiveFace.wallpaperZoom(uptimeMs) else 1f
+        if (drawn) {
             incomplete = false
             incompleteRetries = 0
         } else {
@@ -595,6 +749,7 @@ class ClockFaceRenderer(private val context: Context) {
      * displayed time has not actually changed.
      */
     fun invalidate() {
+        adaptiveFace.reset()
         incompleteRetries = 0
         lastRenderedKey = Long.MIN_VALUE
         transitionStartUptimeMs = NO_TRANSITION
@@ -728,6 +883,86 @@ class ClockFaceRenderer(private val context: Context) {
     }
 
     /**
+     * The Adaptive face: its digits are painted as a distance field straight
+     * into the bitmap's pixels (see [AdaptiveClockFace]), then the date goes
+     * on top exactly as for every other face.
+     */
+    private fun drawAdaptiveFace(
+        target: Bitmap,
+        canvas: Canvas,
+        face: FaceLayout,
+        uptimeMs: Long
+    ): Boolean {
+        val box = adaptiveScreenBox()
+        adaptiveFace.step(box, screenAspect, uptimeMs, animate = animateEntry)
+        // Keeps the entry's clock running for isAnimating; everything the face
+        // does on arrival runs on its own curves inside AdaptiveClockFace.
+        entryProgress(uptimeMs)
+        val change = transitionProgress(uptimeMs)
+        if (currentRows.isEmpty()) return true
+        val width = target.width
+        val height = target.height
+        val unitPx = face.digitsWidth / AdaptiveClockGlyphs.boxWidth(style.stacked)
+        // The whole clock, date included, drifts the last little way home as
+        // it arrives. It comes from the side of the screen's middle — from
+        // below, and in from whichever side the middle is — so the drift
+        // always reads as the clock settling into its corner of the photo.
+        val glide = adaptiveFace.glideRemaining(uptimeMs) *
+            AdaptiveClockFace.GLIDE_UNITS * unitPx
+        val (glideX, glideY) = if (glide > 0f) glideDirection(box) else 0f to 0f
+        val pixels = adaptivePixels?.takeIf { it.size == width * height }
+            ?: IntArray(width * height).also { adaptivePixels = it }
+        pixels.fill(0)
+        adaptiveFace.paint(
+            pixels = pixels,
+            stride = width,
+            rows = height,
+            originX = face.digitsLeft + glideX * glide,
+            originY = face.digitsTop + glideY * glide,
+            unitPx = unitPx,
+            time = currentRows,
+            outgoing = previousRows.takeIf { change != null },
+            change = { slot ->
+                val slots = if (style.stacked) 4 else AdaptiveClockGlyphs.SLOT_COUNT
+                change?.let { staggered(it, slot, slots) }
+            },
+            uptimeMs = uptimeMs
+        )
+        target.setPixels(pixels, 0, width, 0, 0, width, height)
+        // The date does not fade or erode in: it arrives with the clock,
+        // riding the same glide, and only the shading's colour changes on it.
+        return drawDate(
+            canvas,
+            face,
+            null,
+            adaptiveFace.dateColor(uptimeMs),
+            offsetX = glideX * glide,
+            offsetY = glideY * glide
+        )
+    }
+
+    /**
+     * Unit vector, in bitmap pixels' orientation, from the clock's home
+     * towards where it arrives from: towards the middle of the screen, but
+     * always partly from below.
+     */
+    private fun glideDirection(box: ClockBoxRect): Pair<Float, Float> {
+        val centreX = (box.left + box.right) / 2f
+        val centreY = (box.top + box.bottom) / 2f
+        // Screen fractions are not square; bring x into the same units as y.
+        var dx = (0.5f - centreX) * screenAspect
+        var dy = max(0.5f - centreY, 0f)
+        // Mostly upward, whatever the placement: a clock low on the screen
+        // still rises into place rather than dropping into it.
+        dy = max(dy, abs(dx) * 1.4f + 0.05f)
+        val length = sqrt(dx * dx + dy * dy)
+        if (length < 1e-5f) return 0f to 1f
+        dx /= length
+        dy /= length
+        return dx to dy
+    }
+
+    /**
      * The separator between the two halves of a stacked face.
      *
      * A single row carries its colon inline. Stacked, the same two dots lie
@@ -770,7 +1005,14 @@ class ClockFaceRenderer(private val context: Context) {
      * old fixed-width bevel could not do, and why the date used to come out
      * in patches beside a clock that looked right.
      */
-    private fun drawDate(target: Canvas, face: FaceLayout, entry: Float?): Boolean {
+    private fun drawDate(
+        target: Canvas,
+        face: FaceLayout,
+        entry: Float?,
+        dateColor: Int = color,
+        offsetX: Float = 0f,
+        offsetY: Float = 0f
+    ): Boolean {
         val tile = face.dateTile ?: return true
         // Arrives with the first glyph rather than on its own schedule, so the
         // face reads as one thing coming into place.
@@ -784,10 +1026,10 @@ class ClockFaceRenderer(private val context: Context) {
         glyphMatrix.reset()
         glyphMatrix.setScale(scaleX, scaleY)
         glyphMatrix.postTranslate(
-            face.dateLeft - spread * scaleX,
-            face.dateTop - tile.inkTop * scaleY
+            face.dateLeft - spread * scaleX + offsetX,
+            face.dateTop - tile.inkTop * scaleY + offsetY
         )
-        tilePaint.color = color
+        tilePaint.color = dateColor
         tilePaint.alpha = erosionAlpha(progress)
         target.drawBitmap(tile.bitmap, glyphMatrix, tilePaint)
         return true
@@ -968,13 +1210,28 @@ class ClockFaceRenderer(private val context: Context) {
         val separatorAdvance = textPaint.measureText(":")
 
         val stretch = style.verticalStretch
+        // The Adaptive face draws its own digits from skeletons, in units of a
+        // digit's width; its box is the row at full stretch.
+        val adaptive = isAdaptive
+        val unit = textSize * ADAPTIVE_UNIT_PER_EM
         val rowLayouts = rows.map { rowText ->
-            val slots = rowText.map { character ->
+            val slots = rowText.mapIndexed { index, character ->
                 Slot(
-                    advance = if (character == ':') separatorAdvance else digitAdvance
+                    advance = when {
+                        adaptive -> AdaptiveClockGlyphs.slotWidth(index) * unit
+                        character == ':' -> separatorAdvance
+                        else -> digitAdvance
+                    }
                 )
             }
-            RowLayout(slots = slots, width = slots.sumOf { it.advance.toDouble() }.toFloat())
+            RowLayout(
+                slots = slots,
+                width = if (adaptive) {
+                    AdaptiveClockGlyphs.boxWidth(style.stacked) * unit
+                } else {
+                    slots.sumOf { it.advance.toDouble() }.toFloat()
+                }
+            )
         }
 
         val digitsWidth = rowLayouts.maxOfOrNull { it.width } ?: digitAdvance
@@ -985,8 +1242,12 @@ class ClockFaceRenderer(private val context: Context) {
         // calibration frame sit visibly loose around the clock.
         val ink = android.graphics.Rect()
         textPaint.getTextBounds(DIGITS_SAMPLE, 0, DIGITS_SAMPLE.length, ink)
-        val baselineFromInkTop = -ink.top * stretch
-        val inkHeight = (ink.bottom - ink.top) * stretch
+        val baselineFromInkTop = if (adaptive) 0f else -ink.top * stretch
+        val inkHeight = if (adaptive) {
+            AdaptiveClockGlyphs.boxHeight(style.stacked) * unit
+        } else {
+            (ink.bottom - ink.top) * stretch
+        }
         // Rows are pitched on their ink rather than on the font's line box.
         // A line box carries room for ascenders and descenders no digit has,
         // and at this stretch that was two thirds of an em of empty space
@@ -995,7 +1256,8 @@ class ClockFaceRenderer(private val context: Context) {
         // is where the separator goes.
         val rowGap = if (rows.size > 1) textSize * STACK_GAP_EM else 0f
         val rowPitch = inkHeight + rowGap
-        val digitsHeight = rowPitch * (rows.size - 1) + inkHeight
+        // The Adaptive box already holds both rows of its stack.
+        val digitsHeight = if (adaptive) inkHeight else rowPitch * (rows.size - 1) + inkHeight
         val contentAspect = (digitsWidth / max(digitsHeight, 1f)).coerceIn(0.02f, 50f)
 
         // The date fills its own box, in digits-local coordinates for now:
@@ -1035,11 +1297,19 @@ class ClockFaceRenderer(private val context: Context) {
         val travelEm = max(TRANSITION_TRAVEL_EM, ENTRY_RISE_EM)
         // The field runs a spread past the glyph on every side, and clipping
         // it would put a hard edge where the glass should be fading out.
-        val fieldMargin = textSize * ClockGlyphAtlas.SPREAD_EM
-        val marginY = textSize * travelEm + fieldMargin * stretch
-        val marginX = fieldMargin + textSize * OVERSHOOT_MARGIN_EM
+        val fieldMargin = if (adaptive) {
+            // Its field runs past the ink, and the whole face drifts into place
+            // as it arrives.
+            unit * (AdaptiveClockFace.SPREAD_UNITS + AdaptiveClockFace.GLIDE_UNITS) + 2f
+        } else {
+            textSize * ClockGlyphAtlas.SPREAD_EM
+        }
+        val marginY = if (adaptive) fieldMargin else textSize * travelEm + fieldMargin * stretch
+        val marginX = if (adaptive) fieldMargin else fieldMargin + textSize * OVERSHOOT_MARGIN_EM
         val dateMargin = if (drawsDate) {
-            max((dateBottom - dateTop) * DATE_MARGIN_FRACTION, 2f)
+            max((dateBottom - dateTop) * DATE_MARGIN_FRACTION, 2f) +
+                // The Adaptive face carries its date along as it drifts in.
+                if (adaptive) unit * AdaptiveClockFace.GLIDE_UNITS else 0f
         } else {
             0f
         }
@@ -1055,10 +1325,17 @@ class ClockFaceRenderer(private val context: Context) {
         }
         val sideExtent = max(leftExtent, rightExtent)
         val topExtent = if (drawsDate) max(marginY, dateMargin - dateTop) else marginY
-        val bottomExtent = if (drawsDate) {
-            max(marginY, dateBottom + dateMargin - digitsHeight)
+        // The Adaptive face's overshoot carries a long digit past the box before
+        // it settles, so the bitmap runs on below it far enough to hold that.
+        val belowDigits = if (adaptive) {
+            marginY + unit * AdaptiveClockFace.overshootUnits(style.stacked)
         } else {
             marginY
+        }
+        val bottomExtent = if (drawsDate) {
+            max(belowDigits, dateBottom + dateMargin - digitsHeight)
+        } else {
+            belowDigits
         }
 
         val digitsLeft = sideExtent
@@ -1080,7 +1357,8 @@ class ClockFaceRenderer(private val context: Context) {
             bitmapHeight = digitsHeight + topExtent + bottomExtent,
             // Centred in the gap between the rows, and only there: a single
             // row carries its separator inline.
-            separatorY = if (rows.size > 1) {
+            // The stacked Adaptive face has no separator at all.
+            separatorY = if (rows.size > 1 && !adaptive) {
                 digitsTop + inkHeight + rowGap / 2f
             } else {
                 null
@@ -1227,6 +1505,8 @@ class ClockFaceRenderer(private val context: Context) {
     }
 
     private fun entryTotalDurationMs(): Long {
+        // The Adaptive face arrives as one piece, the way the phone's does.
+        if (isAdaptive) return AdaptiveClockFace.MOTION_MS
         val slots = layout?.rows?.sumOf { it.slots.size } ?: DEFAULT_SLOT_COUNT
         return ENTRY_DURATION_MS +
             ENTRY_STAGGER_MS * (slots - 1).coerceAtLeast(0)
@@ -1418,6 +1698,14 @@ class ClockFaceRenderer(private val context: Context) {
         const val DEFAULT_SLOT_COUNT = 5
 
         const val NO_TRANSITION = Long.MIN_VALUE
+
+        /**
+         * The Adaptive face's digit width per em of the nominal text size:
+         * 0.28 puts a digit at about 78px at full size. The distance field
+         * magnifies cleanly to any clock on screen, and the face is painted
+         * per pixel on the render thread, so smaller is cheaper.
+         */
+        const val ADAPTIVE_UNIT_PER_EM = 0.28f
         const val DIGITS_SAMPLE = "0123456789"
     }
 }

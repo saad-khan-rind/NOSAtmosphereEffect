@@ -114,6 +114,13 @@ class BlurToSharpRenderer(
         onSubjectMaskUpdated?.invoke()
     }
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
+
     // Texture storage can only be reused while its dimensions still match.
     private var tempTextureWidth: Int = 0
     private var tempTextureHeight: Int = 0
@@ -207,11 +214,11 @@ class BlurToSharpRenderer(
     private fun refreshSubjectMaskNeed() {
         val wanted = glassBackgroundOnly || clockOverlay.state.needsSubjectMask()
         val changed = subjectMasks.configure(wanted)
-        if (
-            wanted &&
-            currentSet.isValid() &&
-            (changed || !currentSet.hasSubject)
-        ) {
+        // Once per transition into "wanted", not "until a mask exists": this
+        // also runs on every clock push, and for a photo with no subject that
+        // re-decoded the wallpaper and re-ran segmentation every time. The
+        // forward AtmosphereRenderer was fixed for the same loop.
+        if (wanted && currentSet.isValid() && changed) {
             needsReload = true
         }
     }
@@ -681,6 +688,7 @@ class BlurToSharpRenderer(
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 2)
 
             clockOverlay.draw(
+                scrollOffsetX = scrollOffsetX,
                 programId = programId,
                 progress = blurStrength,
                 screenAspect = aspectRatio,

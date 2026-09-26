@@ -72,6 +72,8 @@ object AtmosphereClockPolicy {
      * wallpaper sharply through the digits, 1 is milky and diffuse.
      */
     const val FROST_KEY = "atmosphere_clock_frost"
+    /** The Adaptive face's stroke weight, 0 thin .. 1 bold. */
+    const val WEIGHT_KEY = "atmosphere_clock_weight"
     /**
      * Stored as an ARGB int. [ClockPalette.AUTO] (0) means "follow the
      * wallpaper", which is the default — a plain white clock reads as pasted
@@ -114,6 +116,7 @@ object AtmosphereClockPolicy {
      * clock that starts milky reads as one that has gone cloudy.
      */
     const val DEFAULT_FROST = 0f
+    const val DEFAULT_WEIGHT = 0.55f
     const val DEFAULT_DEPTH = true
     const val DEFAULT_DATE = false
 
@@ -207,6 +210,7 @@ object AtmosphereClockPolicy {
         DATE_WIDTH_SCALE_KEY,
         GEOMETRY_VERSION_KEY,
         FROST_KEY,
+        WEIGHT_KEY,
         OPACITY_KEY
     )
 
@@ -323,8 +327,13 @@ object AtmosphereClockPolicy {
 
     /** Colours are stored opaque; a transparent value would hide the clock. */
     fun sanitizeColor(value: Int): Int {
-        if (value == ClockPalette.AUTO) return ClockPalette.AUTO
+        if (ClockPalette.followsWallpaper(value)) return value
         return value or (0xFF shl 24)
+    }
+
+    fun sanitizeWeight(value: Float): Float {
+        if (!value.isFinite()) return DEFAULT_WEIGHT
+        return value.coerceIn(0f, 1f)
     }
 
     fun sanitizeScreenId(value: String?): String =

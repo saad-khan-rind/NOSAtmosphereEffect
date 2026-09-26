@@ -36,6 +36,11 @@ internal class GlesSubjectMask(
 ) : Closeable {
 
     private val coordinator = SubjectMaskCoordinator(context, onMaskReady)
+
+    /** See [SubjectMaskCoordinator.sceneSink]. */
+    var sceneSink: ClockSceneSink?
+        get() = coordinator.sceneSink
+        set(value) { coordinator.sceneSink = value }
     private var generationCounter = 0L
     private var currentGeneration = 0L
 

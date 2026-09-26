@@ -109,8 +109,9 @@ internal fun ClockGlassPreview(
         val boxTop = box.top * viewHeight
         val boxWidth = box.width * viewWidth
         val boxHeight = box.height * viewHeight
-        val drawGlass = mode > 0.5f &&
-            shader != null &&
+        // The runtime shader draws the solid face too: the texture is a
+        // distance field, and only the shader rebuilds a sharp edge from it.
+        val drawGlass = shader != null &&
             faceShader != null &&
             glyphs != null &&
             boxWidth > 1f &&
@@ -239,9 +240,13 @@ half4 main(float2 coord) {
     if (coverage <= 0.002) {
         return half4(half3(base), 1.0);
     }
+    float3 tint = glyph.rgb / max(field, 0.001);
+    // A solid face (the Adaptive clock): its colour, no glass.
+    if (mode < 0.5) {
+        return half4(half3(mix(base, tint, coverage * opacity)), 1.0);
+    }
     float2 inward = gradient / max(length(gradient), 1e-5);
     float depth = clamp((field - 0.5) * 2.0, 0.0, 1.0);
-    float3 tint = glyph.rgb / max(field, 0.001);
     float3 light = normalize(float3(-0.5, -0.72, 0.48));
 
     if (mode >= 2.5) {

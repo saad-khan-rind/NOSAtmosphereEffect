@@ -96,6 +96,13 @@ class HalftoneRenderer(
      */
     private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
+
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile
     var onAnimationFrameRequested: (() -> Unit)? = null
@@ -171,7 +178,10 @@ class HalftoneRenderer(
     private fun refreshSubjectMaskNeed() {
         val wanted = backgroundOnly || clockOverlay.state.needsSubjectMask()
         val changed = subjectMasks.configure(wanted)
-        if (wanted && (changed || currentSet.isValid())) {
+        // Only on that transition. This also runs from applyClockState, on
+        // every clock push (tint resolved, preferences synced), and reloading
+        // there re-decoded the wallpaper and dropped the mask each time.
+        if (wanted && changed) {
             needsReload = true
         }
     }
@@ -380,6 +390,7 @@ class HalftoneRenderer(
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 1)
 
         clockOverlay.draw(
+            scrollOffsetX = scrollOffsetX,
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,

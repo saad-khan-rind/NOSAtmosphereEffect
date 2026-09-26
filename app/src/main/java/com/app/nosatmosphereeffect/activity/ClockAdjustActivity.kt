@@ -99,7 +99,10 @@ import com.app.nosatmosphereeffect.ui.components.ClockBoxOverlay
 import com.app.nosatmosphereeffect.ui.components.ClockGlassPreview
 import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockStyle
+import com.app.nosatmosphereeffect.helper.AdaptiveClockFace
+import com.app.nosatmosphereeffect.helper.ClockScene
 import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
+import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
@@ -114,6 +117,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
@@ -207,6 +211,14 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             )
         )
     }
+    var weight by remember {
+        mutableFloatStateOf(
+            prefs.getFloat(
+                AtmosphereClockPolicy.WEIGHT_KEY,
+                AtmosphereClockPolicy.DEFAULT_WEIGHT
+            )
+        )
+    }
     var style by remember {
         mutableStateOf(
             ClockStyle.fromId(prefs.getString(AtmosphereClockPolicy.STYLE_KEY, null))
@@ -289,6 +301,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         widthScale = AtmosphereClockPolicy.sanitizeAxisScale(widthScale)
         opacity = AtmosphereClockPolicy.sanitizeOpacity(opacity)
         frost = AtmosphereClockPolicy.sanitizeFrost(frost)
+        weight = AtmosphereClockPolicy.sanitizeWeight(weight)
         dateCenterX = AtmosphereClockPolicy.sanitizeCenterX(dateCenterX)
         dateTop = AtmosphereClockPolicy.sanitizeTop(dateTop)
         dateHeightFraction = AtmosphereClockPolicy.sanitizeHeight(dateHeightFraction)
@@ -301,6 +314,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             putFloat(AtmosphereClockPolicy.HEIGHT_SCALE_KEY, heightScale)
             putFloat(AtmosphereClockPolicy.OPACITY_KEY, opacity)
             putFloat(AtmosphereClockPolicy.FROST_KEY, frost)
+            putFloat(AtmosphereClockPolicy.WEIGHT_KEY, weight)
             putFloat(AtmosphereClockPolicy.DATE_CENTER_X_KEY, dateCenterX)
             putFloat(AtmosphereClockPolicy.DATE_TOP_KEY, dateTop)
             putFloat(AtmosphereClockPolicy.DATE_HEIGHT_KEY, dateHeightFraction)
@@ -326,7 +340,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
 
     LaunchedEffect(
-        centerX, top, heightFraction, widthScale, heightScale, opacity, frost, style,
+        centerX, top, heightFraction, widthScale, heightScale, opacity, frost, weight, style,
         showDate, dateCenterX, dateTop, dateHeightFraction, dateWidthScale,
         animate, colorPref, hourFormat
     ) {
@@ -363,7 +377,31 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     /** The date line's natural width/height ratio, for sizing its box. */
     var dateAspect by remember { mutableFloatStateOf(DEFAULT_DATE_ASPECT) }
     DisposableEffect(faceRenderer) {
-        onDispose { faceRenderer.release() }
+        // Under the renderer's lock: a render still running on a worker
+        // finishes before its bitmap is freed.
+        onDispose { synchronized(faceRenderer) { faceRenderer.release() } }
+    }
+    // The Adaptive face fits its digits around the subject, so the preview
+    // needs the same mask the wallpaper will use. Segmented once per photo,
+    // and only while the Adaptive face is the one chosen.
+    val wantsScene = style.adaptsToSubject
+    LaunchedEffect(wallpaperBitmap, wantsScene) {
+        val photo = wallpaperBitmap ?: return@LaunchedEffect
+        if (!wantsScene) return@LaunchedEffect
+        lateinit var coordinator: SubjectMaskCoordinator
+        coordinator = SubjectMaskCoordinator(context) {
+            // The scene took what it needed on the way past; nothing here
+            // uploads the mask, so it is simply let go.
+            coordinator.takePending()?.bitmap?.let { if (!it.isRecycled) it.recycle() }
+        }
+        coordinator.sceneSink = faceRenderer.sceneSource
+        try {
+            coordinator.configure(true)
+            withContext(Dispatchers.Default) { coordinator.request(photo, 1L) }
+            awaitCancellation()
+        } finally {
+            coordinator.close()
+        }
     }
 
     val resolvedColor = ClockPalette.resolve(colorPref, autoColor)
@@ -397,7 +435,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     // redraw it. The loop reads the current placement on each pass rather than
     // being keyed on it: keying would restart the whole coroutine on every
     // frame of a drag.
-    LaunchedEffect(style, showDate, animate, resolvedColor, hourFormat) {
+    LaunchedEffect(style, showDate, animate, resolvedColor, colorPref, weight, hourFormat) {
         var lastGeometry: Pair<ClockPlacement, ClockPlacement>? = null
         while (true) {
             val wantedClock = ClockPlacement(centerX, top, heightFraction, widthScale)
@@ -406,42 +444,57 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             val geometry = wantedClock to wantedDate
             val geometryChanged = lastGeometry != geometry
             lastGeometry = geometry
+            // Every use of the renderer holds its lock. A settings change
+            // restarts this effect, but cancelling cannot stop a render that is
+            // already drawing, so without the lock the restarted loop would
+            // reconfigure the renderer — freeing and replacing its bitmap —
+            // under that draw. A colour-wheel drag restarts it dozens of times
+            // a second, and that crashed natively.
             val measured = withContext(Dispatchers.Default) {
-                faceRenderer.style = style
-                faceRenderer.showDate = showDate
-                faceRenderer.animateDigits = animate
-                faceRenderer.animateEntry = false
-                faceRenderer.color = resolvedColor
-                faceRenderer.hourFormatOverride =
-                    AtmosphereClockPolicy.hourFormatOverride(hourFormat)
-                faceRenderer.screenAspect = screenAspect
-                faceRenderer.clockPlacement = wantedClock
-                faceRenderer.datePlacement = wantedDate
-                runCatching {
-                    val now = System.currentTimeMillis()
-                    faceRenderer.measureFace(now) to faceRenderer.measureDateAspect(now)
-                }.getOrNull()
+                synchronized(faceRenderer) {
+                    faceRenderer.style = style
+                    faceRenderer.showDate = showDate
+                    faceRenderer.animateDigits = animate
+                    faceRenderer.animateEntry = false
+                    faceRenderer.color = resolvedColor
+                    faceRenderer.weight = weight
+                    faceRenderer.adaptiveColors = ClockPalette.isAdaptive(colorPref)
+                    // The photo here is centre-cropped into the preview rather
+                    // than panned, so the scene is mapped the same way.
+                    faceRenderer.centerCropScene = true
+                    faceRenderer.hourFormatOverride =
+                        AtmosphereClockPolicy.hourFormatOverride(hourFormat)
+                    faceRenderer.screenAspect = screenAspect
+                    faceRenderer.clockPlacement = wantedClock
+                    faceRenderer.datePlacement = wantedDate
+                    runCatching {
+                        val now = System.currentTimeMillis()
+                        faceRenderer.measureFace(now) to faceRenderer.measureDateAspect(now)
+                    }.getOrNull()
+                }
             }
             if (measured != null) {
                 faceContent = measured.first
                 measured.second?.let { dateAspect = it }
             }
-            val snapshot = withContext(Dispatchers.Default) {
-                runCatching {
-                    // Handed over as a copy: the renderer keeps reusing its
-                    // own bitmap, and the preview must never read one that is
-                    // being drawn into.
-                    faceRenderer.render(
-                        nowMillis = System.currentTimeMillis(),
-                        uptimeMs = SystemClock.uptimeMillis()
-                    )?.copy(Bitmap.Config.ARGB_8888, false)
-                }.getOrNull()
+            // Asked on the worker too, so the main thread never waits on the lock.
+            val (snapshot, animating) = withContext(Dispatchers.Default) {
+                synchronized(faceRenderer) {
+                    runCatching {
+                        // Handed over as a copy: the renderer keeps reusing its
+                        // own bitmap, and the preview must never read one that is
+                        // being drawn into.
+                        faceRenderer.render(
+                            nowMillis = System.currentTimeMillis(),
+                            uptimeMs = SystemClock.uptimeMillis()
+                        )?.copy(Bitmap.Config.ARGB_8888, false)
+                    }.getOrNull() to faceRenderer.isAnimating(SystemClock.uptimeMillis())
+                }
             }
             if (snapshot != null) {
                 faceBitmap = snapshot
                 faceRevision++
             }
-            val animating = faceRenderer.isAnimating(SystemClock.uptimeMillis())
             // Redrawing the whole face costs a bitmap, so a drag gets ten
             // frames a second rather than sixty: the frame the finger is
             // holding follows at full rate, and the date inside it catches up
@@ -507,7 +560,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 mode = ClockOverlayState(
                     styleId = style.id,
                     frost = frost
-                ).glassMeta,
+                ).glassMode,
                 faceRevision = faceRevision,
                 modifier = Modifier.fillMaxSize()
             )
@@ -635,6 +688,8 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 onOpacityChange = { opacity = AtmosphereClockPolicy.sanitizeOpacity(it) },
                 frost = frost,
                 onFrostChange = { frost = AtmosphereClockPolicy.sanitizeFrost(it) },
+                weight = weight,
+                onWeightChange = { weight = AtmosphereClockPolicy.sanitizeWeight(it) },
                 showDate = showDate,
                 onShowDateChange = {
                     showDate = it
@@ -666,6 +721,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                     widthScale = AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE
                     opacity = AtmosphereClockPolicy.DEFAULT_OPACITY
                     frost = AtmosphereClockPolicy.DEFAULT_FROST
+                    weight = AtmosphereClockPolicy.DEFAULT_WEIGHT
                     dateCenterX = AtmosphereClockPolicy.DEFAULT_DATE_CENTER_X
                     dateTop = AtmosphereClockPolicy.DEFAULT_DATE_TOP
                     dateHeightFraction = AtmosphereClockPolicy.DEFAULT_DATE_HEIGHT
@@ -685,6 +741,8 @@ private fun ClockControls(
     onOpacityChange: (Float) -> Unit,
     frost: Float,
     onFrostChange: (Float) -> Unit,
+    weight: Float,
+    onWeightChange: (Float) -> Unit,
     showDate: Boolean,
     onShowDateChange: (Boolean) -> Unit,
     editingDate: Boolean,
@@ -757,7 +815,8 @@ private fun ClockControls(
             // from the wallpaper showing through, and the chosen colour tints
             // that rather than filling the digits with a flat colour. The
             // solid faces do take it as their colour.
-            SectionLabel("Glass tint")
+            // The Adaptive face is solid, so there it simply is the colour.
+            SectionLabel(if (selected.adaptsToSubject) "Colour" else "Glass tint")
             Spacer(Modifier.width(8.dp))
             AtmoTextButton(
                 text = if (pickerOpen) "Close wheel" else "Colour wheel",
@@ -774,11 +833,31 @@ private fun ClockControls(
         }
         Spacer(Modifier.height(6.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (selected.adaptsToSubject) {
+                item {
+                    // The wallpaper's colour shaded from deep at the top line
+                    // to pale at full length — what the digits will show.
+                    val base = autoColor ?: ClockPalette.DEFAULT_FALLBACK
+                    ColorSwatch(
+                        color = base,
+                        label = "Adaptive",
+                        selected = ClockPalette.isAdaptive(colorPref),
+                        onClick = { onColorSelected(ClockPalette.ADAPTIVE) },
+                        gradient = listOf(
+                            Color(AdaptiveClockFace.shadeOf(base, 0f)),
+                            Color(AdaptiveClockFace.shadeOf(base, 1f))
+                        )
+                    )
+                }
+            }
             item {
                 ColorSwatch(
                     color = autoColor ?: ClockPalette.DEFAULT_FALLBACK,
                     label = "Auto",
-                    selected = ClockPalette.isAuto(colorPref),
+                    // Adaptive falls back to Auto on the glass faces, so Auto
+                    // is what is showing there.
+                    selected = ClockPalette.isAuto(colorPref) ||
+                        (ClockPalette.isAdaptive(colorPref) && !selected.adaptsToSubject),
                     onClick = { onColorSelected(ClockPalette.AUTO) }
                 )
             }
@@ -786,7 +865,8 @@ private fun ClockControls(
                 ColorSwatch(
                     color = swatch.color,
                     label = swatch.label,
-                    selected = !ClockPalette.isAuto(colorPref) && colorPref == swatch.color,
+                    selected = !ClockPalette.followsWallpaper(colorPref) &&
+                        colorPref == swatch.color,
                     onClick = { onColorSelected(swatch.color) }
                 )
             }
@@ -821,6 +901,30 @@ private fun ClockControls(
                 valueRange = 0f..1f,
                 onValueChange = onFrostChange
             )
+        }
+        // The Adaptive face is drawn from strokes, so its weight is exact:
+        // the same digits with a thinner or heavier line.
+        if (selected.hasWeight) {
+            LabelledSlider(
+                label = "Weight",
+                value = weight,
+                valueRange = 0f..1f,
+                onValueChange = onWeightChange
+            )
+            Row(Modifier.fillMaxWidth()) {
+                Text(
+                    "Thin",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "Bold",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            Spacer(Modifier.height(6.dp))
         }
 
         Spacer(Modifier.height(4.dp))
@@ -871,6 +975,8 @@ private fun ClockControls(
                 "Subject detection was switched off after repeated crashes in a " +
                     "system component, so nothing will occlude the clock until it " +
                     "is re-enabled."
+            maskFailure != null && selected.adaptsToSubject ->
+                "The digits can't fit around the subject yet: $maskFailure"
             maskFailure != null -> "No depth effect yet: $maskFailure"
             else -> null
         }
@@ -952,7 +1058,9 @@ private fun ColorSwatch(
     color: Int,
     label: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    /** Drawn instead of [color] when set. */
+    gradient: List<Color>? = null
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -962,7 +1070,13 @@ private fun ColorSwatch(
             Modifier
                 .size(38.dp)
                 .clip(RoundedCornerShape(19.dp))
-                .background(Color(color))
+                .then(
+                    if (gradient != null) {
+                        Modifier.background(Brush.verticalGradient(gradient))
+                    } else {
+                        Modifier.background(Color(color))
+                    }
+                )
                 .border(
                     width = if (selected) 3.dp else 1.dp,
                     color = if (selected) Color.White else Color.White.copy(alpha = 0.28f),
@@ -995,20 +1109,36 @@ private fun ColorWheelPicker(
     current: Int,
     onColorChange: (Int) -> Unit
 ) {
-    val hsv = remember(current) {
+    // Held across changes to [current] rather than keyed on it: the gesture
+    // handlers below are installed once, and state recreated per colour would
+    // leave them writing to stale copies — a drag after moving the brightness
+    // slider would put the old brightness back. The wheel re-reads [current]
+    // only when it changes from outside (a swatch, the eyedropper); a colour
+    // it emitted itself would round-trip through RGB and lose the hue at
+    // zero saturation or brightness.
+    val initial = remember {
         FloatArray(3).also { android.graphics.Color.colorToHSV(current, it) }
     }
-    var hue by remember(current) { mutableFloatStateOf(hsv[0]) }
-    var saturation by remember(current) { mutableFloatStateOf(hsv[1]) }
-    var value by remember(current) { mutableFloatStateOf(hsv[2]) }
+    var hue by remember { mutableFloatStateOf(initial[0]) }
+    var saturation by remember { mutableFloatStateOf(initial[1]) }
+    var value by remember { mutableFloatStateOf(initial[2]) }
+    var emitted by remember { mutableIntStateOf(current) }
+    val latestOnColorChange by rememberUpdatedState(onColorChange)
+    if (current != emitted) {
+        val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(current, it) }
+        hue = hsv[0]
+        saturation = hsv[1]
+        value = hsv[2]
+        emitted = current
+    }
 
     val wheel = remember { buildHueWheel(WHEEL_PX).asImageBitmap() }
 
     fun emit() {
-        onColorChange(
-            android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)) or
-                (0xFF shl 24)
-        )
+        val color = android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)) or
+            (0xFF shl 24)
+        emitted = color
+        latestOnColorChange(color)
     }
 
     fun applyPointer(position: Offset, sizePx: Float) {
@@ -1192,6 +1322,11 @@ private fun renderStyleThumbnails(
             showDate = false
             animateDigits = false
             hourFormatOverride = AtmosphereClockPolicy.hourFormatOverride(hourFormat)
+            // Someone standing under the clock, so the Adaptive thumbnail
+            // shows what the face does rather than four equal digits.
+            if (candidate.adaptsToSubject) {
+                sceneSource.set(ClockScene.demo(screenAspect))
+            }
         }
         try {
             val rendered = renderer.render(nowMillis = now, uptimeMs = 0L) ?: continue

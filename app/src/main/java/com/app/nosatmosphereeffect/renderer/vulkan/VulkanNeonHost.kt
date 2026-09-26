@@ -50,6 +50,13 @@ internal class VulkanNeonHost(
      */
     private val clockOverlay = VulkanClockOverlay(appContext, "Sketch")
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
+
     /** Plays the clock's entry animation on the next prepared frame. */
     fun beginClockEntry() {
         clockOverlay.beginEntry()
@@ -75,6 +82,7 @@ internal class VulkanNeonHost(
     private fun uploadClockOnWorker(handle: Long) {
         val current = currentEffectState()
         val changed = clockOverlay.uploadIfNeeded(
+            scrollOffsetX = wallpaperScrollOffsetX,
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
             upload = { bitmap -> VulkanNeonNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender
@@ -84,24 +92,6 @@ internal class VulkanNeonHost(
             state.copy(
                 clock = clockOverlay.withFaceMetrics(state.clock).copy(
                     faceUploaded = true
-                )
-            ).sanitized()
-        }
-    }
-
-    /**
-     * Keeps the state's clock fields in step with the overlay.
-     *
-     * Called from updateState on whichever thread changed a preference; the
-     * dynamic fields are read from the overlay rather than carried forward
-     * from a snapshot, for the reason above.
-     */
-    private fun syncClockState(clock: ClockOverlayState) {
-        clockOverlay.applyState(clock)
-        updateEffectState { current ->
-            current.copy(
-                clock = clockOverlay.withFaceMetrics(clock, current.clock).copy(
-                    faceUploaded = clockOverlay.hasUploadedFace && clock.enabled
                 )
             ).sanitized()
         }
@@ -126,8 +116,23 @@ internal class VulkanNeonHost(
         val maskWanted = sanitized.subjectSegmentationEnabled ||
             sanitized.clock.needsSubjectMask()
         val segmentationChanged = subjectMasks.configure(maskWanted)
-        updateEffectState { sanitized }
-        syncClockState(sanitized.clock)
+        clockOverlay.applyState(sanitized.clock)
+        // hasSubject and the clock's face fields describe what this host has
+        // uploaded, which the controller's snapshot never knows about — it
+        // always says "nothing". Taking hasSubject from the snapshot switched
+        // depth off for good: the mask upload is skipped once a revision is on
+        // the GPU, so nothing set it back. Both are read inside the one update,
+        // like the Glass and Halftone hosts, so the worker never sees a frame
+        // between the snapshot and the correction, and an upload landing
+        // concurrently is not lost.
+        updateEffectState { current ->
+            sanitized.copy(
+                hasSubject = maskWanted && current.hasSubject,
+                clock = clockOverlay.withFaceMetrics(sanitized.clock, current.clock).copy(
+                    faceUploaded = clockOverlay.hasUploadedFace && sanitized.clock.enabled
+                )
+            ).sanitized()
+        }
         if (segmentationChanged && maskWanted) {
             reloadTexture()
         } else if (
@@ -446,7 +451,8 @@ private class NeonBridge(
             // Depth needs a mask, so the user's switch is ANDed with one
             // existing — the shader must never sample the clear texture.
             clockDepth = safe.clock.depthEnabled && safe.hasSubject,
-            clockGlass = safe.clock.glassMeta
+            clockGlass = safe.clock.glassMeta,
+            wallpaperZoom = safe.clock.wallpaperZoom
         )
     }
 

@@ -26,6 +26,17 @@ object ClockPalette {
     /** Sentinel stored in [AtmosphereClockPolicy.COLOR_KEY] for auto mode. */
     const val AUTO = 0
 
+    /**
+     * Sentinel for the Adaptive face's own colour mode: each digit a pale tint
+     * of what is behind it, varying down the digit. Fully transparent, so it
+     * can never be mistaken for a colour someone picked.
+     *
+     * Every face that is not the Adaptive one treats it exactly like [AUTO] —
+     * one colour for the whole clock, derived from the wallpaper — so
+     * switching styles never leaves a clock with no colour.
+     */
+    const val ADAPTIVE = 1
+
     const val DEFAULT_FALLBACK: Int = Color.WHITE
 
     /**
@@ -61,11 +72,16 @@ object ClockPalette {
      */
     @ColorInt
     fun resolve(stored: Int, @ColorInt autoColor: Int?): Int {
-        if (stored != AUTO) return opaque(stored)
+        if (!followsWallpaper(stored)) return opaque(stored)
         return opaque(autoColor ?: DEFAULT_FALLBACK)
     }
 
     fun isAuto(stored: Int): Boolean = stored == AUTO
+
+    fun isAdaptive(stored: Int): Boolean = stored == ADAPTIVE
+
+    /** True for either wallpaper-derived mode — anything but a picked colour. */
+    fun followsWallpaper(stored: Int): Boolean = stored == AUTO || stored == ADAPTIVE
 
     /**
      * Derives the auto colour from the currently applied wallpaper.

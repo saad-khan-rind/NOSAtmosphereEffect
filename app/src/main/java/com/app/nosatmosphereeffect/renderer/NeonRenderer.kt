@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
-import com.app.nosatmosphereeffect.helper.SubjectMaskExtractor
+import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GlesClockOverlay
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
@@ -46,10 +46,8 @@ class NeonRenderer(
      * user chooses. Units 0 and 1 carry the photo and the baked line texture,
      * so the clock takes 2.
      *
-     * No depth here despite the effect having a subject mask: the mask is
-     * consumed by the off-screen edge bake, and the on-screen pass samples the
-     * baked lines rather than the mask, so there is nothing to composite the
-     * subject back from.
+     * Depth reuses the subject mask Sketch computes for its own edge bake,
+     * bound a second time on unit 3 for the on-screen pass.
      */
     private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
 
@@ -63,10 +61,8 @@ class NeonRenderer(
 
     fun applyClockState(state: ClockOverlayState) {
         clockOverlay.applyState(state)
-        val wanted = state.needsSubjectMask()
-        val changed = clockDepthWanted != wanted
-        clockDepthWanted = wanted
-        refreshSubjectMaskNeed(changed)
+        clockDepthWanted = state.needsSubjectMask()
+        refreshSubjectMaskNeed()
     }
 
     fun beginClockEntry() = clockOverlay.beginEntry()
@@ -112,22 +108,28 @@ class NeonRenderer(
         }
     }
 
-    private data class PendingSubjectMask(
-        val generation: Long,
-        val bitmap: Bitmap
-    )
-
     private var currentSet = TextureSet()
     private var nextSet = TextureSet()
     private var generationCounter = 0L
-    @Volatile private var latestSubjectRequest = 0L
 
     @Volatile
     private var pendingPlaylistBitmap: Bitmap? = null
 
-    private val subjectMaskLock = Any()
-    private var pendingSubjectMask: PendingSubjectMask? = null
-    private var subjectMaskExtractor: SubjectMaskExtractor? = null
+    /**
+     * The same coordinator every other effect uses: one extraction per image,
+     * and a cache, so the photo Atmosphere or Colour Fill already segmented is
+     * not segmented again here.
+     */
+    private val subjectMasks = SubjectMaskCoordinator(context) {
+        onSketchUpdated?.invoke()
+    }
+
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
     @Volatile private var subjectSegmentationEnabled = false
 
     /**
@@ -188,9 +190,8 @@ class NeonRenderer(
     }
 
     fun configureSubjectSegmentation(enabled: Boolean) {
-        val changed = subjectSegmentationEnabled != enabled
         subjectSegmentationEnabled = enabled
-        refreshSubjectMaskNeed(changed)
+        refreshSubjectMaskNeed()
     }
 
     /**
@@ -198,25 +199,25 @@ class NeonRenderer(
      * when neither does. Reloading on the transition into "wanted" is what
      * dispatches the extraction: one request is served per image, so an image
      * loaded while nobody wanted a mask would otherwise never get one.
+     *
+     * Only on that transition. This runs on every clock push and every
+     * settings sync, and it used to reload whenever a mask was wanted at all:
+     * each reload deleted the mask and started segmentation over, so a mask
+     * that took longer than the gap between two pushes never arrived, and the
+     * sketch lost its subject. Turning Sketch's own segmentation on or off
+     * while depth already holds a mask needs no reload — configure() rebuilds
+     * the sketch.
      */
-    private fun refreshSubjectMaskNeed(changed: Boolean) {
+    private fun refreshSubjectMaskNeed() {
         val wanted = subjectMaskWanted
-        if (!wanted) {
-            latestSubjectRequest = -1L
-            subjectMaskExtractor?.close()
-            subjectMaskExtractor = null
-            takePendingSubjectMask()?.bitmap?.recycle()
-        }
-        if (changed || wanted) needsReload = true
+        if (subjectMasks.configure(wanted) && wanted) needsReload = true
     }
 
     fun release() {
         onSketchUpdated = null
         onAnimationFrameRequested = null
         clockOverlay.release()
-        subjectMaskExtractor?.close()
-        subjectMaskExtractor = null
-        takePendingSubjectMask()?.bitmap?.recycle()
+        subjectMasks.close()
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -239,7 +240,7 @@ class NeonRenderer(
 
         currentSet.reset()
         nextSet.reset()
-        takePendingSubjectMask()?.bitmap?.recycle()
+        subjectMasks.discardPending()
         needsReload = true
         // The clock's texture id belonged to the destroyed context.
         clockOverlay.resetForNewContext()
@@ -296,35 +297,12 @@ class NeonRenderer(
     }
 
     private fun startSubjectExtraction(bitmap: Bitmap, generation: Long) {
-        if (!subjectMaskWanted) return
-        val extractor = subjectMaskExtractor ?: SubjectMaskExtractor(
-            context,
-            ::onSubjectMaskResult
-        ).also { subjectMaskExtractor = it }
-        latestSubjectRequest = generation
-        extractor.extract(bitmap, generation)
-    }
-
-    private fun onSubjectMaskResult(generation: Long, mask: Bitmap?) {
-        if (mask == null) return
-        if (!subjectMaskWanted || generation != latestSubjectRequest) {
-            mask.recycle()
-            return
-        }
-        synchronized(subjectMaskLock) {
-            if (pendingSubjectMask?.generation?.let { it > generation } == true) {
-                mask.recycle()
-                return
-            }
-            pendingSubjectMask?.bitmap?.recycle()
-            pendingSubjectMask = PendingSubjectMask(generation, mask)
-        }
-        onSketchUpdated?.invoke()
+        subjectMasks.request(bitmap, generation)
     }
 
     private fun applyPendingSubjectMask() {
-        val pending = takePendingSubjectMask() ?: return
-        if (pending.generation != currentSet.generation) {
+        val pending = subjectMasks.takePending() ?: return
+        if (pending.generation != currentSet.generation || !subjectMaskWanted) {
             pending.bitmap.recycle()
             return
         }
@@ -337,12 +315,6 @@ class NeonRenderer(
 
         buildSketch(currentSet)
         needsSketchRebuild = false
-    }
-
-    private fun takePendingSubjectMask(): PendingSubjectMask? = synchronized(subjectMaskLock) {
-        val pending = pendingSubjectMask
-        pendingSubjectMask = null
-        pending
     }
 
     /**
@@ -536,6 +508,7 @@ class NeonRenderer(
         )
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         clockOverlay.draw(
+            scrollOffsetX = scrollOffsetX,
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,

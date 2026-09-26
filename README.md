@@ -70,22 +70,33 @@ If Canvas Sketch cannot find a confident foreground subject, it falls back to sk
 
 #### Wallpaper Clock
 
-Every effect can draw a clock into the wallpaper itself (Advanced Settings → Clock; single-image mode only). **Choose style, position & size** opens a live preview of the clock on your wallpaper. A box is drawn around it: drag inside the box to move the clock, drag a corner to change both dimensions or an edge to change one, and a centre guide lights up when it is exactly centred. There are no size sliders — the box is the size. The clock is also always shown in the wallpaper picker's preview, whichever screen it is set to appear on.
+Every effect can draw a clock into the wallpaper itself (**Advanced Settings → Clock**; single-image mode only, because in playlist and theme modes the image changes underneath it). Turn on **Show clock on wallpaper**, then open **Choose style, position & size** for a live preview of the clock on your wallpaper. A box is drawn around it: drag inside the box to move the clock, drag a corner to change both dimensions or an edge to change one, and a centre guide lights up when it is exactly centred. There are no size sliders — the box is the size. The clock is also always shown in the wallpaper picker's preview, whichever screen it is set to appear on.
 
-Four faces, in two kinds of glass, each offered as one row or two.
+**Hide the system clock:** the wallpaper clock looks best when your phone's own lock-screen clock is hidden, so you don't see two. Tap the **ⓘ** next to the Clock heading for instructions matched to your device's brand and Android version (Samsung, Google Pixel, Nothing, OnePlus/OPPO/realme, Xiaomi/Redmi/POCO, Motorola), or a suggested web search for other brands. The device is identified from its build information, with no permissions. These methods may not work on every device or software version, so check for your own model.
+
+Six faces, in three kinds, each offered as one row or stacked:
 
 * **Glass** and **Glass Stacked:** the original face. Clear through the middle, with the light caught around the bevel at the edge of every stroke.
 * **Translucent** and **Translucent Stacked:** each digit is a solid piece of glass. The wallpaper bends as it passes through — hardest where the stroke rolls over at its edge, gently across the middle — and what is behind is magnified the way thickness magnifies.
+* **Adaptive** and **Adaptive Stacked:** modelled on One UI's stretch clock. A solid, condensed face whose digits each stretch to their own length: a digit with open wallpaper beneath it runs long, and one above the subject stops short, so the clock fits itself around the person or object in the photo and never touches it. Only the straight strokes grow; the curves keep their size, so a digit reads the same at any length. The clock is always drawn in front of the subject. When the wallpaper comes into view, the digits arrive from their compact height, overshoot their fit by about a third and settle back in one continuous elastic motion. The clock and date glide into place, and the wallpaper eases out from a slight zoom over the same motion. Adaptive Stacked puts the hours above the minutes in two stretching columns and has no colon.
 
-A stacked face puts the hours above the minutes, which goes much larger on a phone, with the separator's two dots turned on their side in the gap between them. **Glass** in one row is the default.
+A stacked glass face puts the hours above the minutes, which goes much larger on a phone, with the separator's two dots turned on their side in the gap between them. **Glass** in one row is the default.
 
-**Frost** sets how diffuse a translucent face is, from clear — the wallpaper sharp through the digits — through etched to nearly milk-white. The glass faces have no frost: they are clear except at their bevel, so frosting one would fog an edge and nothing else. **Tint** colours what comes through while leaving the highlights white; it offers a palette, a colour wheel, and an eyedropper that samples the wallpaper itself, and left on **Auto** it follows the image.
+**Colour** (on the glass faces, **Glass tint**) offers a palette, a colour wheel, and an eyedropper that samples the wallpaper itself. **Auto** follows the image. The Adaptive faces add an **Adaptive** colour: a gradient made from the wallpaper's dominant colour, deeper at the top and lighter further down. The shade depends on how far down a stroke is, so every digit shows the same shade at the same length, and at arrival the digits fade from a uniform muted shade into the gradient. Auto and Adaptive also follow the effect as it changes the wallpaper, for example going grey while Color Fill shows the image in black and white.
 
-**Show date** adds the day and date in the clock's own typeface, lit as its own piece of glass rather than as a scaled-down copy of the clock's. It gets its own box, so it is placed and sized exactly like the clock rather than being pinned above it: drag whichever box you are touching, or pick **Clock** or **Date** to be explicit.
+* **Opacity:** how strongly the clock shows.
+* **Frost:** (Translucent faces) how diffuse the glass is, from clear — the wallpaper sharp through the digits — through etched to nearly milk-white. The Glass faces have no frost: they are clear except at their bevel, so frosting one would fog an edge and nothing else.
+* **Weight:** (Adaptive faces) the stroke from thin to bold. The digits are drawn from centre lines rather than a font, so every weight is exact.
+* **Hour format:** System, 12-hour, or 24-hour. The clock shows hours and minutes only.
+* **Show date:** adds the day and date in the clock's own style. It gets its own box, so it is placed and sized exactly like the clock rather than being pinned above it: drag whichever box you are touching, or pick **Clock** or **Date** to be explicit.
+* **Animate digit changes:** digits slide as the time changes.
 
-The digits are stored as distance fields rather than as pictures of glyphs, so the wallpaper rebuilds their outlines at whatever size you set rather than scaling up the pixels they were drawn at — the clock is sharp at any size, and so is the date beside it.
+The glass digits are stored as distance fields rather than as pictures of glyphs, and the Adaptive digits are generated from their strokes, so the wallpaper rebuilds the outlines at whatever size you set — the clock is sharp at any size, and so is the date beside it.
 
-**Depth effect** draws the photo's subject back over the clock, so the clock sits behind them, using the same on-device subject model as subject isolation (see above). The clock shows hours and minutes only, in your choice of 12- or 24-hour or whatever the system is set to.
+Back in Advanced Settings:
+
+* **Show on:** Lock screen, Home screen, or Both — offered for effects that keep the photo sharp on both screens (Color Fill, Canvas Sketch, Halftone, and their reverses). Effects that blur or refract one side place the clock on the side that stays clear.
+* **Depth effect:** draws the photo's subject back over the clock, so the clock sits behind them, using the same on-device subject model as subject isolation (see above). It does not apply to the Adaptive faces, which fit around the subject and always stay in front. They use the same model to find where the subject is.
 
 ### 2\. Select Image & Playlist Mode
 After selecting an effect, you will be prompted to choose your wallpaper mode:
@@ -167,6 +178,7 @@ Take full control of the animation and look. You can now tweak the following set
 * **Sketch Detail:** (Canvas Sketch Only) Controls how many wallpaper contours are retained.
 * **Line Thickness:** (Canvas Sketch Only) Adjusts the width of the monochrome sketch lines.
 * **Subject Segmentation:** (Canvas Sketch Only) Optionally anchors the sketch to a detected foreground subject.
+* **Wallpaper Clock:** (Single-image mode) A Glass, Translucent, or Adaptive clock drawn into the wallpaper, with its own style, colour, weight, date, and placement controls. See [Wallpaper Clock](#wallpaper-clock).
 * **Background Only:** (Glass and Halftone Effects Only) Keeps the detected subject clear while applying reeded glass or halftone printing to the background. Canvas, Glass, and Halftone share ML Kit in Google Play builds or bundled [U2NetP](https://github.com/xuebinqin/U-2-Net) in F-Droid builds.
 ### Animation & Behavior
 * **Animate Transitions:** Turn lock-to-home animation on, or keep the effect fully applied on the selected screen or screens and the original image on any other screen, with no unlock transition.
@@ -203,7 +215,7 @@ I've made a Telegram group for discussing issues and feature suggestions. You ca
 
 ## Known Issues
 
-* **Samsung Adaptive Clock:** One UI may disable or limit its adaptive clock treatment while a live wallpaper is active.
+* **Samsung's own adaptive clock:** One UI may disable or limit its built-in adaptive lock-screen clock while a live wallpaper is active. Atmo's **Adaptive** wallpaper clock (see [Wallpaper Clock](#wallpaper-clock)) is drawn by the wallpaper itself and is not affected.
 
 ## Build & Installation
 
@@ -211,17 +223,17 @@ This project is built using Kotlin, C++17, the Android NDK, and Gradle. The proj
 
 Atmo Engine keeps one shared codebase and combines two flavor dimensions:
 
-All artifacts in the table below use version name **7.2.6**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
+All artifacts in the table below use version name **7.3.0**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
 
 | Flavor | Minimum Android | Target SDK | Version code | Intended release |
 | --- | ---: |-----------:|-------------:| --- |
-| `v33Play` | Android 13 / API 33 |     API 33 |     `300726` | ML Kit APK |
-| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300726` | FOSS APK for F-Droid |
-| `v33Folder` | Android 13 / API 33 |     API 33 |     `300726` | ML Kit APK with folder playlists |
-| `v35Play` | Android 15 / API 35 |     API 36 |     `400726` | Google Play ML Kit AAB |
-| `v36Play` | Android 16 / API 36 |     API 36 |     `500726` | ML Kit APK |
-| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500726` | FOSS APK |
-| `v36Folder` | Android 16 / API 36 |     API 36 |     `500726` | ML Kit APK with folder playlists |
+| `v33Play` | Android 13 / API 33 |     API 33 |     `300730` | ML Kit APK |
+| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300730` | FOSS APK for F-Droid |
+| `v33Folder` | Android 13 / API 33 |     API 33 |     `300730` | ML Kit APK with folder playlists |
+| `v35Play` | Android 15 / API 35 |     API 36 |     `400730` | Google Play ML Kit AAB |
+| `v36Play` | Android 16 / API 36 |     API 36 |     `500730` | ML Kit APK |
+| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500730` | FOSS APK |
+| `v36Folder` | Android 16 / API 36 |     API 36 |     `500730` | ML Kit APK with folder playlists |
 
 The `play` source set contains only the ML Kit implementation and explicit model-download controller. The `fdroid` source set contains only [U2NetP](https://github.com/xuebinqin/U-2-Net), its model files, and the source-built FOSS LiteRT runtime. UI, effects, playlists, palette behavior, and settings remain shared in `main`. The `folder` flavor reuses the `play` source set and additionally declares `READ_MEDIA_IMAGES` and `READ_MEDIA_VISUAL_USER_SELECTED` for folder playlists; the Play Store and F-Droid builds do not request photo access. Model and runtime provenance is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 

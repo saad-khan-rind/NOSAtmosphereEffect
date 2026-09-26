@@ -108,6 +108,45 @@ uniform float uClockDepth;
 // 1 when the face is drawn as refracting glass (ClockStyle.liquidGlass).
 uniform float uClockGlass;
 
+// ------------------------------------------------------- the effect's grade
+// What shows through the glass is the photo from a little way off, so it is
+// graded here the way main() grades the wallpaper, rather than patched with
+// (graded - raw) taken at this pixel. That patch only cancels for a grade that
+// adds, and this one doesn't: it is greyscale, then a dim. Wherever the bend
+// crossed an edge in the photo — blue sky meeting a brown wall — the raw
+// colours stopped cancelling, and with the lock screen dimmed to black the
+// leftover was the photo's own colour, lit up inside the digit.
+//
+// This pixel's paint state, filled in by main() before the clock is drawn.
+float fillCover;
+float fillRim;
+
+vec3 gradeWallpaper(vec3 raw) {
+    vec3 mono = vec3(dot(raw, vec3(0.299, 0.587, 0.114)));
+    vec3 graded = mix(raw, mono, fillCover) + fillRim * 0.06;
+    return graded * mix(1.0, 1.0 - uDimLevel, uBlurStrength);
+}
+
+// ------------------------------------------------------- clock colour
+// A clock whose colour comes from the wallpaper — Auto, or the Adaptive
+// face's shading — follows the effect too: where the effect has drained the
+// colour out of the photo (Colour Fill's black and white, the sketch, a grey
+// halftone) the clock is drained with it, frame by frame through the
+// transition. Only the colour goes, never the brightness: a clock that dimmed
+// with the screen would vanish into it.
+//
+// [clockChroma] is how much of the photo's colour this effect is showing at
+// this pixel, 0 (none) .. 1 (all of it).
+float clockChroma() {
+    return 1.0 - fillCover;
+}
+
+vec4 clockFollowEffect(vec4 clockSample) {
+    // Linear, so it applies to the texture's premultiplied colour directly.
+    vec3 grey = vec3(dot(clockSample.rgb, vec3(0.299, 0.587, 0.114)));
+    return vec4(mix(grey, clockSample.rgb, clamp(clockChroma(), 0.0, 1.0)), clockSample.a);
+}
+
 // ------------------------------------------------------- liquid glass clock
 // Drawn instead of the flat face when the style asks for glass. The face
 // texture only supplies the glyph SHAPE (its alpha); everything visible is the
@@ -116,9 +155,9 @@ uniform float uClockGlass;
 // gradient over a few texels, so the bevel costs no extra texture and no CPU
 // work per frame.
 //
-// uTextureSharp is the sharp photo. What the effect had already drawn here ([color])
-// is folded back in as a correction, so the glass keeps the effect's grade
-// (dim, monochrome, ...) instead of punching through to the raw photo.
+// uTextureSharp is the sharp photo, run through gradeWallpaper so the glass keeps
+// the effect's grade (dim, monochrome, ...) instead of punching through to
+// the raw photo.
 vec3 clockGlass(
     vec3 color,
     vec2 clockUv,
@@ -251,11 +290,7 @@ vec3 clockGlass(
             texture(uTextureSharp, clamp(classicUv + vec2(0.0, classicBlur), 0.0, 1.0)).rgb +
             texture(uTextureSharp, clamp(classicUv - vec2(0.0, classicBlur), 0.0, 1.0)).rgb
         ) / 6.0;
-        classicRefracted = clamp(
-            classicRefracted + (color - texture(uTextureSharp, vTexCoord).rgb),
-            0.0,
-            1.0
-        );
+        classicRefracted = clamp(gradeWallpaper(classicRefracted), 0.0, 1.0);
         vec3 classicNormal = normalize(vec3(-slope * 2.4, 1.0));
         float specular = pow(max(dot(classicNormal, light), 0.0), 22.0) * edge;
         float rim = smoothstep(0.12, 0.85, edge);
@@ -310,7 +345,7 @@ vec3 clockGlass(
     }
     // Whatever the effect did to the wallpaper behind the clock applies to
     // what shows through it too.
-    refracted = clamp(refracted + (color - texture(uTextureSharp, vTexCoord).rgb), 0.0, 1.0);
+    refracted = clamp(gradeWallpaper(refracted), 0.0, 1.0);
 
     vec3 glass = mix(refracted, refracted * tint, 0.55);
     if (frostLevel > 0.004) {
@@ -354,7 +389,14 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
         return color;
     }
     vec4 clockSample = texture(uClockTexture, clockUv);
-    if (uClockGlass > 0.5) {
+    // 100 added to the mode says the colour follows the wallpaper — see
+    // ClockOverlayState.glassMeta — and so follows the effect as well.
+    float clockMode = uClockGlass;
+    if (clockMode > 50.0) {
+        clockMode -= 100.0;
+        clockSample = clockFollowEffect(clockSample);
+    }
+    if (clockMode > 0.5) {
         // 3 is the original glass face and 1 + frost a translucent one —
         // see ClockOverlayState.glassMeta.
         return clockGlass(
@@ -363,7 +405,7 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
             clockSample,
             uClockRect.zw,
             uClockOpacity,
-            uClockGlass
+            clockMode
         );
     }
     // A flat face: no glass, but the silhouette still comes from the field
@@ -415,8 +457,6 @@ vec3 applyClockDepth(vec3 color, vec3 subjectColor, vec2 maskUv) {
 
 void main() {
     vec4 color = texture(uTextureSharp, vTexCoord);
-    float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-    vec3 bwColor = vec3(gray);
 
     vec2 uv = vTexCoord;
     uv.x *= uAspectRatio;
@@ -425,13 +465,8 @@ void main() {
 
     float progress = uBlurStrength;
 
-    float rim;
-    float cover = paintCoverage(uv, origin, uAspectRatio, progress, rim);
-
-    vec3 finalColor = mix(color.rgb, bwColor, cover);
-    finalColor += rim * 0.06;
-
-    finalColor *= mix(1.0, 1.0 - uDimLevel, uBlurStrength);
+    fillCover = paintCoverage(uv, origin, uAspectRatio, progress, fillRim);
+    vec3 finalColor = gradeWallpaper(color.rgb);
 
     vec3 beforeClock = finalColor;
     finalColor = compositeClock(finalColor, vEffectCoord);

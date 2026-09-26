@@ -58,6 +58,8 @@ data class ClockOverlayState(
     val opacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
     /** How frosted the glass is, 0..1. See [glassMeta] for how it travels. */
     val frost: Float = AtmosphereClockPolicy.DEFAULT_FROST,
+    /** The Adaptive face's stroke weight, 0 thin .. 1 bold. */
+    val weight: Float = AtmosphereClockPolicy.DEFAULT_WEIGHT,
     /** The stored preference; may be [ClockPalette.AUTO]. */
     val requestedColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR,
     /** Already resolved — never [ClockPalette.AUTO]. */
@@ -99,7 +101,13 @@ data class ClockOverlayState(
      * sane rather than nothing.
      */
     val faceContentTop: Float = 0f,
-    val faceContentHeight: Float = 1f
+    val faceContentHeight: Float = 1f,
+    /**
+     * Vulkan-only, dynamic: how much to magnify the wallpaper for the face
+     * last uploaded — the Adaptive face's arrival zoom, 1 otherwise. The GLES
+     * path reads it from its texture provider instead.
+     */
+    val wallpaperZoom: Float = 1f
 ) {
     val style: ClockStyle
         get() = ClockStyle.fromId(styleId)
@@ -111,8 +119,14 @@ data class ClockOverlayState(
         get() = AtmosphereClockPolicy.hourFormatOverride(hourFormat)
 
     fun sanitized(): ClockOverlayState {
+        val safeStyle = ClockStyle.fromId(styleId)
         return copy(
-            styleId = AtmosphereClockPolicy.sanitizeStyleId(styleId),
+            styleId = safeStyle.id,
+            // The Adaptive face is fitted around the subject and always drawn
+            // over it. Depth would put the subject back on top wherever a
+            // digit touches it — a spring's overshoot, a digit that could not
+            // get any shorter — which is exactly what that face avoids.
+            depthEnabled = depthEnabled && !safeStyle.adaptsToSubject,
             centerX = AtmosphereClockPolicy.sanitizeCenterX(centerX),
             top = AtmosphereClockPolicy.sanitizeTop(top),
             height = AtmosphereClockPolicy.sanitizeHeight(height),
@@ -124,11 +138,12 @@ data class ClockOverlayState(
             dateWidthScale = AtmosphereClockPolicy.sanitizeAxisScale(dateWidthScale),
             opacity = AtmosphereClockPolicy.sanitizeOpacity(opacity),
             frost = AtmosphereClockPolicy.sanitizeFrost(frost),
+            weight = AtmosphereClockPolicy.sanitizeWeight(weight),
             requestedColor = AtmosphereClockPolicy.sanitizeColor(requestedColor),
             // A stray AUTO reaching a renderer would draw an opaque black
             // clock, so it is collapsed to the fallback here rather than
             // trusted to have been resolved upstream.
-            color = if (ClockPalette.isAuto(color)) {
+            color = if (ClockPalette.followsWallpaper(color)) {
                 ClockPalette.DEFAULT_FALLBACK
             } else {
                 color or (0xFF shl 24)
@@ -139,7 +154,8 @@ data class ClockOverlayState(
             unlockedProgress = unlockedProgress.finiteOr(1f),
             textureAspect = textureAspect.finiteOr(1f).coerceIn(0.05f, 20f),
             faceContentTop = faceContentTop.finiteOr(0f).coerceIn(0f, 1f),
-            faceContentHeight = faceContentHeight.finiteOr(1f).coerceIn(0.01f, 1f)
+            faceContentHeight = faceContentHeight.finiteOr(1f).coerceIn(0.01f, 1f),
+            wallpaperZoom = wallpaperZoom.finiteOr(1f).coerceIn(1f, 1.5f)
         )
     }
 
@@ -217,7 +233,12 @@ data class ClockOverlayState(
     /**
      * The single number the shaders read for the glass: 0 draws nothing,
      * `1 + frost` is a translucent face at that frost level, and 3 is the
-     * original glass face, which has no frost.
+     * original glass face, which has no frost. The Adaptive face is solid: 0.
+     *
+     * [FOLLOWS_WALLPAPER] is added when the colour comes from the wallpaper
+     * (Auto, or the Adaptive shading) rather than being picked: the shaders
+     * then drain the clock's colour wherever the effect has drained the
+     * photo's, so a black-and-white screen gets a grey clock.
      *
      * Three settings in one float because the shaders take it in a slot that
      * already exists — `uClockGlass` on GLES, `clockMeta.w` on Vulkan. Adding
@@ -226,10 +247,25 @@ data class ClockOverlayState(
      * before, and the encoding is exact.
      */
     val glassMeta: Float
+        get() = glassMode +
+            if (ClockPalette.followsWallpaper(requestedColor)) FOLLOWS_WALLPAPER else 0f
+
+    /**
+     * The treatment alone, without [glassMeta]'s colour flag: for the
+     * calibration preview, which draws over the plain photo and so has no
+     * effect for the colour to follow.
+     */
+    val glassMode: Float
         get() = when (treatment) {
             ClockTreatment.GLASS -> 3f
             ClockTreatment.TRANSLUCENT -> 1f + AtmosphereClockPolicy.sanitizeFrost(frost)
+            // Solid digits: the shaders' flat path.
+            ClockTreatment.ADAPTIVE -> 0f
         }
+
+    /** The Adaptive face paints each digit a tint of what is behind it. */
+    val adaptiveColors: Boolean
+        get() = ClockPalette.isAdaptive(requestedColor)
 
     /**
      * The face texture's top edge — where the renderers place the bitmap.
@@ -253,7 +289,12 @@ data class ClockOverlayState(
     }
 
     /** True when anything on screen needs a subject mask for the clock. */
-    fun needsSubjectMask(): Boolean = enabled && depthEnabled
+    fun needsSubjectMask(): Boolean = enabled && (depthEnabled || style.adaptsToSubject)
+
+    companion object {
+        /** See [glassMeta]. Far above every treatment's own value. */
+        const val FOLLOWS_WALLPAPER = 100f
+    }
 
     private fun Float.finiteOr(fallback: Float): Float {
         return if (isFinite()) this else fallback

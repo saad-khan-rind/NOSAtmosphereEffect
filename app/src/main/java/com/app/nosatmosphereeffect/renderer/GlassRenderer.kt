@@ -152,6 +152,13 @@ class GlassRenderer(
         onSubjectMaskUpdated?.invoke()
     }
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
+
     private val vertices = floatArrayOf(
         -1f, -1f, 0f, 1f,
         1f, -1f, 1f, 1f,
@@ -216,7 +223,10 @@ class GlassRenderer(
     private fun refreshSubjectMaskNeed() {
         val wanted = backgroundOnly || clockOverlay.state.needsSubjectMask()
         val changed = subjectMasks.configure(wanted)
-        if (wanted && (changed || currentSet.isValid())) {
+        // Only on that transition. This also runs from applyClockState, on
+        // every clock push (tint resolved, preferences synced), and reloading
+        // there re-decoded the wallpaper and dropped the mask each time.
+        if (wanted && changed) {
             needsReload = true
         }
     }
@@ -440,6 +450,7 @@ class GlassRenderer(
         GLES30.glUniform1i(handles.subjectMask, 1)
 
         clockOverlay.draw(
+            scrollOffsetX = scrollOffsetX,
             programId = handles.program,
             progress = progress,
             screenAspect = if (surfaceHeight > 0) {

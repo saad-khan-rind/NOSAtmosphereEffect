@@ -27,7 +27,8 @@ struct HalftoneParams {
     float hasSubject = 0.0F;
     float scrollOffsetX = 0.5F;
     float scrollWindowX = 1.0F;
-    float padding0 = 0.0F;
+    // The Adaptive clock's arrival zoom on the wallpaper; 1 when none.
+    float wallpaperZoom = 1.0F;
     float padding1 = 0.0F;
     // Clock overlay, appended after the existing fields so none of the
     // offsets above shift.
@@ -231,7 +232,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeSetS
     jfloat clockOpacity,
     jboolean clockUploaded,
     jboolean clockDepth,
-    jfloat clockGlass
+    jfloat clockGlass,
+    jfloat wallpaperZoom
 ) {
     HalftoneHandle* halftone = fromHandle(handle);
     if (halftone == nullptr) return;
@@ -251,6 +253,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeSetS
         0.0F,
         0.0F
     };
+    params.wallpaperZoom = wallpaperZoom;
     // Depth needs only a mask, so it is gated on hasSubject alone — NOT on
     // isolateBackground the way controls.z/.w above are. The clock's depth
     // effect is its own setting and has to work with the Halftone effect's

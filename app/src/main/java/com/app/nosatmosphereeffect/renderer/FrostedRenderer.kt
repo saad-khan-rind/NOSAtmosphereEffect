@@ -88,6 +88,13 @@ class FrostedRenderer(
         onAnimationFrameRequested?.invoke()
     }
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMask.sceneSink = clockOverlay.sceneSink
+    }
+
+
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
         set(value) {
@@ -334,6 +341,7 @@ class FrostedRenderer(
 
         subjectMask.bind(programId, GLES30.GL_TEXTURE3, 3, "uClockSubjectMask")
         clockOverlay.draw(
+            scrollOffsetX = scrollOffsetX,
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,

@@ -100,12 +100,16 @@ object ClockPreferences {
                 AtmosphereClockPolicy.FROST_KEY,
                 AtmosphereClockPolicy.DEFAULT_FROST
             ),
+            weight = preferences.readFloat(
+                AtmosphereClockPolicy.WEIGHT_KEY,
+                AtmosphereClockPolicy.DEFAULT_WEIGHT
+            ),
             requestedColor = requestedColor,
             // Left unresolved on purpose: deriving the wallpaper tint decodes
             // an image and runs Palette, which must not happen wherever this
             // is called from. ClockRuntime folds the real colour in once it
             // has one, and until then the fallback shows.
-            color = if (ClockPalette.isAuto(requestedColor)) {
+            color = if (ClockPalette.followsWallpaper(requestedColor)) {
                 ClockPalette.DEFAULT_FALLBACK
             } else {
                 requestedColor

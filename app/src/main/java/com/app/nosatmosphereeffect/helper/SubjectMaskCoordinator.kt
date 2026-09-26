@@ -28,6 +28,13 @@ internal class SubjectMaskCoordinator(
     /** Cache fingerprint of the image each in-flight generation was cut from. */
     private val fingerprints = HashMap<Long, Long>()
 
+    /**
+     * Shown every image this segments and every answer it gets, so the
+     * Adaptive clock can fit itself around the same subject the renderer
+     * masks with. Optional: only renderers that draw the clock set it.
+     */
+    @Volatile var sceneSink: ClockSceneSink? = null
+
     fun configure(enabled: Boolean): Boolean {
         var extractorToClose: SubjectMaskExtractor? = null
         var bitmapToRecycle: Bitmap? = null
@@ -81,6 +88,12 @@ internal class SubjectMaskCoordinator(
                 ::onMaskResult
             ).also { extractor = it }
         }
+        // Before the extraction is dispatched, while the caller still holds
+        // the bitmap: the answer can arrive (from the cache) before this
+        // returns, and the scene must already know which image it is for.
+        sceneSink?.let { sink ->
+            runCatching { sink.onSceneImage(generation, bitmap) }
+        }
         if (activeExtractor == null) {
             // Same pixels were segmented recently: serve that result instead
             // of running inference again.
@@ -114,6 +127,15 @@ internal class SubjectMaskCoordinator(
 
     private fun onMaskResult(generation: Long, bitmap: Bitmap?) {
         val fingerprint = synchronized(lock) { fingerprints.remove(generation) }
+        // Read before the mask is handed on: the consumer recycles it once it
+        // has been uploaded. A null answer is news too — "no subject here"
+        // lets the Adaptive clock run its digits full length.
+        val current = synchronized(lock) { !closed && enabled && generation == latestRequest }
+        if (current) {
+            sceneSink?.let { sink ->
+                runCatching { sink.onSceneMask(generation, bitmap?.takeIf { !it.isRecycled }) }
+            }
+        }
         if (bitmap == null) return
         // Cached even when this particular consumer has moved on: the next
         // engine or surface to show the same photo wants exactly this mask.

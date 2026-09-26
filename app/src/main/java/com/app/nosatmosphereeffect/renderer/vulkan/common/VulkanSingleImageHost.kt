@@ -98,6 +98,10 @@ internal abstract class VulkanSingleImageHost<State : Any>(
 
     protected fun currentEffectState(): State = latestState.get()
 
+    /** The launcher's page offset, for anything drawn against the screen. */
+    protected val wallpaperScrollOffsetX: Float
+        get() = scrollOffsetX
+
     fun reloadTexture() {
         postIfActive {
             needsReload = true

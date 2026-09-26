@@ -63,12 +63,14 @@ internal object VulkanAtmosphereNative {
         clockOpacity: Float,
         clockUploaded: Boolean,
         clockDepth: Boolean,
-        /** 0 for a flat face, 1 + frost for glass — ClockOverlayState.glassMeta. */
+        /** 0 for a flat face (-1 tinted from behind), 1 + frost for glass — ClockOverlayState.glassMeta. */
         clockGlass: Float,
         blobColors: FloatArray,
         blobPositions: FloatArray,
         blobSizes: FloatArray,
-        blobCount: Int
+        blobCount: Int,
+        /** The wallpaper's magnification this frame — the Adaptive clock's arrival zoom, else 1. */
+        wallpaperZoom: Float
     ): Boolean
 
     external fun nativeRender(handle: Long): Int
@@ -156,7 +158,8 @@ internal class VulkanAtmosphereBridge(
             blobColors = safe.blobs.colors,
             blobPositions = safe.blobs.positions,
             blobSizes = safe.blobs.sizes,
-            blobCount = safe.blobs.count
+            blobCount = safe.blobs.count,
+            wallpaperZoom = if (safe.clockEnabled) safe.clockWallpaperZoom else 1f
         )) {
             "The native Vulkan Atmosphere state could not be updated"
         }

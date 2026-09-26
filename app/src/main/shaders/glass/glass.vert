@@ -35,6 +35,11 @@ void main() {
 
     gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
     vec2 coordinate = coordinates[gl_VertexIndex];
+    // The Adaptive clock's arrival zoom: the photo starts a little magnified
+    // about the screen's centre and settles with the clock. The clock itself
+    // is placed by vEffectCoord, which is left alone. 0 means no zoom.
+    float wallpaperZoom = params.viewport.w > 0.0 ? params.viewport.w : 1.0;
+    coordinate = 0.5 + (coordinate - 0.5) / wallpaperZoom;
     float windowX = max(params.viewport.y, 0.001);
     coordinate.x =
         params.viewport.x * (1.0 - windowX) +
