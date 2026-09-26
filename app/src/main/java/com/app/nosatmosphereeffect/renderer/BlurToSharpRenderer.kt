@@ -207,11 +207,11 @@ class BlurToSharpRenderer(
     private fun refreshSubjectMaskNeed() {
         val wanted = glassBackgroundOnly || clockOverlay.state.needsSubjectMask()
         val changed = subjectMasks.configure(wanted)
-        if (
-            wanted &&
-            currentSet.isValid() &&
-            (changed || !currentSet.hasSubject)
-        ) {
+        // Once per transition into "wanted", not "until a mask exists": this
+        // also runs on every clock push, and for a photo with no subject that
+        // re-decoded the wallpaper and re-ran segmentation every time. The
+        // forward AtmosphereRenderer was fixed for the same loop.
+        if (wanted && currentSet.isValid() && changed) {
             needsReload = true
         }
     }

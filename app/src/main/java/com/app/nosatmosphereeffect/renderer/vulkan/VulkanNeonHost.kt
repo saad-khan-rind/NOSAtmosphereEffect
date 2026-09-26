@@ -89,24 +89,6 @@ internal class VulkanNeonHost(
         }
     }
 
-    /**
-     * Keeps the state's clock fields in step with the overlay.
-     *
-     * Called from updateState on whichever thread changed a preference; the
-     * dynamic fields are read from the overlay rather than carried forward
-     * from a snapshot, for the reason above.
-     */
-    private fun syncClockState(clock: ClockOverlayState) {
-        clockOverlay.applyState(clock)
-        updateEffectState { current ->
-            current.copy(
-                clock = clockOverlay.withFaceMetrics(clock, current.clock).copy(
-                    faceUploaded = clockOverlay.hasUploadedFace && clock.enabled
-                )
-            ).sanitized()
-        }
-    }
-
     init {
         val safeInitial = initialState.sanitized()
         subjectMasks.configure(
@@ -126,8 +108,23 @@ internal class VulkanNeonHost(
         val maskWanted = sanitized.subjectSegmentationEnabled ||
             sanitized.clock.needsSubjectMask()
         val segmentationChanged = subjectMasks.configure(maskWanted)
-        updateEffectState { sanitized }
-        syncClockState(sanitized.clock)
+        clockOverlay.applyState(sanitized.clock)
+        // hasSubject and the clock's face fields describe what this host has
+        // uploaded, which the controller's snapshot never knows about — it
+        // always says "nothing". Taking hasSubject from the snapshot switched
+        // depth off for good: the mask upload is skipped once a revision is on
+        // the GPU, so nothing set it back. Both are read inside the one update,
+        // like the Glass and Halftone hosts, so the worker never sees a frame
+        // between the snapshot and the correction, and an upload landing
+        // concurrently is not lost.
+        updateEffectState { current ->
+            sanitized.copy(
+                hasSubject = maskWanted && current.hasSubject,
+                clock = clockOverlay.withFaceMetrics(sanitized.clock, current.clock).copy(
+                    faceUploaded = clockOverlay.hasUploadedFace && sanitized.clock.enabled
+                )
+            ).sanitized()
+        }
         if (segmentationChanged && maskWanted) {
             reloadTexture()
         } else if (

@@ -171,7 +171,10 @@ class HalftoneRenderer(
     private fun refreshSubjectMaskNeed() {
         val wanted = backgroundOnly || clockOverlay.state.needsSubjectMask()
         val changed = subjectMasks.configure(wanted)
-        if (wanted && (changed || currentSet.isValid())) {
+        // Only on that transition. This also runs from applyClockState, on
+        // every clock push (tint resolved, preferences synced), and reloading
+        // there re-decoded the wallpaper and dropped the mask each time.
+        if (wanted && changed) {
             needsReload = true
         }
     }
