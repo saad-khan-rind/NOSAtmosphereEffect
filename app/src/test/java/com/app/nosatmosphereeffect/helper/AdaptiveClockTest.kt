@@ -200,6 +200,23 @@ class AdaptiveClockTest {
     }
 
     @Test
+    fun `a whole image on screen ignores the launcher's page`() {
+        // Scrolling off: the shader stretches the whole image across the
+        // screen, so the first home page must see the same image as the lock
+        // screen's centred offset.
+        for (offset in listOf(0f, 0.5f, 1f)) {
+            val view = ClockSceneViewport.forWindow(offset, windowX = 1f)
+            assertEquals(0f, view.u(0f), 1e-5f)
+            assertEquals(0.3f, view.u(0.3f), 1e-5f)
+            assertEquals(1f, view.u(1f), 1e-5f)
+        }
+        // Scrolling on: the same pan the shader applies.
+        val right = ClockSceneViewport.forWindow(1f, windowX = 0.5f)
+        assertEquals(0.5f, right.u(0f), 1e-5f)
+        assertEquals(1f, right.u(1f), 1e-5f)
+    }
+
+    @Test
     fun `the centre crop viewport trims the longer side evenly`() {
         val tall = ClockSceneViewport.forCenterCrop(viewAspect = 1f, imageAspect = 0.5f)
         assertEquals(0.25f, tall.v(0f), 1e-5f)

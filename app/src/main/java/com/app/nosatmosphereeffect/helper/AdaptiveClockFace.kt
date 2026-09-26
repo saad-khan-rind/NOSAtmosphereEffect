@@ -86,6 +86,14 @@ internal class AdaptiveClockFace {
     var scrollOffsetX: Float = 0.5f
 
     /**
+     * The share of the image's width on screen at once, as the renderer draws
+     * it: 1 when scrolling is off and the whole image is visible. 0 until a
+     * renderer reports it, which falls back to working it out from the image's
+     * and screen's shapes.
+     */
+    var scrollWindowX: Float = 0f
+
+    /**
      * True when the image is centre-cropped into the screen instead of panned
      * across it — the calibration screen, whose image need not match the
      * screen's shape.
@@ -381,6 +389,7 @@ internal class AdaptiveClockFace {
         // Coarser than the rest: while the pages scroll this changes every
         // frame, and each change is a refit and a redraw.
         scroll = (scrollOffsetX * SCROLL_STEPS).roundToInt(),
+        window = quantize(scrollWindowX),
         centerCrop = centerCropScene,
         stacked = stacked
     )
@@ -388,6 +397,8 @@ internal class AdaptiveClockFace {
     private fun viewport(scene: ClockScene, screenAspect: Float): ClockSceneViewport =
         if (centerCropScene) {
             ClockSceneViewport.forCenterCrop(screenAspect, scene.sourceAspect)
+        } else if (scrollWindowX > 0f) {
+            ClockSceneViewport.forWindow(scrollOffsetX, scrollWindowX)
         } else {
             ClockSceneViewport.forScroll(scrollOffsetX, screenAspect, scene.sourceAspect)
         }
@@ -518,6 +529,7 @@ internal class AdaptiveClockFace {
         val height: Int,
         val aspect: Int,
         val scroll: Int,
+        val window: Int,
         val centerCrop: Boolean,
         val stacked: Boolean
     )

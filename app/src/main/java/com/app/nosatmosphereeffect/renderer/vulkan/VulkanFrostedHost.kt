@@ -75,6 +75,8 @@ internal class VulkanFrostedHost(
         val current = currentEffectState()
         val changed = clockOverlay.uploadIfNeeded(
             scrollOffsetX = wallpaperScrollOffsetX,
+            scrollWindowX = wallpaperScrollWindowX,
+            surfaceAspect = surfaceAspect,
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
             upload = { bitmap -> VulkanFrostedNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender

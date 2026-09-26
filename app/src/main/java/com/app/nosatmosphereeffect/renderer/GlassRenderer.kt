@@ -451,6 +451,7 @@ class GlassRenderer(
 
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
+            scrollWindowX = currentWindowX,
             programId = handles.program,
             progress = progress,
             screenAspect = if (surfaceHeight > 0) {
