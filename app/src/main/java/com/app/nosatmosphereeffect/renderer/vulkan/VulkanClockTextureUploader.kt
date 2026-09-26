@@ -104,6 +104,10 @@ internal class VulkanClockTextureUploader(context: Context) {
     val sceneSink: ClockSceneSink
         get() = face.sceneSource
 
+    /** The wallpaper magnification for the face last rendered; see ClockFaceRenderer. */
+    val wallpaperZoom: Float
+        get() = face.wallpaperZoom
+
     fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
 
     /** Starts the entry animation; see ClockFaceRenderer.beginEntry. */

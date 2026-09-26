@@ -380,7 +380,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSe
     jfloatArray blobColors,
     jfloatArray blobPositions,
     jfloatArray blobSizes,
-    jint blobCount
+    jint blobCount,
+    jfloat wallpaperZoom
 ) {
     AtmosphereHandle* atmosphere = fromHandle(handle);
     if (atmosphere == nullptr) return JNI_FALSE;
@@ -410,6 +411,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSe
             : 0.0F;
     params.misc[0] = atmosphere->reverse ? 1.0F : 0.0F;
     params.misc[1] = drawerBlur;
+    // The Adaptive clock's arrival zoom on the wallpaper; 1 when none.
+    params.misc[2] = wallpaperZoom;
     params.clockRect[0] = clockCenterX;
     params.clockRect[1] = clockTop;
     params.clockRect[2] = clockHeightFraction;

@@ -153,6 +153,11 @@ internal class VulkanAtmosphereHost(
                     previous.clockFaceContentHeight
                 },
                 clockFaceUploaded = clockTexture.hasUploadedFace && safe.clockEnabled,
+                clockWallpaperZoom = if (clockTexture.hasUploadedFace) {
+                    clockTexture.wallpaperZoom
+                } else {
+                    1f
+                },
                 blobs = blobPlanner.frame(safe.progress)
             )
         }
@@ -301,7 +306,8 @@ internal class VulkanAtmosphereHost(
                         clockTextureAspect = aspect,
                         clockFaceContentTop = box.top,
                         clockFaceContentHeight = box.heightFraction,
-                        clockFaceUploaded = true
+                        clockFaceUploaded = true,
+                        clockWallpaperZoom = clockTexture.wallpaperZoom
                     )
                 }
             } else {
@@ -325,6 +331,7 @@ internal class VulkanAtmosphereHost(
             it.copy(
                 hasSubject = false,
                 clockFaceUploaded = false,
+                clockWallpaperZoom = 1f,
                 blobs = AtmosphereBlobFrame()
             )
         }

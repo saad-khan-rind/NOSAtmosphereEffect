@@ -101,6 +101,10 @@ class ClockTextureProvider(context: Context) {
     val sceneSink: ClockSceneSink
         get() = face.sceneSource
 
+    /** The wallpaper magnification for the face last rendered; see ClockFaceRenderer. */
+    val wallpaperZoom: Float
+        get() = face.wallpaperZoom
+
     /**
      * True while a digit transition is in flight, so the renderer knows to
      * ask for another frame. Without this the animation would only advance

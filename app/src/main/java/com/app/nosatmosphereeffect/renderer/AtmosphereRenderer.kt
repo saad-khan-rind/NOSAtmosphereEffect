@@ -806,6 +806,11 @@ class AtmosphereRenderer(
             GLES30.glGetUniformLocation(programId, "uClockEnabled"),
             if (ready) 1f else 0f
         )
+        // The Adaptive face's arrival zoom on the photo; see GlesClockOverlay.
+        GLES30.glUniform1f(
+            GLES30.glGetUniformLocation(programId, "uWallpaperZoom"),
+            if (ready) clockTexture.wallpaperZoom else 1f
+        )
         if (!ready) {
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
             GLES30.glUniform1f(

@@ -39,11 +39,15 @@ struct ColorFillParams {
     // face has been uploaded", "depth enabled AND a mask exists", unused.
     float clockRect[4]{};
     float clockMeta[4]{};
+    // x: the Adaptive clock's arrival zoom on the wallpaper (1 = none).
+    // Appended, so nothing above moves.
+    float motion[4]{1.0F, 0.0F, 0.0F, 0.0F};
 };
 
 static_assert(offsetof(ColorFillParams, clockRect) == 32);
 static_assert(offsetof(ColorFillParams, clockMeta) == 48);
-static_assert(sizeof(ColorFillParams) == 64);
+static_assert(offsetof(ColorFillParams, motion) == 64);
+static_assert(sizeof(ColorFillParams) == 80);
 
 struct ColorFillHandle {
     atmo::vulkan::OnePassHandle engine = nullptr;
@@ -230,7 +234,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeSetState(
     jfloat clockOpacity,
     jboolean clockUploaded,
     jboolean clockDepth,
-    jfloat clockGlass
+    jfloat clockGlass,
+    jfloat wallpaperZoom
 ) {
     ColorFillHandle* colorFill = fromHandle(handle);
     if (colorFill == nullptr) return;
@@ -246,6 +251,8 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNative_nativeSetState(
         scrollOffsetX,
         scrollWindowX
     };
+    // The Adaptive clock's arrival zoom on the wallpaper; 1 when none.
+    params.motion[0] = wallpaperZoom;
     // Colour Fill has no subject mask, so depth is never available here.
     atmo::vulkan::writeClockParams(
         params,

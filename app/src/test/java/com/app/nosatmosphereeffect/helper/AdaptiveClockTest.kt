@@ -168,6 +168,27 @@ class AdaptiveClockTest {
     }
 
     @Test
+    fun `the wallpaper zooms out over exactly the clock's motion`() {
+        val face = AdaptiveClockFace()
+        val start = 10_000L
+        face.beginEntry(start)
+        face.step(box, 0.46f, start, animate = true)
+        assertEquals(1f + AdaptiveClockFace.WALLPAPER_ZOOM, face.wallpaperZoom(start), 1e-4f)
+        var previous = face.wallpaperZoom(start)
+        for (ms in 1L..AdaptiveClockFace.MOTION_MS step 20) {
+            val zoom = face.wallpaperZoom(start + ms)
+            assertTrue("zooming out at $ms", zoom <= previous + 1e-6f)
+            previous = zoom
+        }
+        assertEquals(1f, face.wallpaperZoom(start + AdaptiveClockFace.MOTION_MS), 0f)
+        // Without the animation there is no zoom at all.
+        val still = AdaptiveClockFace()
+        still.beginEntry(start)
+        still.step(box, 0.46f, start, animate = false)
+        assertEquals(1f, still.wallpaperZoom(start), 0f)
+    }
+
+    @Test
     fun `the scroll viewport pans a screen-wide window across a wide image`() {
         // An image twice as wide, relative to its height, as the screen.
         val view = ClockSceneViewport.forScroll(0f, screenAspect = 0.5f, imageAspect = 1f)

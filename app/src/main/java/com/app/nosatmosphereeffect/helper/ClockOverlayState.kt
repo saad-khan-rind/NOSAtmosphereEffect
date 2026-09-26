@@ -101,7 +101,13 @@ data class ClockOverlayState(
      * sane rather than nothing.
      */
     val faceContentTop: Float = 0f,
-    val faceContentHeight: Float = 1f
+    val faceContentHeight: Float = 1f,
+    /**
+     * Vulkan-only, dynamic: how much to magnify the wallpaper for the face
+     * last uploaded — the Adaptive face's arrival zoom, 1 otherwise. The GLES
+     * path reads it from its texture provider instead.
+     */
+    val wallpaperZoom: Float = 1f
 ) {
     val style: ClockStyle
         get() = ClockStyle.fromId(styleId)
@@ -148,7 +154,8 @@ data class ClockOverlayState(
             unlockedProgress = unlockedProgress.finiteOr(1f),
             textureAspect = textureAspect.finiteOr(1f).coerceIn(0.05f, 20f),
             faceContentTop = faceContentTop.finiteOr(0f).coerceIn(0f, 1f),
-            faceContentHeight = faceContentHeight.finiteOr(1f).coerceIn(0.01f, 1f)
+            faceContentHeight = faceContentHeight.finiteOr(1f).coerceIn(0.01f, 1f),
+            wallpaperZoom = wallpaperZoom.finiteOr(1f).coerceIn(1f, 1.5f)
         )
     }
 

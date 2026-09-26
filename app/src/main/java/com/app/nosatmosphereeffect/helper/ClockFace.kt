@@ -430,6 +430,15 @@ class ClockFaceRenderer(private val context: Context) {
     /** Reused between Adaptive frames; sized to the bitmap. */
     private var adaptivePixels: IntArray? = null
 
+    /**
+     * How much the renderers should magnify the wallpaper for the frame last
+     * rendered: the Adaptive face's arrival zoom, and 1 for every other face.
+     * Read alongside the face texture, so the photo and the clock always
+     * show the same instant of the animation.
+     */
+    var wallpaperZoom: Float = 1f
+        private set
+
     var animateDigits: Boolean = true
         set(value) {
             if (field != value) {
@@ -665,6 +674,7 @@ class ClockFaceRenderer(private val context: Context) {
         } else {
             drawFace(target2d, face, uptimeMs)
         }
+        wallpaperZoom = if (isAdaptive) adaptiveFace.wallpaperZoom(uptimeMs) else 1f
         if (drawn) {
             incomplete = false
             incompleteRetries = 0

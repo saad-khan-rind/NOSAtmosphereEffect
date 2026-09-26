@@ -67,14 +67,16 @@ internal class VulkanClockOverlay(
             return state.copy(
                 textureAspect = fallback.textureAspect,
                 faceContentTop = fallback.faceContentTop,
-                faceContentHeight = fallback.faceContentHeight
+                faceContentHeight = fallback.faceContentHeight,
+                wallpaperZoom = 1f
             )
         }
         val box = uploader.faceBox
         return state.copy(
             textureAspect = uploader.aspectRatio,
             faceContentTop = box.top,
-            faceContentHeight = box.heightFraction
+            faceContentHeight = box.heightFraction,
+            wallpaperZoom = uploader.wallpaperZoom
         )
     }
 

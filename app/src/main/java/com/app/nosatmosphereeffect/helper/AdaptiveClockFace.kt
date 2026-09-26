@@ -104,6 +104,8 @@ internal class AdaptiveClockFace {
     private var glideStartUptimeMs: Long = NO_ENTRY
     /** When the shading began arriving from its faded start, or [NO_ENTRY]. */
     private var colorStartUptimeMs: Long = NO_ENTRY
+    /** When the wallpaper began settling from its arrival zoom, or [NO_ENTRY]. */
+    private var zoomStartUptimeMs: Long = NO_ENTRY
 
     /** The shading down a digit, top to bottom; rebuilt when [color] changes. */
     private var shades: IntArray? = null
@@ -161,13 +163,37 @@ internal class AdaptiveClockFace {
                 }
                 glideStartUptimeMs = entry
                 colorStartUptimeMs = entry
+                zoomStartUptimeMs = entry
             }
         }
         if (!animate) {
             for (slot in 0 until laneCount) snap(slot, targets[slot])
             glideStartUptimeMs = NO_ENTRY
             colorStartUptimeMs = NO_ENTRY
+            zoomStartUptimeMs = NO_ENTRY
         }
+    }
+
+    /**
+     * How much the wallpaper behind the clock is magnified right now: a
+     * little on arrival, settling to none over exactly the clock's own
+     * motion, so the photo and the digits come to rest together. The
+     * renderers scale the photo — never the clock — about the screen's
+     * centre by this.
+     */
+    fun wallpaperZoom(uptimeMs: Long): Float {
+        val start = zoomStartUptimeMs
+        if (start == NO_ENTRY) return 1f
+        val elapsed = uptimeMs - start
+        if (elapsed >= MOTION_MS) {
+            zoomStartUptimeMs = NO_ENTRY
+            return 1f
+        }
+        if (elapsed <= 0L) return 1f + WALLPAPER_ZOOM
+        // Decelerating: the photo is already easing out as the screen wakes,
+        // and slows into place as the digits settle.
+        val remaining = 1f - elapsed.toFloat() / MOTION_MS
+        return 1f + WALLPAPER_ZOOM * remaining * remaining * remaining
     }
 
     private val laneCount: Int
@@ -328,6 +354,9 @@ internal class AdaptiveClockFace {
             return false
         }
         if (colorStartUptimeMs != NO_ENTRY && uptimeMs - colorStartUptimeMs < MOTION_MS) {
+            return false
+        }
+        if (zoomStartUptimeMs != NO_ENTRY && uptimeMs - zoomStartUptimeMs < MOTION_MS) {
             return false
         }
         for (slot in 0 until laneCount) {
@@ -557,6 +586,9 @@ internal class AdaptiveClockFace {
          * the stretch, so it is home before the digits have settled.
          */
         const val GLIDE_UNITS = 0.1f
+
+        /** How far the wallpaper is magnified at the start of the arrival. */
+        const val WALLPAPER_ZOOM = 0.06f
         const val GLIDE_MS = MOTION_MS / 2
 
         /** The share of a digit change over which the old digit leaves. */

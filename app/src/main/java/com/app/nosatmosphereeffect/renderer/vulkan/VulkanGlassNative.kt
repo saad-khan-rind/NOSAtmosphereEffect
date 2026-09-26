@@ -50,7 +50,9 @@ internal object VulkanGlassNative {
         clockUploaded: Boolean,
         clockDepth: Boolean,
         /** 0 for a flat face (-1 tinted from behind), 1 + frost for glass — ClockOverlayState.glassMeta. */
-        clockGlass: Float
+        clockGlass: Float,
+        /** The wallpaper's magnification this frame — the Adaptive clock's arrival zoom, else 1. */
+        wallpaperZoom: Float
     ): Boolean
 
     external fun nativeRender(handle: Long): Int
@@ -123,7 +125,8 @@ internal object VulkanGlassBridge : VulkanSingleImageBridge<GlassRenderState> {
             clockOpacity = safe.clock.effectiveOpacity(safe.progress),
             clockUploaded = safe.clock.faceUploaded,
             clockDepth = safe.clock.depthEnabled,
-            clockGlass = safe.clock.glassMeta
+            clockGlass = safe.clock.glassMeta,
+            wallpaperZoom = safe.clock.wallpaperZoom
         )) {
             "The native Vulkan Glass state could not be updated"
         }

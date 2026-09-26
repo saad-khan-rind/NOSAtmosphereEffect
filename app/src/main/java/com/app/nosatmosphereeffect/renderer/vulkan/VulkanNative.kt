@@ -62,7 +62,9 @@ internal object VulkanNative {
         clockUploaded: Boolean,
         clockDepth: Boolean,
         /** 0 for a flat face (-1 tinted from behind), 1 + frost for glass — ClockOverlayState.glassMeta. */
-        clockGlass: Float
+        clockGlass: Float,
+        /** The wallpaper's magnification this frame — the Adaptive clock's arrival zoom, else 1. */
+        wallpaperZoom: Float
     )
 
     external fun nativeRender(handle: Long): Int

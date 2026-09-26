@@ -28,6 +28,8 @@ layout(push_constant) uniform CanvasParams {
     // exists", unused.
     vec4 clockRect;
     vec4 clockMeta;
+    // The wallpaper zoom, read by the vertex stage only.
+    vec4 motion;
 } params;
 
 // Mirrors the GLES path in assets/shaders/neon/neon.frag; keep the two in step.

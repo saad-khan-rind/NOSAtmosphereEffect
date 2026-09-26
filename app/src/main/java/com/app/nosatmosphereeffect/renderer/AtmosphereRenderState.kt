@@ -134,6 +134,9 @@ data class AtmosphereRenderState(
     // the rectangle the shader samples. See ClockOverlayState.faceContentTop.
     val clockFaceContentTop: Float = 0f,
     val clockFaceContentHeight: Float = 1f,
+    // Vulkan-only, dynamic: the Adaptive face's arrival zoom on the photo for
+    // the face last uploaded; 1 otherwise.
+    val clockWallpaperZoom: Float = 1f,
     val blobs: AtmosphereBlobFrame = AtmosphereBlobFrame()
 ) {
     fun sanitized(): AtmosphereRenderState {

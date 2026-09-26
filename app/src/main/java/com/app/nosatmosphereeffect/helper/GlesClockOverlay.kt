@@ -174,6 +174,13 @@ class GlesClockOverlay(
             GLES30.glGetUniformLocation(programId, "uClockEnabled"),
             if (ready) 1f else 0f
         )
+        // The Adaptive face's arrival zoom on the photo. Written every frame,
+        // like the rest, so a clock that stops drawing cannot leave the
+        // wallpaper magnified.
+        GLES30.glUniform1f(
+            GLES30.glGetUniformLocation(programId, "uWallpaperZoom"),
+            if (ready) provider.wallpaperZoom else 1f
+        )
         if (!ready) {
             GLES30.glUniform1f(
                 GLES30.glGetUniformLocation(programId, "uClockOpacity"),

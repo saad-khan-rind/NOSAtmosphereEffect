@@ -451,7 +451,8 @@ private class NeonBridge(
             // Depth needs a mask, so the user's switch is ANDed with one
             // existing — the shader must never sample the clear texture.
             clockDepth = safe.clock.depthEnabled && safe.hasSubject,
-            clockGlass = safe.clock.glassMeta
+            clockGlass = safe.clock.glassMeta,
+            wallpaperZoom = safe.clock.wallpaperZoom
         )
     }
 
