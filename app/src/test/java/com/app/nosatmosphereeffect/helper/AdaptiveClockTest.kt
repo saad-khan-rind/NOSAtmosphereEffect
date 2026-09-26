@@ -145,7 +145,7 @@ class AdaptiveClockTest {
     @Test
     fun `a stacked column is fitted as one length`() {
         val stackBox = ClockBoxRect(left = 0.6f, top = 0.1f, right = 0.9f, bottom = 0.7f)
-        val subjectTop = stackBox.top + 5f / AdaptiveClockGlyphs.STACK_HEIGHT * stackBox.height
+        val subjectTop = stackBox.top + 6f / AdaptiveClockGlyphs.STACK_HEIGHT * stackBox.height
         val length = AdaptiveClockFit.digitHeight(
             slotLeft = AdaptiveClockGlyphs.laneLeft(true, 0),
             box = stackBox,
@@ -154,7 +154,7 @@ class AdaptiveClockTest {
             minLength = AdaptiveClockGlyphs.laneMin(true),
             subjectAt = { _, y -> if (y >= subjectTop) 1f else 0f }
         )
-        assertEquals(5f - AdaptiveClockFit.CLEARANCE, length, 0.06f)
+        assertEquals(6f - AdaptiveClockFit.CLEARANCE, length, 0.06f)
         // Never shorter than two natural digits and the gap between them.
         val blocked = AdaptiveClockFit.digitHeight(
             slotLeft = 0f,
