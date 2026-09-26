@@ -377,7 +377,9 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     /** The date line's natural width/height ratio, for sizing its box. */
     var dateAspect by remember { mutableFloatStateOf(DEFAULT_DATE_ASPECT) }
     DisposableEffect(faceRenderer) {
-        onDispose { faceRenderer.release() }
+        // Under the renderer's lock: a render still running on a worker
+        // finishes before its bitmap is freed.
+        onDispose { synchronized(faceRenderer) { faceRenderer.release() } }
     }
     // The Adaptive face fits its digits around the subject, so the preview
     // needs the same mask the wallpaper will use. Segmented once per photo,
@@ -442,47 +444,57 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             val geometry = wantedClock to wantedDate
             val geometryChanged = lastGeometry != geometry
             lastGeometry = geometry
+            // Every use of the renderer holds its lock. A settings change
+            // restarts this effect, but cancelling cannot stop a render that is
+            // already drawing, so without the lock the restarted loop would
+            // reconfigure the renderer — freeing and replacing its bitmap —
+            // under that draw. A colour-wheel drag restarts it dozens of times
+            // a second, and that crashed natively.
             val measured = withContext(Dispatchers.Default) {
-                faceRenderer.style = style
-                faceRenderer.showDate = showDate
-                faceRenderer.animateDigits = animate
-                faceRenderer.animateEntry = false
-                faceRenderer.color = resolvedColor
-                faceRenderer.weight = weight
-                faceRenderer.adaptiveColors = ClockPalette.isAdaptive(colorPref)
-                // The photo here is centre-cropped into the preview rather
-                // than panned, so the scene is mapped the same way.
-                faceRenderer.centerCropScene = true
-                faceRenderer.hourFormatOverride =
-                    AtmosphereClockPolicy.hourFormatOverride(hourFormat)
-                faceRenderer.screenAspect = screenAspect
-                faceRenderer.clockPlacement = wantedClock
-                faceRenderer.datePlacement = wantedDate
-                runCatching {
-                    val now = System.currentTimeMillis()
-                    faceRenderer.measureFace(now) to faceRenderer.measureDateAspect(now)
-                }.getOrNull()
+                synchronized(faceRenderer) {
+                    faceRenderer.style = style
+                    faceRenderer.showDate = showDate
+                    faceRenderer.animateDigits = animate
+                    faceRenderer.animateEntry = false
+                    faceRenderer.color = resolvedColor
+                    faceRenderer.weight = weight
+                    faceRenderer.adaptiveColors = ClockPalette.isAdaptive(colorPref)
+                    // The photo here is centre-cropped into the preview rather
+                    // than panned, so the scene is mapped the same way.
+                    faceRenderer.centerCropScene = true
+                    faceRenderer.hourFormatOverride =
+                        AtmosphereClockPolicy.hourFormatOverride(hourFormat)
+                    faceRenderer.screenAspect = screenAspect
+                    faceRenderer.clockPlacement = wantedClock
+                    faceRenderer.datePlacement = wantedDate
+                    runCatching {
+                        val now = System.currentTimeMillis()
+                        faceRenderer.measureFace(now) to faceRenderer.measureDateAspect(now)
+                    }.getOrNull()
+                }
             }
             if (measured != null) {
                 faceContent = measured.first
                 measured.second?.let { dateAspect = it }
             }
-            val snapshot = withContext(Dispatchers.Default) {
-                runCatching {
-                    // Handed over as a copy: the renderer keeps reusing its
-                    // own bitmap, and the preview must never read one that is
-                    // being drawn into.
-                    faceRenderer.render(
-                        nowMillis = System.currentTimeMillis(),
-                        uptimeMs = SystemClock.uptimeMillis()
-                    )?.copy(Bitmap.Config.ARGB_8888, false)
-                }.getOrNull()
+            // Asked on the worker too, so the main thread never waits on the lock.
+            val (snapshot, animating) = withContext(Dispatchers.Default) {
+                synchronized(faceRenderer) {
+                    runCatching {
+                        // Handed over as a copy: the renderer keeps reusing its
+                        // own bitmap, and the preview must never read one that is
+                        // being drawn into.
+                        faceRenderer.render(
+                            nowMillis = System.currentTimeMillis(),
+                            uptimeMs = SystemClock.uptimeMillis()
+                        )?.copy(Bitmap.Config.ARGB_8888, false)
+                    }.getOrNull() to faceRenderer.isAnimating(SystemClock.uptimeMillis())
+                }
             }
             if (snapshot != null) {
                 faceBitmap = snapshot
                 faceRevision++
             }
-            val animating = faceRenderer.isAnimating(SystemClock.uptimeMillis())
             // Redrawing the whole face costs a bitmap, so a drag gets ten
             // frames a second rather than sixty: the frame the finger is
             // holding follows at full rate, and the date inside it catches up
@@ -1097,20 +1109,36 @@ private fun ColorWheelPicker(
     current: Int,
     onColorChange: (Int) -> Unit
 ) {
-    val hsv = remember(current) {
+    // Held across changes to [current] rather than keyed on it: the gesture
+    // handlers below are installed once, and state recreated per colour would
+    // leave them writing to stale copies — a drag after moving the brightness
+    // slider would put the old brightness back. The wheel re-reads [current]
+    // only when it changes from outside (a swatch, the eyedropper); a colour
+    // it emitted itself would round-trip through RGB and lose the hue at
+    // zero saturation or brightness.
+    val initial = remember {
         FloatArray(3).also { android.graphics.Color.colorToHSV(current, it) }
     }
-    var hue by remember(current) { mutableFloatStateOf(hsv[0]) }
-    var saturation by remember(current) { mutableFloatStateOf(hsv[1]) }
-    var value by remember(current) { mutableFloatStateOf(hsv[2]) }
+    var hue by remember { mutableFloatStateOf(initial[0]) }
+    var saturation by remember { mutableFloatStateOf(initial[1]) }
+    var value by remember { mutableFloatStateOf(initial[2]) }
+    var emitted by remember { mutableIntStateOf(current) }
+    val latestOnColorChange by rememberUpdatedState(onColorChange)
+    if (current != emitted) {
+        val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(current, it) }
+        hue = hsv[0]
+        saturation = hsv[1]
+        value = hsv[2]
+        emitted = current
+    }
 
     val wheel = remember { buildHueWheel(WHEEL_PX).asImageBitmap() }
 
     fun emit() {
-        onColorChange(
-            android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)) or
-                (0xFF shl 24)
-        )
+        val color = android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)) or
+            (0xFF shl 24)
+        emitted = color
+        latestOnColorChange(color)
     }
 
     fun applyPointer(position: Offset, sizePx: Float) {
