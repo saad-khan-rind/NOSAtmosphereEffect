@@ -51,6 +51,13 @@ class GlesClockOverlay(
     val enabled: Boolean
         get() = state.enabled
 
+    /**
+     * Give this to the renderer's SubjectMaskCoordinator, so the Adaptive face
+     * sees the image and mask the renderer draws with.
+     */
+    val sceneSink: ClockSceneSink
+        get() = provider.sceneSink
+
     fun applyState(next: ClockOverlayState) {
         pendingState = next.sanitized()
         if (next.enabled) onAnimationFrameRequested?.invoke()
@@ -112,7 +119,9 @@ class GlesClockOverlay(
         programId: Int,
         progress: Float,
         screenAspect: Float,
-        subjectMaskAvailable: Boolean = false
+        subjectMaskAvailable: Boolean = false,
+        /** The launcher's page offset; the Adaptive face fits to what is on screen. */
+        scrollOffsetX: Float = 0.5f
     ) {
         if (programId == 0) return
 
@@ -126,8 +135,11 @@ class GlesClockOverlay(
             provider.animateDigits = next.animate
             provider.animateEntry = next.animate
             provider.color = next.color
+            provider.weight = next.weight
+            provider.adaptiveColors = next.adaptiveColors
             provider.hourFormatOverride = next.hourFormatOverride
         }
+        provider.scrollOffsetX = scrollOffsetX
         if (pendingFormatRefresh) {
             pendingFormatRefresh = false
             provider.refreshClockFormatPreference()
@@ -207,7 +219,7 @@ class GlesClockOverlay(
             GLES30.glGetUniformLocation(programId, "uClockDepth"),
             if (current.depthEnabled && subjectMaskAvailable) 1f else 0f
         )
-        // 0 for a flat face, 1 + frost for glass — see ClockOverlayState.glassMeta.
+        // 0 for a flat face (-1 tinted from behind), 1 + frost for glass — see ClockOverlayState.glassMeta.
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uClockGlass"),
             current.glassMeta

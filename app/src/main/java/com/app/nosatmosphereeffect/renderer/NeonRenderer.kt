@@ -123,6 +123,13 @@ class NeonRenderer(
     private val subjectMasks = SubjectMaskCoordinator(context) {
         onSketchUpdated?.invoke()
     }
+
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
     @Volatile private var subjectSegmentationEnabled = false
 
     /**
@@ -501,6 +508,7 @@ class NeonRenderer(
         )
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         clockOverlay.draw(
+            scrollOffsetX = scrollOffsetX,
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,

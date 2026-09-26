@@ -421,7 +421,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanAtmosphereNative_nativeSe
     // way viewport[3] above is.
     params.clockMeta[2] =
         clockDepth == JNI_TRUE && hasSubject == JNI_TRUE ? 1.0F : 0.0F;
-    // 0 for a flat face, 1 + frost for glass — ClockOverlayState.glassMeta.
+    // 0 for a flat face (-1 tinted from behind), 1 + frost for glass — ClockOverlayState.glassMeta.
     params.clockMeta[3] = clockGlass;
 
     if (!readBlobArrays(

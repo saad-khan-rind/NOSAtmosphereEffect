@@ -49,7 +49,7 @@ internal object VulkanGlassNative {
         clockOpacity: Float,
         clockUploaded: Boolean,
         clockDepth: Boolean,
-        /** 0 for a flat face, 1 + frost for glass — ClockOverlayState.glassMeta. */
+        /** 0 for a flat face (-1 tinted from behind), 1 + frost for glass — ClockOverlayState.glassMeta. */
         clockGlass: Float
     ): Boolean
 

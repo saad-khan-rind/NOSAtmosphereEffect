@@ -61,7 +61,7 @@ class ClockRuntime(
             color = ClockPalette.resolve(state.requestedColor, resolvedAutoColor)
         ).sanitized()
         pump.configure(resolved.enabled)
-        if (resolved.enabled && ClockPalette.isAuto(requestedColor)) {
+        if (resolved.enabled && ClockPalette.followsWallpaper(requestedColor)) {
             refreshAutoColor()
         }
         return resolved
@@ -84,7 +84,7 @@ class ClockRuntime(
      */
     fun invalidateWallpaperColor() {
         ClockPalette.invalidateAutoColor()
-        if (ClockPalette.isAuto(requestedColor)) refreshAutoColor()
+        if (ClockPalette.followsWallpaper(requestedColor)) refreshAutoColor()
     }
 
     fun close() {
@@ -102,7 +102,7 @@ class ClockRuntime(
                 resolvedAutoColor = derived
                 // The user may have picked a fixed colour while this was in
                 // flight; the cached value is still worth keeping for later.
-                if (!ClockPalette.isAuto(requestedColor) || closed) return@execute
+                if (!ClockPalette.followsWallpaper(requestedColor) || closed) return@execute
                 onColorResolved(derived)
             }
         }

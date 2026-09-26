@@ -154,6 +154,13 @@ class AtmosphereRenderer(
         }
     private val clockTexture = ClockTextureProvider(context)
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockTexture.sceneSink
+    }
+
+
     // Face settings live on the provider rather than here, because changing
     // any of them changes the rendered bitmap rather than how the shader
     // places it.
@@ -188,6 +195,12 @@ class AtmosphereRenderer(
     var clockColor: Int
         get() = clockTexture.color
         set(value) { clockTexture.color = value }
+    var clockWeight: Float
+        get() = clockTexture.weight
+        set(value) { clockTexture.weight = value }
+    var clockAdaptiveColors: Boolean
+        get() = clockTexture.adaptiveColors
+        set(value) { clockTexture.adaptiveColors = value }
     var clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
         set(value) {
             field = AtmosphereClockPolicy.sanitizeHourFormat(value)
@@ -782,6 +795,7 @@ class AtmosphereRenderer(
         clockTexture.clockPlacement = layout.placement
         clockTexture.datePlacement = layout.datePlacement
         clockTexture.screenAspect = safeAspect
+        clockTexture.scrollOffsetX = scrollOffsetX
         val ready = clockEnabled &&
             visibility > 0f &&
             clockOpacity > 0f &&
@@ -832,7 +846,7 @@ class AtmosphereRenderer(
             GLES30.glGetUniformLocation(programId, "uClockOpacity"),
             clockOpacity * visibility
         )
-        // 0 for a flat face, 1 + frost for glass — see ClockOverlayState.glassMeta.
+        // 0 for a flat face (-1 tinted from behind), 1 + frost for glass — see ClockOverlayState.glassMeta.
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uClockGlass"),
             layout.glassMeta

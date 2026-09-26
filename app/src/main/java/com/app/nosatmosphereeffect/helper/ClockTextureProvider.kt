@@ -79,6 +79,28 @@ class ClockTextureProvider(context: Context) {
         get() = face.hourFormatOverride
         set(value) { face.hourFormatOverride = value }
 
+    /** The Adaptive face's stroke weight, 0 thin .. 1 bold. */
+    var weight: Float
+        get() = face.weight
+        set(value) { face.weight = value }
+
+    /** The Adaptive face tints each digit by what is behind it. */
+    var adaptiveColors: Boolean
+        get() = face.adaptiveColors
+        set(value) { face.adaptiveColors = value }
+
+    /** The launcher's page offset; the Adaptive face fits to what is on screen. */
+    var scrollOffsetX: Float
+        get() = face.scrollOffsetX
+        set(value) { face.scrollOffsetX = value }
+
+    /**
+     * Hand this to the renderer's SubjectMaskCoordinator: the Adaptive face
+     * builds its picture of what is behind it from the same image and mask.
+     */
+    val sceneSink: ClockSceneSink
+        get() = face.sceneSource
+
     /**
      * True while a digit transition is in flight, so the renderer knows to
      * ask for another frame. Without this the animation would only advance

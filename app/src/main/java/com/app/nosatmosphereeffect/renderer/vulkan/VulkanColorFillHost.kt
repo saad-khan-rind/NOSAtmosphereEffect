@@ -56,6 +56,13 @@ internal class VulkanColorFillHost(
         ::requestRender
     )
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        clockDepthMask.sceneSink = clockOverlay.sceneSink
+    }
+
+
     /**
      * Counts images, not surfaces.
      *
@@ -189,6 +196,7 @@ internal class VulkanColorFillHost(
     private fun uploadClockOnWorker(handle: Long) {
         val current = latestState.get()
         val changed = clockOverlay.uploadIfNeeded(
+            scrollOffsetX = latestState.get().scrollOffsetX,
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
             upload = { bitmap -> VulkanNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender

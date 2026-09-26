@@ -87,6 +87,19 @@ data class AtmosphereRenderState(
     val clockDateWidthScale: Float = AtmosphereClockPolicy.DEFAULT_DATE_WIDTH_SCALE,
     val clockOpacity: Float = AtmosphereClockPolicy.DEFAULT_OPACITY,
     val clockFrost: Float = AtmosphereClockPolicy.DEFAULT_FROST,
+    /** The Adaptive face's stroke weight, 0 thin .. 1 bold. */
+    val clockWeight: Float = AtmosphereClockPolicy.DEFAULT_WEIGHT,
+    /**
+     * True when the user asked for the Adaptive colour mode. [clockColor] is
+     * the resolved single colour either way; this is what tells the Adaptive
+     * face to tint each digit instead.
+     */
+    val clockAdaptiveColors: Boolean = false,
+    /**
+     * True when the colour came from the wallpaper (Auto or Adaptive) rather
+     * than being picked, so the shaders let it follow the effect.
+     */
+    val clockColorFollowsWallpaper: Boolean = false,
     /**
      * Already-resolved ARGB glyph colour — never [ClockPalette.AUTO]. The
      * controller turns the stored preference (which may be AUTO) into a
@@ -140,6 +153,9 @@ data class AtmosphereRenderState(
             scrollOffsetX = scrollOffsetX.finiteOr(0.5f).coerceIn(0f, 1f),
             scrollWindowX = scrollWindowX.finiteOr(1f).coerceIn(MIN_SCROLL_WINDOW, 1f),
             clockStyleId = AtmosphereClockPolicy.sanitizeStyleId(clockStyleId),
+            // Never behind the subject: see ClockOverlayState.sanitized.
+            clockDepthEnabled = clockDepthEnabled &&
+                !ClockStyle.fromId(clockStyleId).adaptsToSubject,
             clockCenterX = AtmosphereClockPolicy.sanitizeCenterX(clockCenterX),
             clockTop = AtmosphereClockPolicy.sanitizeTop(clockTop),
             clockHeight = AtmosphereClockPolicy.sanitizeHeight(clockHeight),
@@ -154,6 +170,7 @@ data class AtmosphereRenderState(
                 AtmosphereClockPolicy.sanitizeAxisScale(clockDateWidthScale),
             clockOpacity = AtmosphereClockPolicy.sanitizeOpacity(clockOpacity),
             clockFrost = AtmosphereClockPolicy.sanitizeFrost(clockFrost),
+            clockWeight = AtmosphereClockPolicy.sanitizeWeight(clockWeight),
             clockColor = clockColor or (0xFF shl 24),
             clockHourFormat = AtmosphereClockPolicy.sanitizeHourFormat(clockHourFormat),
             clockScreenId = ClockScreenPolicy.sanitizeScreenId(clockScreenId),
@@ -172,7 +189,7 @@ data class AtmosphereRenderState(
      */
     fun needsSubjectMask(): Boolean {
         return (glassEnabled && glassBackgroundOnly) ||
-            (clockEnabled && clockDepthEnabled)
+            (clockEnabled && (clockDepthEnabled || clockStyle.adaptsToSubject))
     }
 
     val clockStyle: ClockStyle
@@ -226,7 +243,12 @@ data class AtmosphereRenderState(
         dateWidthScale = clockDateWidthScale,
         opacity = clockOpacity,
         frost = clockFrost,
-        requestedColor = clockColor,
+        weight = clockWeight,
+        requestedColor = when {
+            clockAdaptiveColors -> ClockPalette.ADAPTIVE
+            clockColorFollowsWallpaper -> ClockPalette.AUTO
+            else -> clockColor
+        },
         color = clockColor,
         hourFormat = clockHourFormat,
         screenId = clockScreenId,

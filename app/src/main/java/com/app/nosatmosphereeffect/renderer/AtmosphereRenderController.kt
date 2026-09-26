@@ -178,6 +178,9 @@ class AtmosphereRenderController(
                 clockDateWidthScale = safe.dateWidthScale,
                 clockOpacity = safe.opacity,
                 clockFrost = safe.frost,
+                clockWeight = safe.weight,
+                clockAdaptiveColors = safe.adaptiveColors,
+                clockColorFollowsWallpaper = ClockPalette.followsWallpaper(safe.requestedColor),
                 clockColor = ClockPalette.resolve(
                     requestedClockColor,
                     resolvedAutoClockColor
@@ -191,7 +194,7 @@ class AtmosphereRenderController(
         }
         applyState(snapshot)
         clockPump.configure(resolvedClock)
-        if (resolvedClock && ClockPalette.isAuto(requestedClockColor)) {
+        if (resolvedClock && ClockPalette.followsWallpaper(requestedClockColor)) {
             refreshAutoClockColor()
         }
     }
@@ -226,7 +229,7 @@ class AtmosphereRenderController(
                 val derived = ClockPalette.autoColorFor(appContext) ?: return@execute
                 if (derived == resolvedAutoClockColor) return@execute
                 resolvedAutoClockColor = derived
-                if (!ClockPalette.isAuto(requestedClockColor)) return@execute
+                if (!ClockPalette.followsWallpaper(requestedClockColor)) return@execute
                 val snapshot = synchronized(lock) {
                     if (closed) return@execute
                     state = state.copy(clockColor = derived).sanitized()
@@ -289,7 +292,7 @@ class AtmosphereRenderController(
     fun reloadTexture() {
         // The image is changing, so any wallpaper-derived clock tint is stale.
         ClockPalette.invalidateAutoColor()
-        if (ClockPalette.isAuto(requestedClockColor)) refreshAutoClockColor()
+        if (ClockPalette.followsWallpaper(requestedClockColor)) refreshAutoClockColor()
         val targets = synchronized(lock) {
             Triple(openGlAtmosphere, openGlReverse, vulkanHost)
         }
@@ -622,6 +625,8 @@ class AtmosphereRenderController(
         clockShowDate = state.clockShowDate
         clockAnimate = state.clockAnimate
         clockColor = state.clockColor
+        clockWeight = state.clockWeight
+        clockAdaptiveColors = state.clockAdaptiveColors
         clockHourFormat = state.clockHourFormat
         clockLayout = state.clockOverlay()
         clockOpacity = state.clockOpacity

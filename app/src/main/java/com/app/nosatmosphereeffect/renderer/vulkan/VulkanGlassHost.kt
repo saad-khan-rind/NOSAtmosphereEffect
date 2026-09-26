@@ -38,6 +38,13 @@ internal class VulkanGlassHost(
      */
     private val clockOverlay = VulkanClockOverlay(appContext, "Glass")
 
+    init {
+        // The Adaptive clock fits itself around the subject this renderer's
+        // own segmentation finds, in the image it actually draws.
+        subjectMasks.sceneSink = clockOverlay.sceneSink
+    }
+
+
     /** Plays the clock's entry animation on the next prepared frame. */
     fun beginClockEntry() {
         clockOverlay.beginEntry()
@@ -63,6 +70,7 @@ internal class VulkanGlassHost(
     private fun uploadClockOnWorker(handle: Long) {
         val current = currentEffectState()
         val changed = clockOverlay.uploadIfNeeded(
+            scrollOffsetX = wallpaperScrollOffsetX,
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
             upload = { bitmap -> VulkanGlassNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender

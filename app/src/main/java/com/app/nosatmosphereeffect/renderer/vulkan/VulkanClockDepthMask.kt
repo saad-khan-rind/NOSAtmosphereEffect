@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.ClockSceneSink
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import java.io.Closeable
 
@@ -42,6 +43,11 @@ internal class VulkanClockDepthMask(
 ) : Closeable {
 
     private val coordinator = SubjectMaskCoordinator(context, onMaskReady)
+
+    /** See [SubjectMaskCoordinator.sceneSink]. */
+    var sceneSink: ClockSceneSink?
+        get() = coordinator.sceneSink
+        set(value) { coordinator.sceneSink = value }
 
     private var retainedMask: Bitmap? = null
     private var maskRevision = 0L

@@ -448,6 +448,25 @@ class EffectPreviewService(
                             AtmosphereClockPolicy.FROST_KEY,
                             AtmosphereClockPolicy.DEFAULT_FROST
                         ),
+                        clockWeight = previewFloat(
+                            prefs,
+                            AtmosphereClockPolicy.WEIGHT_KEY,
+                            AtmosphereClockPolicy.DEFAULT_WEIGHT
+                        ),
+                        clockAdaptiveColors = ClockPalette.isAdaptive(
+                            previewInt(
+                                prefs,
+                                AtmosphereClockPolicy.COLOR_KEY,
+                                AtmosphereClockPolicy.DEFAULT_COLOR
+                            )
+                        ),
+                        clockColorFollowsWallpaper = ClockPalette.followsWallpaper(
+                            previewInt(
+                                prefs,
+                                AtmosphereClockPolicy.COLOR_KEY,
+                                AtmosphereClockPolicy.DEFAULT_COLOR
+                            )
+                        ),
                         clockColor = ClockPalette.resolve(
                             previewInt(
                                 prefs,
@@ -728,6 +747,8 @@ class EffectPreviewService(
                 renderer.clockShowDate = value.clockShowDate
                 renderer.clockAnimate = value.clockAnimate
                 renderer.clockColor = value.clockColor
+                renderer.clockWeight = value.clockWeight
+                renderer.clockAdaptiveColors = value.clockAdaptiveColors
                 renderer.clockHourFormat = value.clockHourFormat
                 renderer.clockLayout = value.clockOverlay()
                 renderer.clockOpacity = value.clockOpacity
