@@ -27,12 +27,13 @@ import kotlin.math.sqrt
  *
  * ## The shapes
  *
- * Traced from photographs of One UI 8's lock screen digits, each at its
- * natural height and stretched: a condensed, round-ended face whose curves
- * are half-circles the width of the digit, joined by straight uprights and a
- * few S-bends. Each feature is placed from both measurements — where it sits
- * at the natural height, and how far it moves as the digit stretches — so a
- * digit looks right at every length in between, not just at the two ends.
+ * Fitted to photographs of One UI 8's digits: the always-on display's
+ * compact face, and the lock screen's stretched one. A condensed,
+ * round-ended face whose curves are half-circles the width of the digit,
+ * joined by straight uprights and a few Bezier bends. Every feature is a
+ * position at the natural height plus a rate per unit of stretch, both
+ * measured from those two photographs, so a digit matches each and moves
+ * smoothly between them.
  *
  * ## Units
  *
@@ -140,122 +141,132 @@ internal object AdaptiveClockGlyphs {
         val bottom = h - s / 2f
         val centre = DIGIT_WIDTH / 2f
         val radius = (right - left) / 2f
-        val span = bottom - top
         // How far past its natural height the digit has been stretched.
         val extra = h - MIN_HEIGHT
 
         when (character) {
             '0' -> builder.stadium(centre, radius, top, bottom)
             '1' -> {
-                // A stem on the right, and a flag that dips straight away from
-                // its top in one convex sweep, ending near the left edge about
-                // three quarters of a width lower.
-                val stem = min(0.78f, right)
+                // A stem a little in from the right, and a flag that leaves
+                // its top heading down, sweeps out and flattens as it reaches
+                // the left edge. The flag keeps its size; only the stem grows.
+                val stem = 0.91f - s / 2f
                 builder.line(stem, top, stem, bottom)
-                builder.curve(stem, top + 0.02f, stem - 0.35f, top + 0.3f, left + 0.03f, top + 0.72f)
+                builder.cubic(
+                    stem, top,
+                    stem - 0.04f, top + 0.23f,
+                    stem - 0.3f, top + 0.61f,
+                    left, top + 0.69f
+                )
             }
             '2' -> {
-                // Round hook over the top, its end hanging a little down the
-                // left; straight down the right; an S across to the left;
-                // straight down the left into the base; and a short stub
-                // turning up at the base's right end.
+                // Round hook over the top, its end hanging down the left; the
+                // right side runs down into a diagonal that lands on the left
+                // upright, which runs into the base; and a stub rises from the
+                // base's right end. Stretching lengthens the right side, the
+                // left upright and the stub, and straightens the diagonal.
+                val bendTop = top + 0.5f + extra * 0.44f
+                val bendEnd = top + 1.53f + extra * 0.37f
                 builder.arc(centre, top + radius, radius, 180f, 180f)
-                builder.line(left, top + radius, left, top + radius + 0.22f + extra * 0.2f)
-                val bendTop = top + 0.4f + extra * 0.2f
-                val bendEnd = min(top + 1.3f + extra * 0.45f, bottom - s)
+                builder.line(left, top + radius, left, top + radius + 0.09f + extra * 0.33f)
                 builder.line(right, top + radius, right, bendTop)
-                builder.sCurve(right, bendTop, left, bendEnd)
+                builder.cubic(
+                    right, bendTop,
+                    right, bendTop + max(0.41f - extra * 0.1f, 0.2f),
+                    left, bendEnd - max(0.56f - extra * 0.38f, 0.1f),
+                    left, bendEnd
+                )
                 builder.line(left, bendEnd, left, bottom)
                 builder.line(left, bottom, right, bottom)
-                val stub = 0.72f + extra * 0.45f - s / 2f
-                builder.line(right, bottom, right, max(bottom - stub, bendEnd + s))
+                builder.line(right, bottom, right, bottom - 0.45f - extra * 0.35f)
             }
             '3' -> {
-                // Round top and bottom with the ends hanging towards each
-                // other, one straight right side with a small notch at the
-                // middle, and the middle bar stopping short of the left.
-                val middle = top + span * 0.45f + extra * 0.25f
-                val corner = min(0.24f, radius * 0.7f)
+                // Round top with its end hanging down the left, a round
+                // bottom whose end turns up the left, and a straight right
+                // side pinched in at the middle, where the bar leaves it and
+                // stops a little short of the centre.
+                val middle = top + 0.96f + extra * 0.51f
+                val corner = min(0.37f, radius)
                 builder.arc(centre, top + radius, radius, 180f, 180f)
-                builder.line(left, top + radius, left, top + radius + 0.13f + extra * 0.34f)
+                builder.line(left, top + radius, left, top + radius + 0.07f + extra * 0.33f)
                 builder.line(right, top + radius, right, middle - corner)
                 builder.arc(right - corner, middle - corner, corner, 0f, 90f)
-                builder.line(right - corner, middle, left + 0.34f, middle)
+                builder.line(right - corner, middle, 0.465f, middle)
                 builder.arc(right - corner, middle + corner, corner, 270f, 90f)
                 builder.line(right, middle + corner, right, bottom - radius)
-                builder.hookedBottom(
-                    centre, radius, left, bottom,
-                    hookTop = max(top + span * HOOK_REACH, middle + s + 0.12f)
-                )
+                builder.hookedBottom(centre, radius, left, bottom, hookTop = top + 1.55f + extra * 0.65f)
             }
             '4' -> {
                 // Not an open 4: the left stroke curves down from the top
                 // middle to the left edge and on into the crossbar, and the
                 // right stem only starts partway down.
-                val cross = top + span * 0.72f
-                val bendEnd = top + span * 0.5f
-                val stemTop = top + span * 0.42f
-                builder.sCurve(0.6f, top, left, bendEnd)
+                val start = 0.565f + extra * 0.06f
+                val bendEnd = top + 1.13f + extra * 0.35f
+                val cross = top + 1.5f + extra * 0.8f
+                builder.cubic(
+                    start, top,
+                    start, top + max(0.43f - extra * 0.11f, 0.2f),
+                    left, bendEnd - max(0.21f - extra * 0.23f, 0.02f),
+                    left, bendEnd
+                )
                 builder.line(left, bendEnd, left, cross)
                 builder.line(left, cross, right, cross)
-                builder.line(right, stemTop, right, bottom)
+                builder.line(right, top + 0.975f + extra * 0.51f, right, bottom)
             }
             '5' -> {
-                // Bar across the top, the stem down the left, and the bowl
-                // springing out of the stem as a half-circle into a straight
-                // right side and a J at the bottom.
-                val shoulder = min(top + span * 0.39f, bottom - 2f * radius - s)
+                // Bar across the top and the stem down the left; the bowl
+                // springs from the stem's side a little above its end, arches
+                // over into a straight right side, and ends in a J.
+                // Its left end, 30° short of the circle's side, sits on the stem.
+                val bowl = min(0.36f, (right - left) / 1.866f)
+                val shoulder = top + 1.12f + extra * 0.42f
                 builder.line(right, top, left, top)
-                builder.line(left, top, left, shoulder + radius)
-                builder.arc(centre, shoulder + radius, radius, 180f, 180f)
-                builder.line(right, shoulder + radius, right, bottom - radius)
-                builder.hookedBottom(
-                    centre, radius, left, bottom,
-                    hookTop = max(top + span * HOOK_REACH, shoulder + radius + s + 0.12f)
-                )
+                builder.line(left, top, left, top + 0.89f + extra * 0.4f)
+                builder.arc(right - bowl, shoulder, bowl, 210f, 150f)
+                builder.line(right, shoulder, right, bottom - radius)
+                builder.hookedBottom(centre, radius, left, bottom, hookTop = top + 1.53f + extra * 0.65f)
             }
             '6' -> {
                 // A hook over the top whose right end hangs down, a straight
                 // left side, and a bowl that grows as the digit stretches.
-                val bowl = min(1.07f + extra * 0.64f, span)
                 builder.arc(centre, top + radius, radius, 180f, 180f)
-                builder.line(
-                    right, top + radius,
-                    right, min(top + radius + 0.15f + extra * 0.3f, bottom - bowl - s)
-                )
+                builder.line(right, top + radius, right, top + radius + 0.08f + extra * 0.33f)
                 builder.line(left, top + radius, left, bottom - radius)
-                builder.stadium(centre, radius, bottom - bowl, bottom)
+                builder.stadium(centre, radius, bottom - 1.09f - extra * 0.58f, bottom)
             }
             '7' -> {
                 // A bar with its left end hanging down, the right end turning
-                // straight down, an S over to the left, and a straight stem.
-                val hang = 0.55f + extra * 0.35f
-                val foot = left + 0.18f
-                val bendTop = top + 0.6f + extra * 1.1f
-                val bendBottom = min(top + 1.66f + extra * 0.8f, bottom - s * 0.5f)
-                builder.line(left, top + hang, left, top)
+                // down into a diagonal, and a short upright foot. Unlike the
+                // other digits the 7 stretches as a whole: every length below
+                // the bar grows in proportion, so the diagonal lengthens with
+                // the digit instead of one straight run taking all the slack.
+                val grow = (h - s) / (MIN_HEIGHT - s)
+                val bendTop = top + 0.35f * grow
+                val bendBottom = top + 1.74f * grow
+                val foot = left + 0.16f
+                builder.line(left, top + 0.445f * grow, left, top)
                 builder.line(left, top, right, top)
                 builder.line(right, top, right, bendTop)
-                builder.sCurve(right, bendTop, foot, bendBottom)
+                builder.cubic(
+                    right, bendTop,
+                    right, bendTop + 0.47f * grow,
+                    foot, bendBottom - 0.5f * grow,
+                    foot, bendBottom
+                )
                 builder.line(foot, bendBottom, foot, bottom)
             }
             '8' -> {
-                val middle = top + span * 0.44f
-                val upper = min(radius * 0.88f, (middle - top) / 2f)
-                builder.stadium(centre, upper, top, middle)
-                val lower = min(radius, (bottom - middle) / 2f)
-                builder.stadium(centre, lower, middle, bottom)
+                // Two full-width loops, the upper one a little shorter,
+                // pressed together where they meet.
+                builder.stadium(centre, radius, top, top + 0.9f + extra * 0.4f)
+                builder.stadium(centre, radius, top + 0.97f + extra * 0.39f, bottom)
             }
             '9' -> {
                 // A closed bowl on top that grows as the digit stretches,
                 // the right stem on down, and a J at the bottom.
-                val bowl = min(1.0f + extra * 0.6f, span)
-                builder.stadium(centre, radius, top, top + bowl)
+                builder.stadium(centre, radius, top, top + 1.08f + extra * 0.58f)
                 builder.line(right, top + radius, right, bottom - radius)
-                builder.hookedBottom(
-                    centre, radius, left, bottom,
-                    hookTop = max(top + span * HOOK_REACH, top + bowl + s + 0.1f)
-                )
+                builder.hookedBottom(centre, radius, left, bottom, hookTop = top + 1.56f + extra * 0.65f)
             }
             ':' -> {
                 // Two upright pills a stroke wide, filling most of the
@@ -271,13 +282,6 @@ internal object AdaptiveClockGlyphs {
         }
         return builder.build()
     }
-
-    /**
-     * How far up the 5's and 9's bottom curve turns back, as a share of the
-     * digit's height: a U whose left arm rises to about seven tenths of the
-     * way down, as on the phone.
-     */
-    private const val HOOK_REACH = 0.69f
 
     /** Top and bottom of each colon pill, as fractions of the colon's height. */
     private val COLON_PILLS = floatArrayOf(0.2f, 0.44f, 0.56f, 0.8f)
@@ -375,10 +379,30 @@ internal object AdaptiveClockGlyphs {
                 arcs += cx; arcs += cy; arcs += radius
                 arcs += (startDegrees * DEG).toFloat()
                 arcs += (sweepDegrees * DEG).toFloat()
-                arcBounds += cx - radius; arcBounds += cy - radius
-                arcBounds += cx + radius; arcBounds += cy + radius
-                include(cx - radius, cy - radius)
-                include(cx + radius, cy + radius)
+                // The box of the part drawn, not the whole circle: both ends,
+                // and each of the circle's extremes that the sweep passes.
+                var boxMinX = Float.MAX_VALUE
+                var boxMinY = Float.MAX_VALUE
+                var boxMaxX = -Float.MAX_VALUE
+                var boxMaxY = -Float.MAX_VALUE
+                fun reach(degrees: Float) {
+                    val angle = degrees * DEG
+                    val x = cx + radius * cos(angle).toFloat()
+                    val y = cy + radius * sin(angle).toFloat()
+                    boxMinX = min(boxMinX, x); boxMinY = min(boxMinY, y)
+                    boxMaxX = max(boxMaxX, x); boxMaxY = max(boxMaxY, y)
+                }
+                reach(startDegrees)
+                reach(startDegrees + sweepDegrees)
+                var extreme = kotlin.math.ceil(startDegrees / 90f) * 90f
+                while (extreme < startDegrees + sweepDegrees) {
+                    reach(extreme)
+                    extreme += 90f
+                }
+                arcBounds += boxMinX; arcBounds += boxMinY
+                arcBounds += boxMaxX; arcBounds += boxMaxY
+                include(boxMinX, boxMinY)
+                include(boxMaxX, boxMaxY)
             }
 
             /**
@@ -401,32 +425,26 @@ internal object AdaptiveClockGlyphs {
             }
 
             /**
-             * An S from ([x0], [y0]) down to ([x1], [y1]) that leaves and
-             * arrives travelling straight down, so it runs smoothly out of
-             * the stroke above and into the one below.
+             * A cubic Bezier from ([x0], [y0]) to ([x3], [y3]), leaving towards
+             * ([x1], [y1]) and arriving from ([x2], [y2]).
              */
-            fun sCurve(x0: Float, y0: Float, x1: Float, y1: Float) {
+            fun cubic(
+                x0: Float, y0: Float,
+                x1: Float, y1: Float,
+                x2: Float, y2: Float,
+                x3: Float, y3: Float
+            ) {
                 var px = x0
                 var py = y0
-                for (step in 1..S_STEPS) {
-                    val t = step.toFloat() / S_STEPS
-                    val nx = x0 + (x1 - x0) * (1f - cos(PI * t).toFloat()) / 2f
-                    val ny = y0 + (y1 - y0) * t
-                    line(px, py, nx, ny)
-                    px = nx
-                    py = ny
-                }
-            }
-
-            /** A smooth quadratic curve from (x0, y0) to (x2, y2), pulled towards (x1, y1). */
-            fun curve(x0: Float, y0: Float, x1: Float, y1: Float, x2: Float, y2: Float) {
-                var px = x0
-                var py = y0
-                for (step in 1..S_STEPS) {
-                    val t = step.toFloat() / S_STEPS
+                for (step in 1..CURVE_STEPS) {
+                    val t = step.toFloat() / CURVE_STEPS
                     val u = 1f - t
-                    val nx = u * u * x0 + 2f * u * t * x1 + t * t * x2
-                    val ny = u * u * y0 + 2f * u * t * y1 + t * t * y2
+                    val a = u * u * u
+                    val b = 3f * u * u * t
+                    val c = 3f * u * t * t
+                    val d = t * t * t
+                    val nx = a * x0 + b * x1 + c * x2 + d * x3
+                    val ny = a * y0 + b * y1 + c * y2 + d * y3
                     line(px, py, nx, ny)
                     px = nx
                     py = ny
@@ -459,8 +477,8 @@ internal object AdaptiveClockGlyphs {
 
         private companion object {
             const val TWO_PI = (2.0 * PI).toFloat()
-            /** Segments per S-curve: enough that no facet shows at any size. */
-            const val S_STEPS = 12
+            /** Segments per curve: enough that no facet shows at any size. */
+            const val CURVE_STEPS = 16
 
             fun lineDistance(
                 px: Float, py: Float,
