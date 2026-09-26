@@ -53,7 +53,9 @@ import com.app.nosatmosphereeffect.helper.SubjectModelDelivery
 import com.app.nosatmosphereeffect.helper.SubjectModelPhase
 import com.app.nosatmosphereeffect.helper.SubjectModelState
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
+import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoDropdownField
+import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoNumberField
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
@@ -62,6 +64,7 @@ import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
 import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.LabeledSlider
+import com.app.nosatmosphereeffect.ui.components.LockScreenClockHelpSheet
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
 import kotlin.math.roundToInt
 
@@ -621,7 +624,11 @@ private fun EffectSettings(
         }
 
         if (config.showClockToggle && !config.isPlaylistMode) {
-            SettingsGroup("Clock") {
+            var showClockHelp by remember { mutableStateOf(false) }
+            if (showClockHelp) {
+                LockScreenClockHelpSheet(onDismiss = { showClockHelp = false })
+            }
+            SettingsGroup("Clock", onInfoClick = { showClockHelp = true }) {
                 SettingSwitchRow(
                     title = "Show clock on wallpaper",
                     checked = clockEnabled,
@@ -1099,14 +1106,26 @@ private fun SettingsScroll(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun SettingsGroup(
     title: String,
+    onInfoClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (onInfoClick != null) {
+                AtmoAnimatedIconButton(
+                    painter = painterResource(R.drawable.ic_info),
+                    contentDescription = "About $title",
+                    onClick = onInfoClick,
+                    motion = AtmoIconMotion.PRESS,
+                    iconTint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
         Column(
             modifier = Modifier.padding(horizontal = 2.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
