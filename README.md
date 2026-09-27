@@ -161,6 +161,9 @@ Atmo does not use Shizuku, change Android's global graphics settings, or restart
 
 ## Advanced Customization
 Take full control of the animation and look. You can now tweak the following settings dynamically:
+
+Fine tuning is kept when you change only the image or playlist under the same effect, including the clock's style and settings. Applying a different effect starts fresh from that effect's defaults.
+
 ### Visual Adjustments
 * **Dimness Level:** Adjust the darkening overlay to ensure your home screen icons remain readable against bright wallpapers.
 * **Blob Saturation:** (Original Atmosphere & Reverse Atmosphere Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
