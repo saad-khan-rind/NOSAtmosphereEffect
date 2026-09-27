@@ -286,6 +286,10 @@ internal class VulkanAtmosphereHost(
             clockTexture.beginEntry()
         }
         clockTexture.scrollOffsetX = wallpaperScrollOffsetX
+        clockTexture.scrollWindowX = wallpaperScrollWindowX
+        // The shader places the clock against the surface; see
+        // VulkanClockOverlay.uploadIfNeeded.
+        surfaceAspect.takeIf { it > 0f }?.let { clockTexture.screenAspect = it }
         val bitmap = try {
             clockTexture.renderIfChanged()
         } catch (failure: RuntimeException) {

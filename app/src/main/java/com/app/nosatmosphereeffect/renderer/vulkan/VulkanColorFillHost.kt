@@ -196,7 +196,13 @@ internal class VulkanColorFillHost(
     private fun uploadClockOnWorker(handle: Long) {
         val current = latestState.get()
         val changed = clockOverlay.uploadIfNeeded(
-            scrollOffsetX = latestState.get().scrollOffsetX,
+            scrollOffsetX = current.scrollOffsetX,
+            scrollWindowX = current.scrollWindowX,
+            surfaceAspect = if (latestWidth > 0 && latestHeight > 0) {
+                latestWidth.toFloat() / latestHeight.toFloat()
+            } else {
+                0f
+            },
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
             upload = { bitmap -> VulkanNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender

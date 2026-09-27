@@ -796,6 +796,7 @@ class AtmosphereRenderer(
         clockTexture.datePlacement = layout.datePlacement
         clockTexture.screenAspect = safeAspect
         clockTexture.scrollOffsetX = scrollOffsetX
+        clockTexture.scrollWindowX = currentWindowX
         val ready = clockEnabled &&
             visibility > 0f &&
             clockOpacity > 0f &&

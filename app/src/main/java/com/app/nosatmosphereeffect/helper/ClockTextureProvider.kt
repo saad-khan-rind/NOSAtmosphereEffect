@@ -94,6 +94,11 @@ class ClockTextureProvider(context: Context) {
         get() = face.scrollOffsetX
         set(value) { face.scrollOffsetX = value }
 
+    /** The share of the image's width on screen; see ClockFaceRenderer.scrollWindowX. */
+    var scrollWindowX: Float
+        get() = face.scrollWindowX
+        set(value) { face.scrollWindowX = value }
+
     /**
      * Hand this to the renderer's SubjectMaskCoordinator: the Adaptive face
      * builds its picture of what is behind it from the same image and mask.

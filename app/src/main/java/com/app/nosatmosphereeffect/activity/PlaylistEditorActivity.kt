@@ -594,10 +594,19 @@ class PlaylistEditorActivity : ComponentActivity() {
         }
 
         SystemColorSyncPreferences.isEnabled(this)
+        // A new playlist or image set under the same effect keeps Fine tuning;
+        // a new effect starts fresh.
+        val keepFineTune = FineTuneRetention.keeps(
+            this,
+            appPreferences,
+            effectId,
+            whenUnknown = isEditExisting
+        )
         val appPreferencesEditor = appPreferences.edit()
-        if (!isEditExisting) {
+        if (!keepFineTune) {
             appPreferencesEditor.clear()
         }
+        FineTuneRetention.markApplied(appPreferencesEditor, effectId)
         appPreferencesEditor.putBoolean(
             AtmosphereGlassPolicy.ENABLED_KEY,
             atmosphereGlassEnabled

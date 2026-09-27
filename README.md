@@ -161,6 +161,9 @@ Atmo does not use Shizuku, change Android's global graphics settings, or restart
 
 ## Advanced Customization
 Take full control of the animation and look. You can now tweak the following settings dynamically:
+
+Fine tuning is kept when you change only the image or playlist under the same effect, including the clock's style and settings. Applying a different effect starts fresh from that effect's defaults.
+
 ### Visual Adjustments
 * **Dimness Level:** Adjust the darkening overlay to ensure your home screen icons remain readable against bright wallpapers.
 * **Blob Saturation:** (Original Atmosphere & Reverse Atmosphere Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
@@ -215,6 +218,7 @@ I've made a Telegram group for discussing issues and feature suggestions. You ca
 
 ## Known Issues
 
+* **Clock setup screen:** The screen for choosing the clock's style, position, and size (**Choose style, position & size**) is still buggy and unpolished. I'm actively working on it, so expect rough edges in how its controls behave and look. Bug reports and ideas are very welcome in the [Telegram group](https://t.me/atmosphereEffect) or as GitHub issues.
 * **Samsung's own adaptive clock:** One UI may disable or limit its built-in adaptive lock-screen clock while a live wallpaper is active. Atmo's **Adaptive** wallpaper clock (see [Wallpaper Clock](#wallpaper-clock)) is drawn by the wallpaper itself and is not affected.
 
 ## Build & Installation
@@ -223,17 +227,17 @@ This project is built using Kotlin, C++17, the Android NDK, and Gradle. The proj
 
 Atmo Engine keeps one shared codebase and combines two flavor dimensions:
 
-All artifacts in the table below use version name **7.3.0**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
+All artifacts in the table below use version name **7.3.1**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
 
 | Flavor | Minimum Android | Target SDK | Version code | Intended release |
 | --- | ---: |-----------:|-------------:| --- |
-| `v33Play` | Android 13 / API 33 |     API 33 |     `300730` | ML Kit APK |
-| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300730` | FOSS APK for F-Droid |
-| `v33Folder` | Android 13 / API 33 |     API 33 |     `300730` | ML Kit APK with folder playlists |
-| `v35Play` | Android 15 / API 35 |     API 36 |     `400730` | Google Play ML Kit AAB |
-| `v36Play` | Android 16 / API 36 |     API 36 |     `500730` | ML Kit APK |
-| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500730` | FOSS APK |
-| `v36Folder` | Android 16 / API 36 |     API 36 |     `500730` | ML Kit APK with folder playlists |
+| `v33Play` | Android 13 / API 33 |     API 33 |     `300731` | ML Kit APK |
+| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300731` | FOSS APK for F-Droid |
+| `v33Folder` | Android 13 / API 33 |     API 33 |     `300731` | ML Kit APK with folder playlists |
+| `v35Play` | Android 15 / API 35 |     API 36 |     `400731` | Google Play ML Kit AAB |
+| `v36Play` | Android 16 / API 36 |     API 36 |     `500731` | ML Kit APK |
+| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500731` | FOSS APK |
+| `v36Folder` | Android 16 / API 36 |     API 36 |     `500731` | ML Kit APK with folder playlists |
 
 The `play` source set contains only the ML Kit implementation and explicit model-download controller. The `fdroid` source set contains only [U2NetP](https://github.com/xuebinqin/U-2-Net), its model files, and the source-built FOSS LiteRT runtime. UI, effects, playlists, palette behavior, and settings remain shared in `main`. The `folder` flavor reuses the `play` source set and additionally declares `READ_MEDIA_IMAGES` and `READ_MEDIA_VISUAL_USER_SELECTED` for folder playlists; the Play Store and F-Droid builds do not request photo access. Model and runtime provenance is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 

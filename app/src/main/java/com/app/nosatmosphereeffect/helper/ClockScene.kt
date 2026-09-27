@@ -167,6 +167,27 @@ data class ClockSceneViewport(
             )
         }
 
+        /**
+         * The same pan as [forScroll], but with the visible share of the
+         * image's width given rather than worked out from the two aspect
+         * ratios: exactly the numbers the wallpaper's shaders are given. The
+         * derived window is only right when the image fills the screen's
+         * height at exactly the aspect the clock believes the screen has, and
+         * any disagreement turns into a slice of the photo that follows the
+         * launcher's page — the clock fits itself to the left of the photo
+         * while the whole photo is on screen.
+         */
+        fun forWindow(scrollOffsetX: Float, windowX: Float): ClockSceneViewport {
+            val window = windowX.coerceIn(0.01f, 1f)
+            val offset = scrollOffsetX.coerceIn(0f, 1f)
+            return ClockSceneViewport(
+                uOffset = offset * (1f - window),
+                uScale = window,
+                vOffset = 0f,
+                vScale = 1f
+            )
+        }
+
         /** An image centre-cropped into a view, as the calibration screen draws it. */
         fun forCenterCrop(viewAspect: Float, imageAspect: Float): ClockSceneViewport {
             if (viewAspect <= 0f || imageAspect <= 0f) return ClockSceneViewport(0f, 1f, 0f, 1f)

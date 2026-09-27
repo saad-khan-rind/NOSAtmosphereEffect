@@ -284,22 +284,27 @@ abstract class BaseCropActivity : ComponentActivity() {
                     try {
                         fileTransactions += installWallpaperFiles(bitmap, source)
 
+                        // Read before anything is written: a new image under
+                        // the same effect keeps Fine tuning, a new effect
+                        // starts fresh.
+                        val keepFineTune =
+                            FineTuneRetention.keeps(this, appPreferences, effectId)
                         preferencesTouched = true
                         SystemColorSyncPreferences.isEnabled(this)
-                        val appPreferencesEditor =
-                            appPreferences.edit()
-                                .clear()
-                                .putBoolean(
-                                    AtmosphereGlassPolicy.ENABLED_KEY,
-                                    atmosphereGlassEnabled
-                                )
+                        val appPreferencesEditor = appPreferences.edit()
+                        if (!keepFineTune) appPreferencesEditor.clear()
+                        FineTuneRetention.markApplied(appPreferencesEditor, effectId)
+                            .putBoolean(
+                                AtmosphereGlassPolicy.ENABLED_KEY,
+                                atmosphereGlassEnabled
+                            )
                         GlassEffectPreferences.write(
                             appPreferencesEditor,
                             glassSettings
                         )
                             .commit()
                             .also { success ->
-                                if (!success) throw IOException("Could not reset effect preferences")
+                                if (!success) throw IOException("Could not save effect preferences")
                             }
                         getSharedPreferences(WALLPAPER_PREFERENCES, Context.MODE_PRIVATE)
                             .edit()

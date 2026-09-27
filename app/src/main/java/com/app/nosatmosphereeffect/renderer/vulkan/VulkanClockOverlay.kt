@@ -124,7 +124,15 @@ internal class VulkanClockOverlay(
         upload: (Bitmap) -> Boolean,
         requestRender: () -> Unit,
         /** The launcher's page offset; the Adaptive face fits to what is on screen. */
-        scrollOffsetX: Float = 0.5f
+        scrollOffsetX: Float = 0.5f,
+        /** The share of the image's width on screen, as the shader is given it. */
+        scrollWindowX: Float = 0f,
+        /**
+         * Width/height of the surface. The shaders place the clock against the
+         * surface, so the Adaptive face must measure against the same shape;
+         * the display's metrics can differ from it.
+         */
+        surfaceAspect: Float = 0f
     ): Boolean {
         pendingState?.let { next ->
             pendingState = null
@@ -146,6 +154,8 @@ internal class VulkanClockOverlay(
             uploader.reset()
         }
         uploader.scrollOffsetX = scrollOffsetX
+        uploader.scrollWindowX = scrollWindowX
+        if (surfaceAspect.isFinite() && surfaceAspect > 0f) uploader.screenAspect = surfaceAspect
         if (!appliedState.enabled) return false
 
         // Held until the clock would actually be on screen, so waking onto the
