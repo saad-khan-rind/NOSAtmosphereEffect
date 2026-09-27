@@ -262,4 +262,130 @@ object ClockBoxPlacement {
 
     /** True when [placement] sits exactly on the screen's centre line. */
     fun isCentred(placement: ClockPlacement): Boolean = abs(placement.centerX - 0.5f) < 0.001f
+
+    /**
+     * Keeps free space between a box and the screen's sides, so its handles
+     * stay clear of the system back gesture along the edges.
+     */
+    const val SIDE_MARGIN = 0.03f
+
+    /**
+     * [placement] shrunk and moved, only as far as needed, so its box fits on
+     * screen with [SIDE_MARGIN] either side; [placement] itself when it
+     * already does.
+     *
+     * A box's width follows from its height and the content's shape, so the
+     * same stored size comes out wider when the shape changes: a size set on
+     * a stacked face overflows the screen after switching to a row, and a
+     * date grows when the day's name gets longer. The height gives way first,
+     * which keeps the shape the user chose; the width scale only gives way
+     * when the height is already at its floor.
+     */
+    fun fitOnScreen(
+        placement: ClockPlacement,
+        contentAspect: Float,
+        screenAspect: Float
+    ): ClockPlacement {
+        if (screenAspect <= 0f || contentAspect <= 0f) return placement
+        val maxWidth = 1f - 2f * SIDE_MARGIN
+        var height = placement.height.coerceAtMost(1f)
+        var widthScale = placement.widthScale
+        fun widthOf(h: Float, scale: Float) = h * contentAspect * scale / screenAspect
+        if (widthOf(height, widthScale) > maxWidth) {
+            height = AtmosphereClockPolicy.sanitizeHeight(
+                maxWidth * screenAspect / (contentAspect * widthScale)
+            )
+            if (widthOf(height, widthScale) > maxWidth) {
+                widthScale = AtmosphereClockPolicy.sanitizeAxisScale(
+                    maxWidth * screenAspect / (contentAspect * height)
+                )
+            }
+        }
+        val width = widthOf(height, widthScale)
+        val half = width / 2f
+        val centerX = if (width <= maxWidth) {
+            placement.centerX.coerceIn(SIDE_MARGIN + half, 1f - SIDE_MARGIN - half)
+        } else {
+            0.5f
+        }
+        val top = placement.top.coerceIn(0f, maxOf(0f, 1f - height))
+        val fitted = ClockPlacement(centerX, top, height, widthScale)
+        return if (fitted == placement) placement else fitted
+    }
+
+    /**
+     * A two-finger gesture: [start] scaled by [zoom] about its own centre and
+     * moved by ([dx], [dy]) screen fractions, then fitted on screen. Both
+     * dimensions scale together, so the shape is kept — a pinch is the easy
+     * way to resize without reaching for a corner near the screen's edge.
+     */
+    fun transform(
+        start: ClockPlacement,
+        zoom: Float,
+        dx: Float,
+        dy: Float,
+        contentAspect: Float,
+        screenAspect: Float
+    ): ClockPlacement {
+        if (screenAspect <= 0f || contentAspect <= 0f || !zoom.isFinite() || zoom <= 0f) {
+            return start
+        }
+        val height = AtmosphereClockPolicy.sanitizeHeight(start.height * zoom)
+        val centreY = start.top + start.height / 2f + dy
+        val moved = ClockPlacement(
+            centerX = start.centerX + dx,
+            top = centreY - height / 2f,
+            height = height,
+            widthScale = start.widthScale
+        )
+        val fitted = fitOnScreen(moved, contentAspect, screenAspect)
+        val snapped = if (abs(fitted.centerX - 0.5f) < CENTRE_SNAP) fitted.copy(centerX = 0.5f) else fitted
+        return snapped.copy(
+            centerX = AtmosphereClockPolicy.sanitizeCenterX(snapped.centerX),
+            top = AtmosphereClockPolicy.sanitizeTop(snapped.top)
+        )
+    }
+
+    /** The date's width as a share of the clock's when it is first shown. */
+    const val DATE_WIDTH_SHARE = 0.62f
+
+    /** Space between the clock and a newly shown date, in screen heights. */
+    const val DATE_GAP = 0.012f
+
+    /**
+     * Where a newly shown date goes: sized from the clock — [DATE_WIDTH_SHARE]
+     * of its width — centred over it, and above it, where a date reads first
+     * and never sits under the digits. Below the clock only when there is no
+     * room above, under the status bar.
+     */
+    fun dateBesideClock(
+        clock: ClockPlacement,
+        contentAspect: Float,
+        dateAspect: Float,
+        screenAspect: Float,
+        topInset: Float = DATE_TOP_INSET
+    ): ClockPlacement {
+        if (screenAspect <= 0f || contentAspect <= 0f || dateAspect <= 0f) {
+            return AtmosphereClockPolicy.DEFAULT_DATE_PLACEMENT
+        }
+        val clockBox = contentBox(clock, contentAspect, screenAspect)
+        val height = AtmosphereClockPolicy.sanitizeHeight(
+            clockBox.width * DATE_WIDTH_SHARE * screenAspect / dateAspect
+        ).coerceAtMost(clockBox.height.coerceAtLeast(AtmosphereClockPolicy.MIN_HEIGHT))
+        val above = clockBox.top - DATE_GAP - height
+        val top = if (above >= topInset) above else clockBox.bottom + DATE_GAP
+        return fitOnScreen(
+            ClockPlacement(
+                centerX = clockBox.centerX,
+                top = top,
+                height = height,
+                widthScale = 1f
+            ),
+            dateAspect,
+            screenAspect
+        )
+    }
+
+    /** Roughly the status bar, as a share of the screen's height. */
+    const val DATE_TOP_INSET = 0.045f
 }

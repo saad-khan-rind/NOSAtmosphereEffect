@@ -618,10 +618,15 @@ internal class AdaptiveClockFace {
          * wallpaper's colour, so the digits still look made from the photo
          * where they run longest.
          */
-        private const val TOP_LIGHTNESS = 0.62f
-        private const val BOTTOM_LIGHTNESS = 0.83f
-        /** The least saturation a coloured wallpaper's shading is given. */
-        private const val MIN_SHADE_SATURATION = 0.22f
+        private const val TOP_LIGHTNESS = 0.72f
+        private const val BOTTOM_LIGHTNESS = 0.9f
+        /**
+         * The saturation band a coloured wallpaper's shading is kept in: enough
+         * to read as the photo's colour, never so much that the top of a digit
+         * turns deep and muddy.
+         */
+        private const val MIN_SHADE_SATURATION = 0.16f
+        private const val MAX_SHADE_SATURATION = 0.38f
 
         /**
          * The Adaptive shading of [base] — the wallpaper's own colour, as
@@ -634,7 +639,9 @@ internal class AdaptiveClockFace {
             val hsl = FloatArray(3)
             ColorUtils.colorToHSL(base, hsl)
             val t = fraction.coerceIn(0f, 1f)
-            if (hsl[1] >= 0.05f) hsl[1] = max(hsl[1], MIN_SHADE_SATURATION)
+            if (hsl[1] >= 0.05f) {
+                hsl[1] = hsl[1].coerceIn(MIN_SHADE_SATURATION, MAX_SHADE_SATURATION)
+            }
             hsl[2] = TOP_LIGHTNESS + (BOTTOM_LIGHTNESS - TOP_LIGHTNESS) * t
             return ColorUtils.HSLToColor(hsl) or (0xFF shl 24)
         }
@@ -648,7 +655,7 @@ internal class AdaptiveClockFace {
             val hsl = FloatArray(3)
             ColorUtils.colorToHSL(shadeOf(base, 0f), hsl)
             hsl[1] *= 0.35f
-            hsl[2] = min(hsl[2] + 0.1f, 1f)
+            hsl[2] = min(hsl[2] + 0.08f, 0.95f)
             return ColorUtils.HSLToColor(hsl) or (0xFF shl 24)
         }
     }

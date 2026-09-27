@@ -104,15 +104,17 @@ object ClockPalette {
             if (stamp == cachedStamp && cachedColor != null) return cachedColor
         }
 
-        val extracted = try {
-            WallpaperColorExtractor.extract(file)
+        // The whole picture's colour rather than its most vibrant accent: the
+        // clock sits on all of it.
+        val source = try {
+            WallpaperColorExtractor.representativeColor(file)
         } catch (_: RuntimeException) {
             null
         } catch (_: OutOfMemoryError) {
             null
         } ?: return null
 
-        val conditioned = condition(extracted.primaryColor.toArgb())
+        val conditioned = condition(source)
         synchronized(cacheLock) {
             cachedStamp = stamp
             cachedColor = conditioned

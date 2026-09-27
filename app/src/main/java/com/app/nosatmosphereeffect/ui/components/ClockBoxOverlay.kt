@@ -1,10 +1,19 @@
 package com.app.nosatmosphereeffect.ui.components
 
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -14,15 +23,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.helper.ClockBoxHandle
 import com.app.nosatmosphereeffect.helper.ClockBoxRect
 import kotlin.math.abs
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * The frame the user drags to place and size the clock.
+ *
+ * One finger moves the box, or resizes it from a corner or edge handle; two
+ * fingers pinch the selected box larger or smaller and move it, which works
+ * anywhere on screen — the way to resize a box whose handles sit near an edge.
  *
  * Replaces the size / width / height sliders: the clock is a rectangle on a
  * photo, so it is set like one — drag inside to move it, drag a corner to
@@ -54,11 +72,18 @@ internal fun ClockBoxOverlay(
     onDragStarted: (Boolean) -> Unit,
     onDragFinished: () -> Unit,
     onTap: (Offset) -> Unit,
+    /**
+     * A two-finger gesture on the selected box: the total zoom since it began,
+     * and the total movement of the fingers' centre in view fractions. Called
+     * after [onDragStarted] with false, and ended by [onDragFinished].
+     */
+    onTransform: (zoom: Float, dx: Float, dy: Float) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     val touchSlopPx = with(density) { HANDLE_TOUCH_DP.dp.toPx() }
     val handleRadiusPx = with(density) { HANDLE_RADIUS_DP.dp.toPx() }
+    val exclusionPx = with(density) { EXCLUSION_DP.dp.toPx() }
     // The gesture detector is installed once and reads everything it needs
     // through these. Keying pointerInput on the box restarted the detector on
     // every movement, so each swipe produced one small step and then had to
@@ -68,68 +93,134 @@ internal fun ClockBoxOverlay(
     val boxChanged by rememberUpdatedState(onBoxChange)
     val dragStarted by rememberUpdatedState(onDragStarted)
     val dragFinished by rememberUpdatedState(onDragFinished)
+    val transformed by rememberUpdatedState(onTransform)
     val tapped by rememberUpdatedState(onTap)
+    var viewSize by remember { mutableStateOf(IntSize.Zero) }
 
-    androidx.compose.foundation.Canvas(
-        modifier = modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures { tapped(it) }
-            }
-            .pointerInput(Unit) {
-                var handle = ClockBoxHandle.MOVE
-                var startBox = ClockBoxRect(0f, 0f, 0f, 0f)
-                var travelled = Offset.Zero
-                var grabbedPassive = false
-                detectDragGestures(
-                    onDragStart = { position ->
-                        val width = size.width.toFloat()
-                        val height = size.height.toFloat()
-                        travelled = Offset.Zero
-                        val activeHandle =
-                            handleAt(position, currentBox, width, height, touchSlopPx)
-                        // The selected box owns the gesture, except when the
-                        // finger is on the other one and not on this one:
-                        // dragging what you are touching is what everyone
-                        // expects, and it saves a trip to the chips to switch.
-                        grabbedPassive = currentPassive?.let { passive ->
-                            activeHandle == ClockBoxHandle.MOVE &&
-                                !touches(position, currentBox, width, height, touchSlopPx) &&
-                                touches(position, passive, width, height, touchSlopPx)
-                        } ?: false
-                        startBox = if (grabbedPassive) currentPassive!! else currentBox
-                        handle = if (grabbedPassive) {
-                            handleAt(position, startBox, width, height, touchSlopPx)
-                        } else {
-                            activeHandle
-                        }
-                        dragStarted(grabbedPassive)
-                    },
-                    onDragEnd = { dragFinished() },
-                    onDragCancel = { dragFinished() }
-                ) { change, drag ->
-                    change.consume()
-                    val width = size.width.toFloat()
-                    val height = size.height.toFloat()
-                    if (width <= 0f || height <= 0f) return@detectDragGestures
-                    // Applied to where the box was when the finger went down,
-                    // not to wherever it is now: pointer events arrive faster
-                    // than recomposition, and chaining deltas onto a box that
-                    // has not caught up yet drops movement.
-                    travelled += drag
-                    boxChanged(
-                        startBox.movedBy(handle, travelled.x / width, travelled.y / height),
-                        handle,
-                        grabbedPassive
-                    )
+    Box(modifier.fillMaxSize().onSizeChanged { viewSize = it }) {
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures { tapped(it) }
                 }
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val slop = viewConfiguration.touchSlop
+                        var mode = GestureMode.PENDING
+                        var handle = ClockBoxHandle.MOVE
+                        var startBox = currentBox
+                        var grabbedPassive = false
+                        var travelled = Offset.Zero
+                        var zoom = 1f
+                        var pan = Offset.Zero
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val width = size.width.toFloat()
+                            val height = size.height.toFloat()
+                            val pressed = event.changes.count { it.pressed }
+                            if (pressed == 0 || width <= 0f || height <= 0f) break
+
+                            if (pressed >= 2) {
+                                // A second finger turns whatever this was into a
+                                // pinch on the selected box; a drag in progress
+                                // hands over rather than fighting it.
+                                if (mode != GestureMode.PINCH) {
+                                    if (mode == GestureMode.DRAG) dragFinished()
+                                    mode = GestureMode.PINCH
+                                    zoom = 1f
+                                    pan = Offset.Zero
+                                    dragStarted(false)
+                                }
+                                zoom *= event.calculateZoom()
+                                pan += event.calculatePan()
+                                event.changes.forEach { it.consume() }
+                                transformed(zoom, pan.x / width, pan.y / height)
+                                continue
+                            }
+                            // Lifting one finger of a pinch does not become a
+                            // drag: the gesture ends when the last one lifts.
+                            if (mode == GestureMode.PINCH) continue
+
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                                ?: break
+                            travelled += change.positionChange()
+                            if (mode == GestureMode.PENDING) {
+                                if (travelled.getDistance() < slop) continue
+                                mode = GestureMode.DRAG
+                                val position = down.position
+                                val activeHandle =
+                                    handleAt(position, currentBox, width, height, touchSlopPx)
+                                // The selected box owns the gesture, except when
+                                // the finger is on the other one and not on this
+                                // one: dragging what you are touching is what
+                                // everyone expects.
+                                grabbedPassive = currentPassive?.let { passive ->
+                                    activeHandle == ClockBoxHandle.MOVE &&
+                                        !touches(position, currentBox, width, height, touchSlopPx) &&
+                                        touches(position, passive, width, height, touchSlopPx)
+                                } ?: false
+                                startBox = if (grabbedPassive) currentPassive!! else currentBox
+                                handle = if (grabbedPassive) {
+                                    handleAt(position, startBox, width, height, touchSlopPx)
+                                } else {
+                                    activeHandle
+                                }
+                                dragStarted(grabbedPassive)
+                            }
+                            change.consume()
+                            // Applied to where the box was when the finger went
+                            // down, not to wherever it is now: pointer events
+                            // arrive faster than recomposition, and chaining
+                            // deltas onto a box that has not caught up yet
+                            // drops movement.
+                            boxChanged(
+                                startBox.movedBy(handle, travelled.x / width, travelled.y / height),
+                                handle,
+                                grabbedPassive
+                            )
+                        }
+                        if (mode != GestureMode.PENDING) dragFinished()
+                    }
+                }
+        ) {
+            drawCentreGuide(currentBox, centered)
+            currentPassive?.let { drawPassiveBox(it) }
+            drawBox(currentBox, showHandles, handleRadiusPx)
+        }
+
+        // Keeps the system back gesture off the selected box's handles. With
+        // gesture navigation a swipe that starts at the screen's side edge is
+        // "back", so a corner resting near the edge could not be dragged in —
+        // the box could grow to the edge but never be pulled smaller again.
+        // Only the side handles need it; that gesture lives on the side edges.
+        if (showHandles && viewSize.width > 0 && viewSize.height > 0) {
+            val width = viewSize.width.toFloat()
+            val height = viewSize.height.toFloat()
+            val half = exclusionPx / 2f
+            val centreY = (box.top + box.bottom) / 2f
+            listOf(
+                Offset(box.left, box.top), Offset(box.left, centreY), Offset(box.left, box.bottom),
+                Offset(box.right, box.top), Offset(box.right, centreY), Offset(box.right, box.bottom)
+            ).forEach { point ->
+                Box(
+                    Modifier
+                        .offset {
+                            IntOffset(
+                                (point.x * width - half).roundToInt(),
+                                (point.y * height - half).roundToInt()
+                            )
+                        }
+                        .size(EXCLUSION_DP.dp)
+                        .systemGestureExclusion()
+                )
             }
-    ) {
-        drawCentreGuide(currentBox, centered)
-        currentPassive?.let { drawPassiveBox(it) }
-        drawBox(currentBox, showHandles, handleRadiusPx)
+        }
     }
 }
+
+private enum class GestureMode { PENDING, DRAG, PINCH }
 
 /** The proposed rectangle after dragging [handle] by a fraction of the view. */
 private fun ClockBoxRect.movedBy(handle: ClockBoxHandle, dx: Float, dy: Float): ClockBoxRect = when (handle) {
@@ -275,6 +366,8 @@ private fun DrawScope.drawBox(box: ClockBoxRect, showHandles: Boolean, handleRad
 }
 
 private const val HANDLE_TOUCH_DP = 28
+/** Square kept free of the back gesture around each side handle. */
+private const val EXCLUSION_DP = 48
 /** The most of a box's width or height either grab zone may take. */
 private const val HANDLE_SHARE = 0.28f
 private const val HANDLE_RADIUS_DP = 7
