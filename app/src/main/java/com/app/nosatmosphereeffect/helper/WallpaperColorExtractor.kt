@@ -186,8 +186,12 @@ internal object WallpaperColorExtractor {
 
     private fun Float.roundToIntSafe(): Int = if (isFinite()) Math.round(this) else 0
 
-    /** Below this overall saturation the picture counts as black and white. */
-    private const val GREY_SATURATION = 0.08f
+    /**
+     * Below this overall saturation the picture counts as black and white. Low
+     * on purpose: a dark, nearly grey photo still has a cast — the blue of a
+     * misty forest — and that cast is exactly what the clock should pick up.
+     */
+    private const val GREY_SATURATION = 0.01f
     /** How far the hues must agree for their average to mean anything. */
     private const val MIN_HUE_AGREEMENT = 0.35
     private const val REPRESENTATIVE_LIGHTNESS = 0.6f

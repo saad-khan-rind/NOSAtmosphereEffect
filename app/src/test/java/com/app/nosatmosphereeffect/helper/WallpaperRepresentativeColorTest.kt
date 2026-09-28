@@ -66,4 +66,21 @@ class WallpaperRepresentativeColorTest {
     fun `no swatches means no colour`() {
         assertNull(WallpaperColorExtractor.representativeColor(emptyList()))
     }
+
+    @Test
+    fun `a nearly grey picture keeps its faint cast`() {
+        // A dark misty forest: almost grey, slightly blue, with a few small
+        // red sparks. The clock should come out blue, not grey or red.
+        val color = WallpaperColorExtractor.representativeColor(
+            listOf(
+                0xFF4A4B52.toInt() to 9_000,
+                0xFF2E3036.toInt() to 7_000,
+                0xFF8E9096.toInt() to 3_000,
+                0xFFD2452A.toInt() to 150
+            )
+        )!!
+        assertTrue(!isGrey(color))
+        val hue = hueOf(color)
+        assertTrue("hue $hue", hue in 200f..250f)
+    }
 }

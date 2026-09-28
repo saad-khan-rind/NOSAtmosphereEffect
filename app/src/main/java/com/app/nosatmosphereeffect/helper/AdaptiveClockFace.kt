@@ -613,37 +613,34 @@ internal class AdaptiveClockFace {
         private const val SHADE_STEPS = 96
 
         /**
-         * Lightness of the shading at the top line and at full length. The
-         * bottom stops well short of white: it is a light shade of the
-         * wallpaper's colour, so the digits still look made from the photo
-         * where they run longest.
+         * The shading from the top line to full length, as brightness and
+         * colour rather than lightness: the whole clock stays bright, and only
+         * the shade moves — a deep, clear tone of the colour at the top, fading
+         * down to almost white with a hint of it at full length. Lowering
+         * lightness instead made the top read as a dimmed, greyish version of
+         * the colour rather than a deeper shade of it. Auto's colour sits in
+         * the middle of this range.
          */
-        private const val TOP_LIGHTNESS = 0.72f
-        private const val BOTTOM_LIGHTNESS = 0.9f
-        /**
-         * The saturation band a coloured wallpaper's shading is kept in: enough
-         * to read as the photo's colour, never so much that the top of a digit
-         * turns deep and muddy.
-         */
-        private const val MIN_SHADE_SATURATION = 0.16f
-        private const val MAX_SHADE_SATURATION = 0.38f
+        private const val TOP_BRIGHTNESS = 0.86f
+        private const val BOTTOM_BRIGHTNESS = 0.98f
+        private const val TOP_COLOUR = 0.5f
+        private const val BOTTOM_COLOUR = 0.1f
 
         /**
          * The Adaptive shading of [base] — the wallpaper's own colour, as
          * Auto uses it — at [fraction] of the way from the top line (0) to
-         * full length (1): its hue, from a deeper shade at the top to a light
-         * one at the bottom. Past full length (an overshoot) it stays at the
-         * lightest. A grey wallpaper shades grey to off-white.
+         * full length (1): its hue, from a deep shade at the top to a near
+         * white at the bottom. Past full length (an overshoot) it stays at the
+         * lightest. A wallpaper with no hue at all shades grey to white.
          */
         fun shadeOf(base: Int, fraction: Float): Int {
-            val hsl = FloatArray(3)
-            ColorUtils.colorToHSL(base, hsl)
+            val hsv = FloatArray(3)
+            Color.colorToHSV(base, hsv)
             val t = fraction.coerceIn(0f, 1f)
-            if (hsl[1] >= 0.05f) {
-                hsl[1] = hsl[1].coerceIn(MIN_SHADE_SATURATION, MAX_SHADE_SATURATION)
-            }
-            hsl[2] = TOP_LIGHTNESS + (BOTTOM_LIGHTNESS - TOP_LIGHTNESS) * t
-            return ColorUtils.HSLToColor(hsl) or (0xFF shl 24)
+            // A neutral wallpaper shades neutral; any hue takes the ramp.
+            hsv[1] = if (hsv[1] >= 0.04f) TOP_COLOUR + (BOTTOM_COLOUR - TOP_COLOUR) * t else 0f
+            hsv[2] = TOP_BRIGHTNESS + (BOTTOM_BRIGHTNESS - TOP_BRIGHTNESS) * t
+            return Color.HSVToColor(hsv) or (0xFF shl 24)
         }
 
         /**
@@ -652,11 +649,11 @@ internal class AdaptiveClockFace {
          * little lighter.
          */
         fun fadedOf(base: Int): Int {
-            val hsl = FloatArray(3)
-            ColorUtils.colorToHSL(shadeOf(base, 0f), hsl)
-            hsl[1] *= 0.35f
-            hsl[2] = min(hsl[2] + 0.08f, 0.95f)
-            return ColorUtils.HSLToColor(hsl) or (0xFF shl 24)
+            val hsv = FloatArray(3)
+            Color.colorToHSV(shadeOf(base, 0f), hsv)
+            hsv[1] *= 0.35f
+            hsv[2] = min(hsv[2] + 0.06f, 1f)
+            return Color.HSVToColor(hsv) or (0xFF shl 24)
         }
     }
 }

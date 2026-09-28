@@ -131,18 +131,23 @@ object ClockPalette {
     }
 
     /**
-     * Keeps the hue, pulls saturation and lightness into a legible band.
+     * The clock's colour for a wallpaper whose overall colour is [source]:
+     * its hue, at a fixed saturation and lightness.
      *
-     * A nearly-grey source (saturation under [MIN_SOURCE_SATURATION]) has no
-     * meaningful hue to preserve, so it becomes plain white instead of a
-     * muddy off-grey.
+     * The way One UI colours its own clock, measured from its lock screen: a
+     * near-black-and-white photo with a faint blue cast gets a clearly light
+     * blue clock, not grey. Only the hue comes from the picture — its
+     * strength does not, so a faint tint and a vivid one give an equally
+     * readable clock. A picture with no hue at all gets a light neutral grey.
      */
     @ColorInt
     fun condition(@ColorInt source: Int): Int {
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(source, hsl)
-        if (hsl[1] < MIN_SOURCE_SATURATION) return DEFAULT_FALLBACK
-        hsl[1] = hsl[1].coerceIn(MIN_TINT_SATURATION, MAX_TINT_SATURATION)
+        if (hsl[1] < MIN_SOURCE_SATURATION) {
+            return opaque(ColorUtils.HSLToColor(floatArrayOf(0f, 0f, TARGET_LIGHTNESS)))
+        }
+        hsl[1] = TARGET_SATURATION
         hsl[2] = TARGET_LIGHTNESS
         return opaque(ColorUtils.HSLToColor(hsl))
     }
@@ -154,8 +159,8 @@ object ClockPalette {
     private var cachedStamp: Long = Long.MIN_VALUE
     @ColorInt private var cachedColor: Int? = null
 
-    private const val MIN_SOURCE_SATURATION = 0.10f
-    private const val MIN_TINT_SATURATION = 0.18f
-    private const val MAX_TINT_SATURATION = 0.42f
-    private const val TARGET_LIGHTNESS = 0.90f
+    /** Below this the picture has no hue worth following. */
+    private const val MIN_SOURCE_SATURATION = 0.01f
+    private const val TARGET_SATURATION = 0.43f
+    private const val TARGET_LIGHTNESS = 0.78f
 }
