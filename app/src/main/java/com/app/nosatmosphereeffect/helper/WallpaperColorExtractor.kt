@@ -77,6 +77,125 @@ internal object WallpaperColorExtractor {
         )
     }
 
+    /**
+     * One colour that stands for the whole wallpaper, for the clock: the hue
+     * of everything in it, weighted by how much of the image each colour
+     * covers and how colourful it is, at the image's overall colourfulness.
+     *
+     * Not [extract]'s primary colour. That is the most vibrant swatch — an
+     * accent that may cover a sliver of the photo — and on some devices it is
+     * pushed to a strong saturation for the system theme, which made the clock
+     * darker and more saturated than the picture it sits on.
+     */
+    fun representativeColor(file: File): Int? {
+        val bitmap = decodeSampledBitmap(file) ?: return null
+        return try {
+            val swatches = Palette.from(bitmap)
+                .maximumColorCount(24)
+                .generate()
+                .swatches
+                .map { it.rgb to it.population }
+            representativeColor(swatches)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * [representativeColor] for colours and their pixel counts. Pure — the
+     * colour maths is done here rather than through ColorUtils — so it can be
+     * tested off the device.
+     */
+    internal fun representativeColor(swatches: List<Pair<Int, Int>>): Int? {
+        var total = 0.0
+        var saturationSum = 0.0
+        var hueX = 0.0
+        var hueY = 0.0
+        var chromaTotal = 0.0
+        var strongest = -1.0
+        var strongestHue = 0f
+        for ((rgb, population) in swatches) {
+            if (population <= 0) continue
+            val (hue, saturation, lightness) = toHsl(rgb)
+            val weight = population.toDouble()
+            total += weight
+            // Near-black and near-white carry no hue worth following, but they
+            // are still part of how colourful the picture is overall.
+            val chromatic = lightness in 0.08f..0.95f
+            saturationSum += weight * (if (chromatic) saturation else 0f)
+            if (!chromatic) continue
+            val chroma = weight * saturation
+            val angle = Math.toRadians(hue.toDouble())
+            hueX += kotlin.math.cos(angle) * chroma
+            hueY += kotlin.math.sin(angle) * chroma
+            chromaTotal += chroma
+            if (chroma > strongest) {
+                strongest = chroma
+                strongestHue = hue
+            }
+        }
+        if (total <= 0.0) return null
+        val saturation = (saturationSum / total).toFloat()
+        if (chromaTotal <= 0.0 || saturation < GREY_SATURATION) {
+            return fromHsl(0f, 0f, REPRESENTATIVE_LIGHTNESS)
+        }
+        // Colours pulling opposite ways cancel to a hue nobody sees in the
+        // picture; then the one covering most of it decides.
+        val agreement = kotlin.math.hypot(hueX, hueY) / chromaTotal
+        val hue = if (agreement < MIN_HUE_AGREEMENT) {
+            strongestHue
+        } else {
+            ((Math.toDegrees(kotlin.math.atan2(hueY, hueX)) + 360.0) % 360.0).toFloat()
+        }
+        return fromHsl(hue, saturation, REPRESENTATIVE_LIGHTNESS)
+    }
+
+    private fun toHsl(rgb: Int): Triple<Float, Float, Float> {
+        val r = ((rgb shr 16) and 0xFF) / 255f
+        val g = ((rgb shr 8) and 0xFF) / 255f
+        val b = (rgb and 0xFF) / 255f
+        val maxValue = max(r, max(g, b))
+        val minValue = min(r, min(g, b))
+        val lightness = (maxValue + minValue) / 2f
+        val delta = maxValue - minValue
+        if (delta < 1e-6f) return Triple(0f, 0f, lightness)
+        val saturation = delta / (1f - abs(2f * lightness - 1f))
+        val hue = when (maxValue) {
+            r -> 60f * (((g - b) / delta) % 6f)
+            g -> 60f * ((b - r) / delta + 2f)
+            else -> 60f * ((r - g) / delta + 4f)
+        }
+        return Triple((hue + 360f) % 360f, saturation.coerceIn(0f, 1f), lightness)
+    }
+
+    private fun fromHsl(hue: Float, saturation: Float, lightness: Float): Int {
+        val c = (1f - abs(2f * lightness - 1f)) * saturation
+        val x = c * (1f - abs((hue / 60f) % 2f - 1f))
+        val m = lightness - c / 2f
+        val (r, g, b) = when ((hue / 60f).toInt()) {
+            0 -> Triple(c, x, 0f)
+            1 -> Triple(x, c, 0f)
+            2 -> Triple(0f, c, x)
+            3 -> Triple(0f, x, c)
+            4 -> Triple(x, 0f, c)
+            else -> Triple(c, 0f, x)
+        }
+        fun channel(value: Float) = ((value + m) * 255f).roundToIntSafe().coerceIn(0, 255)
+        return (0xFF shl 24) or (channel(r) shl 16) or (channel(g) shl 8) or channel(b)
+    }
+
+    private fun Float.roundToIntSafe(): Int = if (isFinite()) Math.round(this) else 0
+
+    /**
+     * Below this overall saturation the picture counts as black and white. Low
+     * on purpose: a dark, nearly grey photo still has a cast — the blue of a
+     * misty forest — and that cast is exactly what the clock should pick up.
+     */
+    private const val GREY_SATURATION = 0.01f
+    /** How far the hues must agree for their average to mean anything. */
+    private const val MIN_HUE_AGREEMENT = 0.35
+    private const val REPRESENTATIVE_LIGHTNESS = 0.6f
+
     private fun decodeSampledBitmap(file: File): Bitmap? {
         if (!file.isFile) return null
 

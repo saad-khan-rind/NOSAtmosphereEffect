@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
@@ -109,6 +110,24 @@ import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 import java.io.File
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.AlignHorizontalCenter
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ColorLens
+import androidx.compose.material.icons.rounded.Colorize
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VerticalAlignTop
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.ui.graphics.vector.ImageVector
+import kotlin.math.roundToInt
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -512,6 +531,43 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     // change target mid-drag.
     var draggingDate by remember { mutableStateOf(false) }
 
+    fun setClock(value: ClockPlacement) {
+        centerX = value.centerX
+        top = value.top
+        heightFraction = value.height
+        widthScale = value.widthScale
+    }
+
+    fun setDate(value: ClockPlacement) {
+        dateCenterX = value.centerX
+        dateTop = value.top
+        dateHeightFraction = value.height
+        dateWidthScale = value.widthScale
+    }
+
+    // Saves at once rather than waiting out the debounce below: leaving within
+    // it would otherwise drop the last change.
+    fun finishEditing() {
+        persist()
+        onDone()
+    }
+    BackHandler {
+        if (eyedropperArmed) eyedropperArmed = false else finishEditing()
+    }
+
+    var panelTab by remember { mutableStateOf(ClockPanelTab.STYLE) }
+    var panelExpanded by remember { mutableStateOf(true) }
+    // Bumped to show the gesture hint again: on arrival, and whenever the
+    // selection changes, so the reminder appears when it is relevant.
+    var hintRequest by remember { mutableIntStateOf(0) }
+    var hintVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(hintRequest) {
+        hintVisible = true
+        delay(HINT_MS)
+        hintVisible = false
+    }
+    LaunchedEffect(editingDate) { hintRequest++ }
+
     fun applyBox(proposed: ClockBoxRect, handle: ClockBoxHandle) {
         interacting = true
         lastInteractionMs = System.currentTimeMillis()
@@ -530,16 +586,85 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         ) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         }
-        if (editing) {
-            dateCenterX = settled.centerX
-            dateTop = settled.top
-            dateHeightFraction = settled.height
-            dateWidthScale = settled.widthScale
+        if (editing) setDate(settled) else setClock(settled)
+    }
+
+    /** A two-finger pinch on the selected box, resolved against where it began. */
+    fun applyTransform(zoom: Float, dx: Float, dy: Float) {
+        interacting = true
+        lastInteractionMs = System.currentTimeMillis()
+        val editing = draggingDate && showDate
+        val origin = dragStart ?: if (editing) datePlacement else placement
+        val settled = ClockBoxPlacement.transform(
+            start = origin,
+            zoom = zoom,
+            dx = dx,
+            dy = dy,
+            contentAspect = if (editing) dateAspect else faceContent.contentAspect,
+            screenAspect = screenAspect
+        )
+        if (editing) setDate(settled) else setClock(settled)
+    }
+
+    /** The date sized from the clock and placed above it (below, if no room). */
+    fun placeDateBesideClock() {
+        setDate(
+            ClockBoxPlacement.dateBesideClock(
+                clock = placement,
+                contentAspect = faceContent.contentAspect,
+                dateAspect = dateAspect,
+                screenAspect = screenAspect
+            )
+        )
+    }
+
+    fun centreSelected() {
+        if (editingDate && showDate) {
+            setDate(ClockBoxPlacement.fitOnScreen(datePlacement.copy(centerX = 0.5f), dateAspect, screenAspect))
         } else {
-            centerX = settled.centerX
-            top = settled.top
-            heightFraction = settled.height
-            widthScale = settled.widthScale
+            setClock(
+                ClockBoxPlacement.fitOnScreen(
+                    placement.copy(centerX = 0.5f),
+                    faceContent.contentAspect,
+                    screenAspect
+                )
+            )
+        }
+    }
+
+    fun resetSelectedSize() {
+        if (editingDate && showDate) {
+            placeDateBesideClock()
+        } else {
+            setClock(
+                ClockBoxPlacement.fitOnScreen(
+                    placement.copy(
+                        height = AtmosphereClockPolicy.DEFAULT_HEIGHT,
+                        widthScale = AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE
+                    ),
+                    faceContent.contentAspect,
+                    screenAspect
+                )
+            )
+        }
+    }
+
+    // A size that fitted one shape can overflow another: a height set on a
+    // stacked face is far too wide as a row, and the date widens with a longer
+    // day name. Refit whenever a shape changes, so no box ever opens wider
+    // than the screen with its handles out of reach under the back gesture.
+    // Never mid-gesture: the gesture itself keeps the box on screen.
+    val clockShapeKey = (faceContent.contentAspect * 200f).toInt()
+    val dateShapeKey = (dateAspect * 200f).toInt()
+    val screenShapeKey = (screenAspect * 1000f).toInt()
+    LaunchedEffect(clockShapeKey, dateShapeKey, screenShapeKey, showDate) {
+        if (dragStart != null || containerWidthPx <= 0f) return@LaunchedEffect
+        val fittedClock =
+            ClockBoxPlacement.fitOnScreen(placement, faceContent.contentAspect, screenAspect)
+        if (fittedClock !== placement) setClock(fittedClock)
+        if (showDate) {
+            val fittedDate = ClockBoxPlacement.fitOnScreen(datePlacement, dateAspect, screenAspect)
+            if (fittedDate !== datePlacement) setDate(fittedDate)
         }
     }
 
@@ -583,6 +708,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 centered = ClockBoxPlacement.isCentred(activePlacement),
                 showHandles = !eyedropperArmed,
                 onBoxChange = { rect, handle, _ -> applyBox(rect, handle) },
+                onTransform = { zoom, dx, dy -> applyTransform(zoom, dx, dy) },
                 onDragStarted = { grabbedPassive ->
                     val target = if (grabbedPassive) !editingDate else editingDate
                     draggingDate = target && showDate
@@ -635,52 +761,86 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             )
         }
 
+        // ---------------------------------------------------------------- top
         AnimatedVisibility(
             visible = chromeVisible,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopStart)
         ) {
-            Box(
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)
+                            listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent)
                         )
                     )
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(4.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(onClick = onDone, modifier = Modifier.align(Alignment.CenterStart)) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Done",
-                        tint = Color.White
+                Box(Modifier.fillMaxWidth()) {
+                    RoundIconButton(
+                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        description = "Back",
+                        onClick = ::finishEditing,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    )
+                    if (showDate && !eyedropperArmed) {
+                        // Which box the gestures move. Tapping a box on the
+                        // photo selects it too; this says which one is live.
+                        SegmentedPill(
+                            options = listOf("Clock", "Date"),
+                            selectedIndex = if (editingDate) 1 else 0,
+                            onSelected = { editingDate = it == 1 },
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else {
+                        Text(
+                            if (eyedropperArmed) "Pick a colour" else "Clock",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                    DonePill(onClick = ::finishEditing, modifier = Modifier.align(Alignment.CenterEnd))
+                }
+                AnimatedVisibility(
+                    visible = eyedropperArmed || (hintVisible && !interacting),
+                    enter = fadeIn() + slideInVertically { -it / 2 },
+                    exit = fadeOut()
+                ) {
+                    HintPill(
+                        text = if (eyedropperArmed) {
+                            "Tap the photo to pick its colour"
+                        } else {
+                            "Drag to move · Pinch to resize · Pull a corner to reshape"
+                        },
+                        actionLabel = if (eyedropperArmed) "Cancel" else null,
+                        onAction = { eyedropperArmed = false },
+                        modifier = Modifier.padding(top = 10.dp)
                     )
                 }
-                Text(
-                    when {
-                        eyedropperArmed -> "Tap the wallpaper to pick a colour"
-                        showDate ->
-                            "Dragging the ${if (editingDate) "date" else "clock"} · " +
-                                "tap the other box to switch"
-                        else -> "Drag the box to move · corners resize · tap to hide"
-                    },
-                    color = Color.White,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.align(Alignment.Center)
-                )
             }
         }
 
+        // ------------------------------------------------------------- bottom
         AnimatedVisibility(
             visible = chromeVisible && !interacting && !eyedropperArmed,
             enter = fadeIn() + slideInVertically { it / 3 },
             exit = fadeOut() + slideOutVertically { it / 3 },
             modifier = Modifier.align(Alignment.BottomStart)
         ) {
-            ClockControls(
+            ClockPanel(
+                tab = panelTab,
+                onTabChange = {
+                    panelTab = it
+                    panelExpanded = true
+                },
+                expanded = panelExpanded,
+                onToggleExpanded = { panelExpanded = !panelExpanded },
+                editingDate = editingDate && showDate,
                 thumbnails = thumbnails,
                 selected = style,
                 onStyleSelected = { style = it },
@@ -691,14 +851,24 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 weight = weight,
                 onWeightChange = { weight = AtmosphereClockPolicy.sanitizeWeight(it) },
                 showDate = showDate,
-                onShowDateChange = {
-                    showDate = it
-                    // Nothing to adjust once it is off, and the box the user
-                    // was dragging would vanish under their finger.
-                    if (!it) editingDate = false
+                onShowDateChange = { enabled ->
+                    showDate = enabled
+                    if (enabled) {
+                        // Sized from the clock and placed above it, never under
+                        // the digits, and selected so it can be adjusted straight
+                        // away.
+                        placeDateBesideClock()
+                        editingDate = true
+                        hintRequest++
+                    } else {
+                        // Nothing to adjust once it is off, and the box the
+                        // user was dragging would vanish under their finger.
+                        editingDate = false
+                    }
                 },
-                editingDate = editingDate,
-                onEditingDateChange = { editingDate = it },
+                onPlaceDate = { placeDateBesideClock() },
+                onCentre = { centreSelected() },
+                onResetSize = { resetSelectedSize() },
                 animate = animate,
                 onAnimateChange = { animate = it },
                 hourFormat = hourFormat,
@@ -713,27 +883,47 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 maskFailure = maskFailure,
                 segmentationDisabled = SegmentationCrashGuard.isDisabled(context),
                 onResetSegmentation = { SegmentationCrashGuard.reset(context) },
-                onResetPlacement = {
+                onResetAll = {
                     colorPref = AtmosphereClockPolicy.DEFAULT_COLOR
-                    centerX = AtmosphereClockPolicy.DEFAULT_CENTER_X
-                    top = AtmosphereClockPolicy.DEFAULT_TOP
-                    heightFraction = AtmosphereClockPolicy.DEFAULT_HEIGHT
-                    widthScale = AtmosphereClockPolicy.DEFAULT_WIDTH_SCALE
+                    setClock(AtmosphereClockPolicy.DEFAULT_PLACEMENT)
                     opacity = AtmosphereClockPolicy.DEFAULT_OPACITY
                     frost = AtmosphereClockPolicy.DEFAULT_FROST
                     weight = AtmosphereClockPolicy.DEFAULT_WEIGHT
-                    dateCenterX = AtmosphereClockPolicy.DEFAULT_DATE_CENTER_X
-                    dateTop = AtmosphereClockPolicy.DEFAULT_DATE_TOP
-                    dateHeightFraction = AtmosphereClockPolicy.DEFAULT_DATE_HEIGHT
-                    dateWidthScale = AtmosphereClockPolicy.DEFAULT_DATE_WIDTH_SCALE
+                    setDate(
+                        ClockBoxPlacement.dateBesideClock(
+                            clock = AtmosphereClockPolicy.DEFAULT_PLACEMENT,
+                            contentAspect = faceContent.contentAspect,
+                            dateAspect = dateAspect,
+                            screenAspect = screenAspect
+                        )
+                    )
                 }
             )
         }
     }
 }
 
+/** The four groups of settings in the panel. */
+private enum class ClockPanelTab(val label: String, val icon: ImageVector) {
+    STYLE("Style", Icons.Rounded.Style),
+    COLOUR("Colour", Icons.Rounded.Palette),
+    LOOK("Adjust", Icons.Rounded.Tune),
+    MORE("More", Icons.Rounded.MoreHoriz)
+}
+
+/**
+ * The settings, grouped into tabs so only one group is open at a time and the
+ * panel stays short: the photo behind it is what the user is judging, so the
+ * panel's job is to cover as little of it as it can. The handle folds it down
+ * to just the tabs.
+ */
 @Composable
-private fun ClockControls(
+private fun ClockPanel(
+    tab: ClockPanelTab,
+    onTabChange: (ClockPanelTab) -> Unit,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    editingDate: Boolean,
     thumbnails: Map<ClockStyle, ImageBitmap>,
     selected: ClockStyle,
     onStyleSelected: (ClockStyle) -> Unit,
@@ -745,8 +935,9 @@ private fun ClockControls(
     onWeightChange: (Float) -> Unit,
     showDate: Boolean,
     onShowDateChange: (Boolean) -> Unit,
-    editingDate: Boolean,
-    onEditingDateChange: (Boolean) -> Unit,
+    onPlaceDate: () -> Unit,
+    onCentre: () -> Unit,
+    onResetSize: () -> Unit,
     animate: Boolean,
     onAnimateChange: (Boolean) -> Unit,
     hourFormat: String,
@@ -761,238 +952,498 @@ private fun ClockControls(
     maskFailure: String?,
     segmentationDisabled: Boolean,
     onResetSegmentation: () -> Unit,
-    onResetPlacement: () -> Unit
+    onResetAll: () -> Unit
 ) {
     Column(
         Modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.86f))
-                )
-            )
+            .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+            .background(PANEL_COLOR)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp)
     ) {
-        if (showDate) {
-            // The date has its own box, so something has to say which box the
-            // drags are for.
-            SectionLabel("Adjusting")
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChoiceChip(
-                    label = "Clock",
-                    selected = !editingDate,
-                    onClick = { onEditingDateChange(false) }
-                )
-                ChoiceChip(
-                    label = "Date",
-                    selected = editingDate,
-                    onClick = { onEditingDateChange(true) }
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-
-        SectionLabel("Style")
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 2.dp)
+        // The handle: a tap folds the panel to its tabs and back.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggleExpanded)
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
         ) {
-            items(ClockStyle.entries) { candidate ->
-                StyleCard(
-                    style = candidate,
-                    thumbnail = thumbnails[candidate],
-                    selected = candidate == selected,
-                    onClick = { onStyleSelected(candidate) }
+            Box(
+                Modifier
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.35f))
+            )
+        }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            ClockPanelTab.entries.forEach { candidate ->
+                PanelTab(
+                    tab = candidate,
+                    selected = expanded && candidate == tab,
+                    onClick = {
+                        if (expanded && candidate == tab) onToggleExpanded() else onTabChange(candidate)
+                    },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // "Tint", not "Colour": on a glass face the brightness comes
-            // from the wallpaper showing through, and the chosen colour tints
-            // that rather than filling the digits with a flat colour. The
-            // solid faces do take it as their colour.
-            // The Adaptive face is solid, so there it simply is the colour.
-            SectionLabel(if (selected.adaptsToSubject) "Colour" else "Glass tint")
-            Spacer(Modifier.width(8.dp))
-            AtmoTextButton(
-                text = if (pickerOpen) "Close wheel" else "Colour wheel",
-                onClick = onTogglePicker,
-                contentColor = Color.White
-            )
-            if (canEyedrop) {
-                AtmoTextButton(
-                    text = "Pick from wallpaper",
-                    onClick = onArmEyedropper,
-                    contentColor = Color.White
-                )
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (selected.adaptsToSubject) {
-                item {
-                    // The wallpaper's colour shaded from deep at the top line
-                    // to pale at full length — what the digits will show.
-                    val base = autoColor ?: ClockPalette.DEFAULT_FALLBACK
-                    ColorSwatch(
-                        color = base,
-                        label = "Adaptive",
-                        selected = ClockPalette.isAdaptive(colorPref),
-                        onClick = { onColorSelected(ClockPalette.ADAPTIVE) },
-                        gradient = listOf(
-                            Color(AdaptiveClockFace.shadeOf(base, 0f)),
-                            Color(AdaptiveClockFace.shadeOf(base, 1f))
-                        )
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = PANEL_MAX_HEIGHT.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 14.dp)
+            ) {
+                when (tab) {
+                    ClockPanelTab.STYLE -> StyleTab(thumbnails, selected, onStyleSelected)
+                    ClockPanelTab.COLOUR -> ColourTab(
+                        selected = selected,
+                        colorPref = colorPref,
+                        autoColor = autoColor,
+                        onColorSelected = onColorSelected,
+                        pickerOpen = pickerOpen,
+                        onTogglePicker = onTogglePicker,
+                        canEyedrop = canEyedrop,
+                        onArmEyedropper = onArmEyedropper
+                    )
+                    ClockPanelTab.LOOK -> AdjustTab(
+                        selected = selected,
+                        editingDate = editingDate,
+                        opacity = opacity,
+                        onOpacityChange = onOpacityChange,
+                        frost = frost,
+                        onFrostChange = onFrostChange,
+                        weight = weight,
+                        onWeightChange = onWeightChange,
+                        onCentre = onCentre,
+                        onResetSize = onResetSize,
+                        showDate = showDate,
+                        onPlaceDate = onPlaceDate
+                    )
+                    ClockPanelTab.MORE -> MoreTab(
+                        selected = selected,
+                        showDate = showDate,
+                        onShowDateChange = onShowDateChange,
+                        animate = animate,
+                        onAnimateChange = onAnimateChange,
+                        hourFormat = hourFormat,
+                        onHourFormatChange = onHourFormatChange,
+                        maskFailure = maskFailure,
+                        segmentationDisabled = segmentationDisabled,
+                        onResetSegmentation = onResetSegmentation,
+                        onResetAll = onResetAll
                     )
                 }
             }
-            item {
-                ColorSwatch(
-                    color = autoColor ?: ClockPalette.DEFAULT_FALLBACK,
-                    label = "Auto",
-                    // Adaptive falls back to Auto on the glass faces, so Auto
-                    // is what is showing there.
-                    selected = ClockPalette.isAuto(colorPref) ||
-                        (ClockPalette.isAdaptive(colorPref) && !selected.adaptsToSubject),
-                    onClick = { onColorSelected(ClockPalette.AUTO) }
-                )
-            }
-            items(ClockPalette.PRESETS) { swatch ->
-                ColorSwatch(
-                    color = swatch.color,
-                    label = swatch.label,
-                    selected = !ClockPalette.followsWallpaper(colorPref) &&
-                        colorPref == swatch.color,
-                    onClick = { onColorSelected(swatch.color) }
-                )
-            }
-        }
-
-        if (pickerOpen) {
-            ColorWheelPicker(
-                current = ClockPalette.resolve(colorPref, autoColor),
-                onColorChange = onColorSelected
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-        // No size sliders: the box on the preview is the size control. Drag it
-        // to move the clock, drag a corner for both dimensions or an edge for
-        // one — which is both fewer controls and the only way to see what a
-        // given size does against the actual photo.
-        LabelledSlider(
-            label = "Opacity",
-            value = opacity,
-            valueRange = 0f..1f,
-            onValueChange = onOpacityChange
-        )
-        // How diffuse the glass is: at 0 the wallpaper shows through sharply,
-        // at 1 it is milky and the digits read as frosted. Only the
-        // translucent faces have it — the glass ones are clear except at
-        // their bevel, so frosting them would fog an edge and nothing else.
-        if (selected.usesFrost) {
-            LabelledSlider(
-                label = "Frost",
-                value = frost,
-                valueRange = 0f..1f,
-                onValueChange = onFrostChange
-            )
-        }
-        // The Adaptive face is drawn from strokes, so its weight is exact:
-        // the same digits with a thinner or heavier line.
-        if (selected.hasWeight) {
-            LabelledSlider(
-                label = "Weight",
-                value = weight,
-                valueRange = 0f..1f,
-                onValueChange = onWeightChange
-            )
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    "Thin",
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Bold",
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-        }
-
-        Spacer(Modifier.height(4.dp))
-        SectionLabel("Hour format")
-        Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ChoiceChip(
-                label = "System",
-                selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM,
-                onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM) }
-            )
-            ChoiceChip(
-                label = "12-hour",
-                selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_12,
-                onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_12) }
-            )
-            ChoiceChip(
-                label = "24-hour",
-                selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_24,
-                onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_24) }
-            )
-        }
-
-        SettingSwitchRow(
-            title = "Show date",
-            checked = showDate,
-            onCheckedChange = onShowDateChange,
-            subtitle = "Adds the day and date, in the same style as the clock."
-        )
-        SettingSwitchRow(
-            title = "Animate digit changes",
-            checked = animate,
-            onCheckedChange = onAnimateChange,
-            subtitle = "Digits slide as the time changes."
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AtmoTextButton(text = "Reset", onClick = onResetPlacement)
-            if (segmentationDisabled) {
-                AtmoTextButton(
-                    text = "Re-enable subject detection",
-                    onClick = onResetSegmentation
-                )
-            }
-        }
-        val notice = when {
-            segmentationDisabled ->
-                "Subject detection was switched off after repeated crashes in a " +
-                    "system component, so nothing will occlude the clock until it " +
-                    "is re-enabled."
-            maskFailure != null && selected.adaptsToSubject ->
-                "The digits can't fit around the subject yet: $maskFailure"
-            maskFailure != null -> "No depth effect yet: $maskFailure"
-            else -> null
-        }
-        if (notice != null) {
-            Text(
-                notice,
-                color = Color.White.copy(alpha = 0.75f),
-                style = MaterialTheme.typography.bodySmall
-            )
         }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge)
+private fun StyleTab(
+    thumbnails: Map<ClockStyle, ImageBitmap>,
+    selected: ClockStyle,
+    onStyleSelected: (ClockStyle) -> Unit
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(vertical = 2.dp)
+    ) {
+        items(ClockStyle.entries) { candidate ->
+            StyleCard(
+                style = candidate,
+                thumbnail = thumbnails[candidate],
+                selected = candidate == selected,
+                onClick = { onStyleSelected(candidate) }
+            )
+        }
+    }
+    Spacer(Modifier.height(10.dp))
+    Text(
+        selected.description,
+        color = Color.White.copy(alpha = 0.7f),
+        style = MaterialTheme.typography.bodySmall
+    )
+}
+
+@Composable
+private fun ColourTab(
+    selected: ClockStyle,
+    colorPref: Int,
+    autoColor: Int?,
+    onColorSelected: (Int) -> Unit,
+    pickerOpen: Boolean,
+    onTogglePicker: () -> Unit,
+    canEyedrop: Boolean,
+    onArmEyedropper: () -> Unit
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (selected.adaptsToSubject) {
+            item {
+                // The wallpaper's colour shaded from deep at the top line to
+                // pale at full length — what the digits will show.
+                val base = autoColor ?: ClockPalette.DEFAULT_FALLBACK
+                ColorSwatch(
+                    color = base,
+                    label = "Adaptive",
+                    selected = ClockPalette.isAdaptive(colorPref),
+                    onClick = { onColorSelected(ClockPalette.ADAPTIVE) },
+                    gradient = listOf(
+                        Color(AdaptiveClockFace.shadeOf(base, 0f)),
+                        Color(AdaptiveClockFace.shadeOf(base, 1f))
+                    )
+                )
+            }
+        }
+        item {
+            ColorSwatch(
+                color = autoColor ?: ClockPalette.DEFAULT_FALLBACK,
+                label = "Auto",
+                // Adaptive falls back to Auto on the glass faces, so Auto is
+                // what is showing there.
+                selected = ClockPalette.isAuto(colorPref) ||
+                    (ClockPalette.isAdaptive(colorPref) && !selected.adaptsToSubject),
+                onClick = { onColorSelected(ClockPalette.AUTO) }
+            )
+        }
+        items(ClockPalette.PRESETS) { swatch ->
+            ColorSwatch(
+                color = swatch.color,
+                label = swatch.label,
+                selected = !ClockPalette.followsWallpaper(colorPref) && colorPref == swatch.color,
+                onClick = { onColorSelected(swatch.color) }
+            )
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ActionChip(
+            icon = Icons.Rounded.ColorLens,
+            label = if (pickerOpen) "Hide wheel" else "Colour wheel",
+            onClick = onTogglePicker,
+            selected = pickerOpen
+        )
+        if (canEyedrop) {
+            ActionChip(
+                icon = Icons.Rounded.Colorize,
+                label = "From photo",
+                onClick = onArmEyedropper
+            )
+        }
+    }
+    if (pickerOpen) {
+        ColorWheelPicker(
+            current = ClockPalette.resolve(colorPref, autoColor),
+            onColorChange = onColorSelected
+        )
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        // "Tint" on glass: the brightness comes from the wallpaper showing
+        // through, and the colour tints it rather than filling the digits.
+        if (selected.adaptsToSubject) {
+            "The digits are drawn in this colour."
+        } else {
+            "Glass faces are tinted with this colour; the highlights stay white."
+        },
+        color = Color.White.copy(alpha = 0.6f),
+        style = MaterialTheme.typography.bodySmall
+    )
+}
+
+@Composable
+private fun AdjustTab(
+    selected: ClockStyle,
+    editingDate: Boolean,
+    opacity: Float,
+    onOpacityChange: (Float) -> Unit,
+    frost: Float,
+    onFrostChange: (Float) -> Unit,
+    weight: Float,
+    onWeightChange: (Float) -> Unit,
+    onCentre: () -> Unit,
+    onResetSize: () -> Unit,
+    showDate: Boolean,
+    onPlaceDate: () -> Unit
+) {
+    // Placement shortcuts for whichever box is selected, for the moves a
+    // finger does badly: exactly centred, and back to a sensible size.
+    Text(
+        if (editingDate) "Date" else "Clock",
+        color = Color.White.copy(alpha = 0.6f),
+        style = MaterialTheme.typography.labelMedium
+    )
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ActionChip(icon = Icons.Rounded.AlignHorizontalCenter, label = "Centre", onClick = onCentre)
+        ActionChip(
+            icon = Icons.Rounded.RestartAlt,
+            label = if (editingDate) "Fit to clock" else "Reset size",
+            onClick = onResetSize
+        )
+        if (showDate && !editingDate) {
+            ActionChip(
+                icon = Icons.Rounded.VerticalAlignTop,
+                label = "Date above",
+                onClick = onPlaceDate
+            )
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    LabelledSlider(label = "Opacity", value = opacity, valueRange = 0f..1f, onValueChange = onOpacityChange)
+    // How diffuse the glass is: at 0 the wallpaper shows through sharply, at 1
+    // it is milky. Only the translucent faces have it — the glass ones are
+    // clear except at their bevel, so frosting them would fog an edge only.
+    if (selected.usesFrost) {
+        LabelledSlider(label = "Frost", value = frost, valueRange = 0f..1f, onValueChange = onFrostChange)
+    }
+    // The Adaptive face is drawn from strokes, so its weight is exact.
+    if (selected.hasWeight) {
+        LabelledSlider(
+            label = "Weight",
+            value = weight,
+            valueRange = 0f..1f,
+            onValueChange = onWeightChange,
+            startLabel = "Thin",
+            endLabel = "Bold"
+        )
+    }
+}
+
+@Composable
+private fun MoreTab(
+    selected: ClockStyle,
+    showDate: Boolean,
+    onShowDateChange: (Boolean) -> Unit,
+    animate: Boolean,
+    onAnimateChange: (Boolean) -> Unit,
+    hourFormat: String,
+    onHourFormatChange: (String) -> Unit,
+    maskFailure: String?,
+    segmentationDisabled: Boolean,
+    onResetSegmentation: () -> Unit,
+    onResetAll: () -> Unit
+) {
+    SettingSwitchRow(
+        title = "Show date",
+        checked = showDate,
+        onCheckedChange = onShowDateChange,
+        subtitle = "Placed above the clock and sized to match. Adjust it like the clock."
+    )
+    SettingSwitchRow(
+        title = "Animate digit changes",
+        checked = animate,
+        onCheckedChange = onAnimateChange,
+        subtitle = "Digits slide as the time changes."
+    )
+    Spacer(Modifier.height(6.dp))
+    Text("Hour format", color = Color.White, style = MaterialTheme.typography.labelLarge)
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ChoiceChip(
+            label = "System",
+            selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM,
+            onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM) }
+        )
+        ChoiceChip(
+            label = "12-hour",
+            selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_12,
+            onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_12) }
+        )
+        ChoiceChip(
+            label = "24-hour",
+            selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_24,
+            onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_24) }
+        )
+    }
+    Spacer(Modifier.height(14.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ActionChip(icon = Icons.Rounded.RestartAlt, label = "Reset clock", onClick = onResetAll)
+        if (segmentationDisabled) {
+            ActionChip(
+                icon = Icons.Rounded.Refresh,
+                label = "Re-enable subject detection",
+                onClick = onResetSegmentation
+            )
+        }
+    }
+    val notice = when {
+        segmentationDisabled ->
+            "Subject detection was switched off after repeated crashes in a system " +
+                "component, so nothing will occlude the clock until it is re-enabled."
+        maskFailure != null && selected.adaptsToSubject ->
+            "The digits can't fit around the subject yet: $maskFailure"
+        maskFailure != null -> "No depth effect yet: $maskFailure"
+        else -> null
+    }
+    if (notice != null) {
+        Spacer(Modifier.height(8.dp))
+        Text(notice, color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun PanelTab(
+    tab: ClockPanelTab,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) ACCENT.copy(alpha = 0.22f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            tab.icon,
+            contentDescription = null,
+            tint = if (selected) ACCENT else Color.White.copy(alpha = 0.75f),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            tab.label,
+            color = if (selected) Color.White else Color.White.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.labelMedium
+        )
+    }
+}
+
+@Composable
+private fun ActionChip(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    selected: Boolean = false
+) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = if (selected) 0.2f else 0.09f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun RoundIconButton(
+    icon: ImageVector,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.Black.copy(alpha = 0.35f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = description, tint = Color.White)
+    }
+}
+
+@Composable
+private fun DonePill(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(ACCENT)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(4.dp))
+        Text("Done", color = Color.Black, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+private fun SegmentedPill(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
+            .padding(3.dp)
+    ) {
+        options.forEachIndexed { index, option ->
+            val active = index == selectedIndex
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(17.dp))
+                    .background(if (active) Color.White else Color.Transparent)
+                    .clickable { onSelected(index) }
+                    .padding(horizontal = 16.dp, vertical = 7.dp)
+            ) {
+                Text(
+                    option,
+                    color = if (active) Color.Black else Color.White,
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HintPill(
+    text: String,
+    actionLabel: String?,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.Black.copy(alpha = 0.55f))
+            .padding(start = 14.dp, end = if (actionLabel != null) 6.dp else 14.dp)
+            .padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Rounded.TouchApp,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.85f),
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(text, color = Color.White, style = MaterialTheme.typography.bodySmall)
+        if (actionLabel != null) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.18f))
+                    .clickable(onClick = onAction)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(actionLabel, color = Color.White, style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
 }
 
 @Composable
@@ -1222,15 +1673,48 @@ private fun LabelledSlider(
     label: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    /** Words under the two ends, for a scale that is not a plain amount. */
+    startLabel: String? = null,
+    endLabel: String? = null
 ) {
+    val span = (valueRange.endInclusive - valueRange.start).takeIf { it > 0f } ?: 1f
+    val percent = (((value - valueRange.start) / span) * 100f).roundToInt().coerceIn(0, 100)
     Column(Modifier.fillMaxWidth()) {
-        Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Color.White, style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.weight(1f))
+            Text(
+                "$percent%",
+                color = Color.White.copy(alpha = 0.65f),
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
         Slider(
             value = value.coerceIn(valueRange.start, valueRange.endInclusive),
             valueRange = valueRange,
-            onValueChange = onValueChange
+            onValueChange = onValueChange,
+            colors = SliderDefaults.colors(
+                thumbColor = Color.White,
+                activeTrackColor = ACCENT,
+                inactiveTrackColor = Color.White.copy(alpha = 0.18f)
+            )
         )
+        if (startLabel != null || endLabel != null) {
+            Row(Modifier.fillMaxWidth()) {
+                Text(
+                    startLabel.orEmpty(),
+                    color = Color.White.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    endLabel.orEmpty(),
+                    color = Color.White.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
     }
 }
 
@@ -1378,6 +1862,13 @@ private fun silhouette(face: Bitmap): Bitmap {
 
 /** Stands in for the date's real ratio until the face has been measured. */
 private const val DEFAULT_DATE_ASPECT = 5.5f
+
+/** How long the gesture hint stays up after it is asked for. */
+private const val HINT_MS = 4_000L
+/** The tallest the open panel gets before its content scrolls, so the photo stays in view. */
+private const val PANEL_MAX_HEIGHT = 300
+private val PANEL_COLOR = Color(0xEB121315)
+private val ACCENT = Color(0xFF9FD4FF)
 
 private suspend fun loadCurrentWallpaperBitmap(context: Context): Bitmap? {
     val file = File(context.filesDir, "wallpaper.jpg")
