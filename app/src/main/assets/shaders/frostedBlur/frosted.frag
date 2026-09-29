@@ -23,6 +23,35 @@ uniform float uNoiseStrength;
 // App-drawer / recents blur, driven by wallpaper visibility. 0 = in view, 1 = hidden.
 uniform float uDrawerBlur;
 
+// Film grain. One grain covers a whole number of screen pixels, never less
+// than one: [scale] counts grains down the image's height, and [uvPerPixel]
+// says how much of the image one pixel covers, so the grain is the size the
+// setting asks for on every screen but can never shrink below a pixel —
+// grains smaller than a pixel sample into a moire mesh on some displays.
+// Laid on the screen's own pixel grid and hashed with PCG, which has no
+// repeating structure; fract(sin(...)) does, on GPUs with low-precision sin.
+uvec2 grainHash(uvec2 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+    v ^= v >> 16u;
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+    v ^= v >> 16u;
+    return v;
+}
+
+// Centred on zero, so the texture neither lightens nor darkens the picture,
+// and lighter in deep shadow so blacks stay black instead of turning grey.
+vec3 applyGrain(vec3 color, float scale, float strength, float uvPerPixel) {
+    float grainPixels = max(1.0, floor(1.0 / max(scale * uvPerPixel, 1e-6) + 0.5));
+    uvec2 cell = uvec2(floor(gl_FragCoord.xy / grainPixels));
+    float value = float(grainHash(cell).x >> 8u) / 16777216.0;
+    float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+    float shadow = mix(0.45, 1.0, smoothstep(0.0, 0.35, luminance));
+    return color + vec3((value - 0.5) * 1.5 * strength * shadow);
+}
+
 // Bit-mixing hash, replacing fract(sin(dot(...))) -- that idiom collapses to a repeating pattern
 // at the coordinate magnitudes this grain grid produces (see #85).
 // uint overflow is defined wrapping in GLSL ES.
@@ -410,6 +439,8 @@ vec3 applyClockDepth(vec3 color, vec3 subjectColor, vec2 maskUv) {
 }
 
 void main() {
+    // Taken here, outside any branch: derivatives need every pixel to run it.
+    float grainUvPerPixel = abs(dFdy(vTexCoord.y));
     float t = clamp(uBlurStrength, 0.0, 1.0);
 
     vec3 sharp = textureLod(uTextureSharp, vTexCoord, t * 4.0).rgb;
@@ -421,12 +452,10 @@ void main() {
     finalColor = mix(finalColor, vec3(0.0), uDimLevel * t);
 
     if (uEnableNoise > 0.5) {
-        vec2 noiseUV = vTexCoord;
-        noiseUV.x *= uAspectRatio;
-        vec2 grainUV = floor(noiseUV * uNoiseScale);
-        float noise = random(grainUV);
         float noiseVisibility = smoothstep(0.4, 1.0, t);
-        finalColor += vec3(noise * uNoiseStrength * noiseVisibility);
+        finalColor = applyGrain(
+            finalColor, uNoiseScale, uNoiseStrength * noiseVisibility, grainUvPerPixel
+        );
     }
 
     // App-drawer / recents: reverse Frosted sets this to 1 when out of view, blending

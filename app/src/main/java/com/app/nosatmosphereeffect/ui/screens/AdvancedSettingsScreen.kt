@@ -63,6 +63,7 @@ import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoDropdownField
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoNumberField
+import com.app.nosatmosphereeffect.helper.FilmGrainPolicy
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoReveal
@@ -827,27 +828,38 @@ private fun EffectSettings(
         if (config.showNoiseSwitch) {
             SettingsGroup("Film grain") {
                 SettingSwitchRow(
-                    title = "Blur noise",
+                    title = "Add grain",
                     checked = noiseEnabled,
-                    onCheckedChange = onNoiseEnabledChange
+                    onCheckedChange = onNoiseEnabledChange,
+                    subtitle = "A fine film texture over the blurred wallpaper."
                 )
                 AnimatedVisibility(visible = noiseEnabled) {
                     Column {
                         Spacer(Modifier.height(12.dp))
-                        AtmoNumberField(
-                            label = "Grain scale",
-                            value = noiseScale,
-                            onValueChange = { onNoiseScaleChange(it.filterDecimal()) },
-                            helper = "Recommended: 2000",
-                            decimal = true
+                        // Words rather than raw numbers: the stored values are
+                        // grains across the image and a colour offset, neither
+                        // of which means anything to look at.
+                        val sizePosition = FilmGrainPolicy.sizePosition(
+                            noiseScale.toFloatOrNull() ?: FilmGrainPolicy.DEFAULT_SCALE
                         )
-                        Spacer(Modifier.height(14.dp))
-                        AtmoNumberField(
+                        LabeledSlider(
+                            label = "Grain size",
+                            value = sizePosition,
+                            onValueChange = {
+                                onNoiseScaleChange(FilmGrainPolicy.scaleAt(it).toString())
+                            },
+                            valueRange = 0f..1f,
+                            valueText = FilmGrainPolicy::sizeLabel
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        LabeledSlider(
                             label = "Grain strength",
-                            value = noiseStrength,
-                            onValueChange = { onNoiseStrengthChange(it.filterDecimal()) },
-                            helper = "Recommended: 0.06",
-                            decimal = true
+                            value = FilmGrainPolicy.sanitizeStrength(
+                                noiseStrength.toFloatOrNull() ?: FilmGrainPolicy.DEFAULT_STRENGTH
+                            ),
+                            onValueChange = { onNoiseStrengthChange(it.toString()) },
+                            valueRange = 0f..FilmGrainPolicy.MAX_STRENGTH,
+                            valueText = FilmGrainPolicy::strengthLabel
                         )
                     }
                 }
@@ -1184,10 +1196,3 @@ private enum class InfoDialog(val title: String, val message: String) {
 
 private fun String.filterDigits(): String = filter { it.isDigit() }
 
-private fun String.filterDecimal(): String {
-    val cleaned = filter { it.isDigit() || it == '.' }
-    val firstDot = cleaned.indexOf('.')
-    if (firstDot == -1) return cleaned
-    return cleaned.substring(0, firstDot + 1) +
-        cleaned.substring(firstDot + 1).replace(".", "")
-}

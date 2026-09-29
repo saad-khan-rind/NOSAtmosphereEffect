@@ -410,15 +410,39 @@ vec3 applyClockDepth(vec3 color, vec3 subjectColor, vec2 maskUv) {
     );
 }
 
-float random(vec2 coordinate) {
-    return fract(
-        sin(dot(coordinate, vec2(12.9898, 78.233))) *
-        43758.5453
-    );
+// Film grain. One grain covers a whole number of screen pixels, never less
+// than one: [scale] counts grains down the image's height, and [uvPerPixel]
+// says how much of the image one pixel covers, so the grain is the size the
+// setting asks for on every screen but can never shrink below a pixel —
+// grains smaller than a pixel sample into a moire mesh on some displays.
+// Laid on the screen's own pixel grid and hashed with PCG, which has no
+// repeating structure; fract(sin(...)) does, on GPUs with low-precision sin.
+uvec2 grainHash(uvec2 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+    v ^= v >> 16u;
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+    v ^= v >> 16u;
+    return v;
+}
+
+// Centred on zero, so the texture neither lightens nor darkens the picture,
+// and lighter in deep shadow so blacks stay black instead of turning grey.
+vec3 applyGrain(vec3 color, float scale, float strength, float uvPerPixel) {
+    float grainPixels = max(1.0, floor(1.0 / max(scale * uvPerPixel, 1e-6) + 0.5));
+    uvec2 cell = uvec2(floor(gl_FragCoord.xy / grainPixels));
+    float value = float(grainHash(cell).x >> 8u) / 16777216.0;
+    float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+    float shadow = mix(0.45, 1.0, smoothstep(0.0, 0.35, luminance));
+    return color + vec3((value - 0.5) * 1.5 * strength * shadow);
 }
 
 void main() {
     float progress = clamp(params.render.x, 0.0, 1.0);
+    // Taken here, outside any branch: derivatives need every pixel to run it.
+    float grainUvPerPixel = abs(dFdy(vTexCoord.y));
     vec3 sharp = textureLod(
         sharpTexture,
         vTexCoord,
@@ -434,15 +458,9 @@ void main() {
     );
 
     if (params.noise.x > 0.5) {
-        vec2 noiseCoordinate = vTexCoord;
-        noiseCoordinate.x *= params.render.z;
-        vec2 grain = floor(noiseCoordinate * params.noise.y);
-        float noiseValue = random(grain);
         float visibility = smoothstep(0.4, 1.0, progress);
-        finalColor += vec3(
-            noiseValue *
-            params.noise.z *
-            visibility
+        finalColor = applyGrain(
+            finalColor, params.noise.y, params.noise.z * visibility, grainUvPerPixel
         );
     }
 
