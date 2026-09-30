@@ -699,6 +699,10 @@ public:
             &imageIndex
         );
         if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) return 1;
+        // No free image in time is not a hung GPU: with the screen off the
+        // display stops taking frames, and every image can sit queued until it
+        // wakes. Drop this frame; waking redraws.
+        if (acquireResult == VK_TIMEOUT || acquireResult == VK_NOT_READY) return 0;
         if (acquireResult != VK_SUCCESS &&
             acquireResult != VK_SUBOPTIMAL_KHR) {
             return -1;

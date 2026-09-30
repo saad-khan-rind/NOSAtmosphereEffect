@@ -207,6 +207,17 @@ internal object VulkanSupport {
     }
 
 
+    /**
+     * Forgets every recorded Vulkan failure, for when the user picks Vulkan
+     * themselves: a block recorded in error — a crash that was not the
+     * driver's — would otherwise last until the next app update. If the driver
+     * really is at fault, the next failure is caught and recorded again.
+     */
+    fun clearRecordedFailures(context: Context) {
+        runCatching { VulkanFailureStore.clearAll(context) }
+            .onFailure { Log.w(TAG, "Unable to clear the Vulkan failure state", it) }
+    }
+
     fun recordFailure(context: Context, effectId: String, reason: String) {
         VulkanFailureStore.record(context, effectId, reason)
     }

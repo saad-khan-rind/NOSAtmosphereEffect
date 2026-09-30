@@ -105,6 +105,8 @@ class ClockRuntime(
     }
 
     private fun refreshAutoColor() {
+        // Never starts the thread for an engine that has already shut down.
+        if (closed) return
         val submitted = runCatching {
             colorWorkerStarted = true
             colorWorker.execute {

@@ -232,6 +232,8 @@ class AtmosphereRenderController(
      * so it must not happen on the render or main thread.
      */
     private fun refreshAutoClockColor() {
+        // Never starts the thread for a controller that has already shut down.
+        if (synchronized(lock) { closed }) return
         val submitted = runCatching {
             clockColorWorkerStarted = true
             clockColorWorker.execute {
