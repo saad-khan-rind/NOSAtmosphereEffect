@@ -165,17 +165,22 @@ vec3 adjustColor(vec3 color) {
 // says how much of the image one pixel covers, so the grain is the size the
 // setting asks for on every screen but can never shrink below a pixel —
 // grains smaller than a pixel sample into a moire mesh on some displays.
-// Laid on the screen's own pixel grid and hashed with PCG, which has no
-// repeating structure; fract(sin(...)) does, on GPUs with low-precision sin.
-uvec2 grainHash(uvec2 v) {
-    v = v * 1664525u + 1013904223u;
-    v.x += v.y * 1664525u;
-    v.y += v.x * 1664525u;
+// Laid on the screen's own pixel grid and hashed one axis inside the other
+// with a full-avalanche integer mixer, so neighbouring cells share nothing.
+// Neither fract(sin(...)), which repeats on GPUs with low-precision sin, nor
+// pcg2d, whose outputs over a regular grid line up into faint diagonal
+// streaks: both were tried, and both showed.
+uint grainMix(uint v) {
     v ^= v >> 16u;
-    v.x += v.y * 1664525u;
-    v.y += v.x * 1664525u;
+    v *= 0x7feb352du;
+    v ^= v >> 15u;
+    v *= 0x846ca68bu;
     v ^= v >> 16u;
     return v;
+}
+
+uint grainHash(uvec2 cell) {
+    return grainMix(cell.x ^ grainMix(cell.y + 0x9e3779b9u));
 }
 
 // Centred on zero, so the texture neither lightens nor darkens the picture,
@@ -183,7 +188,7 @@ uvec2 grainHash(uvec2 v) {
 vec3 applyGrain(vec3 color, float scale, float strength, float uvPerPixel) {
     float grainPixels = max(1.0, floor(1.0 / max(scale * uvPerPixel, 1e-6) + 0.5));
     uvec2 cell = uvec2(floor(gl_FragCoord.xy / grainPixels));
-    float value = float(grainHash(cell).x >> 8u) / 16777216.0;
+    float value = float(grainHash(cell) >> 8u) / 16777216.0;
     float luminance = dot(color, vec3(0.299, 0.587, 0.114));
     float shadow = mix(0.45, 1.0, smoothstep(0.0, 0.35, luminance));
     return color + vec3((value - 0.5) * 1.5 * strength * shadow);
