@@ -173,8 +173,8 @@ Fine tuning is kept when you change only the image or playlist under the same ef
 * **Glass Transition Style:** (Glass Effects Only) Choose right-to-left or fade-in for Glass Effect, and left-to-right or fade-out for Glass Effect Reverse.
 * **Blur Strength:** (Frosted Effects Only) Use the slider to fine-tune the intensity of the blur radius, from a light mist to heavy glass.
 * **Film Grain:** Enable a film-grain texture on top of the blur. Two sliders set it:
-    * **Grain size:** from very fine to very coarse. A grain is never smaller than one screen pixel, so it looks the same on any display.
-    * **Grain strength:** from barely there to heavy. The grain is balanced around the image, so it textures it without greying out dark areas.
+    * **Grain size:** from very fine to very coarse.
+    * **Grain strength:** from barely there to heavy.
 * **Halftone Pixel Size:** (Halftone Effects Only) Dynamically adjust the size of the printed dots. Setting this to `0` renders the original continuous tones instead of dots.
 * **Black & White Effect:** (Halftone Effects Only) Converts the CMYK color halftone pattern into a single-channel grayscale newspaper print.
 * **Fingerprint Location:** (Color Fill Effects Only) Two sliders to adjust the horizontal and vertical position of effect start place sync with the fingerprint location.

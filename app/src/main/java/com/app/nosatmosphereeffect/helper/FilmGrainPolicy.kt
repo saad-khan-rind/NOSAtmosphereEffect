@@ -10,17 +10,13 @@ import kotlin.math.pow
  * image, "noise_strength" how far each one moves the colour — so existing
  * settings carry over. The sliders map a 0..1 position onto those numbers and
  * describe the result in words rather than asking for a raw value.
- *
- * The shaders never draw a grain smaller than one screen pixel, so on any
- * display the finest setting is the finest the screen can show; see the
- * grain block in the effect shaders.
  */
 object FilmGrainPolicy {
 
     const val DEFAULT_SCALE = 2_000f
     const val DEFAULT_STRENGTH = 0.06f
 
-    /** Grains down the image at the fine and coarse ends: about one and six pixels on a phone. */
+    /** Grains down the image at the fine and coarse ends of the slider. */
     private const val FINEST_SCALE = 2_400f
     private const val COARSEST_SCALE = 400f
 
