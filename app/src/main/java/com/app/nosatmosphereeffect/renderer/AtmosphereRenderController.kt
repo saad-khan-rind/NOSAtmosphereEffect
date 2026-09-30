@@ -36,9 +36,16 @@ class AtmosphereRenderController(
      * — see ClockFramePump for why this must not be service-wide.
      */
     private val clockPump = ClockFramePump(appContext) { onClockTick() }
-    private val clockColorWorker = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "AtmoClockColor").apply { isDaemon = true }
+    // Started the first time a wallpaper colour is needed, so a clock that is
+    // off, or set to a fixed colour, never runs a thread for it.
+    private val clockColorWorker by lazy {
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "AtmoClockColor").apply { isDaemon = true }
+        }
     }
+    @Volatile private var clockColorWorkerStarted = false
+    /** Whether the clock is on; a colour for a clock that is off is never worked out. */
+    @Volatile private var clockShown = false
     @Volatile private var requestedClockColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR
     @Volatile private var resolvedAutoClockColor: Int? = null
 
@@ -193,6 +200,7 @@ class AtmosphereRenderController(
             state
         }
         applyState(snapshot)
+        clockShown = resolvedClock
         clockPump.configure(resolvedClock)
         if (resolvedClock && ClockPalette.followsWallpaper(requestedClockColor)) {
             refreshAutoClockColor()
@@ -225,6 +233,7 @@ class AtmosphereRenderController(
      */
     private fun refreshAutoClockColor() {
         val submitted = runCatching {
+            clockColorWorkerStarted = true
             clockColorWorker.execute {
                 val derived = ClockPalette.autoColorFor(appContext) ?: return@execute
                 if (derived == resolvedAutoClockColor) return@execute
@@ -292,7 +301,9 @@ class AtmosphereRenderController(
     fun reloadTexture() {
         // The image is changing, so any wallpaper-derived clock tint is stale.
         ClockPalette.invalidateAutoColor()
-        if (ClockPalette.followsWallpaper(requestedClockColor)) refreshAutoClockColor()
+        // Decoding the photo for a colour costs real work on every new image
+        // and playlist rotation, so only a clock that is showing asks for it.
+        if (clockShown && ClockPalette.followsWallpaper(requestedClockColor)) refreshAutoClockColor()
         val targets = synchronized(lock) {
             Triple(openGlAtmosphere, openGlReverse, vulkanHost)
         }
@@ -322,7 +333,7 @@ class AtmosphereRenderController(
 
     fun release() {
         clockPump.close()
-        clockColorWorker.shutdownNow()
+        if (clockColorWorkerStarted) clockColorWorker.shutdownNow()
         val targets: RenderTargets
         val session: RendererRuntimeSession?
         synchronized(lock) {

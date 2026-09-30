@@ -42,13 +42,21 @@ class ClockRuntime(
 ) {
     private val appContext = context.applicationContext
     private val pump = ClockFramePump(appContext) { onTick() }
-    private val colorWorker = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, workerName).apply { isDaemon = true }
+    // Started the first time a wallpaper colour is needed: an engine whose
+    // clock is off, or set to a fixed colour, never runs a thread for it.
+    private val colorWorker by lazy {
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, workerName).apply { isDaemon = true }
+        }
     }
+    @Volatile private var colorWorkerStarted = false
+
 
     @Volatile private var requestedColor: Int = ClockPalette.AUTO
     @Volatile private var resolvedAutoColor: Int? = null
     @Volatile private var closed = false
+    /** Whether the clock is on; a colour for a clock that is off is never worked out. */
+    @Volatile private var clockEnabled = false
 
     /**
      * Folds the resolved colour into [state], starts or idles the frame pump
@@ -57,6 +65,7 @@ class ClockRuntime(
      */
     fun configure(state: ClockOverlayState): ClockOverlayState {
         requestedColor = state.requestedColor
+        clockEnabled = state.enabled
         val resolved = state.copy(
             color = ClockPalette.resolve(state.requestedColor, resolvedAutoColor)
         ).sanitized()
@@ -84,17 +93,20 @@ class ClockRuntime(
      */
     fun invalidateWallpaperColor() {
         ClockPalette.invalidateAutoColor()
-        if (ClockPalette.followsWallpaper(requestedColor)) refreshAutoColor()
+        // Decoding the photo for a colour costs real work on every new image
+        // and playlist rotation, so only a clock that is showing asks for it.
+        if (clockEnabled && ClockPalette.followsWallpaper(requestedColor)) refreshAutoColor()
     }
 
     fun close() {
         closed = true
         pump.close()
-        colorWorker.shutdownNow()
+        if (colorWorkerStarted) colorWorker.shutdownNow()
     }
 
     private fun refreshAutoColor() {
         val submitted = runCatching {
+            colorWorkerStarted = true
             colorWorker.execute {
                 if (closed) return@execute
                 val derived = ClockPalette.autoColorFor(appContext) ?: return@execute

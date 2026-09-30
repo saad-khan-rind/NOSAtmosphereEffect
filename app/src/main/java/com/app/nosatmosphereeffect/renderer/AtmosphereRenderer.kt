@@ -886,7 +886,8 @@ class AtmosphereRenderer(
      */
     fun onTimeChanged() {
         pendingClockFormatRefresh = true
-        onAnimationFrameRequested?.invoke()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (clockEnabled) onAnimationFrameRequested?.invoke()
     }
 
     /**
@@ -899,7 +900,7 @@ class AtmosphereRenderer(
      */
     fun beginClockEntry() {
         pendingClockEntry = true
-        onAnimationFrameRequested?.invoke()
+        if (clockEnabled) onAnimationFrameRequested?.invoke()
     }
 
     private fun createEmptyTexture(width: Int, height: Int, existingTextureId: Int = 0, existingWidth: Int = 0, existingHeight: Int = 0): Int {

@@ -90,6 +90,9 @@ internal object VulkanSupport {
         // behind as a permanent fallback for a bug that was gone, which is
         // why asking for Vulkan appeared to do nothing and reported a failure
         // for a clock that was working.
+        // Before anything reads the failure store: a driver crash that killed
+        // the previous process becomes a recorded failure here.
+        VulkanCrashRecovery.checkPreviousExit(context)
         val featureQuery = runCatching {
             context.packageManager.hasSystemFeature(
                 PackageManager.FEATURE_VULKAN_HARDWARE_VERSION,
@@ -114,6 +117,9 @@ internal object VulkanSupport {
             blockedAfterFailure = blockedAfterFailure,
             preference = preference
         )
+        if (selectedBackend == GraphicsBackend.VULKAN) {
+            VulkanCrashRecovery.noteVulkanStarted(context, effectId)
+        }
         val capability = when {
             featureQuery.isFailure -> VulkanDeviceCapability.UNKNOWN
             !hasVulkan11 -> VulkanDeviceCapability.UNSUPPORTED

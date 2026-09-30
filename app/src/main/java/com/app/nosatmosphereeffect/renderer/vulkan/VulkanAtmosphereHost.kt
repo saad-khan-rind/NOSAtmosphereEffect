@@ -219,7 +219,8 @@ internal class VulkanAtmosphereHost(
      */
     fun beginClockEntry() {
         pendingClockEntry = true
-        requestRender()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (currentEffectState().clockEnabled) requestRender()
     }
 
     override fun prepareFrameOnWorker(
@@ -353,7 +354,7 @@ internal class VulkanAtmosphereHost(
     fun onTimeChanged() {
         clockTexture.refreshClockFormatPreference()
         clockTexture.reset()
-        requestRender()
+        if (currentEffectState().clockEnabled) requestRender()
     }
 
     private fun Bitmap.recycleSafely() {
