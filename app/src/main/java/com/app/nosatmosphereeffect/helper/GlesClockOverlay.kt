@@ -70,7 +70,8 @@ class GlesClockOverlay(
      */
     fun onTimeChanged() {
         pendingFormatRefresh = true
-        onAnimationFrameRequested?.invoke()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (state.enabled) onAnimationFrameRequested?.invoke()
     }
 
     /**
@@ -80,7 +81,7 @@ class GlesClockOverlay(
      */
     fun beginEntry() {
         pendingEntry = true
-        onAnimationFrameRequested?.invoke()
+        if (state.enabled) onAnimationFrameRequested?.invoke()
     }
 
     /**

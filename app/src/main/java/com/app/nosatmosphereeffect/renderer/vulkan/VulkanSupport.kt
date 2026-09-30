@@ -90,6 +90,9 @@ internal object VulkanSupport {
         // behind as a permanent fallback for a bug that was gone, which is
         // why asking for Vulkan appeared to do nothing and reported a failure
         // for a clock that was working.
+        // Before anything reads the failure store: a driver crash that killed
+        // the previous process becomes a recorded failure here.
+        VulkanCrashRecovery.checkPreviousExit(context)
         val featureQuery = runCatching {
             context.packageManager.hasSystemFeature(
                 PackageManager.FEATURE_VULKAN_HARDWARE_VERSION,
@@ -114,6 +117,9 @@ internal object VulkanSupport {
             blockedAfterFailure = blockedAfterFailure,
             preference = preference
         )
+        if (selectedBackend == GraphicsBackend.VULKAN) {
+            VulkanCrashRecovery.noteVulkanStarted(context, effectId)
+        }
         val capability = when {
             featureQuery.isFailure -> VulkanDeviceCapability.UNKNOWN
             !hasVulkan11 -> VulkanDeviceCapability.UNSUPPORTED
@@ -200,6 +206,17 @@ internal object VulkanSupport {
         return selection
     }
 
+
+    /**
+     * Forgets every recorded Vulkan failure, for when the user picks Vulkan
+     * themselves: a block recorded in error — a crash that was not the
+     * driver's — would otherwise last until the next app update. If the driver
+     * really is at fault, the next failure is caught and recorded again.
+     */
+    fun clearRecordedFailures(context: Context) {
+        runCatching { VulkanFailureStore.clearAll(context) }
+            .onFailure { Log.w(TAG, "Unable to clear the Vulkan failure state", it) }
+    }
 
     fun recordFailure(context: Context, effectId: String, reason: String) {
         VulkanFailureStore.record(context, effectId, reason)

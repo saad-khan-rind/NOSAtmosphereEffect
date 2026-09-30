@@ -166,11 +166,16 @@ internal object FolderPlaylistSource {
             }
             val watch = ActiveFolderWatch.read(context)
             if (watch.isEmpty) return@runExclusive unchanged
+            val playlistDir = PlaylistModeManager.standardPlaylistDir(context)
+            // This runs on every screen-off. When nothing in the media library,
+            // the followed folders or the playlist has changed since the last
+            // sync, there is nothing to find, so the query is skipped.
+            val before = syncKey(context, watch, playlistDir)
+            if (before != null && before == lastSyncKey) return@runExclusive unchanged
             val current = imagesIn(context, watch.folders.map(WatchedFolder::id))
                 ?: return@runExclusive unchanged
             val present = current.mapTo(HashSet(), MediaImage::id)
 
-            val playlistDir = PlaylistModeManager.standardPlaylistDir(context)
             val originalsDir = File(context.filesDir, PlaylistModeManager.STANDARD_ORIGINALS_DIR)
 
             // Removals first so appended images number after the compacted set.
@@ -220,6 +225,7 @@ internal object FolderPlaylistSource {
                 )
             )
             if (updated != watch) ActiveFolderWatch.write(context, updated)
+            lastSyncKey = syncKey(context, updated, playlistDir)
             val result = SyncResult(added, removed)
             if (result.changed) {
                 SavedPlaylistLibrary.activeId(context)?.let { id ->
@@ -233,6 +239,27 @@ internal object FolderPlaylistSource {
             result
         }
     }
+
+    /** The state last synced, in this process; see [syncKey]. */
+    @Volatile private var lastSyncKey: String? = null
+
+    /**
+     * What a sync depends on: the media library's version and generation on
+     * every external volume (they advance on any change to it), the followed
+     * folders and seen images, and the playlist's size. Null when the library
+     * will not say, which always syncs.
+     */
+    private fun syncKey(
+        context: Context,
+        watch: com.app.nosatmosphereeffect.storage.FolderWatchState,
+        playlistDir: File
+    ): String? = runCatching {
+        val generations = MediaStore.getExternalVolumeNames(context)
+            .sorted()
+            .joinToString(",") { volume -> "$volume=${MediaStore.getGeneration(context, volume)}" }
+        val entries = PlaylistModeManager.imageFiles(playlistDir).size
+        "${MediaStore.getVersion(context)}|$generations|${watch.hashCode()}|$entries"
+    }.getOrNull()
 
     /**
      * Compaction renumbers `wallpaper_N.jpg`, so the remembered "last shown"

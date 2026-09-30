@@ -20,6 +20,12 @@
 #include <vector>
 
 namespace atmo::vulkan {
+
+namespace {
+// The longest any wait on the GPU may take before it counts as a hung driver.
+constexpr uint64_t kGpuWaitTimeoutNs = 5'000'000'000ULL;
+}
+
 namespace {
 
 constexpr char kLogTag[] = "AtmoVulkan";
@@ -629,7 +635,7 @@ public:
                 1,
                 &renderFence_,
                 VK_TRUE,
-                std::numeric_limits<uint64_t>::max()
+                kGpuWaitTimeoutNs
             ) != VK_SUCCESS) {
             logError(label_ + " surface setup failed: vkWaitForFences");
             return false;
@@ -667,13 +673,19 @@ public:
             }
         );
         if (!descriptorsReady) return -1;
-        if (vkWaitForFences(
-                device_,
-                1,
-                &renderFence_,
-                VK_TRUE,
-                std::numeric_limits<uint64_t>::max()
-            ) != VK_SUCCESS) {
+        // Bounded, like every wait on the GPU here: a frame takes
+        // milliseconds, so a wait this long means the driver has hung. Failing
+        // the frame lets the host record it and move the effect to OpenGL ES;
+        // waiting forever froze the wallpaper with nothing reported at all.
+        const VkResult fenceResult = vkWaitForFences(
+            device_,
+            1,
+            &renderFence_,
+            VK_TRUE,
+            kGpuWaitTimeoutNs
+        );
+        if (fenceResult != VK_SUCCESS) {
+            if (fenceResult == VK_TIMEOUT) logError(label_ + " GPU did not finish a frame in time");
             return -1;
         }
 
@@ -681,12 +693,16 @@ public:
         const VkResult acquireResult = vkAcquireNextImageKHR(
             device_,
             swapchain_,
-            std::numeric_limits<uint64_t>::max(),
+            kGpuWaitTimeoutNs,
             imageAvailable_,
             VK_NULL_HANDLE,
             &imageIndex
         );
         if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) return 1;
+        // No free image in time is not a hung GPU: with the screen off the
+        // display stops taking frames, and every image can sit queued until it
+        // wakes. Drop this frame; waking redraws.
+        if (acquireResult == VK_TIMEOUT || acquireResult == VK_NOT_READY) return 0;
         if (acquireResult != VK_SUCCESS &&
             acquireResult != VK_SUBOPTIMAL_KHR) {
             return -1;
@@ -1970,17 +1986,20 @@ private:
             bound.image != VK_NULL_HANDLE &&
             bound.width == width &&
             bound.height == height &&
-            bound.mipLevels == replacement.mipLevels &&
-            (renderFence_ == VK_NULL_HANDLE ||
-             vkWaitForFences(
-                 device_,
-                 1,
-                 &renderFence_,
-                 VK_TRUE,
-                 std::numeric_limits<uint64_t>::max()
-             ) == VK_SUCCESS)) {
-            if (copyBufferToTexture(stagingBuffer, bound)) return true;
-            logError(label_ + " in-place texture update failed; reallocating");
+            bound.mipLevels == replacement.mipLevels) {
+            const VkResult waited = renderFence_ == VK_NULL_HANDLE
+                ? VK_SUCCESS
+                : vkWaitForFences(device_, 1, &renderFence_, VK_TRUE, kGpuWaitTimeoutNs);
+            // A GPU that cannot finish a frame will not finish the reallocation
+            // below either, whose device-wide wait has no timeout: fail here.
+            if (waited == VK_TIMEOUT) {
+                logError(label_ + " GPU did not finish a frame in time");
+                return false;
+            }
+            if (waited == VK_SUCCESS) {
+                if (copyBufferToTexture(stagingBuffer, bound)) return true;
+                logError(label_ + " in-place texture update failed; reallocating");
+            }
         }
 
         if (!createTextureImage(replacement) ||

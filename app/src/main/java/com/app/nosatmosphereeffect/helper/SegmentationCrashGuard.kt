@@ -82,6 +82,13 @@ object SegmentationCrashGuard {
      */
     fun endAttempt(context: Context) = core(context).end()
 
+    /**
+     * Whether an attempt was running when the last process ended — read only,
+     * for other crash recovery to know that segmentation, not it, was in the
+     * middle of something. Meaningful before this process starts an attempt.
+     */
+    fun wasAttemptInFlight(context: Context): Boolean = core(context).wasInFlight()
+
     /** Exposed for a "try again" action in the UI after a disable. */
     fun reset(context: Context) = core(context).reset()
 
@@ -164,6 +171,8 @@ internal class CrashGuardCore(private val store: Store) {
         // any of them must still be caught next time.
         if (active == 0) store.inFlight = false
     }
+
+    fun wasInFlight(): Boolean = synchronized(lock) { active == 0 && store.inFlight }
 
     fun reset() = synchronized(lock) {
         store.clear()

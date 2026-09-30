@@ -152,6 +152,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             timing = { timing },
             transitionsEnabled = { behavior.transitionsEnabled },
             isKeyguardLocked = ::isKeyguardLocked,
+            isInteractive = ::isDeviceInteractive,
             onUnlock = ::playUnlockAnimation,
             onPrepareForLock = ::prepareForNextUnlock,
             onShowLocked = ::showLockedState,
@@ -222,6 +223,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             onEngineVisibilityChanged(renderer, visible)
+            if (!visible) events.onHidden()
             if (!behavior.transitionsEnabled) {
                 animator?.cancel()
                 animator = null

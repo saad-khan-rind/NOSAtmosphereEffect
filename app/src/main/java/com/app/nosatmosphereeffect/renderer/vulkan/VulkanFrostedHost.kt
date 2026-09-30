@@ -52,13 +52,14 @@ internal class VulkanFrostedHost(
     /** Plays the clock's entry animation on the next prepared frame. */
     fun beginClockEntry() {
         clockOverlay.beginEntry()
-        requestRender()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (clockOverlay.state.enabled) requestRender()
     }
 
     /** Re-reads the system 12/24-hour setting and forces a redraw. */
     fun onTimeChanged() {
         clockOverlay.onTimeChanged()
-        requestRender()
+        if (clockOverlay.state.enabled) requestRender()
     }
 
     /**

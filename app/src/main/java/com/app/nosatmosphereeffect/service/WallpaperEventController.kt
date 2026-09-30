@@ -21,6 +21,8 @@ internal class WallpaperEventController(
     private val timing: () -> EffectTiming,
     private val transitionsEnabled: () -> Boolean,
     private val isKeyguardLocked: () -> Boolean,
+    /** False while the screen is off or dozing (always-on display). */
+    private val isInteractive: () -> Boolean,
     private val onUnlock: () -> Unit,
     private val onPrepareForLock: () -> Unit,
     private val onShowLocked: () -> Unit,
@@ -35,6 +37,10 @@ internal class WallpaperEventController(
     private var systemReceiverRegistered = false
     private var appReceiverRegistered = false
     private var lastUnlockUptimeMs = NEVER_UNLOCKED
+    /** When the current run of unlock polling began; see [UnlockPolling]. */
+    private var pollingStartedUptimeMs = 0L
+    /** Whether the wallpaper is on screen; polling is pointless while it is not. */
+    private var wallpaperVisible = true
 
     /**
      * True while a locked keyguard reading arrived so soon after an unlock that
@@ -58,14 +64,30 @@ internal class WallpaperEventController(
         }
     }
 
+    // Polls the keyguard while it is up, because USER_PRESENT can arrive late.
+    // It must never outlive the lock screen it is watching: on Motorola and
+    // Oppo the wallpaper can report itself visible after SCREEN_OFF has run —
+    // entering the always-on display, for one — and a poll started then used
+    // to keep going every 50 ms all night. The OEM battery managers flag that
+    // as abnormal background use and force-stop the app, and Android answers a
+    // force-stopped live wallpaper by restoring the default one.
     private val unlockChecker = object : Runnable {
         override fun run() {
             if (closed) return
             if (!isKeyguardLocked()) {
                 completeUnlock()
-            } else {
-                handler.postDelayed(this, timing().pollIntervalMs)
+                return
             }
+            // Screen off or dozing: SCREEN_ON starts polling again.
+            // Wallpaper hidden: becoming visible again reconciles the state.
+            if (!wallpaperVisible || !safeIsInteractive()) return
+            handler.postDelayed(
+                this,
+                UnlockPolling.nextDelayMs(
+                    configuredMs = timing().pollIntervalMs,
+                    elapsedMs = SystemClock.uptimeMillis() - pollingStartedUptimeMs
+                )
+            )
         }
     }
 
@@ -116,6 +138,7 @@ internal class WallpaperEventController(
      */
     fun onVisible(keyguardLocked: Boolean) {
         if (closed) return
+        wallpaperVisible = true
         if (!keyguardLocked) {
             if (locked) {
                 // Still showing the locked state (e.g. the screen woke already
@@ -133,6 +156,12 @@ internal class WallpaperEventController(
             runCallback("show the lock-screen state", onShowLocked)
         }
         startUnlockPolling()
+    }
+
+    /** The wallpaper left the screen: nothing it shows can change, so stop polling. */
+    fun onHidden() {
+        wallpaperVisible = false
+        handler.removeCallbacks(unlockChecker)
     }
 
     fun onTransitionModeChanged() {
@@ -202,8 +231,18 @@ internal class WallpaperEventController(
 
     private fun startUnlockPolling() {
         handler.removeCallbacks(unlockChecker)
+        if (!safeIsInteractive()) return
+        pollingStartedUptimeMs = SystemClock.uptimeMillis()
         handler.post(unlockChecker)
     }
+
+    private fun safeIsInteractive(): Boolean =
+        try {
+            isInteractive()
+        } catch (failure: RuntimeException) {
+            Log.w(logTag, "Unable to read the screen state", failure)
+            true
+        }
 
     private fun deferLockVisual() {
         locked = true
@@ -295,5 +334,22 @@ internal class WallpaperEventController(
         const val LOCK_CONFIRM_DELAY_MS = 400L
         const val ACTION_RELOAD_WALLPAPER = "com.app.nosatmosphereeffect.RELOAD_WALLPAPER"
         const val ACTION_UPDATE_CONFIG = "com.app.nosatmosphereeffect.UPDATE_CONFIG"
+    }
+}
+
+/**
+ * How often the keyguard is polled. The configured interval for the first
+ * seconds after the lock screen appears, when an unlock is most likely and
+ * should animate at once; then no faster than twice a second, for as long as
+ * the lock screen simply sits there. USER_PRESENT still ends the wait the
+ * moment an unlock happens, so the slower rate only matters if it is late.
+ */
+internal object UnlockPolling {
+    const val FAST_WINDOW_MS = 90_000L
+    const val SLOW_INTERVAL_MS = 500L
+
+    fun nextDelayMs(configuredMs: Long, elapsedMs: Long): Long {
+        val configured = configuredMs.coerceAtLeast(1L)
+        return if (elapsedMs < FAST_WINDOW_MS) configured else maxOf(configured, SLOW_INTERVAL_MS)
     }
 }
