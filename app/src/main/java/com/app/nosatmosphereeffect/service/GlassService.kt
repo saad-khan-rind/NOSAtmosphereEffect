@@ -34,19 +34,19 @@ abstract class GlassWallpaperService protected constructor(
         preferences: SharedPreferences
     ) {
         val settings = GlassEffectPreferences.readAndMigrate(preferences)
+        val clock = readClockState(preferences)
         renderer.configure(
             dimLevel = preferences.readFloat("dim_level", 0f),
             lineCount = settings.lineCount,
             lineThickness = settings.lineThickness,
             transitionStyle = settings.transitionStyle,
-            backgroundOnly = settings.backgroundOnly
+            backgroundOnly = settings.backgroundOnly ||
+                GlassEffectPolicy.clockForcesBackgroundOnly(clock)
         )
         // Playlist and theme modes rotate the image underneath the clock, so
         // the clock stays off there — a position calibrated against one photo
         // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
-        renderer.configureClock(
-            readClockState(preferences)
-        )
+        renderer.configureClock(clock)
     }
 
     /**

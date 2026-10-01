@@ -596,9 +596,23 @@ private fun EffectSettings(
                             )
                         }
                         Spacer(Modifier.height(18.dp))
+                        // A clock with depth or Adapt to subject puts the
+                        // subject in front of it, so glass over the subject
+                        // would contradict it: Background only stays on.
+                        // GlassEffectPolicy.clockForcesBackgroundOnly does the
+                        // same for the wallpaper itself.
+                        val clockKeepsSubjectClear = config.showClockToggle &&
+                            !config.isPlaylistMode && clockEnabled && clockDepthEnabled
                         SubjectIsolationSetting(
                             title = "Background only",
                             checked = glassBackgroundOnly,
+                            forcedOnReason = if (clockKeepsSubjectClear) {
+                                "Always on while the clock's depth effect or Adapt to " +
+                                    "subject is on, so the glass never covers the subject " +
+                                    "in front of the clock."
+                            } else {
+                                null
+                            },
                             onCheckedChange = onGlassBackgroundOnlyChange,
                             inactiveText = "Puts glass lines across the whole wallpaper.",
                             activeDescription =
@@ -888,14 +902,17 @@ private fun SubjectIsolationSetting(
     subjectModelButtonText: String,
     subjectModelStatusText: String,
     subjectModelState: SubjectModelState,
-    onDownloadSubjectModel: () -> Unit
+    onDownloadSubjectModel: () -> Unit,
+    /** Set when something else needs this on: shown on and greyed out, with this reason. */
+    forcedOnReason: String? = null
 ) {
     SettingSwitchRow(
         title = title,
-        checked = checked,
+        checked = checked || forcedOnReason != null,
         onCheckedChange = onCheckedChange,
-        enabled = subjectModelReady || checked,
+        enabled = forcedOnReason == null && (subjectModelReady || checked),
         subtitle = when {
+            forcedOnReason != null -> forcedOnReason
             !checked -> inactiveText
             subjectModelDelivery == SubjectModelDelivery.BUNDLED_FOSS ->
                 "Uses the model built into the app. $activeDescription"

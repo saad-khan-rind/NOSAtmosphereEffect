@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
+import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
 
@@ -37,11 +38,20 @@ class BlurToSharpService :
             false
         )
         val glassSettings = GlassEffectPreferences.readAndMigrate(preferences)
+        // Reverse Atmosphere shares every clock preference with the rest of
+        // the app; only the transition endpoints differ, and those come from
+        // this service's own lockedProgress/unlockedProgress. The controller
+        // still takes the flat arguments its forward twin uses, so the shared
+        // state object is unpacked here rather than passed through.
+        val clock = readClockState(preferences)
         renderer.configure(
             glassEnabled = glassEnabled,
             glassLineCount = glassSettings.lineCount,
             glassLineThickness = glassSettings.lineThickness,
-            glassBackgroundOnly = glassEnabled && glassSettings.backgroundOnly,
+            glassBackgroundOnly = glassEnabled && (
+                glassSettings.backgroundOnly ||
+                    GlassEffectPolicy.clockForcesBackgroundOnly(clock)
+                ),
             dimLevel = preferences.readFloat("dim_level", 0.2f),
             saturation = preferences.readFloat("blob_saturation", 1f),
             contrast = preferences.readFloat("blob_contrast", 1f),
@@ -49,12 +59,6 @@ class BlurToSharpService :
             noiseScale = preferences.readFloat("noise_scale", 2_000f),
             noiseStrength = preferences.readFloat("noise_strength", 0.06f)
         )
-        // Reverse Atmosphere shares every clock preference with the rest of
-        // the app; only the transition endpoints differ, and those come from
-        // this service's own lockedProgress/unlockedProgress. The controller
-        // still takes the flat arguments its forward twin uses, so the shared
-        // state object is unpacked here rather than passed through.
-        val clock = readClockState(preferences)
         renderer.configureClock(clock)
     }
 
