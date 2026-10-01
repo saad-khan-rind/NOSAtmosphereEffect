@@ -171,6 +171,7 @@ class AtmosphereRenderController(
             state = state.copy(
                 clockEnabled = resolvedClock,
                 clockDepthEnabled = safe.depthEnabled,
+                clockAdaptToSubject = safe.adaptToSubject,
                 clockStyleId = safe.styleId,
                 clockShowDate = safe.showDate,
                 clockAnimate = safe.animate,
@@ -640,6 +641,7 @@ class AtmosphereRenderController(
         clockColor = state.clockColor
         clockWeight = state.clockWeight
         clockAdaptiveColors = state.clockAdaptiveColors
+        clockAdaptToSubject = state.clockAdaptToSubject
         clockHourFormat = state.clockHourFormat
         clockLayout = state.clockOverlay()
         clockOpacity = state.clockOpacity

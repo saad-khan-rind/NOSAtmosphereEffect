@@ -687,16 +687,23 @@ private fun EffectSettings(
                     // depth effect silently did nothing unless Glass was on.
                     // The style is chosen on the clock screen, which this one
                     // opens, so it is read again whenever this comes back.
+                    // The Adaptive face is always in front of the subject, so
+                    // the same switch means something else there: whether it
+                    // fits itself around the subject at all.
                     val context = LocalContext.current
                     val adaptiveStyle = rememberClockStyleIsAdaptive()
                     SettingSwitchRow(
-                        title = "Depth effect",
-                        checked = clockDepthEnabled && !adaptiveStyle,
+                        title = if (adaptiveStyle) "Adapt to subject" else "Depth effect",
+                        checked = clockDepthEnabled,
                         onCheckedChange = onClockDepthEnabledChange,
-                        enabled = !adaptiveStyle,
                         subtitle = if (adaptiveStyle) {
-                            "The Adaptive clock fits itself around the subject " +
-                                "and always stays in front, so depth does not apply."
+                            if (clockDepthEnabled) {
+                                "Each digit stretches down to just above the " +
+                                    "subject, and stays in front of them."
+                            } else {
+                                "Subject detection is off: every digit runs " +
+                                    "full length, wherever the subject is."
+                            }
                         } else {
                             "Draws the subject back over the clock, so " +
                                 "the clock sits behind them. Needs a photo with a " +

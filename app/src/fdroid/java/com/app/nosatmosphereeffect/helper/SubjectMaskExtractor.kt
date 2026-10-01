@@ -18,7 +18,8 @@ import kotlin.math.roundToInt
 /** Runs the bundled U2NetP foreground model without network or Play services. */
 class SubjectMaskExtractor(
     context: Context,
-    private val onResult: (requestId: Long, mask: Bitmap?) -> Unit
+    /** `failed`: no mask because something went wrong, not for want of a subject. */
+    private val onResult: (requestId: Long, mask: Bitmap?, failed: Boolean) -> Unit
 ) : Closeable {
 
     private companion object {
@@ -62,14 +63,18 @@ class SubjectMaskExtractor(
         } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
             SubjectMaskDiagnostics.recordFailure("Preparing image (bundled)", error)
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, true)
             return
         }
 
         try {
             worker.execute {
+                var failed = false
                 val mask = if (!SegmentationCrashGuard.beginAttempt(appContext)) {
                     inputBitmap.recycle()
+                    // Skipped once after a crash: worth another try. Disabled
+                    // for good after repeated crashes: not until it is reset.
+                    failed = !SegmentationCrashGuard.isDisabled(appContext)
                     null
                 } else {
                     try {
@@ -85,6 +90,7 @@ class SubjectMaskExtractor(
                         Log.w(TAG, "Bundled subject segmentation failed", error)
                         SubjectMaskDiagnostics.recordFailure("Inference (bundled)", error)
                         SegmentationCrashGuard.endAttempt(appContext)
+                        failed = true
                         null
                     } finally {
                         inputBitmap.recycle()
@@ -96,14 +102,14 @@ class SubjectMaskExtractor(
                 if (closed) {
                     mask?.recycle()
                 } else {
-                    onResult(requestId, mask)
+                    onResult(requestId, mask, failed)
                 }
             }
         } catch (error: RejectedExecutionException) {
             Log.w(TAG, "Subject-segmentation request was rejected", error)
             SubjectMaskDiagnostics.recordFailure("Scheduling (bundled)", error)
             inputBitmap.recycle()
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, false)
         }
     }
 

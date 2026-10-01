@@ -394,6 +394,11 @@ class EffectPreviewService(
                             AtmosphereClockPolicy.DEPTH_KEY,
                             AtmosphereClockPolicy.DEFAULT_DEPTH
                         ),
+                        clockAdaptToSubject = previewBoolean(
+                            prefs,
+                            AtmosphereClockPolicy.DEPTH_KEY,
+                            AtmosphereClockPolicy.DEFAULT_DEPTH
+                        ),
                         clockStyleId = previewString(
                             prefs,
                             AtmosphereClockPolicy.STYLE_KEY,
@@ -749,6 +754,7 @@ class EffectPreviewService(
                 renderer.clockColor = value.clockColor
                 renderer.clockWeight = value.clockWeight
                 renderer.clockAdaptiveColors = value.clockAdaptiveColors
+                renderer.clockAdaptToSubject = value.clockAdaptToSubject
                 renderer.clockHourFormat = value.clockHourFormat
                 renderer.clockLayout = value.clockOverlay()
                 renderer.clockOpacity = value.clockOpacity
