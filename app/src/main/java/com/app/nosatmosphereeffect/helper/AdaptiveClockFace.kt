@@ -56,6 +56,12 @@ internal class AdaptiveClockFace {
     var adaptiveColors: Boolean = false
 
     /**
+     * The clock's depth switch, which on this face means "fit around the
+     * subject". Off, the subject is ignored and every digit runs full length.
+     */
+    var adaptToSubject: Boolean = true
+
+    /**
      * Hours over minutes, in two columns and without a colon. Each column is
      * fitted and animated as one length; see [AdaptiveClockGlyphs.stackSplit].
      */
@@ -391,7 +397,8 @@ internal class AdaptiveClockFace {
         scroll = (scrollOffsetX * SCROLL_STEPS).roundToInt(),
         window = quantize(scrollWindowX),
         centerCrop = centerCropScene,
-        stacked = stacked
+        stacked = stacked,
+        adapt = adaptToSubject
     )
 
     private fun viewport(scene: ClockScene, screenAspect: Float): ClockSceneViewport =
@@ -416,6 +423,21 @@ internal class AdaptiveClockFace {
     private fun fit(box: ClockBoxRect, screenAspect: Float) {
         val scene = sceneSource.scene
         val shortest = AdaptiveClockGlyphs.laneMin(stacked)
+        if (!adaptToSubject) {
+            // Adapting is off: as if the photo had no subject at all.
+            for (lane in 0 until laneCount) {
+                targets[lane] = AdaptiveClockFit.digitHeight(
+                    slotLeft = AdaptiveClockGlyphs.laneLeft(stacked, lane),
+                    slotWidth = AdaptiveClockGlyphs.laneWidth(stacked, lane),
+                    box = box,
+                    boxWidthUnits = AdaptiveClockGlyphs.boxWidth(stacked),
+                    boxHeightUnits = AdaptiveClockGlyphs.boxHeight(stacked),
+                    minLength = shortest,
+                    subjectAt = { _, _ -> 0f }
+                )
+            }
+            return
+        }
         if (scene == null || !scene.subjectKnown) {
             targets.fill(shortest)
             return
@@ -531,7 +553,8 @@ internal class AdaptiveClockFace {
         val scroll: Int,
         val window: Int,
         val centerCrop: Boolean,
-        val stacked: Boolean
+        val stacked: Boolean,
+        val adapt: Boolean
     )
 
     private fun quantize(value: Float): Int = (value * 512f).roundToInt()

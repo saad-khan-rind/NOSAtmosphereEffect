@@ -82,6 +82,7 @@ internal object EffectPreviewStatePolicy {
                     state.value.copy(
                         clockEnabled = safe.enabled,
                         clockDepthEnabled = safe.depthEnabled,
+                        clockAdaptToSubject = safe.adaptToSubject,
                         clockStyleId = safe.styleId,
                         clockShowDate = safe.showDate,
                         clockAnimate = safe.animate,

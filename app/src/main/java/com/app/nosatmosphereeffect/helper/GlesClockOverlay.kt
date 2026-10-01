@@ -140,6 +140,7 @@ class GlesClockOverlay(
             provider.color = next.color
             provider.weight = next.weight
             provider.adaptiveColors = next.adaptiveColors
+            provider.adaptToSubject = next.adaptToSubject
             provider.hourFormatOverride = next.hourFormatOverride
         }
         provider.scrollOffsetX = scrollOffsetX

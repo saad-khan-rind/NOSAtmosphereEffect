@@ -95,6 +95,7 @@ internal class VulkanAtmosphereHost(
         clockTexture.color = state.clockColor
         clockTexture.weight = state.clockWeight
         clockTexture.adaptiveColors = state.clockAdaptiveColors
+        clockTexture.adaptToSubject = state.clockAdaptToSubject
         clockTexture.hourFormatOverride =
             AtmosphereClockPolicy.hourFormatOverride(state.clockHourFormat)
     }

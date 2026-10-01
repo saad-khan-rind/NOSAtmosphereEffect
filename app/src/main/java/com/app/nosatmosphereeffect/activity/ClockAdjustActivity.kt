@@ -402,8 +402,15 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
     // The Adaptive face fits its digits around the subject, so the preview
     // needs the same mask the wallpaper will use. Segmented once per photo,
-    // and only while the Adaptive face is the one chosen.
-    val wantsScene = style.adaptsToSubject
+    // and only while the Adaptive face is the one chosen and set to adapt
+    // (the depth switch, which is set on the screen that opens this one).
+    val adaptToSubject = remember(context) {
+        context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE).getBoolean(
+            AtmosphereClockPolicy.DEPTH_KEY,
+            AtmosphereClockPolicy.DEFAULT_DEPTH
+        )
+    }
+    val wantsScene = style.adaptsToSubject && adaptToSubject
     LaunchedEffect(wallpaperBitmap, wantsScene) {
         val photo = wallpaperBitmap ?: return@LaunchedEffect
         if (!wantsScene) return@LaunchedEffect
@@ -478,6 +485,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                     faceRenderer.color = resolvedColor
                     faceRenderer.weight = weight
                     faceRenderer.adaptiveColors = ClockPalette.isAdaptive(colorPref)
+                    faceRenderer.adaptToSubject = adaptToSubject
                     // The photo here is centre-cropped into the preview rather
                     // than panned, so the scene is mapped the same way.
                     faceRenderer.centerCropScene = true

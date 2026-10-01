@@ -14,10 +14,15 @@ import kotlin.math.roundToInt
 /**
  * Uses the optional Google Play services subject model only when it is already
  * installed. Model downloads remain an explicit action in Advanced Settings.
+ *
+ * [onResult]'s `failed` is true when no mask came back because something went
+ * wrong — Play services unreachable or updating, a caught error, a skipped
+ * attempt after a crash — rather than because the photo has no usable subject.
+ * Those are worth asking again later; see [SubjectMaskCoordinator].
  */
 class SubjectMaskExtractor(
     context: Context,
-    private val onResult: (requestId: Long, mask: Bitmap?) -> Unit
+    private val onResult: (requestId: Long, mask: Bitmap?, failed: Boolean) -> Unit
 ) : Closeable {
 
     private val appContext = context.applicationContext
@@ -53,7 +58,7 @@ class SubjectMaskExtractor(
         } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
             SubjectMaskDiagnostics.recordFailure("Preparing image (Play)", error)
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, true)
             return
         }
 
@@ -71,7 +76,7 @@ class SubjectMaskExtractor(
                                 "Play services subject model isn't installed yet"
                             )
                             inputBitmap.recycle()
-                            onResult(requestId, null)
+                            onResult(requestId, null, false)
                         }
                         else -> processInput(inputBitmap, requestId)
                     }
@@ -80,7 +85,7 @@ class SubjectMaskExtractor(
                     Log.w(TAG, "Could not check subject-segmentation module availability", error)
                     SubjectMaskDiagnostics.recordFailure("Checking module availability", error)
                     inputBitmap.recycle()
-                    if (!closed) onResult(requestId, null)
+                    if (!closed) onResult(requestId, null, true)
                 }
                 .addOnCompleteListener { release() }
         } catch (error: Throwable) {
@@ -88,7 +93,7 @@ class SubjectMaskExtractor(
             SubjectMaskDiagnostics.recordFailure("Checking module availability", error)
             inputBitmap.recycle()
             release()
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, true)
         }
     }
 
@@ -127,12 +132,15 @@ class SubjectMaskExtractor(
         if (!SegmentationCrashGuard.beginAttempt(appContext)) {
             inputBitmap.recycle()
             release()
-            if (!closed) onResult(requestId, null)
+            // Skipped once after a crash: worth another try. Disabled for
+            // good after repeated crashes: not until it is reset.
+            if (!closed) onResult(requestId, null, !SegmentationCrashGuard.isDisabled(appContext))
             return
         }
         try {
             segmenter.process(InputImage.fromBitmap(inputBitmap, 0))
                 .addOnSuccessListener { result ->
+                    var buildFailed = false
                     val mask = if (closed) {
                         null
                     } else {
@@ -232,6 +240,7 @@ class SubjectMaskExtractor(
                         } catch (error: Throwable) {
                             Log.w(TAG, "Could not create a subject mask", error)
                             SubjectMaskDiagnostics.recordFailure("Building mask bitmap", error)
+                            buildFailed = true
                             null
                         }
                     }
@@ -242,14 +251,14 @@ class SubjectMaskExtractor(
                     if (closed) {
                         mask?.recycle()
                     } else {
-                        onResult(requestId, mask)
+                        onResult(requestId, mask, buildFailed)
                     }
                 }
                 .addOnFailureListener { error ->
                     Log.w(TAG, "Subject segmentation failed", error)
                     SubjectMaskDiagnostics.recordFailure("Segmentation", error)
                     SegmentationCrashGuard.endAttempt(appContext)
-                    if (!closed) onResult(requestId, null)
+                    if (!closed) onResult(requestId, null, true)
                 }
                 .addOnCompleteListener {
                     inputBitmap.recycle()
@@ -261,7 +270,7 @@ class SubjectMaskExtractor(
             SegmentationCrashGuard.endAttempt(appContext)
             inputBitmap.recycle()
             release()
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, true)
         }
     }
 

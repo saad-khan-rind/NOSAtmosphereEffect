@@ -201,6 +201,9 @@ class AtmosphereRenderer(
     var clockAdaptiveColors: Boolean
         get() = clockTexture.adaptiveColors
         set(value) { clockTexture.adaptiveColors = value }
+    var clockAdaptToSubject: Boolean
+        get() = clockTexture.adaptToSubject
+        set(value) { clockTexture.adaptToSubject = value }
     var clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
         set(value) {
             field = AtmosphereClockPolicy.sanitizeHourFormat(value)

@@ -409,6 +409,16 @@ class ClockFaceRenderer(private val context: Context) {
             }
         }
 
+    /** The Adaptive face fits itself around the subject; off, it ignores it. */
+    var adaptToSubject: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                adaptiveFace.adaptToSubject = value
+                if (isAdaptive) invalidate()
+            }
+        }
+
     /**
      * The launcher's page offset. The Adaptive face fits its digits to the
      * part of the image that is actually on screen.

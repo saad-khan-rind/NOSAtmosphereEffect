@@ -144,6 +144,7 @@ internal class VulkanClockOverlay(
             uploader.color = next.color
             uploader.weight = next.weight
             uploader.adaptiveColors = next.adaptiveColors
+            uploader.adaptToSubject = next.adaptToSubject
             uploader.clockPlacement = next.placement
             uploader.datePlacement = next.datePlacement
             uploader.hourFormatOverride = next.hourFormatOverride
