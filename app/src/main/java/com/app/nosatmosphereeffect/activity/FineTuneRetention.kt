@@ -5,60 +5,70 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 
 /**
- * Decides whether applying a wallpaper keeps the Fine tuning settings.
+ * Decides what applying a wallpaper does to the Fine tuning settings.
  *
- * Fine tuning lives in "app_prefs" and is tuned for one effect: a blur radius,
- * a grain, a clock placed and styled against that effect's look. Changing only
- * the image or the playlist under the same effect keeps all of it. Switching to
- * a different effect starts fresh, because values tuned for one effect rarely
- * suit another.
+ * Fine tuning lives in "app_prefs" and is tuned for one effect and one photo:
+ * a blur radius, a grain, a clock placed and styled against that photo.
+ *
+ * - Setting a wallpaper when none of ours is live (the first time, or after
+ *   another wallpaper was used in between) starts fresh, so nothing left over
+ *   from an old setup comes back.
+ * - Switching to a different effect starts fresh too, even with the same
+ *   photo: values tuned for one effect rarely suit another. This includes
+ *   "Change effect", which goes straight to the system picker; it used to
+ *   skip this altogether, so the new effect kept the old one's settings.
+ * - New images under the same effect keep everything except the wallpaper
+ *   clock, which is switched off: a clock placed for the old photo may well
+ *   sit badly on the new one.
+ * - The same effect again with the same images keeps everything.
  */
 internal object FineTuneRetention {
 
-    /**
-     * The effect the settings in "app_prefs" were last applied with. Written
-     * on every apply, so it survives the wipe that a change of effect does.
-     */
+    /** Recorded on every apply, for reference; decisions go by the live wallpaper. */
     const val APPLIED_EFFECT_KEY = "fine_tune_effect_id"
 
-    /**
-     * True when applying [targetEffectId] should keep the current settings:
-     * the same effect is being applied again.
-     *
-     * Android's live wallpaper is the authority when it is one of ours; the
-     * stored effect covers the case where another wallpaper was set in
-     * between, or the system will not say. With neither, [whenUnknown]
-     * decides: editing an existing playlist has always kept its settings.
-     */
-    fun keeps(
-        context: Context,
-        appPreferences: SharedPreferences,
-        targetEffectId: String,
-        whenUnknown: Boolean = false
-    ): Boolean = decide(
-        liveEffectId = liveEffectId(context),
-        storedEffectId = appPreferences.getString(APPLIED_EFFECT_KEY, null),
-        targetEffectId = targetEffectId,
-        whenUnknown = whenUnknown
-    )
-
-    /** [keeps] without Android in the way. */
-    fun decide(
-        liveEffectId: String?,
-        storedEffectId: String?,
-        targetEffectId: String,
-        whenUnknown: Boolean
-    ): Boolean {
-        val current = liveEffectId ?: storedEffectId ?: return whenUnknown
-        return WallpaperEffectServices.normalize(current) ==
-            WallpaperEffectServices.normalize(targetEffectId)
+    enum class Plan {
+        /** Everything back to its defaults. */
+        RESET,
+        /** Everything kept. */
+        KEEP,
+        /** Everything kept but the wallpaper clock, which is switched off. */
+        KEEP_CLOCK_OFF
     }
 
-    /** Records the effect the settings now belong to; part of the apply's edit. */
-    fun markApplied(editor: SharedPreferences.Editor, effectId: String): SharedPreferences.Editor =
-        editor.putString(APPLIED_EFFECT_KEY, WallpaperEffectServices.normalize(effectId))
+    /** [applyTo]'s decision, apart from Android so it can be tested. */
+    fun plan(liveEffectId: String?, targetEffectId: String, imagesChanged: Boolean): Plan {
+        val live = liveEffectId ?: return Plan.RESET
+        if (WallpaperEffectServices.normalize(live) != WallpaperEffectServices.normalize(targetEffectId)) {
+            return Plan.RESET
+        }
+        return if (imagesChanged) Plan.KEEP_CLOCK_OFF else Plan.KEEP
+    }
+
+    /**
+     * Part of an apply's edit of "app_prefs": resets, keeps, or switches the
+     * clock off, as [plan] decides, and records [targetEffectId]. A reset is
+     * an [SharedPreferences.Editor.clear], which Android applies before the
+     * rest of the same edit, so the caller's own values still land.
+     */
+    fun applyTo(
+        context: Context,
+        editor: SharedPreferences.Editor,
+        targetEffectId: String,
+        imagesChanged: Boolean
+    ): Plan {
+        val plan = plan(liveEffectId(context), targetEffectId, imagesChanged)
+        when (plan) {
+            Plan.RESET -> editor.clear()
+            Plan.KEEP_CLOCK_OFF -> editor.putBoolean(AtmosphereClockPolicy.ENABLED_KEY, false)
+            Plan.KEEP -> Unit
+        }
+        editor.putString(APPLIED_EFFECT_KEY, WallpaperEffectServices.normalize(targetEffectId))
+        return plan
+    }
 
     /**
      * The effect id of this app's live wallpaper on the Home screen, or on the

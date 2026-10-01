@@ -190,6 +190,13 @@ class EffectSelectionActivity : ComponentActivity() {
     }
 
     private fun applyEffectDirectly(effectId: String) {
+        // The same images under another effect: Fine tuning starts fresh
+        // (the same effect again keeps it). Written before the picker opens,
+        // because its preview starts the effect at once and reads these.
+        val appPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val editor = appPreferences.edit()
+        FineTuneRetention.applyTo(this, editor, effectId, imagesChanged = false)
+        editor.commit()
         if (WallpaperEffectServices.launchPicker(this, effectId)) {
             finish()
         } else {

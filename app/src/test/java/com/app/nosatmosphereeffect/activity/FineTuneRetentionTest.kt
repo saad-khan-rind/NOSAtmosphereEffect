@@ -1,38 +1,36 @@
 package com.app.nosatmosphereeffect.activity
 
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import com.app.nosatmosphereeffect.activity.FineTuneRetention.Plan
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FineTuneRetentionTest {
 
     @Test
-    fun `a new image under the running effect keeps fine tuning`() {
-        assertTrue(FineTuneRetention.decide("COLORFILL", null, "COLORFILL", whenUnknown = false))
+    fun `new images under the live effect keep fine tuning but switch the clock off`() {
+        assertEquals(Plan.KEEP_CLOCK_OFF, FineTuneRetention.plan("COLORFILL", "COLORFILL", imagesChanged = true))
     }
 
     @Test
-    fun `a different effect starts fresh`() {
-        assertFalse(FineTuneRetention.decide("COLORFILL", "COLORFILL", "GLASS", whenUnknown = true))
+    fun `a different effect starts fresh even with the same images`() {
+        assertEquals(Plan.RESET, FineTuneRetention.plan("COLORFILL", "GLASS", imagesChanged = false))
+        assertEquals(Plan.RESET, FineTuneRetention.plan("COLORFILL", "GLASS", imagesChanged = true))
     }
 
     @Test
-    fun `the live wallpaper outranks the stored effect`() {
-        // Switched effects through the system picker since the last apply.
-        assertFalse(FineTuneRetention.decide("GLASS", "COLORFILL", "COLORFILL", whenUnknown = false))
-        assertTrue(FineTuneRetention.decide("GLASS", "COLORFILL", "GLASS", whenUnknown = false))
+    fun `the same effect again with the same images keeps everything`() {
+        assertEquals(Plan.KEEP, FineTuneRetention.plan("HALFTONE", "HALFTONE", imagesChanged = false))
     }
 
     @Test
-    fun `the stored effect decides when another wallpaper is live`() {
-        assertTrue(FineTuneRetention.decide(null, "HALFTONE", "HALFTONE", whenUnknown = false))
-        assertFalse(FineTuneRetention.decide(null, "HALFTONE", "NEON", whenUnknown = true))
+    fun `setting a wallpaper when none of ours is live starts fresh`() {
+        // The first time, or after another wallpaper was used in between.
+        assertEquals(Plan.RESET, FineTuneRetention.plan(null, "ORIGINAL", imagesChanged = true))
+        assertEquals(Plan.RESET, FineTuneRetention.plan(null, "ORIGINAL", imagesChanged = false))
     }
 
     @Test
-    fun `with nothing to go on the caller decides`() {
-        // A first install starts fresh; editing an existing playlist keeps what it had.
-        assertFalse(FineTuneRetention.decide(null, null, "ORIGINAL", whenUnknown = false))
-        assertTrue(FineTuneRetention.decide(null, null, "ORIGINAL", whenUnknown = true))
+    fun `forward and reverse versions count as different effects`() {
+        assertEquals(Plan.RESET, FineTuneRetention.plan("ORIGINAL", "REVERSE", imagesChanged = false))
     }
 }

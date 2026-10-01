@@ -284,16 +284,19 @@ abstract class BaseCropActivity : ComponentActivity() {
                     try {
                         fileTransactions += installWallpaperFiles(bitmap, source)
 
-                        // Read before anything is written: a new image under
-                        // the same effect keeps Fine tuning, a new effect
-                        // starts fresh.
-                        val keepFineTune =
-                            FineTuneRetention.keeps(this, appPreferences, effectId)
                         preferencesTouched = true
                         SystemColorSyncPreferences.isEnabled(this)
                         val appPreferencesEditor = appPreferences.edit()
-                        if (!keepFineTune) appPreferencesEditor.clear()
-                        FineTuneRetention.markApplied(appPreferencesEditor, effectId)
+                        // A new image: Fine tuning starts fresh unless the
+                        // same effect is already live, and then only the
+                        // clock is switched off.
+                        FineTuneRetention.applyTo(
+                            this,
+                            appPreferencesEditor,
+                            effectId,
+                            imagesChanged = true
+                        )
+                        appPreferencesEditor
                             .putBoolean(
                                 AtmosphereGlassPolicy.ENABLED_KEY,
                                 atmosphereGlassEnabled
