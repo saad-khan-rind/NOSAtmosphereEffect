@@ -116,7 +116,7 @@ internal fun FolderPickerScreen(
                 FolderAccessState.GRANTED -> when {
                     folders == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                     folders.isEmpty() -> Text(
-                        "No folders with images were found on this device.",
+                        "Couldn't find any folders with photos on your phone.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -130,7 +130,7 @@ internal fun FolderPickerScreen(
                     ) {
                         item {
                             Text(
-                                "New images saved to these folders are added to the " +
+                                "New photos in these folders get added to your " +
                                     "playlist the next time you open Atmo Engine.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -172,12 +172,12 @@ private fun AccessRationale(
         )
         Text(
             if (partial) {
-                "With \"Select photos\", Atmo Engine only sees the images you picked, " +
-                    "so images added to a folder later can't be detected. Choose " +
+                "With \"Select photos\", Atmo Engine only sees the photos you picked, " +
+                    "so it can't spot new ones added to a folder later. Pick " +
                     "\"Allow all\" to follow folders."
             } else {
-                "Folder playlists read your photo folders to find images you add " +
-                    "later. Images stay on your device."
+                "Folder playlists look through your photo folders for new photos " +
+                    "you add later. Your photos never leave your phone."
             },
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

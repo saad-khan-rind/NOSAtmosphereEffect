@@ -239,17 +239,17 @@ fun WallpaperPreviewDialog(
                     }
                     Text(
                         if (behavior.transitionsEnabled) {
-                            "Next: choose Home screen and Lock screen in the system picker."
+                            "Next, pick Home screen and Lock screen on the system screen."
                         } else {
-                            "Next: choose Home screen and Lock screen. Atmo stays live on both; " +
-                                "the Fine Tune target controls which screen shows the effect."
+                            "Next, pick Home screen and Lock screen. Atmo runs on both, and " +
+                                "Fine tune decides which one shows the effect."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     )
                     AtmoPrimaryButton(
-                        text = "Continue to system picker",
+                        text = "Continue",
                         onClick = onConfirm,
                         modifier = Modifier.fillMaxWidth()
                     )

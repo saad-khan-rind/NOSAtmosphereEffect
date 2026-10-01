@@ -14,7 +14,7 @@ object SubjectMaskDiagnostics {
 
     fun recordFailure(context: String, error: Throwable) {
         val detail = error.message?.take(120) ?: "no message"
-        lastFailure = "$context — ${error::class.simpleName}: $detail"
+        lastFailure = "Something went wrong ($context, ${error::class.simpleName}: $detail)"
     }
 
     /**

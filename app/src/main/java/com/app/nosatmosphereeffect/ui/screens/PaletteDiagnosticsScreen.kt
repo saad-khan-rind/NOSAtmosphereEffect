@@ -179,7 +179,7 @@ fun PaletteDiagnosticsScreen(
                     )
                     if (!syncColorsEnabled) {
                         Text(
-                            "Enable Sync system colors on the main screen to run this test.",
+                            "Turn on Sync system colors on the main screen to run this test.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 4.dp)

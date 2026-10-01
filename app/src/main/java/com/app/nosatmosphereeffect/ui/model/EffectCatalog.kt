@@ -24,73 +24,73 @@ object EffectCatalog {
             "ORIGINAL",
             "Original Atmosphere",
             "Sharp to blur",
-            "Ambient color and drifting atmospheric clouds."
+            "Soft color and clouds that drift across your photo."
         ),
         EffectItem(
             "REVERSE",
             "Reverse Atmosphere",
             "Blur to sharp",
-            "Atmospheric clouds clear to reveal the wallpaper."
+            "The clouds clear away to show your photo."
         ),
         EffectItem(
             "GLASS",
             "Glass Effect",
             "Right-to-left or fade in",
-            "Continuous reeded glass with a configurable transition."
+            "Ribbed glass over your photo, with a transition you can pick."
         ),
         EffectItem(
             "GLASS_REVERSE",
             "Glass Effect Reverse",
             "Left-to-right or fade out",
-            "Reeded glass clears with a configurable transition."
+            "The ribbed glass clears away, with a transition you can pick."
         ),
         EffectItem(
             "COLORFILL",
             "Color Fill",
             "Monochrome to color",
-            "Color spreads outward from the fingerprint position."
+            "Color spreads out from where your fingerprint is."
         ),
         EffectItem(
             "COLORFILL_REVERSE",
             "Color Fill Reverse",
             "Color to monochrome",
-            "Color drains toward the fingerprint position."
+            "Color drains back toward your fingerprint."
         ),
         EffectItem(
             "NEON",
             "Canvas Sketch",
             "Sketch to image",
-            "A clean line drawing resolves into the wallpaper."
+            "A clean line drawing turns into your photo."
         ),
         EffectItem(
             "NEON_REVERSE",
             "Canvas Sketch Reverse",
             "Image to sketch",
-            "The wallpaper settles into a clean line drawing."
+            "Your photo turns into a clean line drawing."
         ),
         EffectItem(
             "FROSTED",
             "Simple Frosted",
             "Sharp to blur",
-            "A clean, uniform frosted-glass transition."
+            "A simple, even frosted glass blur."
         ),
         EffectItem(
             "FROSTED_REVERSE",
             "Simple Frosted Reverse",
             "Blur to sharp",
-            "Heavy frost dissolves into a clear image."
+            "Thick frost melts away into a clear photo."
         ),
         EffectItem(
             "HALFTONE",
             "Halftone Print",
             "Sharp to halftone",
-            "The wallpaper resolves into a printed dot pattern."
+            "Your photo turns into a pattern of printed dots."
         ),
         EffectItem(
             "HALFTONE_REVERSE",
             "Halftone Print Reverse",
             "Halftone to sharp",
-            "Printed dots expand into continuous color."
+            "Printed dots grow back into your full photo."
         )
     )
 

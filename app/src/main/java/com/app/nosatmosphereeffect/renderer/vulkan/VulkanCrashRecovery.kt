@@ -84,7 +84,7 @@ internal object VulkanCrashRecovery {
         VulkanSupport.recordFailure(
             appContext,
             effect,
-            "The graphics driver crashed the wallpaper while Vulkan was running"
+            "Your phone's graphics driver crashed the wallpaper on Vulkan"
         )
     }
 

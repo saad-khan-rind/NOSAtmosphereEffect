@@ -255,20 +255,20 @@ fun AdvancedSettingsScreen(
     }
     val subjectModelStatusText = when {
         bundledSubjectModel ->
-            "Bundled U2NetP model. Open source, on-device, and ready offline."
+            "Built into the app. Open source, runs on your phone and works offline."
         subjectModelState.phase == SubjectModelPhase.CHECKING ->
-            "Checking Google Play services without starting a download."
+            "Checking with Google Play services. Nothing is downloaded yet."
         subjectModelState.phase == SubjectModelPhase.NOT_DOWNLOADED ->
-            "Optional. Google Play services downloads it only after you tap the button."
+            "Optional. Google Play services only downloads it when you tap the button."
         subjectModelState.phase == SubjectModelPhase.DOWNLOADING ->
-            "Google Play services is downloading the subject model."
+            "Google Play services is downloading it now."
         subjectModelState.phase == SubjectModelPhase.INSTALLING ->
-            "Completing the on-device model installation."
+            "Almost done, finishing the install."
         subjectModelState.phase == SubjectModelPhase.PAUSED ->
-            "The download is paused until a connection is available."
+            "Paused. It'll carry on once you're back online."
         subjectModelState.phase == SubjectModelPhase.READY ->
-            "Installed and ready for offline, on-device segmentation."
-        else -> "The model check failed. Try again when Google Play services is available."
+            "Installed and ready. It runs on your phone, even offline."
+        else -> "Couldn't check the model. Try again once Google Play services is working."
     }
 
     val result = AdvancedResult(
@@ -538,9 +538,9 @@ private fun EffectSettings(
                         checked = atmosphereGlassEnabled,
                         onCheckedChange = onAtmosphereGlassEnabledChange,
                         subtitle = if (atmosphereGlassEnabled) {
-                            "The sharp Atmosphere state uses the Glass effect."
+                            "The sharp side of Atmosphere gets the glass look."
                         } else {
-                            "The sharp Atmosphere state uses the original wallpaper."
+                            "The sharp side of Atmosphere shows your original photo."
                         }
                     )
                 }
@@ -600,11 +600,11 @@ private fun EffectSettings(
                             title = "Background only",
                             checked = glassBackgroundOnly,
                             onCheckedChange = onGlassBackgroundOnlyChange,
-                            inactiveText = "Applies the glass lines to the complete wallpaper.",
+                            inactiveText = "Puts glass lines across the whole wallpaper.",
                             activeDescription =
-                                "The subject stays sharp while the background becomes glass.",
+                                "Keeps the subject sharp and turns only the background to glass.",
                             waitingText =
-                                "The wallpaper stays unchanged until the subject model is ready.",
+                                "Your wallpaper stays as it is until the subject model is ready.",
                             subjectModelDelivery = subjectModelDelivery,
                             subjectModelReady = subjectModelReady,
                             subjectModelWorking = subjectModelWorking,
@@ -621,10 +621,9 @@ private fun EffectSettings(
         if (config.showClockToggle && config.isPlaylistMode) {
             SettingsGroup("Clock") {
                 Text(
-                    "The wallpaper clock is available in single-image mode only " +
-                        "for now. In playlist and theme modes the image changes " +
-                        "underneath it, so a position calibrated against one " +
-                        "photo would be wrong for the next.",
+                    "The clock only works with a single image for now. In a " +
+                        "playlist the photo keeps changing, so a spot that suits " +
+                        "one photo would be wrong for the next.",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -641,10 +640,10 @@ private fun EffectSettings(
                     checked = clockEnabled,
                     onCheckedChange = onClockEnabledChange,
                     subtitle = if (clockEnabled) {
-                        "Hide your device's own lock screen clock to avoid " +
-                            "seeing two."
+                        "Turn off your phone's own lock screen clock so you " +
+                            "don't see two."
                     } else {
-                        "Renders a clock into the wallpaper itself."
+                        "Draws a clock right into your wallpaper."
                     }
                 )
                 if (clockEnabled) {
@@ -698,16 +697,16 @@ private fun EffectSettings(
                         onCheckedChange = onClockDepthEnabledChange,
                         subtitle = if (adaptiveStyle) {
                             if (clockDepthEnabled) {
-                                "Each digit stretches down to just above the " +
-                                    "subject, and stays in front of them."
+                                "The digits stretch down to just above the " +
+                                    "subject and stay in front of them."
                             } else {
-                                "Subject detection is off: every digit runs " +
-                                    "full length, wherever the subject is."
+                                "Off, so the digits run full length and " +
+                                    "ignore the subject."
                             }
                         } else {
-                            "Draws the subject back over the clock, so " +
-                                "the clock sits behind them. Needs a photo with a " +
-                                "clear subject."
+                            "Puts the subject in front of the clock, so " +
+                                "it looks like the clock is behind them. Works best " +
+                                "with a clear subject."
                         }
                     )
                     AtmoTextButton(
@@ -742,9 +741,9 @@ private fun EffectSettings(
                     title = "Background only",
                     checked = halftoneBackgroundOnly,
                     onCheckedChange = onHalftoneBackgroundOnlyChange,
-                    inactiveText = "Applies Halftone to the complete wallpaper.",
-                    activeDescription = "The subject stays sharp while the background is printed.",
-                    waitingText = "The wallpaper stays unchanged until the subject model is ready.",
+                    inactiveText = "Prints the whole wallpaper in halftone.",
+                    activeDescription = "Keeps the subject sharp and prints only the background.",
+                    waitingText = "Your wallpaper stays as it is until the subject model is ready.",
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
                     subjectModelWorking = subjectModelWorking,
@@ -782,9 +781,9 @@ private fun EffectSettings(
                     title = "Subject segmentation",
                     checked = subjectSegmentationEnabled,
                     onCheckedChange = onSubjectSegmentationChange,
-                    inactiveText = "Sketches the complete wallpaper.",
-                    activeDescription = "The subject silhouette anchors the sketch.",
-                    waitingText = "The complete wallpaper is sketched until the model is ready.",
+                    inactiveText = "Sketches the whole wallpaper.",
+                    activeDescription = "The sketch is built around the subject's outline.",
+                    waitingText = "Sketches the whole wallpaper until the model is ready.",
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
                     subjectModelWorking = subjectModelWorking,
@@ -838,7 +837,7 @@ private fun EffectSettings(
                     title = "Add grain",
                     checked = noiseEnabled,
                     onCheckedChange = onNoiseEnabledChange,
-                    subtitle = "A fine film texture over the blurred wallpaper."
+                    subtitle = "A light film texture over the blurred wallpaper."
                 )
                 AnimatedVisibility(visible = noiseEnabled) {
                     Column {
@@ -899,9 +898,9 @@ private fun SubjectIsolationSetting(
         subtitle = when {
             !checked -> inactiveText
             subjectModelDelivery == SubjectModelDelivery.BUNDLED_FOSS ->
-                "Uses the bundled on-device model. $activeDescription"
+                "Uses the model built into the app. $activeDescription"
             subjectModelReady ->
-                "Uses the installed on-device model. $activeDescription"
+                "Uses the model on your phone. $activeDescription"
             else -> waitingText
         }
     )
@@ -960,9 +959,9 @@ private fun TimingSettings(
     val info = painterResource(R.drawable.ic_info)
     val alwaysAppliedDescription = when (alwaysAppliedTarget) {
         AlwaysAppliedTarget.HOME ->
-            "The effect stays on the Home screen. The Lock screen shows the original."
+            "The effect stays on your home screen. The lock screen shows the original photo."
         AlwaysAppliedTarget.LOCK ->
-            "The effect stays on the Lock screen. The Home screen shows the original."
+            "The effect stays on your lock screen. The home screen shows the original photo."
         AlwaysAppliedTarget.BOTH ->
             "The effect stays on both screens."
     }
@@ -973,9 +972,9 @@ private fun TimingSettings(
                 checked = transitionsEnabled,
                 onCheckedChange = onTransitionsEnabledChange,
                 subtitle = if (transitionsEnabled) {
-                    "Changes between effect states when the screen locks or unlocks."
+                    "Plays the effect when you lock or unlock your phone."
                 } else {
-                    "Keeps the fully applied effect visible on the selected screens."
+                    "Keeps the full effect showing on the screens you pick."
                 }
             )
         }
@@ -1027,7 +1026,7 @@ private fun TimingSettings(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "$alwaysAppliedDescription Atmo Engine remains a live wallpaper.",
+                    "$alwaysAppliedDescription It's still a live wallpaper.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1192,12 +1191,12 @@ private fun rememberClockStyleIsAdaptive(): Boolean {
 private enum class InfoDialog(val title: String, val message: String) {
     Poll(
         "Unlock check interval",
-        "Lower values provide a faster reaction after unlocking but require more frequent checks, which may impact battery life. Use 30000 ms on Samsung devices, or 50 ms if the animation starts late."
+        "Lower numbers make the wallpaper react faster when you unlock, but it checks more often, which uses a bit more battery. On Samsung phones use 30000 ms. If the animation starts late, try 50 ms."
     ),
     Delay(
         "Lock delay",
-        "Increase this only if the wallpaper visibly resets before the screen turns off. " +
-            "Use 0 ms on Samsung or 500-800 ms when needed."
+        "Only raise this if you can see the wallpaper reset before the screen goes off. " +
+            "On Samsung use 0 ms, otherwise 500 to 800 ms if you need it."
     )
 }
 

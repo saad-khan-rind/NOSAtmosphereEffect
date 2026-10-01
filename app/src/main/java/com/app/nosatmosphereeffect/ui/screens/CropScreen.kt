@@ -217,7 +217,7 @@ fun CropScreen(
                         AtmoReveal(delayMillis = 90) {
                             SettingSwitchRow(
                                 title = "Add glass effect",
-                                subtitle = "Keeps the Atmosphere transition and finishes on reeded glass.",
+                                subtitle = "Keeps the Atmosphere animation and ends on ribbed glass.",
                                 checked = atmosphereGlassEnabled,
                                 onCheckedChange = onAtmosphereGlassEnabledChange
                             )

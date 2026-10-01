@@ -195,7 +195,7 @@ class EffectSelectionActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "No live wallpaper picker is available on this device.",
+                "Your phone doesn't seem to have a live wallpaper picker.",
                 Toast.LENGTH_LONG
             ).show()
         }

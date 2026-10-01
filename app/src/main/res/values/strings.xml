@@ -4,7 +4,7 @@
 
     <string name="app_title">Atmo Engine</string>
     <string name="app_logo_desc">App Logo</string>
-    <string name="status_instruction">Select an effect style and image to\ncreate your custom live wallpaper.</string>
+    <string name="status_instruction">Pick an effect and a photo to\nmake your own live wallpaper.</string>
     <string name="action_select_effect">Select Effect</string>
     <string name="action_change_effect">Change or Update Effect</string>
     <string name="action_apply">Apply</string>
@@ -26,10 +26,10 @@
     <string name="renderer_preference_automatic">Automatic (recommended)</string>
     <string name="renderer_preference_vulkan">Vulkan</string>
     <string name="renderer_preference_opengl">OpenGL ES</string>
-    <string name="renderer_preference_automatic_helper">Uses Vulkan when it is compatible and falls back safely to OpenGL ES. Applies immediately to effect previews and the active live wallpaper.</string>
-    <string name="renderer_preference_vulkan_helper">Requests Vulkan, but unsupported devices and runtime failures still fall back to OpenGL ES. Applies immediately to effect previews and the active live wallpaper.</string>
-    <string name="renderer_preference_opengl_helper">Always uses OpenGL ES and skips the Vulkan probe. Applies immediately to effect previews and the active live wallpaper.</string>
+    <string name="renderer_preference_automatic_helper">Uses Vulkan when your phone supports it, and switches to OpenGL ES if it doesn\'t. Changes apply right away, to the previews and your wallpaper.</string>
+    <string name="renderer_preference_vulkan_helper">Tries Vulkan first. If your phone doesn\'t support it or it runs into trouble, it switches to OpenGL ES. Changes apply right away, to the previews and your wallpaper.</string>
+    <string name="renderer_preference_opengl_helper">Always uses OpenGL ES and doesn\'t try Vulkan at all. Changes apply right away, to the previews and your wallpaper.</string>
     <string name="experimental">Experimental</string>
-    <string name="manualCroppingWillBeDisabled">(Manual Cropping Will Be Disabled)</string>
+    <string name="manualCroppingWillBeDisabled">(Turns off manual cropping)</string>
 
 </resources>
