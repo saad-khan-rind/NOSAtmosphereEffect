@@ -363,8 +363,14 @@ class EffectPreviewService(
                 val glassEnabled = previewAtmosphereGlassEnabled(prefs)
                 configuredAtmosphereGlassEnabled = glassEnabled
                 val glassSettings = previewGlassSettings(prefs)
-                configuredAtmosphereGlassBackgroundOnly =
-                    glassEnabled && glassSettings.backgroundOnly
+                // As AtmosphereService: a clock with depth or Adapt to subject
+                // keeps the glass off the subject.
+                configuredAtmosphereGlassBackgroundOnly = glassEnabled && (
+                    glassSettings.backgroundOnly ||
+                        GlassEffectPolicy.clockForcesBackgroundOnly(
+                            previewClockState(prefs, lockedProgress = 0f, unlockedProgress = 1f)
+                        )
+                    )
                 val clockEnabled = AtmosphereClockPolicy.resolveEnabled(
                     effectId = effectId,
                     requested = previewBoolean(
@@ -506,26 +512,30 @@ class EffectPreviewService(
 
             "GLASS", "GLASS_REVERSE" -> {
                 val glassSettings = previewGlassSettings(prefs)
+                // Derived from the same policy GlassService uses, rather
+                // than restated, so the two cannot drift.
+                val clock = previewClockState(
+                    prefs,
+                    lockedProgress = GlassEffectPolicy.shaderProgress(
+                        0f,
+                        effectId == "GLASS_REVERSE"
+                    ),
+                    unlockedProgress = GlassEffectPolicy.shaderProgress(
+                        1f,
+                        effectId == "GLASS_REVERSE"
+                    )
+                )
                 EffectPreviewRenderState.Glass(
                     GlassRenderState(
                         dimLevel = previewFloat(prefs, "dim_level", 0f),
                         lineCount = glassSettings.lineCount,
                         lineThickness = glassSettings.lineThickness,
                         transitionStyle = glassSettings.transitionStyle,
-                        backgroundOnly = glassSettings.backgroundOnly,
-                        // Derived from the same policy GlassService uses,
-                        // rather than restated, so the two cannot drift.
-                        clock = previewClockState(
-                            prefs,
-                            lockedProgress = GlassEffectPolicy.shaderProgress(
-                                0f,
-                                effectId == "GLASS_REVERSE"
-                            ),
-                            unlockedProgress = GlassEffectPolicy.shaderProgress(
-                                1f,
-                                effectId == "GLASS_REVERSE"
-                            )
-                        )
+                        // As GlassService: a clock with depth or Adapt to
+                        // subject keeps the glass off the subject.
+                        backgroundOnly = glassSettings.backgroundOnly ||
+                            GlassEffectPolicy.clockForcesBackgroundOnly(clock),
+                        clock = clock
                     ).sanitized()
                 )
             }

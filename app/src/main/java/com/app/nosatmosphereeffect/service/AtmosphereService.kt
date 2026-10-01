@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
+import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
 
@@ -49,11 +50,15 @@ class AtmosphereService :
             false
         )
         val glassSettings = GlassEffectPreferences.readAndMigrate(preferences)
+        val clock = readClockState(preferences)
         renderer.configure(
             glassEnabled = glassEnabled,
             glassLineCount = glassSettings.lineCount,
             glassLineThickness = glassSettings.lineThickness,
-            glassBackgroundOnly = glassEnabled && glassSettings.backgroundOnly,
+            glassBackgroundOnly = glassEnabled && (
+                glassSettings.backgroundOnly ||
+                    GlassEffectPolicy.clockForcesBackgroundOnly(clock)
+                ),
             dimLevel = preferences.readFloat("dim_level", 0.2f),
             saturation = preferences.readFloat("blob_saturation", 1f),
             contrast = preferences.readFloat("blob_contrast", 1f),
@@ -64,9 +69,7 @@ class AtmosphereService :
         // Playlist and theme modes rotate the image underneath the clock, so
         // the clock stays off there — a position calibrated against one photo
         // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
-        renderer.configureClock(
-            readClockState(preferences)
-        )
+        renderer.configureClock(clock)
     }
 
     override fun setEffectProgress(
