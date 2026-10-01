@@ -1160,7 +1160,7 @@ private fun ColourTab(
         if (selected.adaptsToSubject) {
             "The digits are drawn in this colour."
         } else {
-            "Glass faces are tinted with this colour; the highlights stay white."
+            "Glass digits get a tint of this colour, and the highlights stay white."
         },
         color = Color.White.copy(alpha = 0.6f),
         style = MaterialTheme.typography.bodySmall
@@ -1244,13 +1244,13 @@ private fun MoreTab(
         title = "Show date",
         checked = showDate,
         onCheckedChange = onShowDateChange,
-        subtitle = "Placed above the clock and sized to match. Adjust it like the clock."
+        subtitle = "Sits above the clock at a matching size. Move and resize it just like the clock."
     )
     SettingSwitchRow(
         title = "Animate digit changes",
         checked = animate,
         onCheckedChange = onAnimateChange,
-        subtitle = "Digits slide as the time changes."
+        subtitle = "The digits slide when the time changes."
     )
     Spacer(Modifier.height(6.dp))
     Text("Hour format", color = Color.White, style = MaterialTheme.typography.labelLarge)
@@ -1278,18 +1278,18 @@ private fun MoreTab(
         if (segmentationDisabled) {
             ActionChip(
                 icon = Icons.Rounded.Refresh,
-                label = "Re-enable subject detection",
+                label = "Turn subject detection back on",
                 onClick = onResetSegmentation
             )
         }
     }
     val notice = when {
         segmentationDisabled ->
-            "Subject detection was switched off after repeated crashes in a system " +
-                "component, so nothing will occlude the clock until it is re-enabled."
+            "Subject detection kept crashing a part of the system, so we turned it off. " +
+                "Nothing will cover the clock until you turn it back on."
         maskFailure != null && selected.adaptsToSubject ->
-            "The digits can't fit around the subject yet: $maskFailure"
-        maskFailure != null -> "No depth effect yet: $maskFailure"
+            "The digits can't fit around the subject yet. $maskFailure"
+        maskFailure != null -> "No depth effect yet. $maskFailure"
         else -> null
     }
     if (notice != null) {

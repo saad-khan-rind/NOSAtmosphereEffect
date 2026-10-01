@@ -81,7 +81,7 @@ class SavedPlaylistsActivity : ComponentActivity() {
             } catch (error: Exception) {
                 Log.e(TAG, "Could not $description", error)
                 runOnUiThread {
-                    Toast.makeText(this, "Could not $description.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Couldn't $description. Please try again.", Toast.LENGTH_SHORT).show()
                 }
             }
         }

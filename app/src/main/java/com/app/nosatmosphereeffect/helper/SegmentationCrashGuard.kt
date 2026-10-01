@@ -56,18 +56,18 @@ object SegmentationCrashGuard {
             CrashGuardCore.Outcome.ALLOWED -> true
             CrashGuardCore.Outcome.DISABLED -> {
                 SubjectMaskDiagnostics.recordRejection(
-                    "Subject detection was disabled after crashing the app " +
-                        "repeatedly. Reset it in Advanced Settings to try again."
+                    "Subject detection kept crashing the app, so it's turned off. " +
+                        "You can turn it back on from the clock screen."
                 )
                 false
             }
             is CrashGuardCore.Outcome.CrashDetected -> {
                 SubjectMaskDiagnostics.recordRejection(
-                    "Subject detection crashed the app last time — skipping " +
-                        "this attempt" + if (outcome.nowDisabled) {
-                            " and disabling it (crashed ${outcome.streak} times in a row)."
+                    "Subject detection crashed the app last time, so it's " +
+                        "skipping this go" + if (outcome.nowDisabled) {
+                            " and turning itself off (it crashed ${outcome.streak} times in a row)."
                         } else {
-                            ", will try again next time."
+                            ". It'll try again shortly."
                         }
                 )
                 false

@@ -73,7 +73,7 @@ class SubjectMaskExtractor(
                         closed -> inputBitmap.recycle()
                         !availability.areModulesAvailable() -> {
                             SubjectMaskDiagnostics.recordRejection(
-                                "Play services subject model isn't installed yet"
+                                "The subject model from Google Play services isn't installed yet"
                             )
                             inputBitmap.recycle()
                             onResult(requestId, null, false)
@@ -149,7 +149,7 @@ class SubjectMaskExtractor(
                                 val confidence = result.foregroundConfidenceMask
                                     ?: run {
                                         SubjectMaskDiagnostics.recordRejection(
-                                            "No confidence mask returned"
+                                            "The model didn't send back a result"
                                         )
                                         return@maskComputation null
                                     }
@@ -163,7 +163,7 @@ class SubjectMaskExtractor(
                                         "Subject mask contained ${buffer.remaining()} values; expected $count"
                                     )
                                     SubjectMaskDiagnostics.recordRejection(
-                                        "Mask data was the wrong size"
+                                        "The model sent back something unexpected"
                                     )
                                     return@maskComputation null
                                 }
@@ -206,15 +206,15 @@ class SubjectMaskExtractor(
                                     SubjectMaskDiagnostics.recordRejection(
                                         when {
                                             foregroundFraction > MAX_FOREGROUND_FRACTION ->
-                                                "Subject fills too much of the photo " +
-                                                    "(${(foregroundFraction * 100).roundToInt()}% " +
-                                                    "— try a photo with more visible " +
-                                                    "background)"
+                                                "The subject fills too much of the photo " +
+                                                    "(${(foregroundFraction * 100).roundToInt()}%). " +
+                                                    "Try one with more background " +
+                                                    "showing"
                                             foregroundFraction < MIN_FOREGROUND_FRACTION ->
-                                                "No confident subject found in the photo"
+                                                "Couldn't find a clear subject in this photo"
                                             highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ->
-                                                "Subject detected but confidence was too low"
-                                            else -> "Subject bounds were too small/thin to use"
+                                                "Found something, but not clearly enough to use"
+                                            else -> "The subject is too small or thin to use"
                                         }
                                     )
                                     return@maskComputation null

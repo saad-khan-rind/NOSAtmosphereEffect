@@ -94,8 +94,8 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
             }
 
             Text(
-                "This feature only looks its best when you can hide your phone's " +
-                    "own lock screen clock. Otherwise you'll see two clocks on " +
+                "This looks best when you can hide your phone's own lock " +
+                    "screen clock. If you can't, you'll see two clocks on " +
                     "the lock screen.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -148,8 +148,8 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
                 }
             } else {
                 Text(
-                    "Search the internet to find out whether the lock screen clock " +
-                        "can be hidden on your device.",
+                    "Have a quick search online to see if your phone lets you " +
+                        "hide its lock screen clock.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -174,9 +174,9 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    "These methods might not work on your model or software " +
-                        "version — phone makers change their menus with updates. " +
-                        "Make sure to do your own research for your device.",
+                    "These steps might not match your model or software version, " +
+                        "since phone makers move things around in updates. If they " +
+                        "don't work, a quick search for your phone should help.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

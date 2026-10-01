@@ -291,9 +291,9 @@ class PlaylistEditorActivity : ComponentActivity() {
                 if (showApplyConfirm) {
                     SimpleConfirmDialog(
                         title = "Apply Wallpaper",
-                        message = "On the next screen, please select:\n\n" +
+                        message = "On the next screen, tap:\n\n" +
                             "Set Wallpaper › Home Screen and Lock Screen.\n\n" +
-                            "(This ensures the lock-screen effect works correctly.)",
+                            "That way the lock screen effect works properly.",
                         confirmLabel = "Set Wallpaper",
                         dismissLabel = "Cancel",
                         onConfirm = {
@@ -310,7 +310,7 @@ class PlaylistEditorActivity : ComponentActivity() {
                             "Processing ${draftState.processedCount} of " +
                                 "${draftState.totalCount} images…"
                         } else {
-                            "Processing playlist…"
+                            "Getting your playlist ready…"
                         }
                     )
                 }
@@ -504,25 +504,25 @@ class PlaylistEditorActivity : ComponentActivity() {
                 reportApplyFailure(
                     "Unable to persist playlist",
                     error,
-                    "The playlist could not be saved. Check available storage and try again."
+                    "Couldn't save the playlist. Check you have some free space and try again."
                 )
             } catch (error: SecurityException) {
                 reportApplyFailure(
                     "Playlist image permission was rejected",
                     error,
-                    "Atmo Engine no longer has permission to read one of the images."
+                    "Atmo Engine can't open one of the images anymore. Try adding it again."
                 )
             } catch (error: JSONException) {
                 reportApplyFailure(
                     "Unable to create playlist metadata",
                     error,
-                    "The playlist metadata could not be created."
+                    "Something went wrong saving the playlist. Please try again."
                 )
             } catch (error: RuntimeException) {
                 reportApplyFailure(
                     "Unexpected playlist apply failure",
                     error,
-                    "The playlist could not be prepared."
+                    "Couldn't get the playlist ready. Please try again."
                 )
             }
         }
@@ -594,19 +594,10 @@ class PlaylistEditorActivity : ComponentActivity() {
         }
 
         SystemColorSyncPreferences.isEnabled(this)
-        // A new playlist or image set under the same effect keeps Fine tuning;
-        // a new effect starts fresh.
-        val keepFineTune = FineTuneRetention.keeps(
-            this,
-            appPreferences,
-            effectId,
-            whenUnknown = isEditExisting
-        )
+        // New images: Fine tuning starts fresh unless the same effect is
+        // already live, and then only the clock is switched off.
         val appPreferencesEditor = appPreferences.edit()
-        if (!keepFineTune) {
-            appPreferencesEditor.clear()
-        }
-        FineTuneRetention.markApplied(appPreferencesEditor, effectId)
+        FineTuneRetention.applyTo(this, appPreferencesEditor, effectId, imagesChanged = true)
         appPreferencesEditor.putBoolean(
             AtmosphereGlassPolicy.ENABLED_KEY,
             atmosphereGlassEnabled
@@ -675,7 +666,7 @@ class PlaylistEditorActivity : ComponentActivity() {
         draftState.applyCompleted = false
         Toast.makeText(
             this,
-            "Setup complete. Select Home screen and Lock screen next.",
+            "All set. Now pick Home screen and Lock screen.",
             Toast.LENGTH_LONG
         ).show()
         sendBroadcast(Intent(ACTION_RELOAD_WALLPAPER).setPackage(packageName))
@@ -696,7 +687,7 @@ class PlaylistEditorActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "No live wallpaper picker is available on this device.",
+                "Your phone doesn't seem to have a live wallpaper picker.",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -733,7 +724,7 @@ class PlaylistEditorActivity : ComponentActivity() {
 
     private fun loadSavedPlaylist(id: String) {
         if (!SavedPlaylistLibrary.exists(this, id)) {
-            Toast.makeText(this, "This saved playlist is no longer available.", Toast.LENGTH_LONG)
+            Toast.makeText(this, "This saved playlist isn't there anymore.", Toast.LENGTH_LONG)
                 .show()
             return
         }
@@ -895,7 +886,7 @@ class PlaylistEditorActivity : ComponentActivity() {
         loadLegacyPlaylist(playlistDir)
         Toast.makeText(
             this,
-            "Some saved crop details could not be restored.",
+            "Some of your crops couldn't be restored.",
             Toast.LENGTH_LONG
         ).show()
     }

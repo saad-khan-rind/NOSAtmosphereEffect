@@ -92,7 +92,7 @@ data class LockScreenClockGuide(
                         else -> "OPPO"
                     },
                     summary = "OxygenOS, ColorOS and realme UI let you restyle the lock " +
-                        "screen clock, but no setting to hide it has been confirmed.",
+                        "screen clock, but we haven't found a way to hide it yet.",
                     steps = listOf(
                         "Touch and hold the lock screen (or open Settings > Wallpapers " +
                             "& style) to edit it.",
@@ -109,7 +109,7 @@ data class LockScreenClockGuide(
                         else -> "Xiaomi"
                     },
                     summary = "HyperOS and MIUI let you change the lock screen clock " +
-                        "format, but no setting to hide it has been confirmed.",
+                        "style, but we haven't found a way to hide it yet.",
                     steps = listOf(
                         "Open Settings and search for \"Always-on display & Lock screen\".",
                         "Tap Lock screen clock format and choose the least intrusive style.",

@@ -230,12 +230,12 @@ fun MainScreen(
                                     title = "Sync system colors",
                                     subtitle = if (isPlaylistMode) {
                                         if (isThemePlaylistMode) {
-                                            "Updates the system palette with each active theme playlist"
+                                            "Matches your system colors to each theme playlist"
                                         } else {
-                                            "Updates the system palette with every playlist image"
+                                            "Matches your system colors to each image in the playlist"
                                         }
                                     } else {
-                                        "Updates the system palette from this wallpaper"
+                                        "Matches your system colors to this wallpaper"
                                     },
                                     checked = syncColors,
                                     onCheckedChange = onSyncColorsChange
@@ -428,19 +428,19 @@ private fun SamsungAdaptiveClockSheet(
     when {
         !wallpaperActive -> {
             statusTitle = "Choose a compatible setup"
-            statusMessage = "Use one image and a transition that begins with the unchanged wallpaper."
+            statusMessage = "Use one image and an effect that starts from your original photo."
         }
         isPlaylistMode -> {
             statusTitle = "Single image required"
-            statusMessage = "Samsung adaptive clock setup is not available for playlists yet."
+            statusMessage = "This doesn't work with playlists yet."
         }
         !originalFirst -> {
             statusTitle = "Change the transition direction"
-            statusMessage = "${effect.title} does not begin with the unchanged wallpaper."
+            statusMessage = "${effect.title} doesn't start from your original photo."
         }
         else -> {
-            statusTitle = "Current setup is compatible"
-            statusMessage = "${effect.title} begins with the unchanged wallpaper and uses one image."
+            statusTitle = "You're all set"
+            statusMessage = "${effect.title} starts from your original photo and uses one image."
         }
     }
 
@@ -482,7 +482,7 @@ private fun SamsungAdaptiveClockSheet(
             }
 
             Text(
-                "Keep Samsung's adaptive lock-screen clock while Atmo Engine handles the home-screen transition.",
+                "Keep Samsung's Adaptive clock on your lock screen and let Atmo Engine animate the home screen.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -527,19 +527,19 @@ private fun SamsungAdaptiveClockSheet(
                     number = 1,
                     icon = Icons.Rounded.Home,
                     title = "Apply Atmo to the Home screen",
-                    message = "In Android's live wallpaper preview, choose Home screen only."
+                    message = "When Android shows the live wallpaper preview, pick Home screen only."
                 )
                 AdaptiveClockStep(
                     number = 2,
                     icon = Icons.Rounded.Lock,
                     title = "Set the same Lock screen image",
-                    message = "Use Samsung system settings or LockStar and select the exact same image."
+                    message = "Use Samsung's settings or LockStar and pick the exact same image."
                 )
                 AdaptiveClockStep(
                     number = 3,
                     icon = Icons.Rounded.Schedule,
                     title = "Enable Adaptive clock",
-                    message = "Choose Adaptive clock in Samsung's lock screen editor."
+                    message = "Pick Adaptive clock in Samsung's lock screen editor."
                 )
             }
 
@@ -553,7 +553,7 @@ private fun SamsungAdaptiveClockSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "Playlist modes are not supported for this setup yet.",
+                    "Playlists don't work with this setup yet.",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -847,7 +847,7 @@ private fun AppearanceSettingsSheet(
             AnimatedVisibility(visible = darkThemeActive) {
                 SettingSwitchRow(
                     title = "Pitch-black background",
-                    subtitle = "Use pure black instead of the system dark surface.",
+                    subtitle = "Use true black instead of the usual dark grey.",
                     checked = pitchBlack,
                     onCheckedChange = onPitchBlackChange
                 )
@@ -894,21 +894,21 @@ fun WallpaperModeSheet(
             )
             ModeOption(
                 title = if (isPlaylistMode) "New playlist" else "Playlist",
-                subtitle = "Use several rotating images",
+                subtitle = "Rotate through a few images",
                 icon = Icons.Rounded.Collections,
                 onClick = onPickMultiple
             )
             if (onPickFolder != null) {
                 ModeOption(
                     title = "Playlist from folder",
-                    subtitle = "Follow folders and add new images automatically",
+                    subtitle = "Watches your folders and adds new photos on its own",
                     icon = Icons.Rounded.Folder,
                     onClick = onPickFolder
                 )
             }
             ModeOption(
                 title = if (isThemePlaylistMode) "New theme playlists" else "Theme playlists",
-                subtitle = "Separate wallpapers for light and dark themes",
+                subtitle = "One wallpaper for light mode, another for dark",
                 icon = Icons.Rounded.Brightness6,
                 onClick = onPickThemePlaylists
             )
@@ -919,7 +919,7 @@ fun WallpaperModeSheet(
                     } else {
                         "Edit current playlist"
                     },
-                    subtitle = "Change its images and crops",
+                    subtitle = "Change its images and how they're cropped",
                     icon = Icons.Rounded.Edit,
                     onClick = onEditExisting
                 )
@@ -927,7 +927,7 @@ fun WallpaperModeSheet(
             if (onOpenSaved != null) {
                 ModeOption(
                     title = "Saved playlists",
-                    subtitle = "Switch back to a playlist you used before",
+                    subtitle = "Go back to a playlist you've used before",
                     icon = Icons.Rounded.Bookmarks,
                     onClick = onOpenSaved
                 )

@@ -383,7 +383,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val intent = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
         intent.setPackage(packageName)
         sendBroadcast(intent)
-        Toast.makeText(this, "Settings Applied!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
         finish()
     }
 

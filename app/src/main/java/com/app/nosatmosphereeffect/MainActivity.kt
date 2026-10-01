@@ -215,7 +215,7 @@ class MainActivity : ComponentActivity() {
                     ).joinToString(" and ").replaceFirstChar(Char::uppercase)
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
-                        Toast.makeText(this, "Folders synced: $message", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Folders updated. $message", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (error: Exception) {
@@ -251,7 +251,7 @@ class MainActivity : ComponentActivity() {
         if (activeEffect != null) {
             activeEffectId = activeEffect
             wallpaperActive = true
-            statusText = "Wallpaper is active. Customize your experience below."
+            statusText = "Your wallpaper is live. You can tweak it below."
             isPlaylistModeActive = PlaylistModeManager.isPlaylistMode(this)
             isThemePlaylistModeActive =
                 isPlaylistModeActive && PlaylistModeManager.isThemeMode(this)
