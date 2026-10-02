@@ -409,6 +409,16 @@ class ClockFaceRenderer(private val context: Context) {
             }
         }
 
+    /** The Adaptive face fits itself around the subject; off, it ignores it. */
+    var adaptToSubject: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                adaptiveFace.adaptToSubject = value
+                if (isAdaptive) invalidate()
+            }
+        }
+
     /**
      * The launcher's page offset. The Adaptive face fits its digits to the
      * part of the image that is actually on screen.
@@ -417,6 +427,13 @@ class ClockFaceRenderer(private val context: Context) {
         get() = adaptiveFace.scrollOffsetX
         set(value) {
             adaptiveFace.scrollOffsetX = if (value.isFinite()) value.coerceIn(0f, 1f) else 0.5f
+        }
+
+    /** See [AdaptiveClockFace.scrollWindowX]; 0 when the renderer has not said. */
+    var scrollWindowX: Float
+        get() = adaptiveFace.scrollWindowX
+        set(value) {
+            adaptiveFace.scrollWindowX = if (value.isFinite() && value > 0f) value.coerceAtMost(1f) else 0f
         }
 
     /** See [AdaptiveClockFace.centerCropScene]; the calibration screen sets it. */

@@ -249,6 +249,7 @@ class ColorFillRenderer(
         subjectMask.bind(programId, GLES30.GL_TEXTURE2, 2, "uClockSubjectMask")
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
+            scrollWindowX = currentWindowX,
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,

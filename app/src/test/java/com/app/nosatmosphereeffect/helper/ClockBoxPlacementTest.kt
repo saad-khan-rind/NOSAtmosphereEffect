@@ -333,4 +333,59 @@ class ClockBoxPlacementTest {
         val after = contentOf(tiny)
         assertTrue("box inverted", after.width > 0f && after.height > 0f)
     }
+
+    @Test
+    fun `a box that overflows after its shape changes is fitted back on screen`() {
+        // Sized on a narrow stacked face, then shown as a wide row.
+        val tall = start.copy(height = 0.5f)
+        val wideAspect = 2.6f
+        val fitted = ClockBoxPlacement.fitOnScreen(tall, wideAspect, screenAspect)
+        val box = ClockBoxPlacement.contentBox(fitted, wideAspect, screenAspect)
+        assertTrue(box.left >= ClockBoxPlacement.SIDE_MARGIN - 1e-4f)
+        assertTrue(box.right <= 1f - ClockBoxPlacement.SIDE_MARGIN + 1e-4f)
+        // The shape the user chose is kept; only the size gave way.
+        assertEquals(tall.widthScale, fitted.widthScale, 1e-5f)
+    }
+
+    @Test
+    fun `a box that already fits is left alone`() {
+        assertTrue(ClockBoxPlacement.fitOnScreen(start, contentAspect, screenAspect) === start)
+    }
+
+    @Test
+    fun `a pinch scales about the centre and keeps the shape`() {
+        val pinched = ClockBoxPlacement.transform(start, 0.5f, 0f, 0f, contentAspect, screenAspect)
+        assertEquals(start.height * 0.5f, pinched.height, 1e-5f)
+        assertEquals(start.widthScale, pinched.widthScale, 1e-5f)
+        assertEquals(start.top + start.height / 2f, pinched.top + pinched.height / 2f, 1e-5f)
+        assertEquals(0.5f, pinched.centerX, 1e-5f)
+    }
+
+    @Test
+    fun `a pinch cannot push the box off screen`() {
+        val grown = ClockBoxPlacement.transform(start, 6f, 0.4f, 0f, contentAspect, screenAspect)
+        val box = contentOf(grown)
+        assertTrue(box.left >= -1e-4f && box.right <= 1f + 1e-4f)
+    }
+
+    @Test
+    fun `a new date is sized from the clock and sits above it`() {
+        val dateAspect = 6f
+        val date = ClockBoxPlacement.dateBesideClock(start, contentAspect, dateAspect, screenAspect)
+        val clockBox = contentOf(start)
+        val dateBox = ClockBoxPlacement.contentBox(date, dateAspect, screenAspect)
+        assertEquals(clockBox.width * ClockBoxPlacement.DATE_WIDTH_SHARE, dateBox.width, 1e-3f)
+        assertEquals(clockBox.centerX, dateBox.centerX, 1e-4f)
+        assertTrue(dateBox.bottom <= clockBox.top)
+    }
+
+    @Test
+    fun `a new date goes below a clock with no room above it`() {
+        val high = start.copy(top = 0.02f)
+        val dateAspect = 6f
+        val date = ClockBoxPlacement.dateBesideClock(high, contentAspect, dateAspect, screenAspect)
+        val clockBox = contentOf(high)
+        val dateBox = ClockBoxPlacement.contentBox(date, dateAspect, screenAspect)
+        assertTrue(dateBox.top >= clockBox.bottom)
+    }
 }

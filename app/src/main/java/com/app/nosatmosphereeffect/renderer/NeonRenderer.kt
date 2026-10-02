@@ -509,6 +509,7 @@ class NeonRenderer(
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
+            scrollWindowX = currentWindowX,
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,

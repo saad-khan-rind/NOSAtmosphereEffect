@@ -689,6 +689,7 @@ class BlurToSharpRenderer(
 
             clockOverlay.draw(
                 scrollOffsetX = scrollOffsetX,
+                scrollWindowX = currentWindowX,
                 programId = programId,
                 progress = blurStrength,
                 screenAspect = aspectRatio,

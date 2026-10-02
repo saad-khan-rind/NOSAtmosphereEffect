@@ -226,7 +226,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                 if (showApplyConfirm) {
                     SimpleConfirmDialog(
                         title = "Apply theme playlists",
-                        message = "On the next screen, select:\n\n" +
+                        message = "On the next screen, tap:\n\n" +
                             "Set Wallpaper › Home Screen and Lock Screen.",
                         confirmLabel = "Set wallpaper",
                         dismissLabel = "Cancel",
@@ -243,7 +243,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                             "Processing ${draftState.processedCount} of " +
                                 "${draftState.totalCount} images…"
                         } else {
-                            "Preparing theme playlists…"
+                            "Getting your theme playlists ready…"
                         }
                     )
                 }
@@ -424,25 +424,25 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                 reportApplyFailure(
                     "Unable to persist theme playlists",
                     error,
-                    "The playlists could not be saved. Check available storage and try again."
+                    "Couldn't save the playlists. Check you have some free space and try again."
                 )
             } catch (error: SecurityException) {
                 reportApplyFailure(
                     "Theme playlist image permission was rejected",
                     error,
-                    "Atmo Engine no longer has permission to read one of the images."
+                    "Atmo Engine can't open one of the images anymore. Try adding it again."
                 )
             } catch (error: JSONException) {
                 reportApplyFailure(
                     "Unable to create theme playlist metadata",
                     error,
-                    "The playlist metadata could not be created."
+                    "Something went wrong saving the playlists. Please try again."
                 )
             } catch (error: RuntimeException) {
                 reportApplyFailure(
                     "Unexpected theme playlist apply failure",
                     error,
-                    "The playlists could not be prepared."
+                    "Couldn't get the playlists ready. Please try again."
                 )
             }
         }
@@ -551,10 +551,10 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
         }
 
         SystemColorSyncPreferences.isEnabled(this)
+        // New images: Fine tuning starts fresh unless the same effect is
+        // already live, and then only the clock is switched off.
         val appPreferencesEditor = appPreferences.edit()
-        if (!isEditExisting) {
-            appPreferencesEditor.clear()
-        }
+        FineTuneRetention.applyTo(this, appPreferencesEditor, effectId, imagesChanged = true)
         appPreferencesEditor.putBoolean(
             AtmosphereGlassPolicy.ENABLED_KEY,
             atmosphereGlassEnabled
@@ -716,7 +716,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
         loadLegacyCollection(playlistDir, destination)
         Toast.makeText(
             this,
-            "Some saved crop details could not be restored.",
+            "Some of your crops couldn't be restored.",
             Toast.LENGTH_LONG
         ).show()
     }
@@ -740,7 +740,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "No live wallpaper picker is available on this device.",
+                "Your phone doesn't seem to have a live wallpaper picker.",
                 Toast.LENGTH_LONG
             ).show()
         }

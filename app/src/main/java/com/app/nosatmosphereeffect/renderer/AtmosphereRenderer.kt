@@ -201,6 +201,9 @@ class AtmosphereRenderer(
     var clockAdaptiveColors: Boolean
         get() = clockTexture.adaptiveColors
         set(value) { clockTexture.adaptiveColors = value }
+    var clockAdaptToSubject: Boolean
+        get() = clockTexture.adaptToSubject
+        set(value) { clockTexture.adaptToSubject = value }
     var clockHourFormat: String = AtmosphereClockPolicy.DEFAULT_HOUR_FORMAT
         set(value) {
             field = AtmosphereClockPolicy.sanitizeHourFormat(value)
@@ -796,6 +799,7 @@ class AtmosphereRenderer(
         clockTexture.datePlacement = layout.datePlacement
         clockTexture.screenAspect = safeAspect
         clockTexture.scrollOffsetX = scrollOffsetX
+        clockTexture.scrollWindowX = currentWindowX
         val ready = clockEnabled &&
             visibility > 0f &&
             clockOpacity > 0f &&
@@ -885,7 +889,8 @@ class AtmosphereRenderer(
      */
     fun onTimeChanged() {
         pendingClockFormatRefresh = true
-        onAnimationFrameRequested?.invoke()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (clockEnabled) onAnimationFrameRequested?.invoke()
     }
 
     /**
@@ -898,7 +903,7 @@ class AtmosphereRenderer(
      */
     fun beginClockEntry() {
         pendingClockEntry = true
-        onAnimationFrameRequested?.invoke()
+        if (clockEnabled) onAnimationFrameRequested?.invoke()
     }
 
     private fun createEmptyTexture(width: Int, height: Int, existingTextureId: Int = 0, existingWidth: Int = 0, existingHeight: Int = 0): Int {

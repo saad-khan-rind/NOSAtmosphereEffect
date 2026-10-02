@@ -34,6 +34,13 @@ data class ClockOverlayState(
      * [AtmosphereClockPolicy.supportsDepth].
      */
     val depthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
+    /**
+     * The same depth switch as the Adaptive face reads it: fit around the
+     * subject when on, ignore it when off. Kept apart from [depthEnabled],
+     * which [sanitized] clears for that face, and not limited to the effects
+     * that composite depth: every effect can fit the face.
+     */
+    val adaptToSubject: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
     val styleId: String = ClockStyle.DEFAULT.id,
     val showDate: Boolean = AtmosphereClockPolicy.DEFAULT_DATE,
     val animate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
@@ -289,7 +296,8 @@ data class ClockOverlayState(
     }
 
     /** True when anything on screen needs a subject mask for the clock. */
-    fun needsSubjectMask(): Boolean = enabled && (depthEnabled || style.adaptsToSubject)
+    fun needsSubjectMask(): Boolean =
+        enabled && (depthEnabled || (style.adaptsToSubject && adaptToSubject))
 
     companion object {
         /** See [glassMeta]. Far above every treatment's own value. */

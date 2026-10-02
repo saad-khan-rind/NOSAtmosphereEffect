@@ -94,7 +94,7 @@ abstract class BaseCropActivity : ComponentActivity() {
         )
         val uri = intent.data
         if (uri == null) {
-            Toast.makeText(this, "No image was provided.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No image came through. Please pick one again.", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -229,19 +229,19 @@ abstract class BaseCropActivity : ComponentActivity() {
                 reportLoadFailure(
                     "Unable to decode selected image",
                     error,
-                    "This image could not be opened. Try a different file."
+                    "Couldn't open this image. Try a different one."
                 )
             } catch (error: SecurityException) {
                 reportLoadFailure(
                     "Image permission was revoked",
                     error,
-                    "Atmo Engine no longer has permission to read this image."
+                    "Atmo Engine can't open this image anymore. Please pick it again."
                 )
             } catch (error: RuntimeException) {
                 reportLoadFailure(
                     "Unexpected image decoding failure",
                     error,
-                    "The image could not be prepared."
+                    "Couldn't get the image ready. Please try again."
                 )
             }
         }
@@ -286,20 +286,28 @@ abstract class BaseCropActivity : ComponentActivity() {
 
                         preferencesTouched = true
                         SystemColorSyncPreferences.isEnabled(this)
-                        val appPreferencesEditor =
-                            appPreferences.edit()
-                                .clear()
-                                .putBoolean(
-                                    AtmosphereGlassPolicy.ENABLED_KEY,
-                                    atmosphereGlassEnabled
-                                )
+                        val appPreferencesEditor = appPreferences.edit()
+                        // A new image: Fine tuning starts fresh unless the
+                        // same effect is already live, and then only the
+                        // clock is switched off.
+                        FineTuneRetention.applyTo(
+                            this,
+                            appPreferencesEditor,
+                            effectId,
+                            imagesChanged = true
+                        )
+                        appPreferencesEditor
+                            .putBoolean(
+                                AtmosphereGlassPolicy.ENABLED_KEY,
+                                atmosphereGlassEnabled
+                            )
                         GlassEffectPreferences.write(
                             appPreferencesEditor,
                             glassSettings
                         )
                             .commit()
                             .also { success ->
-                                if (!success) throw IOException("Could not reset effect preferences")
+                                if (!success) throw IOException("Could not save effect preferences")
                             }
                         getSharedPreferences(WALLPAPER_PREFERENCES, Context.MODE_PRIVATE)
                             .edit()
@@ -345,19 +353,19 @@ abstract class BaseCropActivity : ComponentActivity() {
                 reportApplyFailure(
                     "Unable to persist wallpaper files",
                     error,
-                    "The wallpaper could not be saved. Check available storage and try again."
+                    "Couldn't save the wallpaper. Check you have some free space and try again."
                 )
             } catch (error: SecurityException) {
                 reportApplyFailure(
                     "Wallpaper storage access was rejected",
                     error,
-                    "The wallpaper could not be saved because storage access was rejected."
+                    "Couldn't save the wallpaper because storage access was blocked."
                 )
             } catch (error: RuntimeException) {
                 reportApplyFailure(
                     "Unexpected wallpaper apply failure",
                     error,
-                    "The wallpaper could not be applied."
+                    "Couldn't set the wallpaper. Please try again."
                 )
             } finally {
                 bitmap.recycle()
@@ -454,7 +462,7 @@ abstract class BaseCropActivity : ComponentActivity() {
         sendBroadcast(Intent(ACTION_RELOAD_WALLPAPER).setPackage(packageName))
         Toast.makeText(
             this,
-            "Setup complete. Select Home screen and Lock screen next.",
+            "All set. Now pick Home screen and Lock screen.",
             Toast.LENGTH_LONG
         ).show()
         if (WallpaperEffectServices.launchPicker(this, effectId)) {
@@ -462,7 +470,7 @@ abstract class BaseCropActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "No live wallpaper picker is available on this device.",
+                "Your phone doesn't seem to have a live wallpaper picker.",
                 Toast.LENGTH_LONG
             ).show()
         }

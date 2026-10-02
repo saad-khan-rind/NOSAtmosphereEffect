@@ -273,7 +273,7 @@ fun PlaylistEditorScreen(
                     if (showAtmosphereGlassOption) {
                         SettingSwitchRow(
                             title = "Add glass effect",
-                            subtitle = "Keeps the Atmosphere transition and finishes on reeded glass.",
+                            subtitle = "Keeps the Atmosphere animation and ends on ribbed glass.",
                             checked = atmosphereGlassEnabled,
                             onCheckedChange = onAtmosphereGlassEnabledChange
                         )
@@ -311,9 +311,9 @@ private fun WatchedFoldersRow(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             if (folders.isEmpty()) {
-                "Follow a folder to add its new images automatically"
+                "Follow a folder and its new photos get added for you"
             } else {
-                "New images in these folders are added when you open the app"
+                "New photos in these folders get added when you open the app"
             },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -504,7 +504,7 @@ private fun EmptyPlaylist(label: String) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Tap Add to choose photos for $label.",
+            "Tap Add to pick photos for $label.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -585,7 +585,7 @@ fun CropOptionsDialog(
                 val letterboxed = selectedFitMode == WallpaperFitHelper.MODE_FIT || selectedFitMode == WallpaperFitHelper.MODE_ROTATE_FIT
                 if (letterboxed) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Background fill for fit modes:")
+                    Text("Fill the empty space with:")
                     Spacer(Modifier.height(8.dp))
                     fillOptions.forEach { (label, fillMode) ->
                         Row(

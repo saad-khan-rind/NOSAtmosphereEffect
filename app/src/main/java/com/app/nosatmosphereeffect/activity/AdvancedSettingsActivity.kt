@@ -31,7 +31,9 @@ import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreferences
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 import com.app.nosatmosphereeffect.ui.screens.AdvancedConfig
 import com.app.nosatmosphereeffect.ui.screens.AdvancedResult
 import com.app.nosatmosphereeffect.ui.screens.AdvancedSettingsScreen
@@ -246,6 +248,14 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val selectedRotationValue =
             rotationValues.getOrElse(result.rotationIndex) { rotationValues[0] }
 
+        // Choosing Vulkan by hand is a request to try it again, whatever was
+        // recorded against it before.
+        if (
+            result.rendererPreference == GraphicsBackendPreference.VULKAN &&
+            GraphicsBackendPreferences.read(this) != GraphicsBackendPreference.VULKAN
+        ) {
+            VulkanSupport.clearRecordedFailures(this)
+        }
         GraphicsBackendPreferences.write(this, result.rendererPreference)
         wpPrefs.edit { putLong("rotation_interval_minutes", selectedRotationValue) }
         WallpaperBehaviorPreferences.write(
@@ -373,7 +383,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val intent = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
         intent.setPackage(packageName)
         sendBroadcast(intent)
-        Toast.makeText(this, "Settings Applied!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
         finish()
     }
 

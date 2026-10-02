@@ -168,13 +168,14 @@ internal class VulkanColorFillHost(
     /** Plays the clock's entry animation on the next drawn frame. */
     fun beginClockEntry() {
         clockOverlay.beginEntry()
-        requestRender()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (clockOverlay.state.enabled) requestRender()
     }
 
     /** Re-reads the system 12/24-hour setting and forces a redraw. */
     fun onTimeChanged() {
         clockOverlay.onTimeChanged()
-        requestRender()
+        if (clockOverlay.state.enabled) requestRender()
     }
 
     /**
@@ -196,7 +197,13 @@ internal class VulkanColorFillHost(
     private fun uploadClockOnWorker(handle: Long) {
         val current = latestState.get()
         val changed = clockOverlay.uploadIfNeeded(
-            scrollOffsetX = latestState.get().scrollOffsetX,
+            scrollOffsetX = current.scrollOffsetX,
+            scrollWindowX = current.scrollWindowX,
+            surfaceAspect = if (latestWidth > 0 && latestHeight > 0) {
+                latestWidth.toFloat() / latestHeight.toFloat()
+            } else {
+                0f
+            },
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
             upload = { bitmap -> VulkanNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender

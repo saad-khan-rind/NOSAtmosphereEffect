@@ -92,10 +92,20 @@ internal class VulkanClockTextureUploader(context: Context) {
         get() = face.adaptiveColors
         set(value) { face.adaptiveColors = value }
 
+    /** The Adaptive face fits itself around the subject; off, it ignores it. */
+    var adaptToSubject: Boolean
+        get() = face.adaptToSubject
+        set(value) { face.adaptToSubject = value }
+
     /** The launcher's page offset; the Adaptive face fits to what is on screen. */
     var scrollOffsetX: Float
         get() = face.scrollOffsetX
         set(value) { face.scrollOffsetX = value }
+
+    /** The share of the image's width on screen; see ClockFaceRenderer.scrollWindowX. */
+    var scrollWindowX: Float
+        get() = face.scrollWindowX
+        set(value) { face.scrollWindowX = value }
 
     /**
      * Hand this to the renderer's SubjectMaskCoordinator: the Adaptive face

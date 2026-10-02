@@ -86,8 +86,8 @@ internal fun SavedPlaylistsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Playlists you apply are saved here automatically, so you can " +
-                        "switch back to them after using a single image.",
+                    "Every playlist you apply is saved here, so you can go back " +
+                        "to it after using a single image for a while.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -127,10 +127,10 @@ internal fun SavedPlaylistsScreen(
         SimpleConfirmDialog(
             title = "Delete playlist?",
             message = if (playlist.isActive) {
-                "\"${playlist.name}\" is your current wallpaper. It keeps playing, " +
-                    "but it will no longer be saved here once you switch away."
+                "\"${playlist.name}\" is your wallpaper right now. It'll keep playing, " +
+                    "but once you switch to something else it won't be saved here."
             } else {
-                "\"${playlist.name}\" and its ${playlist.imageCount} images will be removed."
+                "This removes \"${playlist.name}\" and its ${playlist.imageCount} images."
             },
             confirmLabel = "Delete",
             dismissLabel = "Cancel",

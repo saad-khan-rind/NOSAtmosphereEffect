@@ -38,7 +38,7 @@ class MultiImageCropActivity : ComponentActivity() {
 
         val uri = intent.data
         if (uri == null) {
-            Toast.makeText(this, "No image was provided.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No image came through. Please pick one again.", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -116,7 +116,7 @@ class MultiImageCropActivity : ComponentActivity() {
             } catch (error: SecurityException) {
                 reportLoadFailure(
                     error,
-                    "Atmo Engine no longer has permission to read this image."
+                    "Atmo Engine can't open this image anymore. Please pick it again."
                 )
             } catch (error: RuntimeException) {
                 reportLoadFailure(error, "The image could not be prepared.")

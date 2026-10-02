@@ -70,7 +70,7 @@ If Canvas Sketch cannot find a confident foreground subject, it falls back to sk
 
 #### Wallpaper Clock
 
-Every effect can draw a clock into the wallpaper itself (**Advanced Settings → Clock**; single-image mode only, because in playlist and theme modes the image changes underneath it). Turn on **Show clock on wallpaper**, then open **Choose style, position & size** for a live preview of the clock on your wallpaper. A box is drawn around it: drag inside the box to move the clock, drag a corner to change both dimensions or an edge to change one, and a centre guide lights up when it is exactly centred. There are no size sliders — the box is the size. The clock is also always shown in the wallpaper picker's preview, whichever screen it is set to appear on.
+Every effect can draw a clock into the wallpaper itself (**Advanced Settings → Clock**; single-image mode only, because in playlist and theme modes the image changes underneath it). Turn on **Show clock on wallpaper**, then open **Choose style, position & size** for a live preview of the clock on your wallpaper. A box is drawn around it: drag inside the box to move the clock, pinch with two fingers anywhere to make it larger or smaller, or pull a corner or edge to reshape it. A centre guide lights up when it is exactly centred. There are no size sliders — the box is the size, and it always stays on screen, clear of the edge where the system back gesture lives. The settings sit in a compact panel with **Style**, **Colour**, **Adjust** and **More** tabs; tap its handle to fold it down, or tap the photo to hide everything and judge the result. The clock is also always shown in the wallpaper picker's preview, whichever screen it is set to appear on.
 
 **Hide the system clock:** the wallpaper clock looks best when your phone's own lock-screen clock is hidden, so you don't see two. Tap the **ⓘ** next to the Clock heading for instructions matched to your device's brand and Android version (Samsung, Google Pixel, Nothing, OnePlus/OPPO/realme, Xiaomi/Redmi/POCO, Motorola), or a suggested web search for other brands. The device is identified from its build information, with no permissions. These methods may not work on every device or software version, so check for your own model.
 
@@ -82,13 +82,13 @@ Six faces, in three kinds, each offered as one row or stacked:
 
 A stacked glass face puts the hours above the minutes, which goes much larger on a phone, with the separator's two dots turned on their side in the gap between them. **Glass** in one row is the default.
 
-**Colour** (on the glass faces, **Glass tint**) offers a palette, a colour wheel, and an eyedropper that samples the wallpaper itself. **Auto** follows the image. The Adaptive faces add an **Adaptive** colour: a gradient made from the wallpaper's dominant colour, deeper at the top and lighter further down. The shade depends on how far down a stroke is, so every digit shows the same shade at the same length, and at arrival the digits fade from a uniform muted shade into the gradient. Auto and Adaptive also follow the effect as it changes the wallpaper, for example going grey while Color Fill shows the image in black and white.
+**Colour** (on the glass faces, **Glass tint**) offers a palette, a colour wheel, and an eyedropper that samples the wallpaper itself. **Auto** follows the image. The Adaptive faces add an **Adaptive** colour: a light gradient in the colour of the whole wallpaper, a little deeper at the top and paler further down. The shade depends on how far down a stroke is, so every digit shows the same shade at the same length, and at arrival the digits fade from a uniform muted shade into the gradient. Auto and Adaptive also follow the effect as it changes the wallpaper, for example going grey while Color Fill shows the image in black and white.
 
 * **Opacity:** how strongly the clock shows.
 * **Frost:** (Translucent faces) how diffuse the glass is, from clear — the wallpaper sharp through the digits — through etched to nearly milk-white. The Glass faces have no frost: they are clear except at their bevel, so frosting one would fog an edge and nothing else.
 * **Weight:** (Adaptive faces) the stroke from thin to bold. The digits are drawn from centre lines rather than a font, so every weight is exact.
 * **Hour format:** System, 12-hour, or 24-hour. The clock shows hours and minutes only.
-* **Show date:** adds the day and date in the clock's own style. It gets its own box, so it is placed and sized exactly like the clock rather than being pinned above it: drag whichever box you are touching, or pick **Clock** or **Date** to be explicit.
+* **Show date:** adds the day and date in the clock's own style. When switched on it is sized to match the clock and placed above it (below, if there is no room). It then has its own box, placed and sized exactly like the clock: drag or pinch whichever box you are touching, or pick **Clock** or **Date** at the top to be explicit. **Adjust** has shortcuts to centre either one, reset its size, or put the date back above the clock.
 * **Animate digit changes:** digits slide as the time changes.
 
 The glass digits are stored as distance fields rather than as pictures of glyphs, and the Adaptive digits are generated from their strokes, so the wallpaper rebuilds the outlines at whatever size you set — the clock is sharp at any size, and so is the date beside it.
@@ -161,6 +161,9 @@ Atmo does not use Shizuku, change Android's global graphics settings, or restart
 
 ## Advanced Customization
 Take full control of the animation and look. You can now tweak the following settings dynamically:
+
+Fine tuning is kept when you change only the image or playlist under the same effect, including the clock's style and settings. Applying a different effect starts fresh from that effect's defaults.
+
 ### Visual Adjustments
 * **Dimness Level:** Adjust the darkening overlay to ensure your home screen icons remain readable against bright wallpapers.
 * **Blob Saturation:** (Original Atmosphere & Reverse Atmosphere Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
@@ -169,9 +172,9 @@ Take full control of the animation and look. You can now tweak the following set
 * **Glass Lines:** (Glass Effects Only) Adjusts the number of refractive ribs and the shape of each rib.
 * **Glass Transition Style:** (Glass Effects Only) Choose right-to-left or fade-in for Glass Effect, and left-to-right or fade-out for Glass Effect Reverse.
 * **Blur Strength:** (Frosted Effects Only) Use the slider to fine-tune the intensity of the blur radius, from a light mist to heavy glass.
-* **Noise Grain:** Enable a film-grain texture on top of the blur. You can customize:
-    * **Noise Strength:** How visible the grain is.
-    * **Noise Scale:** The size/coarseness of the grain particles.
+* **Film Grain:** Enable a film-grain texture on top of the blur. Two sliders set it:
+    * **Grain size:** from very fine to very coarse.
+    * **Grain strength:** from barely there to heavy.
 * **Halftone Pixel Size:** (Halftone Effects Only) Dynamically adjust the size of the printed dots. Setting this to `0` renders the original continuous tones instead of dots.
 * **Black & White Effect:** (Halftone Effects Only) Converts the CMYK color halftone pattern into a single-channel grayscale newspaper print.
 * **Fingerprint Location:** (Color Fill Effects Only) Two sliders to adjust the horizontal and vertical position of effect start place sync with the fingerprint location.
@@ -215,6 +218,7 @@ I've made a Telegram group for discussing issues and feature suggestions. You ca
 
 ## Known Issues
 
+* **Clock setup screen:** The screen for choosing the clock's style, position, and size (**Choose style, position & size**) is still buggy and unpolished. I'm actively working on it, so expect rough edges in how its controls behave and look. Bug reports and ideas are very welcome in the [Telegram group](https://t.me/atmosphereEffect) or as GitHub issues.
 * **Samsung's own adaptive clock:** One UI may disable or limit its built-in adaptive lock-screen clock while a live wallpaper is active. Atmo's **Adaptive** wallpaper clock (see [Wallpaper Clock](#wallpaper-clock)) is drawn by the wallpaper itself and is not affected.
 
 ## Build & Installation
@@ -223,17 +227,17 @@ This project is built using Kotlin, C++17, the Android NDK, and Gradle. The proj
 
 Atmo Engine keeps one shared codebase and combines two flavor dimensions:
 
-All artifacts in the table below use version name **7.3.0**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
+All artifacts in the table below use version name **7.3.1**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
 
 | Flavor | Minimum Android | Target SDK | Version code | Intended release |
 | --- | ---: |-----------:|-------------:| --- |
-| `v33Play` | Android 13 / API 33 |     API 33 |     `300730` | ML Kit APK |
-| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300730` | FOSS APK for F-Droid |
-| `v33Folder` | Android 13 / API 33 |     API 33 |     `300730` | ML Kit APK with folder playlists |
-| `v35Play` | Android 15 / API 35 |     API 36 |     `400730` | Google Play ML Kit AAB |
-| `v36Play` | Android 16 / API 36 |     API 36 |     `500730` | ML Kit APK |
-| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500730` | FOSS APK |
-| `v36Folder` | Android 16 / API 36 |     API 36 |     `500730` | ML Kit APK with folder playlists |
+| `v33Play` | Android 13 / API 33 |     API 33 |     `300731` | ML Kit APK |
+| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300731` | FOSS APK for F-Droid |
+| `v33Folder` | Android 13 / API 33 |     API 33 |     `300731` | ML Kit APK with folder playlists |
+| `v35Play` | Android 15 / API 35 |     API 36 |     `400731` | Google Play ML Kit AAB |
+| `v36Play` | Android 16 / API 36 |     API 36 |     `500731` | ML Kit APK |
+| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500731` | FOSS APK |
+| `v36Folder` | Android 16 / API 36 |     API 36 |     `500731` | ML Kit APK with folder playlists |
 
 The `play` source set contains only the ML Kit implementation and explicit model-download controller. The `fdroid` source set contains only [U2NetP](https://github.com/xuebinqin/U-2-Net), its model files, and the source-built FOSS LiteRT runtime. UI, effects, playlists, palette behavior, and settings remain shared in `main`. The `folder` flavor reuses the `play` source set and additionally declares `READ_MEDIA_IMAGES` and `READ_MEDIA_VISUAL_USER_SELECTED` for folder playlists; the Play Store and F-Droid builds do not request photo access. Model and runtime provenance is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 

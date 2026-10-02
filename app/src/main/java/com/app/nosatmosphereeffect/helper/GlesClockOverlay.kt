@@ -70,7 +70,8 @@ class GlesClockOverlay(
      */
     fun onTimeChanged() {
         pendingFormatRefresh = true
-        onAnimationFrameRequested?.invoke()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (state.enabled) onAnimationFrameRequested?.invoke()
     }
 
     /**
@@ -80,7 +81,7 @@ class GlesClockOverlay(
      */
     fun beginEntry() {
         pendingEntry = true
-        onAnimationFrameRequested?.invoke()
+        if (state.enabled) onAnimationFrameRequested?.invoke()
     }
 
     /**
@@ -121,7 +122,9 @@ class GlesClockOverlay(
         screenAspect: Float,
         subjectMaskAvailable: Boolean = false,
         /** The launcher's page offset; the Adaptive face fits to what is on screen. */
-        scrollOffsetX: Float = 0.5f
+        scrollOffsetX: Float = 0.5f,
+        /** The share of the image's width on screen, as the shader is given it. */
+        scrollWindowX: Float = 0f
     ) {
         if (programId == 0) return
 
@@ -137,9 +140,11 @@ class GlesClockOverlay(
             provider.color = next.color
             provider.weight = next.weight
             provider.adaptiveColors = next.adaptiveColors
+            provider.adaptToSubject = next.adaptToSubject
             provider.hourFormatOverride = next.hourFormatOverride
         }
         provider.scrollOffsetX = scrollOffsetX
+        provider.scrollWindowX = scrollWindowX
         if (pendingFormatRefresh) {
             pendingFormatRefresh = false
             provider.refreshClockFormatPreference()

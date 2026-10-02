@@ -116,10 +116,21 @@ vec3 adjustColor(vec3 color) {
     return clamp(color, 0.0, 1.0);
 }
 
-float randomValue(vec2 coordinate) {
-    return fract(
-        sin(dot(coordinate, vec2(12.9898, 78.233))) * 43758.5453
-    );
+// The same grain as the OpenGL shaders, so both backends look identical: a
+// bit-mixing hash over a grid of grains across the image. Not
+// fract(sin(dot(...))) — that idiom collapses to a repeating mesh at these
+// coordinate magnitudes, and on GPUs with a low-precision sin (seen on
+// Samsung's Xclipse) it does so across the whole screen.
+uint hashU(uvec2 p) {
+    uint h = p.x * 73856093u ^ p.y * 19349663u;
+    h ^= h >> 13;
+    h *= 0x85ebca6bu;
+    h ^= h >> 16;
+    return h;
+}
+
+float random(vec2 co) {
+    return float(hashU(uvec2(co)) & 0xFFFFFFu) / float(0x1000000u);
 }
 
 // ------------------------------------------------------- what the glass shows
@@ -468,8 +479,6 @@ void main() {
     finalColor = mix(finalColor, vec3(0.0), dimAmount);
 
     if (params.noise.x > 0.5) {
-        vec2 grainUv = floor(uv * params.noise.y);
-        float noise = randomValue(grainUv);
         float forwardVisibility = smoothstep(0.4, 1.0, progress);
         float reverseVisibility = smoothstep(0.0, 0.4, progress);
         float visibility = mix(
@@ -477,7 +486,7 @@ void main() {
             reverseVisibility,
             step(0.5, params.misc.x)
         );
-        finalColor += vec3(noise * params.noise.z * visibility);
+        finalColor += vec3(random(floor(uv * params.noise.y)) * params.noise.z * visibility);
     }
 
     float drawerBlur =
