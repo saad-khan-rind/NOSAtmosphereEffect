@@ -862,6 +862,9 @@ class EffectPreviewService(
             is AtmosphereRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
+                // Was missing: the clock's arrival on Original Atmosphere drew
+                // its first frame on OpenGL and stopped there.
+                renderer.onAnimationFrameRequested = render
             }
             is BlurToSharpRenderer -> {
                 renderer.onSubjectMaskUpdated = render
