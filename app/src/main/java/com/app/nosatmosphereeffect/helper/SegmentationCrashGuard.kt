@@ -34,23 +34,23 @@ import android.content.SharedPreferences
  * When the model's version is known (Google Play services downloads the
  * subject model and updates it on its own schedule, see
  * [SubjectMaskExtractor.modelVersion]), a single crash pauses detection for
- * that version, and so does an answer that is plainly broken ([pauseModel]).
- * Version 263635 of Google's subject module did both in production: SIGBUS in
- * its native code, and every pixel of every photo marked as subject. Trying
- * it again only crashes again, and a live wallpaper whose process dies twice
- * within ten seconds is replaced by Android's default wallpaper. Once Play
- * services moves to another version of the model, detection tries again by
- * itself. Without a known version (the bundled model), the older rule stays:
- * skip one attempt after a crash, switch off after two in a row.
+ * that version. Version 263635 of Google's subject module crashed with SIGBUS
+ * in its native code in production. Trying it again automatically only
+ * crashes again, and a live wallpaper whose process dies twice within ten
+ * seconds is replaced by Android's default wallpaper. Once Play services
+ * moves to another version of the model, detection tries again by itself, and
+ * Try again ([reset]) lets the user try it sooner. Without a known version
+ * (the bundled model), the older rule stays: skip one attempt after a crash,
+ * switch off after two in a row.
  */
 object SegmentationCrashGuard {
     private const val PREFS_NAME = "segmentation_crash_guard"
 
     /** Shown wherever detection is paused for the model version on this phone. */
     const val MODEL_PAUSED =
-        "Google's subject detection isn't working on this phone right now. It's a problem " +
-            "with a recent Google Play services update, not your photo. It'll try again by " +
-            "itself once Play services updates."
+        "Google's subject detection crashed the app on this phone, so it's paused. It's a " +
+            "problem with a recent Google Play services update, not your photo. Tap Try again " +
+            "to give it another go, or it'll try again by itself once Play services updates."
 
     private val cores = HashMap<String, CrashGuardCore>()
 
@@ -71,16 +71,6 @@ object SegmentationCrashGuard {
     /** True when detection is paused for the model version this phone has now. */
     fun isPausedForModel(context: Context): Boolean =
         core(context).isPaused(SubjectMaskExtractor.modelVersion(context))
-
-    /**
-     * The model answered with something no real photo produces. Detection is
-     * paused for [model], as after a crash, and the reason shown.
-     */
-    fun pauseModel(context: Context, model: String?) {
-        if (model == null) return
-        core(context).pause(model)
-        SubjectMaskDiagnostics.recordRejection(MODEL_PAUSED)
-    }
 
     /**
      * Call immediately before invoking the third-party code that might
