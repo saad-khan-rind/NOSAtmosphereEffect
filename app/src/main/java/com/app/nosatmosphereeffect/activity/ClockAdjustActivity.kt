@@ -4,10 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -33,6 +35,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -41,78 +44,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.edit
-import androidx.core.graphics.ColorUtils
-import androidx.core.graphics.createBitmap
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
-import com.app.nosatmosphereeffect.helper.ClockBoxHandle
-import com.app.nosatmosphereeffect.helper.ClockBoxPlacement
-import com.app.nosatmosphereeffect.helper.ClockBoxRect
-import com.app.nosatmosphereeffect.helper.ClockFaceBox
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.ClockPlacement
-import com.app.nosatmosphereeffect.helper.ClockPreferences
-import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
-import android.os.SystemClock
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.geometry.Rect
-import com.app.nosatmosphereeffect.ui.components.ClockBoxOverlay
-import com.app.nosatmosphereeffect.ui.components.ClockGlassPreview
-import com.app.nosatmosphereeffect.helper.ClockPalette
-import com.app.nosatmosphereeffect.helper.ClockStyle
-import com.app.nosatmosphereeffect.helper.AdaptiveClockFace
-import com.app.nosatmosphereeffect.helper.ClockScene
-import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
-import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
-import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
-import com.app.nosatmosphereeffect.image.BitmapDecoder
-import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
-import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
-import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
-import java.io.File
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.AlignHorizontalCenter
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ColorLens
@@ -125,15 +61,82 @@ import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VerticalAlignTop
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import kotlin.math.roundToInt
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.edit
+import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.createBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.helper.AdaptiveClockFace
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockBoxHandle
+import com.app.nosatmosphereeffect.helper.ClockBoxPlacement
+import com.app.nosatmosphereeffect.helper.ClockBoxRect
+import com.app.nosatmosphereeffect.helper.ClockFaceBox
+import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
+import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.helper.ClockPlacement
+import com.app.nosatmosphereeffect.helper.ClockPreferences
+import com.app.nosatmosphereeffect.helper.ClockScene
+import com.app.nosatmosphereeffect.helper.ClockStyle
+import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
+import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
+import com.app.nosatmosphereeffect.image.BitmapDecoder
+import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
+import com.app.nosatmosphereeffect.ui.components.ClockBoxOverlay
+import com.app.nosatmosphereeffect.ui.components.ClockGlassPreview
+import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
+import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
+import java.io.File
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -298,7 +301,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     // when segmentation fails there is otherwise nothing on screen to
     // distinguish "no subject in this photo" from "the model is broken on this
     // build" — which is exactly the F-Droid litert mismatch.
-    var maskFailure by remember { mutableStateOf<String?>(null) }
+    var maskFailure by remember { mutableStateOf<SubjectMaskDiagnostics.Failure?>(null) }
     LaunchedEffect(Unit) {
         while (true) {
             maskFailure = SubjectMaskDiagnostics.lastFailure
@@ -793,7 +796,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 Box(Modifier.fillMaxWidth()) {
                     RoundIconButton(
                         icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                        description = "Back",
+                        description = stringResource(R.string.common_back),
                         onClick = ::finishEditing,
                         modifier = Modifier.align(Alignment.CenterStart)
                     )
@@ -801,14 +804,14 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                         // Which box the gestures move. Tapping a box on the
                         // photo selects it too; this says which one is live.
                         SegmentedPill(
-                            options = listOf("Clock", "Date"),
+                            options = listOf(stringResource(R.string.clock_tab_clock), stringResource(R.string.clock_tab_date)),
                             selectedIndex = if (editingDate) 1 else 0,
                             onSelected = { editingDate = it == 1 },
                             modifier = Modifier.align(Alignment.Center)
                         )
                     } else {
                         Text(
-                            if (eyedropperArmed) "Pick a colour" else "Clock",
+                            if (eyedropperArmed) stringResource(R.string.clock_pick_colour) else stringResource(R.string.clock_tab_clock),
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.align(Alignment.Center)
@@ -823,11 +826,11 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 ) {
                     HintPill(
                         text = if (eyedropperArmed) {
-                            "Tap the photo to pick its colour"
+                            stringResource(R.string.clock_hint_eyedropper)
                         } else {
-                            "Drag to move · Pinch to resize · Pull a corner to reshape"
+                            stringResource(R.string.clock_hint_gestures)
                         },
-                        actionLabel = if (eyedropperArmed) "Cancel" else null,
+                        actionLabel = if (eyedropperArmed) stringResource(R.string.common_cancel) else null,
                         onAction = { eyedropperArmed = false },
                         modifier = Modifier.padding(top = 10.dp)
                     )
@@ -926,11 +929,11 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
 }
 
 /** The four groups of settings in the panel. */
-private enum class ClockPanelTab(val label: String, val icon: ImageVector) {
-    STYLE("Style", Icons.Rounded.Style),
-    COLOUR("Colour", Icons.Rounded.Palette),
-    LOOK("Adjust", Icons.Rounded.Tune),
-    MORE("More", Icons.Rounded.MoreHoriz)
+private enum class ClockPanelTab(@StringRes val label: Int, val icon: ImageVector) {
+    STYLE(R.string.clock_panel_style, Icons.Rounded.Style),
+    COLOUR(R.string.clock_panel_colour, Icons.Rounded.Palette),
+    LOOK(R.string.clock_panel_adjust, Icons.Rounded.Tune),
+    MORE(R.string.clock_panel_more, Icons.Rounded.MoreHoriz)
 }
 
 /**
@@ -971,7 +974,7 @@ private fun ClockPanel(
     onTogglePicker: () -> Unit,
     canEyedrop: Boolean,
     onArmEyedropper: () -> Unit,
-    maskFailure: String?,
+    maskFailure: SubjectMaskDiagnostics.Failure?,
     segmentationDisabled: Boolean,
     onResetSegmentation: () -> Unit,
     onResetAll: () -> Unit
@@ -1090,7 +1093,7 @@ private fun StyleTab(
     }
     Spacer(Modifier.height(10.dp))
     Text(
-        selected.description,
+        stringResource(selected.description),
         color = Color.White.copy(alpha = 0.7f),
         style = MaterialTheme.typography.bodySmall
     )
@@ -1115,7 +1118,7 @@ private fun ColourTab(
                 val base = autoColor ?: ClockPalette.DEFAULT_FALLBACK
                 ColorSwatch(
                     color = base,
-                    label = "Adaptive",
+                    label = stringResource(R.string.clock_colour_adaptive),
                     selected = ClockPalette.isAdaptive(colorPref),
                     onClick = { onColorSelected(ClockPalette.ADAPTIVE) },
                     gradient = listOf(
@@ -1128,7 +1131,7 @@ private fun ColourTab(
         item {
             ColorSwatch(
                 color = autoColor ?: ClockPalette.DEFAULT_FALLBACK,
-                label = "Auto",
+                label = stringResource(R.string.clock_colour_auto),
                 // Adaptive falls back to Auto on the glass faces, so Auto is
                 // what is showing there.
                 selected = ClockPalette.isAuto(colorPref) ||
@@ -1139,7 +1142,7 @@ private fun ColourTab(
         items(ClockPalette.PRESETS) { swatch ->
             ColorSwatch(
                 color = swatch.color,
-                label = swatch.label,
+                label = stringResource(swatch.label),
                 selected = !ClockPalette.followsWallpaper(colorPref) && colorPref == swatch.color,
                 onClick = { onColorSelected(swatch.color) }
             )
@@ -1149,14 +1152,14 @@ private fun ColourTab(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ActionChip(
             icon = Icons.Rounded.ColorLens,
-            label = if (pickerOpen) "Hide wheel" else "Colour wheel",
+            label = stringResource(if (pickerOpen) R.string.clock_hide_wheel else R.string.clock_colour_wheel),
             onClick = onTogglePicker,
             selected = pickerOpen
         )
         if (canEyedrop) {
             ActionChip(
                 icon = Icons.Rounded.Colorize,
-                label = "From photo",
+                label = stringResource(R.string.clock_from_photo),
                 onClick = onArmEyedropper
             )
         }
@@ -1172,9 +1175,9 @@ private fun ColourTab(
         // "Tint" on glass: the brightness comes from the wallpaper showing
         // through, and the colour tints it rather than filling the digits.
         if (selected.adaptsToSubject) {
-            "The digits are drawn in this colour."
+            stringResource(R.string.clock_colour_solid_hint)
         } else {
-            "Glass digits get a tint of this colour, and the highlights stay white."
+            stringResource(R.string.clock_colour_glass_hint)
         },
         color = Color.White.copy(alpha = 0.6f),
         style = MaterialTheme.typography.bodySmall
@@ -1199,43 +1202,43 @@ private fun AdjustTab(
     // Placement shortcuts for whichever box is selected, for the moves a
     // finger does badly: exactly centred, and back to a sensible size.
     Text(
-        if (editingDate) "Date" else "Clock",
+        stringResource(if (editingDate) R.string.clock_tab_date else R.string.clock_tab_clock),
         color = Color.White.copy(alpha = 0.6f),
         style = MaterialTheme.typography.labelMedium
     )
     Spacer(Modifier.height(6.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionChip(icon = Icons.Rounded.AlignHorizontalCenter, label = "Centre", onClick = onCentre)
+        ActionChip(icon = Icons.Rounded.AlignHorizontalCenter, label = stringResource(R.string.clock_centre), onClick = onCentre)
         ActionChip(
             icon = Icons.Rounded.RestartAlt,
-            label = if (editingDate) "Fit to clock" else "Reset size",
+            label = stringResource(if (editingDate) R.string.clock_fit_to_clock else R.string.clock_reset_size),
             onClick = onResetSize
         )
         if (showDate && !editingDate) {
             ActionChip(
                 icon = Icons.Rounded.VerticalAlignTop,
-                label = "Date above",
+                label = stringResource(R.string.clock_date_above),
                 onClick = onPlaceDate
             )
         }
     }
     Spacer(Modifier.height(12.dp))
-    LabelledSlider(label = "Opacity", value = opacity, valueRange = 0f..1f, onValueChange = onOpacityChange)
+    LabelledSlider(label = stringResource(R.string.clock_opacity), value = opacity, valueRange = 0f..1f, onValueChange = onOpacityChange)
     // How diffuse the glass is: at 0 the wallpaper shows through sharply, at 1
     // it is milky. Only the translucent faces have it — the glass ones are
     // clear except at their bevel, so frosting them would fog an edge only.
     if (selected.usesFrost) {
-        LabelledSlider(label = "Frost", value = frost, valueRange = 0f..1f, onValueChange = onFrostChange)
+        LabelledSlider(label = stringResource(R.string.clock_frost), value = frost, valueRange = 0f..1f, onValueChange = onFrostChange)
     }
     // The Adaptive face is drawn from strokes, so its weight is exact.
     if (selected.hasWeight) {
         LabelledSlider(
-            label = "Weight",
+            label = stringResource(R.string.clock_weight),
             value = weight,
             valueRange = 0f..1f,
             onValueChange = onWeightChange,
-            startLabel = "Thin",
-            endLabel = "Bold"
+            startLabel = stringResource(R.string.clock_weight_thin),
+            endLabel = stringResource(R.string.clock_weight_bold)
         )
     }
 }
@@ -1249,65 +1252,65 @@ private fun MoreTab(
     onAnimateChange: (Boolean) -> Unit,
     hourFormat: String,
     onHourFormatChange: (String) -> Unit,
-    maskFailure: String?,
+    maskFailure: SubjectMaskDiagnostics.Failure?,
     segmentationDisabled: Boolean,
     onResetSegmentation: () -> Unit,
     onResetAll: () -> Unit
 ) {
     SettingSwitchRow(
-        title = "Show date",
+        title = stringResource(R.string.clock_show_date),
         checked = showDate,
         onCheckedChange = onShowDateChange,
-        subtitle = "Sits above the clock at a matching size. Move and resize it just like the clock."
+        subtitle = stringResource(R.string.clock_show_date_hint)
     )
     SettingSwitchRow(
-        title = "Animate digit changes",
+        title = stringResource(R.string.clock_animate_digits),
         checked = animate,
         onCheckedChange = onAnimateChange,
-        subtitle = "The digits slide when the time changes."
+        subtitle = stringResource(R.string.clock_animate_digits_hint)
     )
     Spacer(Modifier.height(6.dp))
-    Text("Hour format", color = Color.White, style = MaterialTheme.typography.labelLarge)
+    Text(stringResource(R.string.clock_hour_format), color = Color.White, style = MaterialTheme.typography.labelLarge)
     Spacer(Modifier.height(6.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ChoiceChip(
-            label = "System",
+            label = stringResource(R.string.clock_hour_system),
             selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM,
             onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_SYSTEM) }
         )
         ChoiceChip(
-            label = "12-hour",
+            label = stringResource(R.string.clock_hour_12),
             selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_12,
             onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_12) }
         )
         ChoiceChip(
-            label = "24-hour",
+            label = stringResource(R.string.clock_hour_24),
             selected = hourFormat == AtmosphereClockPolicy.HOUR_FORMAT_24,
             onClick = { onHourFormatChange(AtmosphereClockPolicy.HOUR_FORMAT_24) }
         )
     }
     Spacer(Modifier.height(14.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionChip(icon = Icons.Rounded.RestartAlt, label = "Reset clock", onClick = onResetAll)
+        ActionChip(icon = Icons.Rounded.RestartAlt, label = stringResource(R.string.clock_reset), onClick = onResetAll)
         // Whenever detection didn't work, for whatever reason.
         if (segmentationDisabled || maskFailure != null) {
             ActionChip(
                 icon = Icons.Rounded.Refresh,
-                label = "Try again",
+                label = stringResource(R.string.common_try_again),
                 onClick = onResetSegmentation
             )
         }
     }
+    val failureText = maskFailure?.describe(LocalResources.current)
     val notice = when {
         // Google's model is paused for the version on this phone: say so,
         // rather than blaming crashes or the photo.
-        maskFailure == SegmentationCrashGuard.MODEL_PAUSED -> maskFailure
+        maskFailure?.text == SegmentationCrashGuard.MODEL_PAUSED -> failureText
         segmentationDisabled ->
-            "Subject detection kept crashing, so it's turned off for now. Tap Try again " +
-                "to give it another go."
-        maskFailure != null && selected.adaptsToSubject ->
-            "The digits can't fit around the subject yet. $maskFailure"
-        maskFailure != null -> "No depth effect yet. $maskFailure"
+            stringResource(R.string.clock_detection_off)
+        failureText != null && selected.adaptsToSubject ->
+            stringResource(R.string.clock_cant_fit, failureText)
+        failureText != null -> stringResource(R.string.clock_no_depth, failureText)
         else -> null
     }
     if (notice != null) {
@@ -1339,7 +1342,7 @@ private fun PanelTab(
         )
         Spacer(Modifier.height(3.dp))
         Text(
-            tab.label,
+            stringResource(tab.label),
             color = if (selected) Color.White else Color.White.copy(alpha = 0.7f),
             style = MaterialTheme.typography.labelMedium
         )
@@ -1398,7 +1401,7 @@ private fun DonePill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(4.dp))
-        Text("Done", color = Color.Black, style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.common_done), color = Color.Black, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -1519,14 +1522,14 @@ private fun StyleCard(
             if (thumbnail != null) {
                 Image(
                     bitmap = thumbnail,
-                    contentDescription = style.label,
+                    contentDescription = stringResource(style.label),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(style.label, color = Color.White, style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(style.label), color = Color.White, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -1685,7 +1688,7 @@ private fun ColorWheelPicker(
                     )
             )
             LabelledSlider(
-                label = "Brightness",
+                label = stringResource(R.string.clock_brightness),
                 value = value,
                 valueRange = 0f..1f,
                 onValueChange = { value = it; emit() }

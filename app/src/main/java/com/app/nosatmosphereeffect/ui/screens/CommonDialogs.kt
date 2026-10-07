@@ -42,16 +42,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
+import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.WallpaperTransitionPreview
-import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewService
 import kotlinx.coroutines.delay
@@ -153,21 +155,21 @@ fun WallpaperPreviewDialog(
                 ) {
                     AnimatedIconAction(
                         icon = Icons.Rounded.Close,
-                        description = "Close preview",
+                        description = stringResource(R.string.preview_close),
                         onClick = onDismiss
                     )
                     Spacer(Modifier.width(8.dp))
                     androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                         Text(
                             if (behavior.transitionsEnabled) {
-                                "Transition preview"
+                                stringResource(R.string.preview_transition)
                             } else {
-                                "Always-applied preview"
+                                stringResource(R.string.preview_always_applied)
                             },
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            EffectCatalog.find(effectId).title,
+                            stringResource(EffectCatalog.find(effectId).title),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -215,9 +217,9 @@ fun WallpaperPreviewDialog(
                                         Icons.Rounded.PlayArrow
                                     },
                                     description = if (playing) {
-                                        "Pause preview"
+                                        stringResource(R.string.preview_pause)
                                     } else {
-                                        "Play preview"
+                                        stringResource(R.string.preview_play)
                                     },
                                     onClick = {
                                         if (playing) {
@@ -239,17 +241,16 @@ fun WallpaperPreviewDialog(
                     }
                     Text(
                         if (behavior.transitionsEnabled) {
-                            "Next, pick Home screen and Lock screen on the system screen."
+                            stringResource(R.string.apply_next_transitions)
                         } else {
-                            "Next, pick Home screen and Lock screen. Atmo runs on both, and " +
-                                "Fine tune decides which one shows the effect."
+                            stringResource(R.string.apply_next_always)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     )
                     AtmoPrimaryButton(
-                        text = "Continue",
+                        text = stringResource(R.string.common_continue),
                         onClick = onConfirm,
                         modifier = Modifier.fillMaxWidth()
                     )

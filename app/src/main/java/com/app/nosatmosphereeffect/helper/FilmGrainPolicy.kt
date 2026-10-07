@@ -1,5 +1,7 @@
 package com.app.nosatmosphereeffect.helper
 
+import androidx.annotation.StringRes
+import com.app.nosatmosphereeffect.R
 import kotlin.math.ln
 import kotlin.math.pow
 
@@ -33,22 +35,24 @@ object FilmGrainPolicy {
     fun scaleAt(position: Float): Float =
         FINEST_SCALE * (COARSEST_SCALE / FINEST_SCALE).pow(position.coerceIn(0f, 1f))
 
-    fun sizeLabel(position: Float): String = when {
-        position < 0.2f -> "Very fine"
-        position < 0.45f -> "Fine"
-        position < 0.7f -> "Medium"
-        position < 0.9f -> "Coarse"
-        else -> "Very coarse"
+    @StringRes
+    fun sizeLabel(position: Float): Int = when {
+        position < 0.2f -> R.string.grain_size_very_fine
+        position < 0.45f -> R.string.grain_size_fine
+        position < 0.7f -> R.string.grain_size_medium
+        position < 0.9f -> R.string.grain_size_coarse
+        else -> R.string.grain_size_very_coarse
     }
 
     fun sanitizeStrength(strength: Float): Float =
         if (strength.isFinite()) strength.coerceIn(0f, MAX_STRENGTH) else DEFAULT_STRENGTH
 
-    fun strengthLabel(strength: Float): String = when {
-        strength < 0.02f -> "Barely there"
-        strength < 0.05f -> "Subtle"
-        strength < 0.09f -> "Medium"
-        strength < 0.12f -> "Strong"
-        else -> "Heavy"
+    @StringRes
+    fun strengthLabel(strength: Float): Int = when {
+        strength < 0.02f -> R.string.grain_strength_barely
+        strength < 0.05f -> R.string.grain_strength_subtle
+        strength < 0.09f -> R.string.grain_strength_medium
+        strength < 0.12f -> R.string.grain_strength_strong
+        else -> R.string.grain_strength_heavy
     }
 }

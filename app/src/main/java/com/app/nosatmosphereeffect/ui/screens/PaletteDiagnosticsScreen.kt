@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,7 +64,7 @@ fun PaletteDiagnosticsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AtmoTopBar(
-                title = "Palette diagnostics",
+                title = stringResource(R.string.palette_title),
                 backIcon = painterResource(R.drawable.ic_arrow_back),
                 onBack = onBack
             )
@@ -103,24 +104,30 @@ fun PaletteDiagnosticsScreen(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
-                            "$deviceName color pipeline",
+                            stringResource(R.string.palette_pipeline, deviceName),
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            if (loading) "Reading current values" else "Wallpaper and system comparison",
+                            stringResource(
+                                if (loading) R.string.palette_reading else R.string.palette_comparison
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    AtmoChip(if (syncColorsEnabled) "Sync on" else "Sync off")
+                    AtmoChip(
+                        stringResource(
+                            if (syncColorsEnabled) R.string.palette_sync_on else R.string.palette_sync_off
+                        )
+                    )
                 }
             }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    PaletteSwatchRow("Extracted colors", diagnostics.extractedColors, loading)
-                    PaletteSwatchRow("Wallpaper API colors", diagnostics.wallpaperApiColors, loading)
-                    PaletteSwatchRow("System color palette", diagnostics.systemColors, loading)
+                    PaletteSwatchRow(stringResource(R.string.palette_extracted), diagnostics.extractedColors, loading)
+                    PaletteSwatchRow(stringResource(R.string.palette_api_colors), diagnostics.wallpaperApiColors, loading)
+                    PaletteSwatchRow(stringResource(R.string.palette_system), diagnostics.systemColors, loading)
                 }
             }
 
@@ -135,14 +142,22 @@ fun PaletteDiagnosticsScreen(
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 15.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("System theme state", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.palette_theme_state), style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Source: ${diagnostics.systemColorSource ?: "unknown"}",
+                                stringResource(
+                                    R.string.palette_source,
+                                    diagnostics.systemColorSource
+                                        ?: stringResource(R.string.palette_unknown)
+                                ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                "Seed: ${diagnostics.systemSeedColor?.let(::formatPaletteColor) ?: "unavailable"}",
+                                stringResource(
+                                    R.string.palette_seed,
+                                    diagnostics.systemSeedColor?.let(::formatPaletteColor)
+                                        ?: stringResource(R.string.palette_unavailable)
+                                ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontFamily = FontFamily.Monospace
@@ -169,7 +184,9 @@ fun PaletteDiagnosticsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AtmoPrimaryButton(
-                        text = if (applying) "Applying palette..." else "Force apply palette",
+                        text = stringResource(
+                            if (applying) R.string.palette_applying else R.string.palette_force_apply
+                        ),
                         onClick = onForceApply,
                         enabled = syncColorsEnabled && !applying,
                         icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(
@@ -179,7 +196,7 @@ fun PaletteDiagnosticsScreen(
                     )
                     if (!syncColorsEnabled) {
                         Text(
-                            "Turn on Sync system colors on the main screen to run this test.",
+                            stringResource(R.string.palette_sync_needed),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 4.dp)
@@ -280,7 +297,7 @@ private fun PaletteSwatchRow(label: String, colors: List<Int>, loading: Boolean)
                     ) {}
                     Spacer(Modifier.height(5.dp))
                     Text(
-                        colorValue?.let(::formatPaletteColor) ?: if (loading) "..." else "N/A",
+                        colorValue?.let(::formatPaletteColor) ?: if (loading) "…" else stringResource(R.string.palette_not_available),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = FontFamily.Monospace,

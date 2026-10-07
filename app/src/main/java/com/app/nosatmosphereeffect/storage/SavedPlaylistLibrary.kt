@@ -2,6 +2,7 @@ package com.app.nosatmosphereeffect.storage
 
 import android.content.Context
 import android.util.Log
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import java.io.File
 import java.io.IOException
@@ -67,7 +68,7 @@ internal object SavedPlaylistLibrary {
                 SavedPlaylistSummary(
                     id = directory.name,
                     name = info?.optString(KEY_NAME)?.takeIf(String::isNotBlank)
-                        ?: "Playlist",
+                        ?: context.getString(R.string.saved_default_name),
                     imageCount = images.size,
                     updatedAt = info?.optLong(KEY_UPDATED, directory.lastModified())
                         ?: directory.lastModified(),
@@ -129,7 +130,7 @@ internal object SavedPlaylistLibrary {
             }
             val resolvedName = name?.trim()?.takeIf(String::isNotEmpty)
                 ?: previousInfo?.optString(KEY_NAME)?.takeIf(String::isNotBlank)
-                ?: defaultName(now)
+                ?: defaultName(context, now)
             val info = JSONObject()
                 .put(KEY_NAME, resolvedName)
                 .put(KEY_CREATED, previousInfo?.optLong(KEY_CREATED, now) ?: now)
@@ -176,7 +177,7 @@ internal object SavedPlaylistLibrary {
     fun rename(context: Context, id: String, name: String) {
         val entry = entryDir(context, id)
         val info = readInfo(entry) ?: JSONObject()
-        info.put(KEY_NAME, name.trim().ifEmpty { "Playlist" })
+        info.put(KEY_NAME, name.trim().ifEmpty { context.getString(R.string.saved_default_name) })
         FileTransactions.writeTextAtomically(File(entry, INFO_FILE), info.toString())
     }
 
@@ -213,10 +214,10 @@ internal object SavedPlaylistLibrary {
         }
     }
 
-    private fun defaultName(timestamp: Long): String {
+    private fun defaultName(context: Context, timestamp: Long): String {
         val formatted = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
             .format(Date(timestamp))
-        return "Playlist · $formatted"
+        return context.getString(R.string.saved_default_name_dated, formatted)
     }
 
     private fun prefs(context: Context) =

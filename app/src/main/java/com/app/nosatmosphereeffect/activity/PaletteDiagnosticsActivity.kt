@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.PaletteSyncDiagnostics
 import com.app.nosatmosphereeffect.helper.PaletteSyncTrace
 import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
@@ -66,7 +67,7 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
         PaletteSyncDiagnostics.record(
             this,
             PaletteSyncDiagnostics.STAGE_FORCE_REQUESTED,
-            "Atmo sent UPDATE_CONFIG to the active wallpaper engine on ${Build.MODEL}",
+            getString(R.string.palette_force_requested, Build.MODEL),
             clearError = true
         )
         try {
@@ -77,7 +78,7 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
             PaletteSyncDiagnostics.record(
                 this,
                 PaletteSyncDiagnostics.STAGE_FORCE_FAILED,
-                "Atmo could not request a wallpaper palette refresh on ${Build.MODEL}",
+                getString(R.string.palette_force_request_failed, Build.MODEL),
                 failure.toDiagnosticText()
             )
             loadDiagnostics(finishForceRequest = true)
@@ -106,10 +107,10 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
                     WallpaperColorExtractor.extract(
                         File(filesDir, WallpaperFitHelper.ACTIVE_WALLPAPER_FILE)
                     )
-                ) { "Wallpaper image could not be decoded" }.toColorList()
+                ) { getString(R.string.palette_decode_failed) }.toColorList()
             } catch (failure: Throwable) {
                 readErrors += DiagnosticReadError(
-                    "Color extraction failed",
+                    getString(R.string.palette_extraction_failed),
                     failure.toDiagnosticText()
                 )
                 emptyList()
@@ -120,7 +121,7 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
                     .toColorList()
             } catch (failure: Throwable) {
                 readErrors += DiagnosticReadError(
-                    "Wallpaper API read failed",
+                    getString(R.string.palette_api_read_failed),
                     failure.toDiagnosticText()
                 )
                 emptyList()
@@ -134,14 +135,14 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
                 )
             } catch (failure: Throwable) {
                 readErrors += DiagnosticReadError(
-                    "System palette read failed",
+                    getString(R.string.palette_system_read_failed),
                     failure.toDiagnosticText()
                 )
                 emptyList()
             }
             val themeSelection = readSystemThemeSelection()
             themeSelection.error?.let { error ->
-                readErrors += DiagnosticReadError("System theme state read failed", error)
+                readErrors += DiagnosticReadError(getString(R.string.palette_theme_read_failed), error)
             }
             val engineTrace = PaletteSyncDiagnostics.read(this)
             val result = PaletteDiagnostics(
@@ -192,8 +193,8 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
         if (readErrors.isEmpty() && engineTrace?.error == null) {
             messages += PaletteDiagnosticMessage(
                 PaletteDiagnosticLevel.SUCCESS,
-                "App error: none",
-                "Extraction and Android's wallpaper color callback completed on ${Build.MODEL}."
+                getString(R.string.palette_no_errors),
+                getString(R.string.palette_no_errors_detail, Build.MODEL)
             )
         }
 
@@ -202,35 +203,35 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
             extractedColors.isEmpty() -> Unit
             wallpaperApiColors.isEmpty() -> messages += PaletteDiagnosticMessage(
                 PaletteDiagnosticLevel.WARNING,
-                "Wallpaper API has no colors",
-                "Android has not stored a palette from the active engine yet."
+                getString(R.string.palette_api_empty),
+                getString(R.string.palette_api_empty_detail)
             )
             apiAccepted -> messages += PaletteDiagnosticMessage(
                 PaletteDiagnosticLevel.SUCCESS,
-                "Android accepted Atmo's palette",
-                "WallpaperManager returns the same three colors as Atmo's extractor."
+                getString(R.string.palette_api_accepted),
+                getString(R.string.palette_api_accepted_detail)
             )
             else -> messages += PaletteDiagnosticMessage(
                 PaletteDiagnosticLevel.WARNING,
-                "Wallpaper API colors differ",
-                "The active engine and Android currently disagree about the published colors."
+                getString(R.string.palette_api_differs),
+                getString(R.string.palette_api_differs_detail)
             )
         }
 
         if (apiAccepted && systemColors.isNotEmpty() && systemColors != extractedColors) {
             messages += PaletteDiagnosticMessage(
                 PaletteDiagnosticLevel.WARNING,
-                "${devicePossessive()} system palette differs",
-                "Android accepted Atmo's wallpaper colors, but ${devicePossessive()} active accent resources still use another palette."
+                getString(R.string.palette_system_differs, deviceDisplayName()),
+                getString(R.string.palette_system_differs_detail, deviceDisplayName())
             )
         }
 
         if (themeSelection.source == "preset") {
-            val seed = themeSelection.seed?.let(::formatColor) ?: "an unavailable seed"
+            val seed = themeSelection.seed?.let(::formatColor) ?: getString(R.string.palette_seed_unavailable)
             messages += PaletteDiagnosticMessage(
                 PaletteDiagnosticLevel.WARNING,
-                "${devicePossessive()} color source is preset",
-                "${deviceDisplayName()} currently reports $seed as its protected theme seed instead of the live wallpaper source."
+                getString(R.string.palette_preset_source, deviceDisplayName()),
+                getString(R.string.palette_preset_source_detail, deviceDisplayName(), seed)
             )
         }
 
@@ -238,14 +239,14 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
             if (systemColors == forceSystemColorsBefore) {
                 messages += PaletteDiagnosticMessage(
                     PaletteDiagnosticLevel.WARNING,
-                    "Force result: ${deviceDisplayName()} stayed unchanged",
-                    "The engine published successfully, but ${devicePossessive()} system theme did not regenerate."
+                    getString(R.string.palette_force_unchanged, deviceDisplayName()),
+                    getString(R.string.palette_force_unchanged_detail, deviceDisplayName())
                 )
             } else {
                 messages += PaletteDiagnosticMessage(
                     PaletteDiagnosticLevel.SUCCESS,
-                    "Force result: system palette changed",
-                    "${devicePossessive()} accent resources changed after Atmo published the colors."
+                    getString(R.string.palette_force_changed),
+                    getString(R.string.palette_force_changed_detail, deviceDisplayName())
                 )
             }
         }
@@ -263,16 +264,16 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
             else -> PaletteDiagnosticLevel.INFO
         }
         val title = when (stage) {
-            PaletteSyncDiagnostics.STAGE_FORCE_REQUESTED -> "Waiting for wallpaper engine"
-            PaletteSyncDiagnostics.STAGE_REFRESH_QUEUED -> "Wallpaper refresh queued"
-            PaletteSyncDiagnostics.STAGE_EXTRACTING -> "Wallpaper engine is extracting colors"
-            PaletteSyncDiagnostics.STAGE_PUBLISHED -> "Wallpaper engine publish completed"
-            PaletteSyncDiagnostics.STAGE_DISABLED -> "Wallpaper color sync is disabled"
-            PaletteSyncDiagnostics.STAGE_MISSING_WALLPAPER -> "Wallpaper image is missing"
-            PaletteSyncDiagnostics.STAGE_EXTRACTION_FAILED -> "Wallpaper color extraction failed"
-            PaletteSyncDiagnostics.STAGE_PUBLISH_FAILED -> "Wallpaper color callback failed"
-            PaletteSyncDiagnostics.STAGE_FORCE_FAILED -> "Force palette request failed"
-            else -> "Wallpaper engine status: $stage"
+            PaletteSyncDiagnostics.STAGE_FORCE_REQUESTED -> getString(R.string.palette_stage_waiting)
+            PaletteSyncDiagnostics.STAGE_REFRESH_QUEUED -> getString(R.string.palette_stage_queued)
+            PaletteSyncDiagnostics.STAGE_EXTRACTING -> getString(R.string.palette_stage_extracting)
+            PaletteSyncDiagnostics.STAGE_PUBLISHED -> getString(R.string.palette_stage_published)
+            PaletteSyncDiagnostics.STAGE_DISABLED -> getString(R.string.palette_stage_disabled)
+            PaletteSyncDiagnostics.STAGE_MISSING_WALLPAPER -> getString(R.string.palette_stage_missing)
+            PaletteSyncDiagnostics.STAGE_EXTRACTION_FAILED -> getString(R.string.palette_stage_extraction_failed)
+            PaletteSyncDiagnostics.STAGE_PUBLISH_FAILED -> getString(R.string.palette_stage_publish_failed)
+            PaletteSyncDiagnostics.STAGE_FORCE_FAILED -> getString(R.string.palette_stage_force_failed)
+            else -> getString(R.string.palette_stage_other, stage)
         }
         return PaletteDiagnosticMessage(
             level = level,
@@ -311,11 +312,9 @@ class PaletteDiagnosticsActivity : ComponentActivity() {
             "xiaomi" in source || "redmi" in source || "poco" in source -> "Xiaomi"
             else -> Build.MANUFACTURER.trim().replaceFirstChar { character ->
                 if (character.isLowerCase()) character.titlecase(Locale.ROOT) else character.toString()
-            }.ifBlank { "Device" }
+            }.ifBlank { getString(R.string.palette_device) }
         }
     }
-
-    private fun devicePossessive(): String = "${deviceDisplayName()}'s"
 
     private fun WallpaperColors?.toColorList(): List<Int> {
         if (this == null) return emptyList()

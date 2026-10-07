@@ -9,8 +9,8 @@ import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,10 +19,11 @@ import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
-import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.MatrixStatePolicy
+import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.image.BitmapDecoder
@@ -30,18 +31,18 @@ import com.app.nosatmosphereeffect.image.BitmapStore
 import com.app.nosatmosphereeffect.storage.FileTransactions
 import com.app.nosatmosphereeffect.storage.SharedPreferencesTransactions
 import com.app.nosatmosphereeffect.storage.WallpaperStorageCoordinator
+import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.screens.CropController
 import com.app.nosatmosphereeffect.ui.screens.CropScreen
 import com.app.nosatmosphereeffect.ui.screens.ProcessingOverlay
 import com.app.nosatmosphereeffect.ui.screens.WallpaperPreviewDialog
-import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.UUID
 
 abstract class BaseCropActivity : ComponentActivity() {
     protected abstract val fallbackEffectId: String
@@ -94,7 +95,7 @@ abstract class BaseCropActivity : ComponentActivity() {
         )
         val uri = intent.data
         if (uri == null) {
-            Toast.makeText(this, "No image came through. Please pick one again.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.crop_no_image, Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -118,7 +119,7 @@ abstract class BaseCropActivity : ComponentActivity() {
                 }
                 CropScreen(
                     controller = controller,
-                    buttonLabel = "Preview transition",
+                    buttonLabel = getString(R.string.crop_preview_transition),
                     initialFit = currentFit,
                     initialFill = currentFill,
                     showAtmosphereGlassOption =
@@ -165,7 +166,7 @@ abstract class BaseCropActivity : ComponentActivity() {
                     }
                 }
                 if (isApplying) {
-                    ProcessingOverlay(message = "Saving wallpaper…")
+                    ProcessingOverlay(message = getString(R.string.crop_saving))
                 }
             }
         }
@@ -229,19 +230,19 @@ abstract class BaseCropActivity : ComponentActivity() {
                 reportLoadFailure(
                     "Unable to decode selected image",
                     error,
-                    "Couldn't open this image. Try a different one."
+                    getString(R.string.crop_error_decode)
                 )
             } catch (error: SecurityException) {
                 reportLoadFailure(
                     "Image permission was revoked",
                     error,
-                    "Atmo Engine can't open this image anymore. Please pick it again."
+                    getString(R.string.crop_error_permission)
                 )
             } catch (error: RuntimeException) {
                 reportLoadFailure(
                     "Unexpected image decoding failure",
                     error,
-                    "Couldn't get the image ready. Please try again."
+                    getString(R.string.crop_error_unexpected)
                 )
             }
         }
@@ -259,7 +260,7 @@ abstract class BaseCropActivity : ComponentActivity() {
             effectId,
             applyState.atmosphereGlassEnabled
         )
-        Toast.makeText(this, "Applying…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.crop_applying, Toast.LENGTH_SHORT).show()
 
         ioExecutor.execute {
             try {
@@ -353,19 +354,19 @@ abstract class BaseCropActivity : ComponentActivity() {
                 reportApplyFailure(
                     "Unable to persist wallpaper files",
                     error,
-                    "Couldn't save the wallpaper. Check you have some free space and try again."
+                    getString(R.string.crop_error_storage)
                 )
             } catch (error: SecurityException) {
                 reportApplyFailure(
                     "Wallpaper storage access was rejected",
                     error,
-                    "Couldn't save the wallpaper because storage access was blocked."
+                    getString(R.string.crop_error_storage_blocked)
                 )
             } catch (error: RuntimeException) {
                 reportApplyFailure(
                     "Unexpected wallpaper apply failure",
                     error,
-                    "Couldn't set the wallpaper. Please try again."
+                    getString(R.string.crop_error_apply)
                 )
             } finally {
                 bitmap.recycle()
@@ -462,7 +463,7 @@ abstract class BaseCropActivity : ComponentActivity() {
         sendBroadcast(Intent(ACTION_RELOAD_WALLPAPER).setPackage(packageName))
         Toast.makeText(
             this,
-            "All set. Now pick Home screen and Lock screen.",
+            getString(R.string.playlist_applied),
             Toast.LENGTH_LONG
         ).show()
         if (WallpaperEffectServices.launchPicker(this, effectId)) {
@@ -470,7 +471,7 @@ abstract class BaseCropActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "Your phone doesn't seem to have a live wallpaper picker.",
+                getString(R.string.playlist_no_picker),
                 Toast.LENGTH_LONG
             ).show()
         }

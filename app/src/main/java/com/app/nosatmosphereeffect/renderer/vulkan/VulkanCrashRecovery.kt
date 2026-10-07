@@ -5,6 +5,7 @@ import android.app.ApplicationExitInfo
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
 
 /**
@@ -84,7 +85,7 @@ internal object VulkanCrashRecovery {
         VulkanSupport.recordFailure(
             appContext,
             effect,
-            "Your phone's graphics driver crashed the wallpaper on Vulkan"
+            appContext.getString(R.string.vulkan_reason_driver_crash)
         )
     }
 

@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.helper
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.app.nosatmosphereeffect.R
 import com.google.android.gms.dynamite.DynamiteModule
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
@@ -87,10 +88,6 @@ class SubjectMaskExtractor(
         /** No real photo is this much subject: the model answered wrongly. */
         private const val UNUSABLE_FOREGROUND_FRACTION = 0.98f
 
-        private const val UNUSABLE_ANSWER =
-            "Google's subject model gave an unusable answer for this photo (it marked the whole " +
-                "image as subject). That's the model, not your photo. Tap Try again, or try " +
-                "another photo."
     }
 
     /** Reads the model's version before each use, off the caller's thread. */
@@ -142,10 +139,7 @@ class SubjectMaskExtractor(
         // services through a model client would load the model's native code
         // just to find out.
         if (version <= 0) {
-            SubjectMaskDiagnostics.recordRejection(
-                "Google's subject model isn't on this phone yet. You can download it in " +
-                    "Fine tuning, with the Download subject model button."
-            )
+            SubjectMaskDiagnostics.recordRejection(R.string.subject_model_missing)
             inputBitmap.recycle()
             if (!closed) onResult(requestId, null, false)
             return
@@ -205,9 +199,7 @@ class SubjectMaskExtractor(
                             run maskComputation@ {
                                 val confidence = result.foregroundConfidenceMask
                                     ?: run {
-                                        SubjectMaskDiagnostics.recordRejection(
-                                            "The model didn't send back a result"
-                                        )
+                                        SubjectMaskDiagnostics.recordRejection(R.string.subject_no_result)
                                         return@maskComputation null
                                     }
                                 val count = inputBitmap.width * inputBitmap.height
@@ -219,9 +211,7 @@ class SubjectMaskExtractor(
                                         TAG,
                                         "Subject mask contained ${buffer.remaining()} values; expected $count"
                                     )
-                                    SubjectMaskDiagnostics.recordRejection(
-                                        "The model sent back something unexpected"
-                                    )
+                                    SubjectMaskDiagnostics.recordRejection(R.string.subject_unexpected_result)
                                     return@maskComputation null
                                 }
 
@@ -267,7 +257,7 @@ class SubjectMaskExtractor(
                                         "Unusable subject mask: $lowest..$highest, " +
                                             "${(foregroundFraction * 100).roundToInt()}% subject"
                                     )
-                                    SubjectMaskDiagnostics.recordRejection(UNUSABLE_ANSWER)
+                                    SubjectMaskDiagnostics.recordRejection(R.string.subject_unusable_answer)
                                     return@maskComputation null
                                 }
                                 val highConfidenceFraction = highConfidenceCount.toFloat() / count
@@ -281,20 +271,18 @@ class SubjectMaskExtractor(
                                     highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ||
                                     !hasUsefulBounds
                                 ) {
-                                    SubjectMaskDiagnostics.recordRejection(
-                                        when {
-                                            foregroundFraction > MAX_FOREGROUND_FRACTION ->
-                                                "The subject fills too much of the photo " +
-                                                    "(${(foregroundFraction * 100).roundToInt()}%). " +
-                                                    "Try one with more background " +
-                                                    "showing"
-                                            foregroundFraction < MIN_FOREGROUND_FRACTION ->
-                                                "Couldn't find a clear subject in this photo"
-                                            highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ->
-                                                "Found something, but not clearly enough to use"
-                                            else -> "The subject is too small or thin to use"
-                                        }
-                                    )
+                                    when {
+                                        foregroundFraction > MAX_FOREGROUND_FRACTION ->
+                                            SubjectMaskDiagnostics.recordRejection(
+                                                R.string.subject_too_large,
+                                                (foregroundFraction * 100).roundToInt()
+                                            )
+                                        foregroundFraction < MIN_FOREGROUND_FRACTION ->
+                                            SubjectMaskDiagnostics.recordRejection(R.string.subject_not_found)
+                                        highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ->
+                                            SubjectMaskDiagnostics.recordRejection(R.string.subject_unclear)
+                                        else -> SubjectMaskDiagnostics.recordRejection(R.string.subject_too_small)
+                                    }
                                     return@maskComputation null
                                 }
 

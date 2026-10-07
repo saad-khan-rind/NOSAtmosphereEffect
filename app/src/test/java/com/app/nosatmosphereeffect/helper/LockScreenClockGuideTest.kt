@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.helper
 
+import com.app.nosatmosphereeffect.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -19,8 +20,8 @@ class LockScreenClockGuideTest {
     fun `Samsung on Android 15 or later gets the One UI 7 workaround`() {
         val guide = LockScreenClockGuide.forDevice(device("samsung", sdkInt = 35))
 
-        assertEquals("Samsung (One UI 7 or later)", guide.brandLabel)
-        assertTrue(guide.steps.any { it.contains("transparency") })
+        assertEquals(R.string.guide_brand_samsung_new, guide.brandLabel)
+        assertTrue(R.string.guide_samsung_new_step3 in guide.steps)
     }
 
     @Test
@@ -29,26 +30,26 @@ class LockScreenClockGuideTest {
             device("samsung", release = "14", sdkInt = 34)
         )
 
-        assertEquals("Samsung (One UI 6 or earlier)", guide.brandLabel)
-        assertTrue(guide.steps.any { it.contains("LockStar") })
+        assertEquals(R.string.guide_brand_samsung_old, guide.brandLabel)
+        assertTrue(R.string.guide_samsung_old_step1 in guide.steps)
     }
 
     @Test
     fun `sub-brands resolve to their own label`() {
-        assertEquals("Google Pixel", LockScreenClockGuide.forDevice(device("Google")).brandLabel)
-        assertEquals("OnePlus", LockScreenClockGuide.forDevice(device("OnePlus")).brandLabel)
-        assertEquals("realme", LockScreenClockGuide.forDevice(device("realme")).brandLabel)
-        assertEquals("OPPO", LockScreenClockGuide.forDevice(device("OPPO")).brandLabel)
+        assertEquals(R.string.guide_brand_pixel, LockScreenClockGuide.forDevice(device("Google")).brandLabel)
+        assertEquals(R.string.guide_brand_oneplus, LockScreenClockGuide.forDevice(device("OnePlus")).brandLabel)
+        assertEquals(R.string.guide_brand_realme, LockScreenClockGuide.forDevice(device("realme")).brandLabel)
+        assertEquals(R.string.guide_brand_oppo, LockScreenClockGuide.forDevice(device("OPPO")).brandLabel)
         assertEquals(
-            "POCO",
+            R.string.guide_brand_poco,
             LockScreenClockGuide.forDevice(device("Xiaomi", brand = "POCO")).brandLabel
         )
         assertEquals(
-            "Redmi",
+            R.string.guide_brand_redmi,
             LockScreenClockGuide.forDevice(device("Xiaomi", brand = "Redmi")).brandLabel
         )
-        assertEquals("Nothing", LockScreenClockGuide.forDevice(device("Nothing")).brandLabel)
-        assertEquals("Motorola", LockScreenClockGuide.forDevice(device("motorola")).brandLabel)
+        assertEquals(R.string.guide_brand_nothing, LockScreenClockGuide.forDevice(device("Nothing")).brandLabel)
+        assertEquals(R.string.guide_brand_motorola, LockScreenClockGuide.forDevice(device("motorola")).brandLabel)
     }
 
     @Test

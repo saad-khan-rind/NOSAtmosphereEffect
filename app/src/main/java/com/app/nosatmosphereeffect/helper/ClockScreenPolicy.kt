@@ -1,5 +1,7 @@
 package com.app.nosatmosphereeffect.helper
 
+import androidx.annotation.StringRes
+import com.app.nosatmosphereeffect.R
 import kotlin.math.abs
 
 /**
@@ -42,10 +44,10 @@ enum class ClockSharpSide {
 }
 
 /** Where the user has asked for the clock to appear. */
-enum class ClockScreen(val id: String, val label: String) {
-    LOCK("lock", "Lock screen"),
-    HOME("home", "Home screen"),
-    BOTH("both", "Both");
+enum class ClockScreen(val id: String, @StringRes val label: Int) {
+    LOCK("lock", R.string.common_lock_screen),
+    HOME("home", R.string.common_home_screen),
+    BOTH("both", R.string.common_both);
 
     companion object {
         val DEFAULT = LOCK
