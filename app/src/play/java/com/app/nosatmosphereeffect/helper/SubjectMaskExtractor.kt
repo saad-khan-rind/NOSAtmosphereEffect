@@ -3,7 +3,6 @@ package com.app.nosatmosphereeffect.helper
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.dynamite.DynamiteModule
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
@@ -71,6 +70,22 @@ class SubjectMaskExtractor(
         private fun isKnownBad(version: Int): Boolean =
             version > 0 && version / 1000 in KNOWN_BAD_MODEL_VERSIONS
 
+        /**
+         * What Play services has: not installed, installed and usable, or
+         * installed but broken (a known bad version, or one paused after a
+         * crash or a broken answer). Never loads the model. Off the main
+         * thread only.
+         */
+        fun modelAvailability(context: Context): SubjectModelPhase {
+            val version = readModelVersion(context)
+            return when {
+                version <= 0 -> SubjectModelPhase.NOT_DOWNLOADED
+                isKnownBad(version) || SegmentationCrashGuard.isPausedForModel(context) ->
+                    SubjectModelPhase.BROKEN
+                else -> SubjectModelPhase.READY
+            }
+        }
+
         private const val MAX_INPUT_SIDE = 1024
         private const val CONFIDENT_FOREGROUND = 0.55f
         private const val HIGH_CONFIDENCE = 0.75f
@@ -99,7 +114,6 @@ class SubjectMaskExtractor(
         )
     }
     private val segmenter get() = segmenterHolder.value
-    private val moduleClient = ModuleInstall.getClient(context.applicationContext)
 
     @Volatile private var closed = false
     private val lock = Any()
@@ -137,40 +151,18 @@ class SubjectMaskExtractor(
             if (!closed) onResult(requestId, null, false)
             return
         }
-        val model = modelVersion(appContext)
-        if (!acquire()) {
+        // The version doubles as the "is it installed" check: asking Play
+        // services through a model client would load the model's native code
+        // just to find out.
+        if (version <= 0) {
+            SubjectMaskDiagnostics.recordRejection(
+                "The subject model from Google Play services isn't installed yet"
+            )
             inputBitmap.recycle()
+            if (!closed) onResult(requestId, null, false)
             return
         }
-        try {
-            moduleClient.areModulesAvailable(segmenter)
-                .addOnSuccessListener { availability ->
-                    when {
-                        closed -> inputBitmap.recycle()
-                        !availability.areModulesAvailable() -> {
-                            SubjectMaskDiagnostics.recordRejection(
-                                "The subject model from Google Play services isn't installed yet"
-                            )
-                            inputBitmap.recycle()
-                            onResult(requestId, null, false)
-                        }
-                        else -> processInput(inputBitmap, requestId, model)
-                    }
-                }
-                .addOnFailureListener { error ->
-                    Log.w(TAG, "Could not check subject-segmentation module availability", error)
-                    SubjectMaskDiagnostics.recordFailure("Checking module availability", error)
-                    inputBitmap.recycle()
-                    if (!closed) onResult(requestId, null, true)
-                }
-                .addOnCompleteListener { release() }
-        } catch (error: Throwable) {
-            Log.w(TAG, "Could not check subject-segmentation module availability", error)
-            SubjectMaskDiagnostics.recordFailure("Checking module availability", error)
-            inputBitmap.recycle()
-            release()
-            if (!closed) onResult(requestId, null, true)
-        }
+        processInput(inputBitmap, requestId, modelVersion(appContext))
     }
 
     /**

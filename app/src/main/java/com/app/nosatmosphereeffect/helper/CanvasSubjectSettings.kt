@@ -17,7 +17,9 @@ enum class SubjectModelPhase {
     INSTALLING,
     PAUSED,
     READY,
-    FAILED
+    FAILED,
+    /** Installed, but the version on this phone is broken; see SegmentationCrashGuard. */
+    BROKEN
 }
 
 data class SubjectModelState(
