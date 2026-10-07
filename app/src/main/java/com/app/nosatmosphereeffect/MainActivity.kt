@@ -207,15 +207,19 @@ class MainActivity : ComponentActivity() {
                 if (result.changed) {
                     val message = listOfNotNull(
                         result.added.takeIf { it > 0 }?.let {
-                            if (it == 1) "added 1 new image" else "added $it new images"
+                            resources.getQuantityString(R.plurals.folders_added, it, it)
                         },
                         result.removed.takeIf { it > 0 }?.let {
-                            if (it == 1) "removed 1 deleted image" else "removed $it deleted images"
+                            resources.getQuantityString(R.plurals.folders_removed, it, it)
                         }
-                    ).joinToString(" and ").replaceFirstChar(Char::uppercase)
+                    ).joinToString(" ")
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
-                        Toast.makeText(this, "Folders updated. $message", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this,
+                            getString(R.string.folders_updated, message),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             } catch (error: Exception) {
@@ -251,7 +255,7 @@ class MainActivity : ComponentActivity() {
         if (activeEffect != null) {
             activeEffectId = activeEffect
             wallpaperActive = true
-            statusText = "Your wallpaper is live. You can tweak it below."
+            statusText = getString(R.string.status_live)
             isPlaylistModeActive = PlaylistModeManager.isPlaylistMode(this)
             isThemePlaylistModeActive =
                 isPlaylistModeActive && PlaylistModeManager.isThemeMode(this)

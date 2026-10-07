@@ -9,8 +9,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
@@ -111,7 +112,7 @@ fun EffectSelectionScreen(
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
             ) {
                 AtmoPrimaryButton(
-                    text = "Continue with ${selected.title}",
+                    text = stringResource(R.string.effects_continue_with, stringResource(selected.title)),
                     onClick = { onEffectClick(selected) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -169,13 +170,13 @@ fun EffectSelectionScreen(
                             ) { effect ->
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(
-                                        effect.title,
+                                        stringResource(effect.title),
                                         style = MaterialTheme.typography.headlineSmall,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    AtmoChip(effect.transition)
+                                    AtmoChip(stringResource(effect.transition))
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
@@ -195,7 +196,7 @@ fun EffectSelectionScreen(
                             label = "effectDescription"
                         ) { description ->
                             Text(
-                                description,
+                                stringResource(description),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -207,7 +208,7 @@ fun EffectSelectionScreen(
                 item {
                     AtmoReveal(delayMillis = 110) {
                         Text(
-                            "Effects",
+                            stringResource(R.string.effects_title),
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
@@ -295,13 +296,13 @@ private fun EffectChoice(
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Text(
-                effect.title,
+                stringResource(effect.title),
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                effect.transition,
+                stringResource(effect.transition),
                 style = MaterialTheme.typography.bodySmall,
                 color = content.copy(alpha = 0.74f),
                 maxLines = 1,
@@ -326,19 +327,19 @@ private fun PreviewPositionControls(
             PreviewIconButton(
                 selected = !autoPlay && progress == 0f,
                 icon = Icons.Rounded.Lock,
-                description = "Show lock screen",
+                description = stringResource(R.string.effects_show_lock_screen),
                 onClick = { onPosition(0f) }
             )
             PreviewIconButton(
                 selected = autoPlay,
                 icon = Icons.Rounded.PlayArrow,
-                description = "Play transition",
+                description = stringResource(R.string.effects_play_transition),
                 onClick = onAutoPlay
             )
             PreviewIconButton(
                 selected = !autoPlay && progress == 1f,
                 icon = Icons.Rounded.Home,
-                description = "Show home screen",
+                description = stringResource(R.string.effects_show_home_screen),
                 onClick = { onPosition(1f) }
             )
         }

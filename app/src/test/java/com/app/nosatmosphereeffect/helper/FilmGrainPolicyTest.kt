@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.helper
 
+import com.app.nosatmosphereeffect.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -9,7 +10,7 @@ class FilmGrainPolicyTest {
     @Test
     fun `the old default reads as very fine grain`() {
         val position = FilmGrainPolicy.sizePosition(FilmGrainPolicy.DEFAULT_SCALE)
-        assertEquals("Very fine", FilmGrainPolicy.sizeLabel(position))
+        assertEquals(R.string.grain_size_very_fine, FilmGrainPolicy.sizeLabel(position))
     }
 
     @Test
@@ -34,6 +35,6 @@ class FilmGrainPolicyTest {
 
     @Test
     fun `the default strength reads as medium`() {
-        assertEquals("Medium", FilmGrainPolicy.strengthLabel(FilmGrainPolicy.DEFAULT_STRENGTH))
+        assertEquals(R.string.grain_strength_medium, FilmGrainPolicy.strengthLabel(FilmGrainPolicy.DEFAULT_STRENGTH))
     }
 }

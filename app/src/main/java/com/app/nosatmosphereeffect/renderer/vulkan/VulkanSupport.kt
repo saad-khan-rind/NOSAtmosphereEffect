@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.edit
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectionAction
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectionPolicy
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
@@ -129,11 +130,11 @@ internal object VulkanSupport {
             null
         } else {
             when {
-                featureQuery.isFailure -> "Vulkan capability query failed"
-                !hasVulkan11 -> "Vulkan 1.1 is not advertised by this device"
-                probedVersion == null -> "No compatible Vulkan runtime was found"
-                blockedAfterFailure -> "Vulkan was disabled after a previous driver failure"
-                else -> "This effect does not have a Vulkan renderer"
+                featureQuery.isFailure -> context.getString(R.string.vulkan_reason_query_failed)
+                !hasVulkan11 -> context.getString(R.string.vulkan_reason_no_11)
+                probedVersion == null -> context.getString(R.string.vulkan_reason_no_runtime)
+                blockedAfterFailure -> context.getString(R.string.vulkan_reason_blocked)
+                else -> context.getString(R.string.vulkan_reason_no_renderer)
             }
         }
         return VulkanBackendResolution(

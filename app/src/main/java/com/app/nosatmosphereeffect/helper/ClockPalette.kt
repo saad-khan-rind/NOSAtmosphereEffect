@@ -3,7 +3,9 @@ package com.app.nosatmosphereeffect.helper
 import android.content.Context
 import android.graphics.Color
 import androidx.annotation.ColorInt
+import androidx.annotation.StringRes
 import androidx.core.graphics.ColorUtils
+import com.app.nosatmosphereeffect.R
 import java.io.File
 
 /**
@@ -46,21 +48,21 @@ object ClockPalette {
      * custom picker exists for anyone who wants to go outside this range.
      */
     val PRESETS: List<Swatch> = listOf(
-        Swatch("White", 0xFFFFFFFF.toInt()),
-        Swatch("Warm white", 0xFFFFF2E0.toInt()),
-        Swatch("Cool white", 0xFFE8F1FF.toInt()),
-        Swatch("Sand", 0xFFF2DCB3.toInt()),
-        Swatch("Blush", 0xFFFFD3D8.toInt()),
-        Swatch("Coral", 0xFFFFB4A2.toInt()),
-        Swatch("Amber", 0xFFFFD479.toInt()),
-        Swatch("Mint", 0xFFB8EBD0.toInt()),
-        Swatch("Sky", 0xFFA8D8FF.toInt()),
-        Swatch("Periwinkle", 0xFFC3C8FF.toInt()),
-        Swatch("Lilac", 0xFFE0C3FF.toInt()),
-        Swatch("Slate", 0xFFBFC7D1.toInt())
+        Swatch(R.string.clock_colour_white, 0xFFFFFFFF.toInt()),
+        Swatch(R.string.clock_colour_warm_white, 0xFFFFF2E0.toInt()),
+        Swatch(R.string.clock_colour_cool_white, 0xFFE8F1FF.toInt()),
+        Swatch(R.string.clock_colour_sand, 0xFFF2DCB3.toInt()),
+        Swatch(R.string.clock_colour_blush, 0xFFFFD3D8.toInt()),
+        Swatch(R.string.clock_colour_coral, 0xFFFFB4A2.toInt()),
+        Swatch(R.string.clock_colour_amber, 0xFFFFD479.toInt()),
+        Swatch(R.string.clock_colour_mint, 0xFFB8EBD0.toInt()),
+        Swatch(R.string.clock_colour_sky, 0xFFA8D8FF.toInt()),
+        Swatch(R.string.clock_colour_periwinkle, 0xFFC3C8FF.toInt()),
+        Swatch(R.string.clock_colour_lilac, 0xFFE0C3FF.toInt()),
+        Swatch(R.string.clock_colour_slate, 0xFFBFC7D1.toInt())
     )
 
-    data class Swatch(val label: String, @ColorInt val color: Int)
+    data class Swatch(@StringRes val label: Int, @ColorInt val color: Int)
 
     /**
      * Resolves the colour the face should be drawn in.

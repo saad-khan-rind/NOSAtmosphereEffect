@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.helper.GlassEffectSettings
@@ -32,18 +33,18 @@ import com.app.nosatmosphereeffect.storage.PlaylistCollectionStore
 import com.app.nosatmosphereeffect.storage.PlaylistImageSource
 import com.app.nosatmosphereeffect.storage.SharedPreferencesTransactions
 import com.app.nosatmosphereeffect.storage.WallpaperStorageCoordinator
+import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.screens.PlaylistEditorScreen
 import com.app.nosatmosphereeffect.ui.screens.PlaylistEntry
 import com.app.nosatmosphereeffect.ui.screens.ProcessingOverlay
 import com.app.nosatmosphereeffect.ui.screens.SimpleConfirmDialog
-import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONException
 
@@ -83,7 +84,12 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                 }
                 Toast.makeText(
                     this,
-                    "${uris.size} ${themeLabel(selectedPlaylist).lowercase()} images added",
+                    resources.getQuantityString(
+                        if (selectedPlaylist == 0) R.plurals.theme_light_images_added
+                        else R.plurals.theme_dark_images_added,
+                        uris.size,
+                        uris.size
+                    ),
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -180,7 +186,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                 }
                 val activeItems = itemsFor(selectedPlaylist)
                 PlaylistEditorScreen(
-                    title = "Theme playlists",
+                    title = getString(R.string.theme_playlists_title),
                     effectId = effectId,
                     showAtmosphereGlassOption =
                         EffectCatalog.supportsAtmosphereGlass(effectId),
@@ -197,11 +203,14 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                             isEdited = item.isEdited
                         )
                     },
-                    playlistTabs = listOf("Light", "Dark"),
+                    playlistTabs = listOf(
+                        getString(R.string.theme_tab_light),
+                        getString(R.string.theme_tab_dark)
+                    ),
                     playlistCounts = listOf(lightItems.size, darkItems.size),
                     selectedPlaylist = selectedPlaylist,
                     onPlaylistSelected = { selectedPlaylist = it },
-                    applyLabel = "Set playlists",
+                    applyLabel = getString(R.string.theme_set_playlists),
                     applyEnabled = lightItems.isNotEmpty() && darkItems.isNotEmpty(),
                     onEditItem = { position -> launchEditor(position) },
                     onDeleteItem = { position ->
@@ -225,11 +234,10 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
 
                 if (showApplyConfirm) {
                     SimpleConfirmDialog(
-                        title = "Apply theme playlists",
-                        message = "On the next screen, tap:\n\n" +
-                            "Set Wallpaper › Home Screen and Lock Screen.",
-                        confirmLabel = "Set wallpaper",
-                        dismissLabel = "Cancel",
+                        title = getString(R.string.theme_apply_title),
+                        message = getString(R.string.theme_apply_message),
+                        confirmLabel = getString(R.string.playlist_set_wallpaper),
+                        dismissLabel = getString(R.string.common_cancel),
                         onConfirm = {
                             showApplyConfirm = false
                             applyPlaylists()
@@ -240,10 +248,13 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                 if (isProcessing) {
                     ProcessingOverlay(
                         message = if (draftState.totalCount > 0) {
-                            "Processing ${draftState.processedCount} of " +
-                                "${draftState.totalCount} images…"
+                            getString(
+                                R.string.playlist_processing,
+                                draftState.processedCount,
+                                draftState.totalCount
+                            )
                         } else {
-                            "Getting your theme playlists ready…"
+                            getString(R.string.theme_getting_ready)
                         }
                     )
                 }
@@ -320,7 +331,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
 
     private fun applyPlaylists() {
         if (lightItems.isEmpty() || darkItems.isEmpty()) {
-            Toast.makeText(this, "Add at least one image to each playlist", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.theme_need_both, Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -424,25 +435,25 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
                 reportApplyFailure(
                     "Unable to persist theme playlists",
                     error,
-                    "Couldn't save the playlists. Check you have some free space and try again."
+                    getString(R.string.theme_error_storage)
                 )
             } catch (error: SecurityException) {
                 reportApplyFailure(
                     "Theme playlist image permission was rejected",
                     error,
-                    "Atmo Engine can't open one of the images anymore. Try adding it again."
+                    getString(R.string.playlist_error_permission)
                 )
             } catch (error: JSONException) {
                 reportApplyFailure(
                     "Unable to create theme playlist metadata",
                     error,
-                    "Something went wrong saving the playlists. Please try again."
+                    getString(R.string.theme_error_metadata)
                 )
             } catch (error: RuntimeException) {
                 reportApplyFailure(
                     "Unexpected theme playlist apply failure",
                     error,
-                    "Couldn't get the playlists ready. Please try again."
+                    getString(R.string.theme_error_unexpected)
                 )
             }
         }
@@ -596,7 +607,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
         if (!draftState.applyCompleted) return
         draftState.applyCompleted = false
         sendBroadcast(Intent(ACTION_RELOAD_WALLPAPER).setPackage(packageName))
-        Toast.makeText(this, "Theme playlists are ready", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, R.string.theme_ready, Toast.LENGTH_LONG).show()
         activateService()
     }
 
@@ -716,7 +727,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
         loadLegacyCollection(playlistDir, destination)
         Toast.makeText(
             this,
-            "Some of your crops couldn't be restored.",
+            getString(R.string.playlist_crops_not_restored),
             Toast.LENGTH_LONG
         ).show()
     }
@@ -740,15 +751,13 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "Your phone doesn't seem to have a live wallpaper picker.",
+                getString(R.string.playlist_no_picker),
                 Toast.LENGTH_LONG
             ).show()
         }
     }
 
     private fun itemsFor(index: Int) = if (index == 0) lightItems else darkItems
-
-    private fun themeLabel(index: Int) = if (index == 0) "Light" else "Dark"
 
     private fun readStoredAtmosphereGlass(): Boolean {
         return try {

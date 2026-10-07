@@ -10,6 +10,7 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import com.app.nosatmosphereeffect.BuildConfig
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.storage.ActiveFolderWatch
 import com.app.nosatmosphereeffect.storage.PlaylistCollectionStore
 import com.app.nosatmosphereeffect.storage.PlaylistImageSource
@@ -104,7 +105,7 @@ internal object FolderPlaylistSource {
                         ?: MediaFolder(
                             id = bucketId,
                             name = cursor.getString(nameColumn)?.takeIf(String::isNotBlank)
-                                ?: "Unnamed folder",
+                                ?: context.getString(R.string.folders_unnamed),
                             imageCount = 1,
                             cover = imageUri(cursor.getLong(idColumn))
                         )

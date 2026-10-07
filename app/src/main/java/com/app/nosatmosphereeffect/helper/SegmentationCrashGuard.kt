@@ -2,6 +2,8 @@ package com.app.nosatmosphereeffect.helper
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.annotation.StringRes
+import com.app.nosatmosphereeffect.R
 
 /**
  * Firewalls against native crashes inside third-party segmentation code
@@ -47,10 +49,8 @@ object SegmentationCrashGuard {
     private const val PREFS_NAME = "segmentation_crash_guard"
 
     /** Shown wherever detection is paused for the model version on this phone. */
-    const val MODEL_PAUSED =
-        "Google's subject detection crashed the app on this phone, so it's paused. It's a " +
-            "problem with a recent Google Play services update, not your photo. Tap Try again " +
-            "to give it another go, or it'll try again by itself once Play services updates."
+    @StringRes
+    val MODEL_PAUSED: Int = R.string.subject_model_paused
 
     private val cores = HashMap<String, CrashGuardCore>()
 
@@ -89,24 +89,18 @@ object SegmentationCrashGuard {
                 false
             }
             CrashGuardCore.Outcome.DISABLED -> {
-                SubjectMaskDiagnostics.recordRejection(
-                    "Subject detection kept crashing the app, so it's turned off. " +
-                        "You can turn it back on from the clock screen."
-                )
+                SubjectMaskDiagnostics.recordRejection(R.string.subject_turned_off)
                 false
             }
             is CrashGuardCore.Outcome.CrashDetected -> {
-                SubjectMaskDiagnostics.recordRejection(
-                    when {
-                        outcome.pausedModel -> MODEL_PAUSED
-                        outcome.nowDisabled ->
-                            "Subject detection crashed the app ${outcome.streak} times in a row, " +
-                                "so it's turned off. You can turn it back on from the clock screen."
-                        else ->
-                            "Subject detection crashed the app last time, so it's skipping " +
-                                "this go. It'll try again shortly."
-                    }
-                )
+                when {
+                    outcome.pausedModel -> SubjectMaskDiagnostics.recordRejection(MODEL_PAUSED)
+                    outcome.nowDisabled -> SubjectMaskDiagnostics.recordCountedRejection(
+                        R.plurals.subject_crashed_streak,
+                        outcome.streak
+                    )
+                    else -> SubjectMaskDiagnostics.recordRejection(R.string.subject_skipping)
+                }
                 false
             }
         }

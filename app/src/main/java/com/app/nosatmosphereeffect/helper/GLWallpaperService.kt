@@ -10,6 +10,7 @@ import android.os.Looper
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
+import com.app.nosatmosphereeffect.R
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -182,7 +183,7 @@ abstract class GLWallpaperService : WallpaperService() {
             PaletteSyncDiagnostics.record(
                 this@GLWallpaperService,
                 PaletteSyncDiagnostics.STAGE_REFRESH_QUEUED,
-                "${this@GLWallpaperService::class.java.simpleName} queued a palette refresh"
+                getString(R.string.palette_trace_queued, this@GLWallpaperService::class.java.simpleName)
             )
             systemColorHandler.removeCallbacks(publishSystemColors)
             systemColorHandler.post(publishSystemColors)
@@ -193,7 +194,7 @@ abstract class GLWallpaperService : WallpaperService() {
                 PaletteSyncDiagnostics.record(
                     this@GLWallpaperService,
                     PaletteSyncDiagnostics.STAGE_DISABLED,
-                    "System color sync is disabled"
+                    getString(R.string.palette_trace_disabled)
                 )
                 clearSystemColorState()
                 return null
@@ -205,7 +206,7 @@ abstract class GLWallpaperService : WallpaperService() {
                 PaletteSyncDiagnostics.record(
                     this@GLWallpaperService,
                     PaletteSyncDiagnostics.STAGE_MISSING_WALLPAPER,
-                    "The active wallpaper file is missing or unreadable",
+                    getString(R.string.palette_trace_missing),
                     "FileNotFoundException: Active wallpaper image is missing or unreadable"
                 )
                 clearSystemColorState()
@@ -229,7 +230,7 @@ abstract class GLWallpaperService : WallpaperService() {
                 PaletteSyncDiagnostics.record(
                     this@GLWallpaperService,
                     PaletteSyncDiagnostics.STAGE_DISABLED,
-                    "System color sync is disabled"
+                    getString(R.string.palette_trace_disabled)
                 )
                 clearSystemColorState()
                 colorRequestVersion++
@@ -241,7 +242,7 @@ abstract class GLWallpaperService : WallpaperService() {
                 PaletteSyncDiagnostics.record(
                     this@GLWallpaperService,
                     PaletteSyncDiagnostics.STAGE_MISSING_WALLPAPER,
-                    "The active wallpaper file is missing or unreadable",
+                    getString(R.string.palette_trace_missing),
                     "FileNotFoundException: Active wallpaper image is missing or unreadable"
                 )
                 clearSystemColorState()
@@ -257,7 +258,7 @@ abstract class GLWallpaperService : WallpaperService() {
             PaletteSyncDiagnostics.record(
                 this@GLWallpaperService,
                 PaletteSyncDiagnostics.STAGE_EXTRACTING,
-                "${this@GLWallpaperService::class.java.simpleName} is extracting colors"
+                getString(R.string.palette_trace_extracting, this@GLWallpaperService::class.java.simpleName)
             )
             systemColorExecutor.execute {
                 val extraction = runCatching {
@@ -288,14 +289,14 @@ abstract class GLWallpaperService : WallpaperService() {
                             PaletteSyncDiagnostics.record(
                                 this@GLWallpaperService,
                                 PaletteSyncDiagnostics.STAGE_PUBLISHED,
-                                "${this@GLWallpaperService::class.java.simpleName} completed notifyColorsChanged()",
+                                getString(R.string.palette_trace_published, this@GLWallpaperService::class.java.simpleName),
                                 clearError = true
                             )
                         } catch (failure: Throwable) {
                             PaletteSyncDiagnostics.record(
                                 this@GLWallpaperService,
                                 PaletteSyncDiagnostics.STAGE_PUBLISH_FAILED,
-                                "Android rejected the wallpaper color callback",
+                                getString(R.string.palette_trace_rejected),
                                 failure.toDiagnosticText()
                             )
                         }
@@ -304,14 +305,14 @@ abstract class GLWallpaperService : WallpaperService() {
                         PaletteSyncDiagnostics.record(
                             this@GLWallpaperService,
                             PaletteSyncDiagnostics.STAGE_EXTRACTION_FAILED,
-                            "The wallpaper engine could not publish colors",
-                            failure?.toDiagnosticText() ?: "Unknown extraction failure"
+                            getString(R.string.palette_trace_failed),
+                            failure?.toDiagnosticText() ?: getString(R.string.palette_trace_unknown_failure)
                         )
                         runCatching { notifyColorsChanged() }.onFailure { publishFailure ->
                             PaletteSyncDiagnostics.record(
                                 this@GLWallpaperService,
                                 PaletteSyncDiagnostics.STAGE_PUBLISH_FAILED,
-                                "Android rejected the empty wallpaper color callback",
+                                getString(R.string.palette_trace_rejected_empty),
                                 publishFailure.toDiagnosticText()
                             )
                         }
