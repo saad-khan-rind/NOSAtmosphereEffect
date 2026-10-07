@@ -24,12 +24,10 @@ import kotlin.math.roundToInt
  *
  * Google updates the model on its own schedule, and a bad version can crash
  * the app natively (SIGBUS inside its code) or answer nonsense. Before every
- * use the model's version is read, without loading it: a version known to be
- * broken ([KNOWN_BAD_MODEL_VERSIONS]) is never used, and any other version is
- * paused by [SegmentationCrashGuard] after one crash or one broken answer,
- * until Play services moves to another version. A native crash can't be
- * caught, so not calling a broken model is the only way to keep it from
- * crashing the app.
+ * use the model's version is read, without loading it. A version that crashed
+ * the app once is paused by [SegmentationCrashGuard] until Play services moves
+ * to another version, or the user taps Try again; a nonsense answer only
+ * rejects that one image, since the same version may do fine on others.
  */
 class SubjectMaskExtractor(
     context: Context,
@@ -41,14 +39,6 @@ class SubjectMaskExtractor(
     companion object {
         private const val TAG = "SubjectMaskExtractor"
         private const val MODULE_ID = "com.google.android.gms.mlkit_subject_segmentation"
-
-        /**
-         * Versions of Google's subject module known to be broken, by their
-         * first six digits (module 263635001, shipped as 263635100400):
-         * 263635 crashed with SIGBUS in production and marked every pixel of
-         * every photo as subject.
-         */
-        private val KNOWN_BAD_MODEL_VERSIONS = setOf(263_635)
 
         /** Last version read, for screens that must not wait on Play services. */
         @Volatile private var cachedModelVersion: Int = 0
@@ -67,20 +57,16 @@ class SubjectMaskExtractor(
                 .getOrDefault(0)
                 .also { if (it > 0) cachedModelVersion = it }
 
-        private fun isKnownBad(version: Int): Boolean =
-            version > 0 && version / 1000 in KNOWN_BAD_MODEL_VERSIONS
-
         /**
          * What Play services has: not installed, installed and usable, or
-         * installed but broken (a known bad version, or one paused after a
-         * crash or a broken answer). Never loads the model. Off the main
-         * thread only.
+         * installed but paused after it crashed the app. Never loads the
+         * model. Off the main thread only.
          */
         fun modelAvailability(context: Context): SubjectModelPhase {
             val version = readModelVersion(context)
             return when {
                 version <= 0 -> SubjectModelPhase.NOT_DOWNLOADED
-                isKnownBad(version) || SegmentationCrashGuard.isPausedForModel(context) ->
+                SegmentationCrashGuard.isPausedForModel(context) ->
                     SubjectModelPhase.BROKEN
                 else -> SubjectModelPhase.READY
             }
@@ -97,6 +83,14 @@ class SubjectMaskExtractor(
 
         /** A spread smaller than this across the whole mask is no real answer. */
         private const val MIN_MASK_SPREAD = 0.01f
+
+        /** No real photo is this much subject: the model answered wrongly. */
+        private const val UNUSABLE_FOREGROUND_FRACTION = 0.98f
+
+        private const val UNUSABLE_ANSWER =
+            "Google's subject model gave an unusable answer for this photo (it marked the whole " +
+                "image as subject). That's the model, not your photo. Tap Try again, or try " +
+                "another photo."
     }
 
     /** Reads the model's version before each use, off the caller's thread. */
@@ -144,13 +138,6 @@ class SubjectMaskExtractor(
             return
         }
         val version = readModelVersion(appContext)
-        if (isKnownBad(version)) {
-            // Never touched: this version crashes or answers nonsense.
-            SubjectMaskDiagnostics.recordRejection(SegmentationCrashGuard.MODEL_PAUSED)
-            inputBitmap.recycle()
-            if (!closed) onResult(requestId, null, false)
-            return
-        }
         // The version doubles as the "is it installed" check: asking Play
         // services through a model client would load the model's native code
         // just to find out.
@@ -265,16 +252,24 @@ class SubjectMaskExtractor(
                                     if (value >= HIGH_CONFIDENCE) highConfidenceCount++
                                 }
 
-                                // The same value for every pixel is no answer
-                                // at all: a broken model, not the photo. Paused
-                                // for this version so it isn't called again.
-                                if (highest - lowest < MIN_MASK_SPREAD) {
-                                    Log.w(TAG, "The subject model answered $lowest..$highest for every pixel")
-                                    SegmentationCrashGuard.pauseModel(appContext, model)
+                                val foregroundFraction = foregroundCount.toFloat() / count
+
+                                // (Nearly) the same value for every pixel, or
+                                // (nearly) everything marked as subject, is no
+                                // answer at all: the model, not the photo. Only
+                                // this image is rejected; the same version may
+                                // do fine on others.
+                                if (highest - lowest < MIN_MASK_SPREAD ||
+                                    foregroundFraction >= UNUSABLE_FOREGROUND_FRACTION
+                                ) {
+                                    Log.w(
+                                        TAG,
+                                        "Unusable subject mask: $lowest..$highest, " +
+                                            "${(foregroundFraction * 100).roundToInt()}% subject"
+                                    )
+                                    SubjectMaskDiagnostics.recordRejection(UNUSABLE_ANSWER)
                                     return@maskComputation null
                                 }
-
-                                val foregroundFraction = foregroundCount.toFloat() / count
                                 val highConfidenceFraction = highConfidenceCount.toFloat() / count
                                 val subjectWidth = maxX - minX + 1
                                 val subjectHeight = maxY - minY + 1

@@ -252,7 +252,7 @@ fun AdvancedSettingsScreen(
         SubjectModelPhase.PAUSED -> "Download paused"
         SubjectModelPhase.READY -> "Subject model downloaded"
         SubjectModelPhase.FAILED -> "Retry model download"
-        SubjectModelPhase.BROKEN -> "Google's model isn't working"
+        SubjectModelPhase.BROKEN -> "Google's model is paused"
     }
     val subjectModelStatusText = when {
         bundledSubjectModel ->
@@ -270,8 +270,9 @@ fun AdvancedSettingsScreen(
         subjectModelState.phase == SubjectModelPhase.READY ->
             "Installed and ready. It runs on your phone, even offline."
         subjectModelState.phase == SubjectModelPhase.BROKEN ->
-            "Installed, but the version Google Play services has on this phone right now isn't " +
-                "working, so Atmo isn't using it. It'll be used again once Play services updates."
+            "Installed, but it crashed the app on this phone, so it's paused. Tap Try again on " +
+                "the clock screen to give it another go, or it'll be used again once Play " +
+                "services updates."
         else -> "Couldn't check the model. Try again once Google Play services is working."
     }
 
