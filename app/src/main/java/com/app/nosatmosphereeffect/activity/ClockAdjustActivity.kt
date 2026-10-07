@@ -411,7 +411,9 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         )
     }
     val wantsScene = style.adaptsToSubject && adaptToSubject
-    LaunchedEffect(wallpaperBitmap, wantsScene) {
+    // Bumped by "Try again", to run detection here once more.
+    var detectionAttempt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(wallpaperBitmap, wantsScene, detectionAttempt) {
         val photo = wallpaperBitmap ?: return@LaunchedEffect
         if (!wantsScene) return@LaunchedEffect
         lateinit var coordinator: SubjectMaskCoordinator
@@ -890,7 +892,19 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 onArmEyedropper = { eyedropperArmed = true },
                 maskFailure = maskFailure,
                 segmentationDisabled = SegmentationCrashGuard.isDisabled(context),
-                onResetSegmentation = { SegmentationCrashGuard.reset(context) },
+                onResetSegmentation = {
+                    // Clears any pause, so the model's version is checked
+                    // again (Play services may have updated it), then runs
+                    // detection again here and in the live wallpaper, which
+                    // only segments when its image reloads.
+                    SegmentationCrashGuard.reset(context)
+                    SubjectMaskDiagnostics.clear()
+                    maskFailure = null
+                    detectionAttempt++
+                    context.sendBroadcast(
+                        Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER").setPackage(context.packageName)
+                    )
+                },
                 onResetAll = {
                     colorPref = AtmosphereClockPolicy.DEFAULT_COLOR
                     setClock(AtmosphereClockPolicy.DEFAULT_PLACEMENT)
@@ -1275,18 +1289,22 @@ private fun MoreTab(
     Spacer(Modifier.height(14.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ActionChip(icon = Icons.Rounded.RestartAlt, label = "Reset clock", onClick = onResetAll)
-        if (segmentationDisabled) {
+        // Whenever detection didn't work, for whatever reason.
+        if (segmentationDisabled || maskFailure != null) {
             ActionChip(
                 icon = Icons.Rounded.Refresh,
-                label = "Turn subject detection back on",
+                label = "Try again",
                 onClick = onResetSegmentation
             )
         }
     }
     val notice = when {
+        // Google's model is paused for the version on this phone: say so,
+        // rather than blaming crashes or the photo.
+        maskFailure == SegmentationCrashGuard.MODEL_PAUSED -> maskFailure
         segmentationDisabled ->
-            "Subject detection kept crashing a part of the system, so we turned it off. " +
-                "Nothing will cover the clock until you turn it back on."
+            "Subject detection kept crashing, so it's turned off for now. Tap Try again " +
+                "to give it another go."
         maskFailure != null && selected.adaptsToSubject ->
             "The digits can't fit around the subject yet. $maskFailure"
         maskFailure != null -> "No depth effect yet. $maskFailure"

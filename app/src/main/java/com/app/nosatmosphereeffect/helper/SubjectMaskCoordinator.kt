@@ -189,6 +189,15 @@ internal class SubjectMaskCoordinator(
             }
         }
         if (retrying) scheduleRetry()
+        // The newest image has its final answer: let go of the model until the
+        // next image. Kept open for the life of the wallpaper, Google's model
+        // stays mapped in this process while Play services may replace it,
+        // and a model that misbehaves gets more chances to take the process
+        // down with it. A new extractor is made for the next request.
+        val idleExtractor = synchronized(lock) {
+            if (!retrying && generation == latestRequest) extractor.also { extractor = null } else null
+        }
+        idleExtractor?.close()
         // Kept through a retry, so its answer is still cached for the others.
         val fingerprint = synchronized(lock) {
             if (retrying) fingerprints[generation] else fingerprints.remove(generation)

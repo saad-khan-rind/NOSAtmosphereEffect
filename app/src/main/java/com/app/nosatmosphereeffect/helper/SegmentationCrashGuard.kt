@@ -28,9 +28,29 @@ import android.content.SharedPreferences
  * renderers one at a time. Attempts are now counted in memory, and the flag
  * on disk is only read as a crash by the first attempt of a new process —
  * the one moment it can only have been left behind by a process that died.
+ *
+ * ## One strike per model version
+ *
+ * When the model's version is known (Google Play services downloads the
+ * subject model and updates it on its own schedule, see
+ * [SubjectMaskExtractor.modelVersion]), a single crash pauses detection for
+ * that version, and so does an answer that is plainly broken ([pauseModel]).
+ * Version 263635 of Google's subject module did both in production: SIGBUS in
+ * its native code, and every pixel of every photo marked as subject. Trying
+ * it again only crashes again, and a live wallpaper whose process dies twice
+ * within ten seconds is replaced by Android's default wallpaper. Once Play
+ * services moves to another version of the model, detection tries again by
+ * itself. Without a known version (the bundled model), the older rule stays:
+ * skip one attempt after a crash, switch off after two in a row.
  */
 object SegmentationCrashGuard {
     private const val PREFS_NAME = "segmentation_crash_guard"
+
+    /** Shown wherever detection is paused for the model version on this phone. */
+    const val MODEL_PAUSED =
+        "Google's subject detection isn't working on this phone right now. It's a problem " +
+            "with a recent Google Play services update, not your photo. It'll try again by " +
+            "itself once Play services updates."
 
     private val cores = HashMap<String, CrashGuardCore>()
 
@@ -41,19 +61,43 @@ object SegmentationCrashGuard {
         }
     }
 
-    fun isDisabled(context: Context): Boolean = core(context).isDisabled()
+    /**
+     * True when detection is off: after repeated crashes, or paused for the
+     * model version this phone has now.
+     */
+    fun isDisabled(context: Context): Boolean =
+        core(context).isDisabled(SubjectMaskExtractor.modelVersion(context))
+
+    /** True when detection is paused for the model version this phone has now. */
+    fun isPausedForModel(context: Context): Boolean =
+        core(context).isPaused(SubjectMaskExtractor.modelVersion(context))
+
+    /**
+     * The model answered with something no real photo produces. Detection is
+     * paused for [model], as after a crash, and the reason shown.
+     */
+    fun pauseModel(context: Context, model: String?) {
+        if (model == null) return
+        core(context).pause(model)
+        SubjectMaskDiagnostics.recordRejection(MODEL_PAUSED)
+    }
 
     /**
      * Call immediately before invoking the third-party code that might
      * crash the process natively — as close to that call as possible, so
      * the window between this write and the risky call is as small as it
-     * can be. Returns false if this attempt should be skipped instead
-     * (either permanently disabled after repeated crashes, or backing off
-     * from a crash detected just now).
+     * can be. [model] is the model's version when known. Returns false if
+     * this attempt should be skipped instead: paused for this model version,
+     * switched off after repeated crashes, or backing off from a crash
+     * detected just now.
      */
-    fun beginAttempt(context: Context): Boolean {
-        return when (val outcome = core(context).begin()) {
+    fun beginAttempt(context: Context, model: String? = null): Boolean {
+        return when (val outcome = core(context).begin(model)) {
             CrashGuardCore.Outcome.ALLOWED -> true
+            CrashGuardCore.Outcome.PAUSED -> {
+                SubjectMaskDiagnostics.recordRejection(MODEL_PAUSED)
+                false
+            }
             CrashGuardCore.Outcome.DISABLED -> {
                 SubjectMaskDiagnostics.recordRejection(
                     "Subject detection kept crashing the app, so it's turned off. " +
@@ -63,12 +107,15 @@ object SegmentationCrashGuard {
             }
             is CrashGuardCore.Outcome.CrashDetected -> {
                 SubjectMaskDiagnostics.recordRejection(
-                    "Subject detection crashed the app last time, so it's " +
-                        "skipping this go" + if (outcome.nowDisabled) {
-                            " and turning itself off (it crashed ${outcome.streak} times in a row)."
-                        } else {
-                            ". It'll try again shortly."
-                        }
+                    when {
+                        outcome.pausedModel -> MODEL_PAUSED
+                        outcome.nowDisabled ->
+                            "Subject detection crashed the app ${outcome.streak} times in a row, " +
+                                "so it's turned off. You can turn it back on from the clock screen."
+                        else ->
+                            "Subject detection crashed the app last time, so it's skipping " +
+                                "this go. It'll try again shortly."
+                    }
                 )
                 false
             }
@@ -89,7 +136,7 @@ object SegmentationCrashGuard {
      */
     fun wasAttemptInFlight(context: Context): Boolean = core(context).wasInFlight()
 
-    /** Exposed for a "try again" action in the UI after a disable. */
+    /** Exposed for a "try again" action in the UI after a disable or a pause. */
     fun reset(context: Context) = core(context).reset()
 
     private class PreferencesStore(private val prefs: SharedPreferences) : CrashGuardCore.Store {
@@ -105,6 +152,11 @@ object SegmentationCrashGuard {
             set(value) {
                 prefs.edit().putInt(CRASH_STREAK_KEY, value).commit()
             }
+        override var pausedModel: String?
+            get() = prefs.getString(PAUSED_MODEL_KEY, null)
+            set(value) {
+                prefs.edit().putString(PAUSED_MODEL_KEY, value).commit()
+            }
 
         override fun clear() {
             prefs.edit().clear().commit()
@@ -113,6 +165,7 @@ object SegmentationCrashGuard {
         private companion object {
             const val IN_FLIGHT_KEY = "in_flight"
             const val CRASH_STREAK_KEY = "crash_streak"
+            const val PAUSED_MODEL_KEY = "paused_model"
         }
     }
 }
@@ -128,13 +181,22 @@ internal class CrashGuardCore(private val store: Store) {
         var inFlight: Boolean
         /** Crashes in a row, cleared by any attempt that returns. */
         var streak: Int
+        /** The model version detection is paused for, if any. */
+        var pausedModel: String?
         fun clear()
     }
 
     sealed interface Outcome {
         data object ALLOWED : Outcome
         data object DISABLED : Outcome
-        data class CrashDetected(val streak: Int, val nowDisabled: Boolean) : Outcome
+        /** Paused for this model version, after a crash or a broken answer. */
+        data object PAUSED : Outcome
+        data class CrashDetected(
+            val streak: Int,
+            val nowDisabled: Boolean,
+            /** True when the crash paused this model version. */
+            val pausedModel: Boolean = false
+        ) : Outcome
     }
 
     private val lock = Any()
@@ -143,18 +205,38 @@ internal class CrashGuardCore(private val store: Store) {
     /** Whether this process has looked for a crash left by a previous one. */
     private var checkedForCrash = false
 
-    fun isDisabled(): Boolean = synchronized(lock) { store.streak >= DISABLE_AFTER_STREAK }
+    fun isDisabled(model: String? = null): Boolean = synchronized(lock) {
+        store.streak >= DISABLE_AFTER_STREAK || isPausedLocked(model)
+    }
 
-    fun begin(): Outcome = synchronized(lock) {
+    fun isPaused(model: String?): Boolean = synchronized(lock) { isPausedLocked(model) }
+
+    private fun isPausedLocked(model: String?): Boolean =
+        model != null && store.pausedModel == model
+
+    fun pause(model: String) = synchronized(lock) {
+        store.pausedModel = model
+    }
+
+    fun begin(model: String? = null): Outcome = synchronized(lock) {
+        // A different model version than the one paused for: try again.
+        val paused = store.pausedModel
+        if (model != null && paused != null && paused != model) store.pausedModel = null
+        if (isPausedLocked(model)) return Outcome.PAUSED
         if (store.streak >= DISABLE_AFTER_STREAK) return Outcome.DISABLED
         if (!checkedForCrash) {
             checkedForCrash = true
             // Nothing in this process has started an attempt yet, so a set
             // flag can only have been left by a process that died mid-attempt.
             if (store.inFlight) {
+                store.inFlight = false
+                if (model != null) {
+                    // One strike for a known model version.
+                    store.pausedModel = model
+                    return Outcome.CrashDetected(store.streak, nowDisabled = false, pausedModel = true)
+                }
                 val streak = store.streak + 1
                 store.streak = streak
-                store.inFlight = false
                 return Outcome.CrashDetected(streak, streak >= DISABLE_AFTER_STREAK)
             }
         }

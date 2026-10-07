@@ -22,19 +22,26 @@ class SubjectMaskExtractor(
     private val onResult: (requestId: Long, mask: Bitmap?, failed: Boolean) -> Unit
 ) : Closeable {
 
-    private companion object {
-        const val TAG = "SubjectMaskExtractor"
-        const val MODEL_ASSET = "models/u2netp_320x320.tflite"
-        const val INPUT_SIZE = 320
-        const val THREAD_COUNT = 2
-        const val CONFIDENT_FOREGROUND = 0.55f
-        const val HIGH_CONFIDENCE = 0.75f
-        const val MIN_FOREGROUND_FRACTION = 0.012f
-        const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
-        const val MIN_RAW_CONFIDENCE = 0.40f
-        const val MIN_CONFIDENCE_RANGE = 0.10f
-        const val MASK_LOW = 0.28f
-        const val MASK_HIGH = 0.72f
+    companion object {
+        /**
+         * The model is built into the app, so there's no outside version to
+         * pause detection for; see SegmentationCrashGuard.
+         */
+        @Suppress("UNUSED_PARAMETER")
+        fun modelVersion(context: Context): String? = null
+
+        private const val TAG = "SubjectMaskExtractor"
+        private const val MODEL_ASSET = "models/u2netp_320x320.tflite"
+        private const val INPUT_SIZE = 320
+        private const val THREAD_COUNT = 2
+        private const val CONFIDENT_FOREGROUND = 0.55f
+        private const val HIGH_CONFIDENCE = 0.75f
+        private const val MIN_FOREGROUND_FRACTION = 0.012f
+        private const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
+        private const val MIN_RAW_CONFIDENCE = 0.40f
+        private const val MIN_CONFIDENCE_RANGE = 0.10f
+        private const val MASK_LOW = 0.28f
+        private const val MASK_HIGH = 0.72f
     }
 
     private val appContext = context.applicationContext

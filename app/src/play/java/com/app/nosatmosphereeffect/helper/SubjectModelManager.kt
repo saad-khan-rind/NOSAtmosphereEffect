@@ -1,6 +1,8 @@
 package com.app.nosatmosphereeffect.helper
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.google.android.gms.common.moduleinstall.InstallStatusListener
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
@@ -16,31 +18,36 @@ object SubjectModelBuild {
 /** Starts a Google Play services module download only after an explicit tap. */
 class SubjectModelManager(context: Context) : Closeable {
 
-    private val moduleClient = ModuleInstall.getClient(context.applicationContext)
-    private val segmenter = SubjectSegmentation.getClient(
-        SubjectSegmenterOptions.Builder().build()
-    )
+    private val appContext = context.applicationContext
+    private val moduleClient = ModuleInstall.getClient(appContext)
+
+    // Only made for a download: a model client loads the model's native code,
+    // which a version Play services ships broken can crash the app with.
+    private val segmenterHolder = lazy {
+        SubjectSegmentation.getClient(SubjectSegmenterOptions.Builder().build())
+    }
+    private val segmenter get() = segmenterHolder.value
+    private val main = Handler(Looper.getMainLooper())
 
     private var listener: InstallStatusListener? = null
     @Volatile private var closed = false
 
-    /** Reads the installed state without requesting or downloading anything. */
+    /**
+     * Reads the installed state without requesting or downloading anything,
+     * and without loading the model: from its version, read off the main
+     * thread. A broken version reads as BROKEN.
+     */
     fun checkAvailability(onState: (SubjectModelState) -> Unit) {
         if (closed) return
-        moduleClient.areModulesAvailable(segmenter)
-            .addOnSuccessListener { availability ->
-                if (closed) return@addOnSuccessListener
-                onState(
-                    if (availability.areModulesAvailable()) {
-                        SubjectModelState(SubjectModelPhase.READY, 100)
-                    } else {
-                        SubjectModelState(SubjectModelPhase.NOT_DOWNLOADED)
-                    }
-                )
+        Thread({
+            val phase = runCatching { SubjectMaskExtractor.modelAvailability(appContext) }
+                .getOrDefault(SubjectModelPhase.FAILED)
+            main.post {
+                if (!closed) {
+                    onState(SubjectModelState(phase, if (phase == SubjectModelPhase.READY) 100 else null))
+                }
             }
-            .addOnFailureListener {
-                if (!closed) onState(SubjectModelState(SubjectModelPhase.FAILED))
-            }
+        }, "SubjectModelCheck").apply { isDaemon = true }.start()
     }
 
     fun download(onState: (SubjectModelState) -> Unit) {
@@ -113,7 +120,7 @@ class SubjectModelManager(context: Context) : Closeable {
         if (closed) return
         closed = true
         unregisterListener()
-        segmenter.close()
+        if (segmenterHolder.isInitialized()) segmenter.close()
     }
 
     private fun unregisterListener() {
