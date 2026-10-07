@@ -27,6 +27,11 @@ object SubjectMaskDiagnostics {
         lastFailure = reason
     }
 
+    /** Forgets the last failure: detection is being tried again. */
+    fun clear() {
+        lastFailure = null
+    }
+
     fun recordSuccess() {
         lastFailure = null
         lastSuccessAtMillis = System.currentTimeMillis()

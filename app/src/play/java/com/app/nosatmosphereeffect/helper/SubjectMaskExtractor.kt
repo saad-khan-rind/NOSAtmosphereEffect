@@ -156,7 +156,8 @@ class SubjectMaskExtractor(
         // just to find out.
         if (version <= 0) {
             SubjectMaskDiagnostics.recordRejection(
-                "The subject model from Google Play services isn't installed yet"
+                "Google's subject model isn't on this phone yet. You can download it in " +
+                    "Fine tuning, with the Download subject model button."
             )
             inputBitmap.recycle()
             if (!closed) onResult(requestId, null, false)
