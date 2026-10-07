@@ -1278,12 +1278,15 @@ private fun MoreTab(
         if (segmentationDisabled) {
             ActionChip(
                 icon = Icons.Rounded.Refresh,
-                label = "Turn subject detection back on",
+                label = "Try subject detection again",
                 onClick = onResetSegmentation
             )
         }
     }
     val notice = when {
+        // Google's model is paused for the version on this phone: say so,
+        // rather than blaming crashes or the photo.
+        maskFailure == SegmentationCrashGuard.MODEL_PAUSED -> maskFailure
         segmentationDisabled ->
             "Subject detection kept crashing a part of the system, so we turned it off. " +
                 "Nothing will cover the clock until you turn it back on."

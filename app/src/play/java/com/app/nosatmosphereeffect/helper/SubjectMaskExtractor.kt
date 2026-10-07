@@ -4,10 +4,13 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.dynamite.DynamiteModule
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import java.io.Closeable
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -19,6 +22,15 @@ import kotlin.math.roundToInt
  * wrong — Play services unreachable or updating, a caught error, a skipped
  * attempt after a crash — rather than because the photo has no usable subject.
  * Those are worth asking again later; see [SubjectMaskCoordinator].
+ *
+ * Google updates the model on its own schedule, and a bad version can crash
+ * the app natively (SIGBUS inside its code) or answer nonsense. Before every
+ * use the model's version is read, without loading it: a version known to be
+ * broken ([KNOWN_BAD_MODEL_VERSIONS]) is never used, and any other version is
+ * paused by [SegmentationCrashGuard] after one crash or one broken answer,
+ * until Play services moves to another version. A native crash can't be
+ * caught, so not calling a broken model is the only way to keep it from
+ * crashing the app.
  */
 class SubjectMaskExtractor(
     context: Context,
@@ -27,23 +39,66 @@ class SubjectMaskExtractor(
 
     private val appContext = context.applicationContext
 
-    private companion object {
-        const val TAG = "SubjectMaskExtractor"
-        const val MAX_INPUT_SIDE = 1024
-        const val CONFIDENT_FOREGROUND = 0.55f
-        const val HIGH_CONFIDENCE = 0.75f
-        const val MIN_FOREGROUND_FRACTION = 0.012f
-        const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
-        const val MAX_FOREGROUND_FRACTION = 0.90f
-        const val MASK_LOW = 0.28f
-        const val MASK_HIGH = 0.72f
+    companion object {
+        private const val TAG = "SubjectMaskExtractor"
+        private const val MODULE_ID = "com.google.android.gms.mlkit_subject_segmentation"
+
+        /**
+         * Versions of Google's subject module known to be broken, by their
+         * first six digits (module 263635001, shipped as 263635100400):
+         * 263635 crashed with SIGBUS in production and marked every pixel of
+         * every photo as subject.
+         */
+        private val KNOWN_BAD_MODEL_VERSIONS = setOf(263_635)
+
+        /** Last version read, for screens that must not wait on Play services. */
+        @Volatile private var cachedModelVersion: Int = 0
+
+        /**
+         * The subject model's version as the crash guard keys it, or null
+         * when unknown. Never queries Play services: safe on the main thread.
+         */
+        fun modelVersion(context: Context): String? =
+            cachedModelVersion.takeIf { it > 0 }?.let { "mlkit-subject:$it" }
+
+        /** Reads the model's version from Play services. Off the main thread only. */
+        private fun readModelVersion(context: Context): Int =
+            runCatching { DynamiteModule.getRemoteVersion(context, MODULE_ID) }
+                .onFailure { Log.w(TAG, "Unable to read the subject model's version", it) }
+                .getOrDefault(0)
+                .also { if (it > 0) cachedModelVersion = it }
+
+        private fun isKnownBad(version: Int): Boolean =
+            version > 0 && version / 1000 in KNOWN_BAD_MODEL_VERSIONS
+
+        private const val MAX_INPUT_SIDE = 1024
+        private const val CONFIDENT_FOREGROUND = 0.55f
+        private const val HIGH_CONFIDENCE = 0.75f
+        private const val MIN_FOREGROUND_FRACTION = 0.012f
+        private const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
+        private const val MAX_FOREGROUND_FRACTION = 0.90f
+        private const val MASK_LOW = 0.28f
+        private const val MASK_HIGH = 0.72f
+
+        /** A spread smaller than this across the whole mask is no real answer. */
+        private const val MIN_MASK_SPREAD = 0.01f
     }
 
-    private val segmenter = SubjectSegmentation.getClient(
-        SubjectSegmenterOptions.Builder()
-            .enableForegroundConfidenceMask()
-            .build()
-    )
+    /** Reads the model's version before each use, off the caller's thread. */
+    private val worker = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "SubjectModelCheck").apply { isDaemon = true }
+    }
+
+    // Created on first real use, so a version that is never used is never
+    // opened either.
+    private val segmenterHolder = lazy {
+        SubjectSegmentation.getClient(
+            SubjectSegmenterOptions.Builder()
+                .enableForegroundConfidenceMask()
+                .build()
+        )
+    }
+    private val segmenter get() = segmenterHolder.value
     private val moduleClient = ModuleInstall.getClient(context.applicationContext)
 
     @Volatile private var closed = false
@@ -62,6 +117,27 @@ class SubjectMaskExtractor(
             return
         }
 
+        try {
+            worker.execute { checkModelThenProcess(inputBitmap, requestId) }
+        } catch (error: RejectedExecutionException) {
+            inputBitmap.recycle()
+        }
+    }
+
+    private fun checkModelThenProcess(inputBitmap: Bitmap, requestId: Long) {
+        if (closed) {
+            inputBitmap.recycle()
+            return
+        }
+        val version = readModelVersion(appContext)
+        if (isKnownBad(version)) {
+            // Never touched: this version crashes or answers nonsense.
+            SubjectMaskDiagnostics.recordRejection(SegmentationCrashGuard.MODEL_PAUSED)
+            inputBitmap.recycle()
+            if (!closed) onResult(requestId, null, false)
+            return
+        }
+        val model = modelVersion(appContext)
         if (!acquire()) {
             inputBitmap.recycle()
             return
@@ -78,7 +154,7 @@ class SubjectMaskExtractor(
                             inputBitmap.recycle()
                             onResult(requestId, null, false)
                         }
-                        else -> processInput(inputBitmap, requestId)
+                        else -> processInput(inputBitmap, requestId, model)
                     }
                 }
                 .addOnFailureListener { error ->
@@ -120,16 +196,17 @@ class SubjectMaskExtractor(
     }
 
     private fun closeSegmenter() {
+        if (!segmenterHolder.isInitialized()) return
         runCatching { segmenter.close() }
             .onFailure { error -> Log.w(TAG, "Could not close the subject segmenter", error) }
     }
 
-    private fun processInput(inputBitmap: Bitmap, requestId: Long) {
+    private fun processInput(inputBitmap: Bitmap, requestId: Long, model: String?) {
         if (!acquire()) {
             inputBitmap.recycle()
             return
         }
-        if (!SegmentationCrashGuard.beginAttempt(appContext)) {
+        if (!SegmentationCrashGuard.beginAttempt(appContext, model)) {
             inputBitmap.recycle()
             release()
             // Skipped once after a crash: worth another try. Disabled for
@@ -175,10 +252,14 @@ class SubjectMaskExtractor(
                                 var maxX = -1
                                 var maxY = -1
 
+                                var lowest = 1f
+                                var highest = 0f
                                 for (index in 0 until count) {
                                     val value = buffer.get().takeIf { it.isFinite() }
                                         ?.coerceIn(0f, 1f) ?: 0f
                                     values[index] = value
+                                    if (value < lowest) lowest = value
+                                    if (value > highest) highest = value
                                     if (value >= CONFIDENT_FOREGROUND) {
                                         foregroundCount++
                                         val x = index % inputBitmap.width
@@ -189,6 +270,15 @@ class SubjectMaskExtractor(
                                         if (y > maxY) maxY = y
                                     }
                                     if (value >= HIGH_CONFIDENCE) highConfidenceCount++
+                                }
+
+                                // The same value for every pixel is no answer
+                                // at all: a broken model, not the photo. Paused
+                                // for this version so it isn't called again.
+                                if (highest - lowest < MIN_MASK_SPREAD) {
+                                    Log.w(TAG, "The subject model answered $lowest..$highest for every pixel")
+                                    SegmentationCrashGuard.pauseModel(appContext, model)
+                                    return@maskComputation null
                                 }
 
                                 val foregroundFraction = foregroundCount.toFloat() / count
@@ -287,6 +377,7 @@ class SubjectMaskExtractor(
     }
 
     override fun close() {
+        worker.shutdown()
         val closeNow = synchronized(lock) {
             if (closed) return
             closed = true

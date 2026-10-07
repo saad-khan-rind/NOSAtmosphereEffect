@@ -11,9 +11,11 @@ class SegmentationCrashGuardTest {
     private class MemoryStore : CrashGuardCore.Store {
         override var inFlight = false
         override var streak = 0
+        override var pausedModel: String? = null
         override fun clear() {
             inFlight = false
             streak = 0
+            pausedModel = null
         }
     }
 
@@ -78,5 +80,44 @@ class SegmentationCrashGuardTest {
         restarted.begin()
         restarted.end()
         assertEquals(0, store.streak)
+    }
+
+    @Test
+    fun `one crash pauses a known model version straight away`() {
+        val store = MemoryStore()
+        CrashGuardCore(store).begin("mlkit:1") // the process dies here
+        val restarted = CrashGuardCore(store)
+        val caught = restarted.begin("mlkit:1") as CrashGuardCore.Outcome.CrashDetected
+        assertTrue(caught.pausedModel)
+        assertEquals(CrashGuardCore.Outcome.PAUSED, restarted.begin("mlkit:1"))
+        assertTrue(restarted.isDisabled("mlkit:1"))
+    }
+
+    @Test
+    fun `a new model version is tried again`() {
+        val store = MemoryStore()
+        val guard = CrashGuardCore(store)
+        guard.pause("mlkit:1")
+        assertEquals(CrashGuardCore.Outcome.PAUSED, guard.begin("mlkit:1"))
+        assertEquals(CrashGuardCore.Outcome.ALLOWED, guard.begin("mlkit:2"))
+        assertFalse(guard.isPaused("mlkit:2"))
+    }
+
+    @Test
+    fun `a broken answer pauses the version without any crash`() {
+        val guard = CrashGuardCore(MemoryStore())
+        guard.pause("mlkit:1")
+        assertTrue(guard.isPaused("mlkit:1"))
+        guard.reset()
+        assertEquals(CrashGuardCore.Outcome.ALLOWED, guard.begin("mlkit:1"))
+    }
+
+    @Test
+    fun `an unknown version keeps the two strike rule`() {
+        val store = MemoryStore()
+        CrashGuardCore(store).begin()
+        val caught = CrashGuardCore(store).begin() as CrashGuardCore.Outcome.CrashDetected
+        assertFalse(caught.pausedModel)
+        assertFalse(caught.nowDisabled)
     }
 }
