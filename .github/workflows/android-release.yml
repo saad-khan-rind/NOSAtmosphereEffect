@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from October 19, 2026, which may
+    # not ship the same Android SDK and Java setup. Move up once that's checked.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
