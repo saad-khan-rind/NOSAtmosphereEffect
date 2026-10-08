@@ -9,7 +9,9 @@ on:
 
 jobs:
   notify:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from October 19, 2026, which may
+    # not ship the same Android SDK and Java setup. Move up once that's checked.
+    runs-on: ubuntu-24.04
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout Code
