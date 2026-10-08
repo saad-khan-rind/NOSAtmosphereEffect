@@ -42,6 +42,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,7 +72,7 @@ internal fun SavedPlaylistsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AtmoTopBar(
-                title = "Saved playlists",
+                title = stringResource(R.string.saved_title),
                 backIcon = painterResource(R.drawable.ic_arrow_back),
                 onBack = onBack
             )
@@ -86,8 +88,7 @@ internal fun SavedPlaylistsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Playlists you apply are saved here automatically, so you can " +
-                        "switch back to them after using a single image.",
+                    stringResource(R.string.saved_empty),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -125,15 +126,19 @@ internal fun SavedPlaylistsScreen(
 
     deleting?.let { playlist ->
         SimpleConfirmDialog(
-            title = "Delete playlist?",
+            title = stringResource(R.string.saved_delete_title),
             message = if (playlist.isActive) {
-                "\"${playlist.name}\" is your current wallpaper. It keeps playing, " +
-                    "but it will no longer be saved here once you switch away."
+                stringResource(R.string.saved_delete_active, playlist.name)
             } else {
-                "\"${playlist.name}\" and its ${playlist.imageCount} images will be removed."
+                pluralStringResource(
+                    R.plurals.saved_delete_message,
+                    playlist.imageCount,
+                    playlist.name,
+                    playlist.imageCount
+                )
             },
-            confirmLabel = "Delete",
-            dismissLabel = "Cancel",
+            confirmLabel = stringResource(R.string.common_delete),
+            dismissLabel = stringResource(R.string.common_cancel),
             onConfirm = {
                 deleting = null
                 onDelete(playlist)
@@ -181,10 +186,16 @@ private fun SavedPlaylistRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 val details = buildList {
-                    add("${playlist.imageCount} images")
+                    add(
+                        pluralStringResource(
+                            R.plurals.common_image_count,
+                            playlist.imageCount,
+                            playlist.imageCount
+                        )
+                    )
                     if (!playlist.watch.isEmpty) {
                         val count = playlist.watch.folders.size
-                        add(if (count == 1) "watches 1 folder" else "watches $count folders")
+                        add(pluralStringResource(R.plurals.saved_watches_folders, count, count))
                     }
                 }.joinToString(" · ")
                 Text(
@@ -192,20 +203,20 @@ private fun SavedPlaylistRow(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (playlist.isActive) AtmoChip(text = "Current wallpaper")
+                if (playlist.isActive) AtmoChip(text = stringResource(R.string.saved_current))
             }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
+                    Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.common_more_options))
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("Rename") },
+                        text = { Text(stringResource(R.string.common_rename)) },
                         leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
                         onClick = { menuOpen = false; onRename() }
                     )
                     DropdownMenuItem(
-                        text = { Text("Delete") },
+                        text = { Text(stringResource(R.string.common_delete)) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
                         onClick = { menuOpen = false; onDelete() }
                     )
@@ -225,7 +236,7 @@ internal fun RenamePlaylistDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        title = { Text("Playlist name") },
+        title = { Text(stringResource(R.string.saved_name_title)) },
         text = {
             OutlinedTextField(
                 value = name,
@@ -236,14 +247,14 @@ internal fun RenamePlaylistDialog(
         },
         confirmButton = {
             AtmoTextButton(
-                text = "Save",
+                text = stringResource(R.string.common_save),
                 onClick = { onConfirm(name.trim()) },
                 enabled = name.isNotBlank()
             )
         },
         dismissButton = {
             AtmoTextButton(
-                text = "Cancel",
+                text = stringResource(R.string.common_cancel),
                 onClick = onDismiss,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -95,6 +95,7 @@ internal class VulkanAtmosphereHost(
         clockTexture.color = state.clockColor
         clockTexture.weight = state.clockWeight
         clockTexture.adaptiveColors = state.clockAdaptiveColors
+        clockTexture.adaptToSubject = state.clockAdaptToSubject
         clockTexture.hourFormatOverride =
             AtmosphereClockPolicy.hourFormatOverride(state.clockHourFormat)
     }
@@ -219,7 +220,8 @@ internal class VulkanAtmosphereHost(
      */
     fun beginClockEntry() {
         pendingClockEntry = true
-        requestRender()
+        // A clock that is off costs nothing: no frame for it, ever.
+        if (currentEffectState().clockEnabled) requestRender()
     }
 
     override fun prepareFrameOnWorker(
@@ -286,6 +288,10 @@ internal class VulkanAtmosphereHost(
             clockTexture.beginEntry()
         }
         clockTexture.scrollOffsetX = wallpaperScrollOffsetX
+        clockTexture.scrollWindowX = wallpaperScrollWindowX
+        // The shader places the clock against the surface; see
+        // VulkanClockOverlay.uploadIfNeeded.
+        surfaceAspect.takeIf { it > 0f }?.let { clockTexture.screenAspect = it }
         val bitmap = try {
             clockTexture.renderIfChanged()
         } catch (failure: RuntimeException) {
@@ -349,7 +355,7 @@ internal class VulkanAtmosphereHost(
     fun onTimeChanged() {
         clockTexture.refreshClockFormatPreference()
         clockTexture.reset()
-        requestRender()
+        if (currentEffectState().clockEnabled) requestRender()
     }
 
     private fun Bitmap.recycleSafely() {

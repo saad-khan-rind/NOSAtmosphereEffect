@@ -11,19 +11,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,12 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.Surface
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.TouchImageView
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
@@ -71,10 +73,10 @@ class CropController {
 }
 
 private val fitOptions = listOf(
-    "Screen Fill (Crop)",
-    "Fit Image (Show All)",
-    "Stretch",
-    "Rotate to Fit (Landscape)"
+    R.string.fit_fill,
+    R.string.fit_show_all,
+    R.string.fit_stretch,
+    R.string.fit_rotate
 )
 private val fitValues = listOf(
     WallpaperFitHelper.MODE_FILL,
@@ -82,7 +84,7 @@ private val fitValues = listOf(
     WallpaperFitHelper.MODE_STRETCH,
     WallpaperFitHelper.MODE_ROTATE_FIT
 )
-private val fillOptions = listOf("Black Bars", "Repeat Pattern", "Mirror Pattern")
+private val fillOptions = listOf(R.string.fill_black, R.string.fill_repeat, R.string.fill_mirror)
 private val fillValues = listOf(
     WallpaperFitHelper.FILL_BLACK,
     WallpaperFitHelper.FILL_REPEAT,
@@ -171,13 +173,13 @@ fun CropScreen(
                 ) {
                     AtmoAnimatedIconButton(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.common_back),
                         onClick = onBack,
                         motion = AtmoIconMotion.BACK
                     )
                     Spacer(Modifier.size(8.dp))
                     Text(
-                        "Frame wallpaper",
+                        stringResource(R.string.crop_title),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -216,8 +218,8 @@ fun CropScreen(
                     if (showAtmosphereGlassOption) {
                         AtmoReveal(delayMillis = 90) {
                             SettingSwitchRow(
-                                title = "Add glass effect",
-                                subtitle = "Keeps the Atmosphere transition and finishes on reeded glass.",
+                                title = stringResource(R.string.glass_add),
+                                subtitle = stringResource(R.string.glass_add_subtitle),
                                 checked = atmosphereGlassEnabled,
                                 onCheckedChange = onAtmosphereGlassEnabledChange
                             )
@@ -258,8 +260,8 @@ private fun FitChooserSection(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         AtmoDropdownField(
-            label = "Image Fit",
-            options = fitOptions,
+            label = stringResource(R.string.crop_image_fit),
+            options = fitOptions.map { stringResource(it) },
             selectedIndex = fitIndex,
             onSelected = { idx ->
                 fitIndex = idx
@@ -272,8 +274,8 @@ private fun FitChooserSection(
             exit = fadeOut() + shrinkVertically()
         ) {
             AtmoDropdownField(
-                label = "Empty space fill",
-                options = fillOptions,
+                label = stringResource(R.string.crop_empty_fill),
+                options = fillOptions.map { stringResource(it) },
                 selectedIndex = fillIndex,
                 onSelected = { idx ->
                     fillIndex = idx

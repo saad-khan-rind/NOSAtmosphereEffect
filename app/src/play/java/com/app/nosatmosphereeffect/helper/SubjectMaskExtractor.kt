@@ -3,43 +3,108 @@ package com.app.nosatmosphereeffect.helper
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.app.nosatmosphereeffect.R
+import com.google.android.gms.dynamite.DynamiteModule
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import java.io.Closeable
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
  * Uses the optional Google Play services subject model only when it is already
  * installed. Model downloads remain an explicit action in Advanced Settings.
+ *
+ * [onResult]'s `failed` is true when no mask came back because something went
+ * wrong — Play services unreachable or updating, a caught error, a skipped
+ * attempt after a crash — rather than because the photo has no usable subject.
+ * Those are worth asking again later; see [SubjectMaskCoordinator].
+ *
+ * Google updates the model on its own schedule, and a bad version can crash
+ * the app natively (SIGBUS inside its code) or answer nonsense. Before every
+ * use the model's version is read, without loading it. A version that crashed
+ * the app once is paused by [SegmentationCrashGuard] until Play services moves
+ * to another version, or the user taps Try again; a nonsense answer only
+ * rejects that one image, since the same version may do fine on others.
  */
 class SubjectMaskExtractor(
     context: Context,
-    private val onResult: (requestId: Long, mask: Bitmap?) -> Unit
+    private val onResult: (requestId: Long, mask: Bitmap?, failed: Boolean) -> Unit
 ) : Closeable {
 
     private val appContext = context.applicationContext
 
-    private companion object {
-        const val TAG = "SubjectMaskExtractor"
-        const val MAX_INPUT_SIDE = 1024
-        const val CONFIDENT_FOREGROUND = 0.55f
-        const val HIGH_CONFIDENCE = 0.75f
-        const val MIN_FOREGROUND_FRACTION = 0.012f
-        const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
-        const val MAX_FOREGROUND_FRACTION = 0.90f
-        const val MASK_LOW = 0.28f
-        const val MASK_HIGH = 0.72f
+    companion object {
+        private const val TAG = "SubjectMaskExtractor"
+        private const val MODULE_ID = "com.google.android.gms.mlkit_subject_segmentation"
+
+        /** Last version read, for screens that must not wait on Play services. */
+        @Volatile private var cachedModelVersion: Int = 0
+
+        /**
+         * The subject model's version as the crash guard keys it, or null
+         * when unknown. Never queries Play services: safe on the main thread.
+         */
+        fun modelVersion(context: Context): String? =
+            cachedModelVersion.takeIf { it > 0 }?.let { "mlkit-subject:$it" }
+
+        /** Reads the model's version from Play services. Off the main thread only. */
+        private fun readModelVersion(context: Context): Int =
+            runCatching { DynamiteModule.getRemoteVersion(context, MODULE_ID) }
+                .onFailure { Log.w(TAG, "Unable to read the subject model's version", it) }
+                .getOrDefault(0)
+                .also { if (it > 0) cachedModelVersion = it }
+
+        /**
+         * What Play services has: not installed, installed and usable, or
+         * installed but paused after it crashed the app. Never loads the
+         * model. Off the main thread only.
+         */
+        fun modelAvailability(context: Context): SubjectModelPhase {
+            val version = readModelVersion(context)
+            return when {
+                version <= 0 -> SubjectModelPhase.NOT_DOWNLOADED
+                SegmentationCrashGuard.isPausedForModel(context) ->
+                    SubjectModelPhase.BROKEN
+                else -> SubjectModelPhase.READY
+            }
+        }
+
+        private const val MAX_INPUT_SIDE = 1024
+        private const val CONFIDENT_FOREGROUND = 0.55f
+        private const val HIGH_CONFIDENCE = 0.75f
+        private const val MIN_FOREGROUND_FRACTION = 0.012f
+        private const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
+        private const val MAX_FOREGROUND_FRACTION = 0.90f
+        private const val MASK_LOW = 0.28f
+        private const val MASK_HIGH = 0.72f
+
+        /** A spread smaller than this across the whole mask is no real answer. */
+        private const val MIN_MASK_SPREAD = 0.01f
+
+        /** No real photo is this much subject: the model answered wrongly. */
+        private const val UNUSABLE_FOREGROUND_FRACTION = 0.98f
+
     }
 
-    private val segmenter = SubjectSegmentation.getClient(
-        SubjectSegmenterOptions.Builder()
-            .enableForegroundConfidenceMask()
-            .build()
-    )
-    private val moduleClient = ModuleInstall.getClient(context.applicationContext)
+    /** Reads the model's version before each use, off the caller's thread. */
+    private val worker = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "SubjectModelCheck").apply { isDaemon = true }
+    }
+
+    // Created on first real use, so a version that is never used is never
+    // opened either.
+    private val segmenterHolder = lazy {
+        SubjectSegmentation.getClient(
+            SubjectSegmenterOptions.Builder()
+                .enableForegroundConfidenceMask()
+                .build()
+        )
+    }
+    private val segmenter get() = segmenterHolder.value
 
     @Volatile private var closed = false
     private val lock = Any()
@@ -53,43 +118,33 @@ class SubjectMaskExtractor(
         } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
             SubjectMaskDiagnostics.recordFailure("Preparing image (Play)", error)
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, true)
             return
         }
 
-        if (!acquire()) {
+        try {
+            worker.execute { checkModelThenProcess(inputBitmap, requestId) }
+        } catch (error: RejectedExecutionException) {
+            inputBitmap.recycle()
+        }
+    }
+
+    private fun checkModelThenProcess(inputBitmap: Bitmap, requestId: Long) {
+        if (closed) {
             inputBitmap.recycle()
             return
         }
-        try {
-            moduleClient.areModulesAvailable(segmenter)
-                .addOnSuccessListener { availability ->
-                    when {
-                        closed -> inputBitmap.recycle()
-                        !availability.areModulesAvailable() -> {
-                            SubjectMaskDiagnostics.recordRejection(
-                                "Play services subject model isn't installed yet"
-                            )
-                            inputBitmap.recycle()
-                            onResult(requestId, null)
-                        }
-                        else -> processInput(inputBitmap, requestId)
-                    }
-                }
-                .addOnFailureListener { error ->
-                    Log.w(TAG, "Could not check subject-segmentation module availability", error)
-                    SubjectMaskDiagnostics.recordFailure("Checking module availability", error)
-                    inputBitmap.recycle()
-                    if (!closed) onResult(requestId, null)
-                }
-                .addOnCompleteListener { release() }
-        } catch (error: Throwable) {
-            Log.w(TAG, "Could not check subject-segmentation module availability", error)
-            SubjectMaskDiagnostics.recordFailure("Checking module availability", error)
+        val version = readModelVersion(appContext)
+        // The version doubles as the "is it installed" check: asking Play
+        // services through a model client would load the model's native code
+        // just to find out.
+        if (version <= 0) {
+            SubjectMaskDiagnostics.recordRejection(R.string.subject_model_missing)
             inputBitmap.recycle()
-            release()
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, false)
+            return
         }
+        processInput(inputBitmap, requestId, modelVersion(appContext))
     }
 
     /**
@@ -115,24 +170,28 @@ class SubjectMaskExtractor(
     }
 
     private fun closeSegmenter() {
+        if (!segmenterHolder.isInitialized()) return
         runCatching { segmenter.close() }
             .onFailure { error -> Log.w(TAG, "Could not close the subject segmenter", error) }
     }
 
-    private fun processInput(inputBitmap: Bitmap, requestId: Long) {
+    private fun processInput(inputBitmap: Bitmap, requestId: Long, model: String?) {
         if (!acquire()) {
             inputBitmap.recycle()
             return
         }
-        if (!SegmentationCrashGuard.beginAttempt(appContext)) {
+        if (!SegmentationCrashGuard.beginAttempt(appContext, model)) {
             inputBitmap.recycle()
             release()
-            if (!closed) onResult(requestId, null)
+            // Skipped once after a crash: worth another try. Disabled for
+            // good after repeated crashes: not until it is reset.
+            if (!closed) onResult(requestId, null, !SegmentationCrashGuard.isDisabled(appContext))
             return
         }
         try {
             segmenter.process(InputImage.fromBitmap(inputBitmap, 0))
                 .addOnSuccessListener { result ->
+                    var buildFailed = false
                     val mask = if (closed) {
                         null
                     } else {
@@ -140,9 +199,7 @@ class SubjectMaskExtractor(
                             run maskComputation@ {
                                 val confidence = result.foregroundConfidenceMask
                                     ?: run {
-                                        SubjectMaskDiagnostics.recordRejection(
-                                            "No confidence mask returned"
-                                        )
+                                        SubjectMaskDiagnostics.recordRejection(R.string.subject_no_result)
                                         return@maskComputation null
                                     }
                                 val count = inputBitmap.width * inputBitmap.height
@@ -154,9 +211,7 @@ class SubjectMaskExtractor(
                                         TAG,
                                         "Subject mask contained ${buffer.remaining()} values; expected $count"
                                     )
-                                    SubjectMaskDiagnostics.recordRejection(
-                                        "Mask data was the wrong size"
-                                    )
+                                    SubjectMaskDiagnostics.recordRejection(R.string.subject_unexpected_result)
                                     return@maskComputation null
                                 }
 
@@ -167,10 +222,14 @@ class SubjectMaskExtractor(
                                 var maxX = -1
                                 var maxY = -1
 
+                                var lowest = 1f
+                                var highest = 0f
                                 for (index in 0 until count) {
                                     val value = buffer.get().takeIf { it.isFinite() }
                                         ?.coerceIn(0f, 1f) ?: 0f
                                     values[index] = value
+                                    if (value < lowest) lowest = value
+                                    if (value > highest) highest = value
                                     if (value >= CONFIDENT_FOREGROUND) {
                                         foregroundCount++
                                         val x = index % inputBitmap.width
@@ -184,6 +243,23 @@ class SubjectMaskExtractor(
                                 }
 
                                 val foregroundFraction = foregroundCount.toFloat() / count
+
+                                // (Nearly) the same value for every pixel, or
+                                // (nearly) everything marked as subject, is no
+                                // answer at all: the model, not the photo. Only
+                                // this image is rejected; the same version may
+                                // do fine on others.
+                                if (highest - lowest < MIN_MASK_SPREAD ||
+                                    foregroundFraction >= UNUSABLE_FOREGROUND_FRACTION
+                                ) {
+                                    Log.w(
+                                        TAG,
+                                        "Unusable subject mask: $lowest..$highest, " +
+                                            "${(foregroundFraction * 100).roundToInt()}% subject"
+                                    )
+                                    SubjectMaskDiagnostics.recordRejection(R.string.subject_unusable_answer)
+                                    return@maskComputation null
+                                }
                                 val highConfidenceFraction = highConfidenceCount.toFloat() / count
                                 val subjectWidth = maxX - minX + 1
                                 val subjectHeight = maxY - minY + 1
@@ -195,20 +271,18 @@ class SubjectMaskExtractor(
                                     highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ||
                                     !hasUsefulBounds
                                 ) {
-                                    SubjectMaskDiagnostics.recordRejection(
-                                        when {
-                                            foregroundFraction > MAX_FOREGROUND_FRACTION ->
-                                                "Subject fills too much of the photo " +
-                                                    "(${(foregroundFraction * 100).roundToInt()}% " +
-                                                    "— try a photo with more visible " +
-                                                    "background)"
-                                            foregroundFraction < MIN_FOREGROUND_FRACTION ->
-                                                "No confident subject found in the photo"
-                                            highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ->
-                                                "Subject detected but confidence was too low"
-                                            else -> "Subject bounds were too small/thin to use"
-                                        }
-                                    )
+                                    when {
+                                        foregroundFraction > MAX_FOREGROUND_FRACTION ->
+                                            SubjectMaskDiagnostics.recordRejection(
+                                                R.string.subject_too_large,
+                                                (foregroundFraction * 100).roundToInt()
+                                            )
+                                        foregroundFraction < MIN_FOREGROUND_FRACTION ->
+                                            SubjectMaskDiagnostics.recordRejection(R.string.subject_not_found)
+                                        highConfidenceFraction < MIN_HIGH_CONFIDENCE_FRACTION ->
+                                            SubjectMaskDiagnostics.recordRejection(R.string.subject_unclear)
+                                        else -> SubjectMaskDiagnostics.recordRejection(R.string.subject_too_small)
+                                    }
                                     return@maskComputation null
                                 }
 
@@ -232,6 +306,7 @@ class SubjectMaskExtractor(
                         } catch (error: Throwable) {
                             Log.w(TAG, "Could not create a subject mask", error)
                             SubjectMaskDiagnostics.recordFailure("Building mask bitmap", error)
+                            buildFailed = true
                             null
                         }
                     }
@@ -242,14 +317,14 @@ class SubjectMaskExtractor(
                     if (closed) {
                         mask?.recycle()
                     } else {
-                        onResult(requestId, mask)
+                        onResult(requestId, mask, buildFailed)
                     }
                 }
                 .addOnFailureListener { error ->
                     Log.w(TAG, "Subject segmentation failed", error)
                     SubjectMaskDiagnostics.recordFailure("Segmentation", error)
                     SegmentationCrashGuard.endAttempt(appContext)
-                    if (!closed) onResult(requestId, null)
+                    if (!closed) onResult(requestId, null, true)
                 }
                 .addOnCompleteListener {
                     inputBitmap.recycle()
@@ -261,7 +336,7 @@ class SubjectMaskExtractor(
             SegmentationCrashGuard.endAttempt(appContext)
             inputBitmap.recycle()
             release()
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, true)
         }
     }
 
@@ -278,6 +353,7 @@ class SubjectMaskExtractor(
     }
 
     override fun close() {
+        worker.shutdown()
         val closeNow = synchronized(lock) {
             if (closed) return
             closed = true

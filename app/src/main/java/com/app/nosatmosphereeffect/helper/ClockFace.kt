@@ -10,7 +10,9 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Typeface
 import android.text.format.DateFormat
+import androidx.annotation.StringRes
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.R
 import java.util.Calendar
 import kotlin.math.abs
 import kotlin.math.max
@@ -52,8 +54,9 @@ enum class ClockTreatment {
  */
 enum class ClockStyle(
     val id: String,
-    val label: String,
-    val description: String,
+    /** Shown names, as string resources so they follow the phone's language. */
+    @StringRes val label: Int,
+    @StringRes val description: Int,
     private val familyName: String,
     private val weight: Int,
     /** Extra tracking as a fraction of the text size. */
@@ -101,8 +104,8 @@ enum class ClockStyle(
      */
     GLASS(
         id = "liquid_glass",
-        label = "Glass",
-        description = "Glass digits in one row",
+        label = R.string.clock_style_liquid_glass,
+        description = R.string.clock_style_liquid_glass_description,
         familyName = "sans-serif-black",
         weight = 900,
         letterSpacingEm = -0.03f,
@@ -115,8 +118,8 @@ enum class ClockStyle(
     /** The original face, hours above minutes. */
     GLASS_STACKED(
         id = "liquid_glass_stacked",
-        label = "Glass Stacked",
-        description = "Glass digits, hours above minutes",
+        label = R.string.clock_style_liquid_glass_stacked,
+        description = R.string.clock_style_liquid_glass_stacked_description,
         familyName = "sans-serif-black",
         weight = 900,
         letterSpacingEm = -0.04f,
@@ -139,8 +142,8 @@ enum class ClockStyle(
      */
     TRANSLUCENT(
         id = "translucent",
-        label = "Translucent",
-        description = "One piece of glass, hours and minutes in a row",
+        label = R.string.clock_style_translucent,
+        description = R.string.clock_style_translucent_description,
         familyName = "sans-serif",
         weight = 600,
         letterSpacingEm = -0.02f,
@@ -153,8 +156,8 @@ enum class ClockStyle(
     /** The same piece of glass, hours above minutes. */
     TRANSLUCENT_STACKED(
         id = "translucent_stacked",
-        label = "Translucent Stacked",
-        description = "One piece of glass, hours above minutes",
+        label = R.string.clock_style_translucent_stacked,
+        description = R.string.clock_style_translucent_stacked_description,
         familyName = "sans-serif",
         weight = 600,
         letterSpacingEm = -0.03f,
@@ -171,8 +174,8 @@ enum class ClockStyle(
      */
     ADAPTIVE(
         id = "adaptive",
-        label = "Adaptive",
-        description = "Digits stretch around the subject",
+        label = R.string.clock_style_adaptive,
+        description = R.string.clock_style_adaptive_description,
         familyName = "sans-serif",
         weight = 400,
         letterSpacingEm = 0f,
@@ -189,8 +192,8 @@ enum class ClockStyle(
      */
     ADAPTIVE_STACKED(
         id = "adaptive_stacked",
-        label = "Adaptive Stacked",
-        description = "Hours over minutes, stretching around the subject",
+        label = R.string.clock_style_adaptive_stacked,
+        description = R.string.clock_style_adaptive_stacked_description,
         familyName = "sans-serif",
         weight = 400,
         letterSpacingEm = 0f,
@@ -409,6 +412,16 @@ class ClockFaceRenderer(private val context: Context) {
             }
         }
 
+    /** The Adaptive face fits itself around the subject; off, it ignores it. */
+    var adaptToSubject: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                adaptiveFace.adaptToSubject = value
+                if (isAdaptive) invalidate()
+            }
+        }
+
     /**
      * The launcher's page offset. The Adaptive face fits its digits to the
      * part of the image that is actually on screen.
@@ -417,6 +430,13 @@ class ClockFaceRenderer(private val context: Context) {
         get() = adaptiveFace.scrollOffsetX
         set(value) {
             adaptiveFace.scrollOffsetX = if (value.isFinite()) value.coerceIn(0f, 1f) else 0.5f
+        }
+
+    /** See [AdaptiveClockFace.scrollWindowX]; 0 when the renderer has not said. */
+    var scrollWindowX: Float
+        get() = adaptiveFace.scrollWindowX
+        set(value) {
+            adaptiveFace.scrollWindowX = if (value.isFinite() && value > 0f) value.coerceAtMost(1f) else 0f
         }
 
     /** See [AdaptiveClockFace.centerCropScene]; the calibration screen sets it. */

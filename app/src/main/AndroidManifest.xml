@@ -75,7 +75,7 @@
             android:name=".service.AtmosphereService"
             android:enabled="true"
             android:exported="true"
-            android:label="Atmosphere"
+            android:label="@string/service_atmosphere"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -89,7 +89,7 @@
             android:name=".service.BlurToSharpService"
             android:enabled="true"
             android:exported="true"
-            android:label="Atmosphere (Reverse)"
+            android:label="@string/service_atmosphere_reverse"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -103,7 +103,7 @@
             android:name=".service.GlassService"
             android:enabled="true"
             android:exported="true"
-            android:label="Glass Effect"
+            android:label="@string/service_glass"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -117,7 +117,7 @@
             android:name=".service.GlassReverseService"
             android:enabled="true"
             android:exported="true"
-            android:label="Glass Effect (Reverse)"
+            android:label="@string/service_glass_reverse"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -131,7 +131,7 @@
             android:name=".service.ColorFillService"
             android:enabled="true"
             android:exported="true"
-            android:label="Color Fill Effect"
+            android:label="@string/service_color_fill"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -145,7 +145,7 @@
             android:name=".service.ColorFillReverseService"
             android:enabled="true"
             android:exported="true"
-            android:label="Color Fill (Reverse) Effect"
+            android:label="@string/service_color_fill_reverse"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -159,7 +159,7 @@
             android:name=".service.NeonService"
             android:enabled="true"
             android:exported="true"
-            android:label="Canvas Sketch"
+            android:label="@string/service_canvas"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -173,7 +173,7 @@
             android:name=".service.NeonReverseService"
             android:enabled="true"
             android:exported="true"
-            android:label="Canvas Sketch (Reverse)"
+            android:label="@string/service_canvas_reverse"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -187,7 +187,7 @@
             android:name=".service.FrostedService"
             android:enabled="true"
             android:exported="true"
-            android:label="Frosted"
+            android:label="@string/service_frosted"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -201,7 +201,7 @@
             android:name=".service.FrostedReverseService"
             android:enabled="true"
             android:exported="true"
-            android:label="Frosted (Reverse)"
+            android:label="@string/service_frosted_reverse"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -215,7 +215,7 @@
             android:name=".service.HalftoneService"
             android:enabled="true"
             android:exported="true"
-            android:label="Halftone Print Effect"
+            android:label="@string/service_halftone"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
@@ -229,7 +229,7 @@
             android:name=".service.HalftoneReverseService"
             android:enabled="true"
             android:exported="true"
-            android:label="Halftone Print (Reverse) Effect"
+            android:label="@string/service_halftone_reverse"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />

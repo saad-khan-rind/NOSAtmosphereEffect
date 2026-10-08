@@ -25,6 +25,16 @@ object GlassEffectPolicy {
     const val TRANSITION_STYLE_KEY = "glass_transition_style"
     const val BACKGROUND_ONLY_KEY = "glass_background_only"
     const val PRESET_VERSION_KEY = "glass_preset_version"
+
+    /**
+     * Whether the glass must stay off the subject because of the clock: a
+     * showing clock with Depth effect or Adapt to subject on puts the subject
+     * in front of it, and glass drawn across that subject would contradict
+     * it. Background only is then on whatever is stored (and greyed out in
+     * Fine tuning). Covers the Glass effect itself and the glass inside the
+     * Atmosphere effects.
+     */
+    fun clockForcesBackgroundOnly(clock: ClockOverlayState): Boolean = clock.needsSubjectMask()
     const val CURRENT_PRESET_VERSION = 2
 
     const val MIN_LINE_COUNT = 4

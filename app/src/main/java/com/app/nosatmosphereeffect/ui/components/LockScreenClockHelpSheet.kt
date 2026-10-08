@@ -37,7 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.DeviceIdentity
 import com.app.nosatmosphereeffect.helper.LockScreenClockGuide
 
@@ -84,9 +86,9 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
                 }
                 Spacer(Modifier.width(14.dp))
                 Column {
-                    Text("Wallpaper clock", style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(R.string.help_title), style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Works best on its own",
+                        stringResource(R.string.help_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -94,9 +96,7 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
             }
 
             Text(
-                "This feature only looks its best when you can hide your phone's " +
-                    "own lock screen clock. Otherwise you'll see two clocks on " +
-                    "the lock screen.",
+                stringResource(R.string.help_intro),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -118,9 +118,9 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
                         tint = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Column(Modifier.weight(1f)) {
-                        Text("Your device", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.help_your_device), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "${device.displayName} · ${device.androidLabel}",
+                            stringResource(R.string.help_device_line, device.displayName, device.androidLabel),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -130,11 +130,12 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    guide.brandLabel?.let { "On $it" } ?: "On your device",
+                    guide.brandLabel?.let { stringResource(R.string.help_on_brand, stringResource(it)) }
+                        ?: stringResource(R.string.help_on_your_device),
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    guide.summary,
+                    stringResource(guide.summary),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -143,20 +144,19 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
             if (guide.steps.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     guide.steps.forEachIndexed { index, step ->
-                        HelpStep(number = index + 1, text = step)
+                        HelpStep(number = index + 1, text = stringResource(step))
                     }
                 }
             } else {
                 Text(
-                    "Search the internet to find out whether the lock screen clock " +
-                        "can be hidden on your device.",
+                    stringResource(R.string.help_search_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             AtmoOutlinedButton(
-                text = "Search the web for your device",
+                text = stringResource(R.string.help_search_button),
                 onClick = { openWebSearch(context, guide.searchQuery) },
                 icon = rememberVectorPainter(Icons.Rounded.Search),
                 modifier = Modifier.fillMaxWidth()
@@ -174,16 +174,14 @@ fun LockScreenClockHelpSheet(onDismiss: () -> Unit) {
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    "These methods might not work on your model or software " +
-                        "version — phone makers change their menus with updates. " +
-                        "Make sure to do your own research for your device.",
+                    stringResource(R.string.help_disclaimer),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             AtmoPrimaryButton(
-                text = "Got it",
+                text = stringResource(R.string.common_got_it),
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             )

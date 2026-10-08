@@ -37,6 +37,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
@@ -72,7 +74,7 @@ internal fun FolderPickerScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AtmoTopBar(
-                title = "Choose folders",
+                title = stringResource(R.string.folders_title),
                 backIcon = painterResource(R.drawable.ic_arrow_back),
                 onBack = onBack
             )
@@ -84,10 +86,10 @@ internal fun FolderPickerScreen(
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                 ) {
                     AtmoPrimaryButton(
-                        text = when (selectedIds.size) {
-                            0 -> "Select a folder"
-                            1 -> "Use 1 folder"
-                            else -> "Use ${selectedIds.size} folders"
+                        text = if (selectedIds.isEmpty()) {
+                            stringResource(R.string.folders_select)
+                        } else {
+                            pluralStringResource(R.plurals.folders_use, selectedIds.size, selectedIds.size)
                         },
                         onClick = onContinue,
                         enabled = selectedIds.isNotEmpty(),
@@ -116,7 +118,7 @@ internal fun FolderPickerScreen(
                 FolderAccessState.GRANTED -> when {
                     folders == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                     folders.isEmpty() -> Text(
-                        "No folders with images were found on this device.",
+                        stringResource(R.string.folders_none),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -130,8 +132,7 @@ internal fun FolderPickerScreen(
                     ) {
                         item {
                             Text(
-                                "New images saved to these folders are added to the " +
-                                    "playlist the next time you open Atmo Engine.",
+                                stringResource(R.string.folders_hint),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -166,27 +167,24 @@ private fun AccessRationale(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            if (partial) "Allow access to all photos" else "Photo access needed",
+            stringResource(
+                if (partial) R.string.folders_allow_all_title else R.string.folders_access_title
+            ),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
         )
         Text(
-            if (partial) {
-                "With \"Select photos\", Atmo Engine only sees the images you picked, " +
-                    "so images added to a folder later can't be detected. Choose " +
-                    "\"Allow all\" to follow folders."
-            } else {
-                "Folder playlists read your photo folders to find images you add " +
-                    "later. Images stay on your device."
-            },
+            stringResource(
+                if (partial) R.string.folders_partial_message else R.string.folders_access_message
+            ),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         if (canAskAgain) {
-            AtmoPrimaryButton(text = "Allow access", onClick = onRequestAccess)
+            AtmoPrimaryButton(text = stringResource(R.string.folders_allow), onClick = onRequestAccess)
         }
-        AtmoOutlinedButton(text = "Open app settings", onClick = onOpenSettings)
+        AtmoOutlinedButton(text = stringResource(R.string.folders_open_settings), onClick = onOpenSettings)
     }
 }
 
@@ -222,7 +220,7 @@ private fun FolderRow(
             Column(Modifier.weight(1f)) {
                 Text(folder.name, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    if (folder.imageCount == 1) "1 image" else "${folder.imageCount} images",
+                    pluralStringResource(R.plurals.common_image_count, folder.imageCount, folder.imageCount),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

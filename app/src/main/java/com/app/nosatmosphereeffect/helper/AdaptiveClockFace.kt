@@ -56,6 +56,12 @@ internal class AdaptiveClockFace {
     var adaptiveColors: Boolean = false
 
     /**
+     * The clock's depth switch, which on this face means "fit around the
+     * subject". Off, the subject is ignored and every digit runs full length.
+     */
+    var adaptToSubject: Boolean = true
+
+    /**
      * Hours over minutes, in two columns and without a colon. Each column is
      * fitted and animated as one length; see [AdaptiveClockGlyphs.stackSplit].
      */
@@ -84,6 +90,14 @@ internal class AdaptiveClockFace {
 
     /** The launcher's page offset, 0..1; decides which part of the image is on screen. */
     var scrollOffsetX: Float = 0.5f
+
+    /**
+     * The share of the image's width on screen at once, as the renderer draws
+     * it: 1 when scrolling is off and the whole image is visible. 0 until a
+     * renderer reports it, which falls back to working it out from the image's
+     * and screen's shapes.
+     */
+    var scrollWindowX: Float = 0f
 
     /**
      * True when the image is centre-cropped into the screen instead of panned
@@ -381,13 +395,17 @@ internal class AdaptiveClockFace {
         // Coarser than the rest: while the pages scroll this changes every
         // frame, and each change is a refit and a redraw.
         scroll = (scrollOffsetX * SCROLL_STEPS).roundToInt(),
+        window = quantize(scrollWindowX),
         centerCrop = centerCropScene,
-        stacked = stacked
+        stacked = stacked,
+        adapt = adaptToSubject
     )
 
     private fun viewport(scene: ClockScene, screenAspect: Float): ClockSceneViewport =
         if (centerCropScene) {
             ClockSceneViewport.forCenterCrop(screenAspect, scene.sourceAspect)
+        } else if (scrollWindowX > 0f) {
+            ClockSceneViewport.forWindow(scrollOffsetX, scrollWindowX)
         } else {
             ClockSceneViewport.forScroll(scrollOffsetX, screenAspect, scene.sourceAspect)
         }
@@ -405,6 +423,21 @@ internal class AdaptiveClockFace {
     private fun fit(box: ClockBoxRect, screenAspect: Float) {
         val scene = sceneSource.scene
         val shortest = AdaptiveClockGlyphs.laneMin(stacked)
+        if (!adaptToSubject) {
+            // Adapting is off: as if the photo had no subject at all.
+            for (lane in 0 until laneCount) {
+                targets[lane] = AdaptiveClockFit.digitHeight(
+                    slotLeft = AdaptiveClockGlyphs.laneLeft(stacked, lane),
+                    slotWidth = AdaptiveClockGlyphs.laneWidth(stacked, lane),
+                    box = box,
+                    boxWidthUnits = AdaptiveClockGlyphs.boxWidth(stacked),
+                    boxHeightUnits = AdaptiveClockGlyphs.boxHeight(stacked),
+                    minLength = shortest,
+                    subjectAt = { _, _ -> 0f }
+                )
+            }
+            return
+        }
         if (scene == null || !scene.subjectKnown) {
             targets.fill(shortest)
             return
@@ -518,8 +551,10 @@ internal class AdaptiveClockFace {
         val height: Int,
         val aspect: Int,
         val scroll: Int,
+        val window: Int,
         val centerCrop: Boolean,
-        val stacked: Boolean
+        val stacked: Boolean,
+        val adapt: Boolean
     )
 
     private fun quantize(value: Float): Int = (value * 512f).roundToInt()
@@ -601,30 +636,34 @@ internal class AdaptiveClockFace {
         private const val SHADE_STEPS = 96
 
         /**
-         * Lightness of the shading at the top line and at full length. The
-         * bottom stops well short of white: it is a light shade of the
-         * wallpaper's colour, so the digits still look made from the photo
-         * where they run longest.
+         * The shading from the top line to full length, as brightness and
+         * colour rather than lightness: the whole clock stays bright, and only
+         * the shade moves — a deep, clear tone of the colour at the top, fading
+         * down to almost white with a hint of it at full length. Lowering
+         * lightness instead made the top read as a dimmed, greyish version of
+         * the colour rather than a deeper shade of it. Auto's colour sits in
+         * the middle of this range.
          */
-        private const val TOP_LIGHTNESS = 0.62f
-        private const val BOTTOM_LIGHTNESS = 0.83f
-        /** The least saturation a coloured wallpaper's shading is given. */
-        private const val MIN_SHADE_SATURATION = 0.22f
+        private const val TOP_BRIGHTNESS = 0.86f
+        private const val BOTTOM_BRIGHTNESS = 0.98f
+        private const val TOP_COLOUR = 0.5f
+        private const val BOTTOM_COLOUR = 0.1f
 
         /**
          * The Adaptive shading of [base] — the wallpaper's own colour, as
          * Auto uses it — at [fraction] of the way from the top line (0) to
-         * full length (1): its hue, from a deeper shade at the top to a light
-         * one at the bottom. Past full length (an overshoot) it stays at the
-         * lightest. A grey wallpaper shades grey to off-white.
+         * full length (1): its hue, from a deep shade at the top to a near
+         * white at the bottom. Past full length (an overshoot) it stays at the
+         * lightest. A wallpaper with no hue at all shades grey to white.
          */
         fun shadeOf(base: Int, fraction: Float): Int {
-            val hsl = FloatArray(3)
-            ColorUtils.colorToHSL(base, hsl)
+            val hsv = FloatArray(3)
+            Color.colorToHSV(base, hsv)
             val t = fraction.coerceIn(0f, 1f)
-            if (hsl[1] >= 0.05f) hsl[1] = max(hsl[1], MIN_SHADE_SATURATION)
-            hsl[2] = TOP_LIGHTNESS + (BOTTOM_LIGHTNESS - TOP_LIGHTNESS) * t
-            return ColorUtils.HSLToColor(hsl) or (0xFF shl 24)
+            // A neutral wallpaper shades neutral; any hue takes the ramp.
+            hsv[1] = if (hsv[1] >= 0.04f) TOP_COLOUR + (BOTTOM_COLOUR - TOP_COLOUR) * t else 0f
+            hsv[2] = TOP_BRIGHTNESS + (BOTTOM_BRIGHTNESS - TOP_BRIGHTNESS) * t
+            return Color.HSVToColor(hsv) or (0xFF shl 24)
         }
 
         /**
@@ -633,11 +672,11 @@ internal class AdaptiveClockFace {
          * little lighter.
          */
         fun fadedOf(base: Int): Int {
-            val hsl = FloatArray(3)
-            ColorUtils.colorToHSL(shadeOf(base, 0f), hsl)
-            hsl[1] *= 0.35f
-            hsl[2] = min(hsl[2] + 0.1f, 1f)
-            return ColorUtils.HSLToColor(hsl) or (0xFF shl 24)
+            val hsv = FloatArray(3)
+            Color.colorToHSV(shadeOf(base, 0f), hsv)
+            hsv[1] *= 0.35f
+            hsv[2] = min(hsv[2] + 0.06f, 1f)
+            return Color.HSVToColor(hsv) or (0xFF shl 24)
         }
     }
 }

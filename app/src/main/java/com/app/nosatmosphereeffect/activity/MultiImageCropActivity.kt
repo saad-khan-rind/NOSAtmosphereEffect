@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.MatrixStatePolicy
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.image.BitmapDecoder
@@ -38,7 +39,7 @@ class MultiImageCropActivity : ComponentActivity() {
 
         val uri = intent.data
         if (uri == null) {
-            Toast.makeText(this, "No image was provided.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.crop_no_image, Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -55,7 +56,7 @@ class MultiImageCropActivity : ComponentActivity() {
             AtmoEngineTheme {
                 CropScreen(
                     controller = controller,
-                    buttonLabel = "Done",
+                    buttonLabel = getString(R.string.common_done),
                     initialFit = currentFit,
                     initialFill = currentFill,
                     onViewCreated = { loadImage(uri, savedMatrix) },
@@ -112,14 +113,14 @@ class MultiImageCropActivity : ComponentActivity() {
                     }
                 }
             } catch (error: IOException) {
-                reportLoadFailure(error, "This image could not be opened.")
+                reportLoadFailure(error, getString(R.string.crop_error_open))
             } catch (error: SecurityException) {
                 reportLoadFailure(
                     error,
-                    "Atmo Engine no longer has permission to read this image."
+                    getString(R.string.crop_error_permission)
                 )
             } catch (error: RuntimeException) {
-                reportLoadFailure(error, "The image could not be prepared.")
+                reportLoadFailure(error, getString(R.string.crop_error_prepare))
             }
         }
     }
@@ -148,11 +149,11 @@ class MultiImageCropActivity : ComponentActivity() {
                     finish()
                 }
             } catch (error: IOException) {
-                reportSaveFailure(error, "The cropped image could not be saved.")
+                reportSaveFailure(error, getString(R.string.crop_error_save))
             } catch (error: SecurityException) {
-                reportSaveFailure(error, "Storage access was rejected.")
+                reportSaveFailure(error, getString(R.string.crop_error_save_blocked))
             } catch (error: RuntimeException) {
-                reportSaveFailure(error, "The cropped image could not be prepared.")
+                reportSaveFailure(error, getString(R.string.crop_error_save_prepare))
             } finally {
                 bitmap.recycle()
             }

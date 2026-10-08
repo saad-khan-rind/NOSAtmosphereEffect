@@ -1,6 +1,8 @@
 package com.app.nosatmosphereeffect.helper
 
 import android.os.Build
+import androidx.annotation.StringRes
+import com.app.nosatmosphereeffect.R
 import java.util.Locale
 
 /**
@@ -54,12 +56,12 @@ data class DeviceIdentity(
  * for their exact model.
  */
 data class LockScreenClockGuide(
-    /** "Samsung", "Google Pixel", ... or null when the brand is not covered. */
-    val brandLabel: String?,
+    /** "Samsung", "Google Pixel", ... or null when the brand is not covered. String resources throughout. */
+    @StringRes val brandLabel: Int?,
     /** One line: whether hiding is possible here, as far as is known. */
-    val summary: String,
+    @StringRes val summary: Int,
     /** Steps to try, in order. Empty when there is nothing brand-specific to try. */
-    val steps: List<String>,
+    val steps: List<Int>,
     /** What to search for, including the model and Android version. */
     val searchQuery: String
 ) {
@@ -74,74 +76,64 @@ data class LockScreenClockGuide(
             return when {
                 has("samsung") -> samsung(device, query)
                 has("google") -> LockScreenClockGuide(
-                    brandLabel = "Google Pixel",
-                    summary = "Pixel phones have no setting to hide the lock screen clock. " +
-                        "You can make it smaller so it covers less of the wallpaper clock.",
+                    brandLabel = R.string.guide_brand_pixel,
+                    summary = R.string.guide_pixel_summary,
                     steps = listOf(
-                        "Touch and hold an empty spot on the home screen, then tap " +
-                            "Wallpaper & style.",
-                        "Open the Lock screen tab and choose the smallest clock style.",
-                        "On Android 16 and later, turn off Large size for the clock."
+                        R.string.guide_pixel_step1,
+                        R.string.guide_pixel_step2,
+                        R.string.guide_pixel_step3
                     ),
                     searchQuery = query
                 )
                 has("oneplus", "oppo", "realme") -> LockScreenClockGuide(
                     brandLabel = when {
-                        has("oneplus") -> "OnePlus"
-                        has("realme") -> "realme"
-                        else -> "OPPO"
+                        has("oneplus") -> R.string.guide_brand_oneplus
+                        has("realme") -> R.string.guide_brand_realme
+                        else -> R.string.guide_brand_oppo
                     },
-                    summary = "OxygenOS, ColorOS and realme UI let you restyle the lock " +
-                        "screen clock, but no setting to hide it has been confirmed.",
+                    summary = R.string.guide_oppo_summary,
                     steps = listOf(
-                        "Touch and hold the lock screen (or open Settings > Wallpapers " +
-                            "& style) to edit it.",
-                        "Tap the clock and pick the smallest or thinnest style.",
-                        "If your version offers clock colour or opacity, try the " +
-                            "lowest setting."
+                        R.string.guide_oppo_step1,
+                        R.string.guide_oppo_step2,
+                        R.string.guide_oppo_step3
                     ),
                     searchQuery = query
                 )
                 has("xiaomi", "redmi", "poco") -> LockScreenClockGuide(
                     brandLabel = when {
-                        has("redmi") -> "Redmi"
-                        has("poco") -> "POCO"
-                        else -> "Xiaomi"
+                        has("redmi") -> R.string.guide_brand_redmi
+                        has("poco") -> R.string.guide_brand_poco
+                        else -> R.string.guide_brand_xiaomi
                     },
-                    summary = "HyperOS and MIUI let you change the lock screen clock " +
-                        "format, but no setting to hide it has been confirmed.",
+                    summary = R.string.guide_xiaomi_summary,
                     steps = listOf(
-                        "Open Settings and search for \"Always-on display & Lock screen\".",
-                        "Tap Lock screen clock format and choose the least intrusive style.",
-                        "The Themes app sometimes has lock screen styles with a " +
-                            "smaller clock."
+                        R.string.guide_xiaomi_step1,
+                        R.string.guide_xiaomi_step2,
+                        R.string.guide_xiaomi_step3
                     ),
                     searchQuery = query
                 )
                 has("nothing") -> LockScreenClockGuide(
-                    brandLabel = "Nothing",
-                    summary = "Nothing OS 3 and later lets you customise the lock screen " +
-                        "clock. Whether it can be removed depends on your version.",
+                    brandLabel = R.string.guide_brand_nothing,
+                    summary = R.string.guide_nothing_summary,
                     steps = listOf(
-                        "Touch and hold the lock screen and tap Customise lock screen.",
-                        "Tap the clock and look through the styles for the smallest one, " +
-                            "or an option to remove it."
+                        R.string.guide_nothing_step1,
+                        R.string.guide_nothing_step2
                     ),
                     searchQuery = query
                 )
                 has("motorola") -> LockScreenClockGuide(
-                    brandLabel = "Motorola",
-                    summary = "Motorola phones have no setting to hide the lock screen " +
-                        "clock. You can change its style or make it smaller.",
+                    brandLabel = R.string.guide_brand_motorola,
+                    summary = R.string.guide_motorola_summary,
                     steps = listOf(
-                        "Open Settings > Display > Lock screen.",
-                        "Choose a smaller clock style."
+                        R.string.guide_motorola_step1,
+                        R.string.guide_motorola_step2
                     ),
                     searchQuery = query
                 )
                 else -> LockScreenClockGuide(
                     brandLabel = null,
-                    summary = "We don't have instructions for this brand yet.",
+                    summary = R.string.guide_unknown_summary,
                     steps = emptyList(),
                     searchQuery = query
                 )
@@ -156,29 +148,24 @@ data class LockScreenClockGuide(
         private fun samsung(device: DeviceIdentity, query: String): LockScreenClockGuide {
             return if (device.sdkInt >= ANDROID_15) {
                 LockScreenClockGuide(
-                    brandLabel = "Samsung (One UI 7 or later)",
-                    summary = "One UI 7 removed LockStar's option to turn the clock off. " +
-                        "Users report you can still make it invisible:",
+                    brandLabel = R.string.guide_brand_samsung_new,
+                    summary = R.string.guide_samsung_new_summary,
                     steps = listOf(
-                        "Touch and hold the lock screen and tap Edit.",
-                        "Tap the clock and choose a plain, single-colour style.",
-                        "Open the custom colour picker (the rainbow circle) and drag " +
-                            "the transparency slider to 0%.",
-                        "Optionally make the clock as small as possible and move it " +
-                            "to a corner."
+                        R.string.guide_samsung_new_step1,
+                        R.string.guide_samsung_new_step2,
+                        R.string.guide_samsung_new_step3,
+                        R.string.guide_samsung_new_step4
                     ),
                     searchQuery = query
                 )
             } else {
                 LockScreenClockGuide(
-                    brandLabel = "Samsung (One UI 6 or earlier)",
-                    summary = "Samsung's Good Lock app can remove the lock screen clock " +
-                        "on this version.",
+                    brandLabel = R.string.guide_brand_samsung_old,
+                    summary = R.string.guide_samsung_old_summary,
                     steps = listOf(
-                        "Install Good Lock from the Galaxy Store and open the " +
-                            "LockStar module.",
-                        "Turn LockStar on and tap the lock screen preview.",
-                        "Tap the clock and use the minus (–) icon to remove it, then save."
+                        R.string.guide_samsung_old_step1,
+                        R.string.guide_samsung_old_step2,
+                        R.string.guide_samsung_old_step3
                     ),
                     searchQuery = query
                 )

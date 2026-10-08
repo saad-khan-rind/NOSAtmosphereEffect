@@ -15,37 +15,42 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
-import com.app.nosatmosphereeffect.helper.ClockScreen
-import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
-import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
+import com.app.nosatmosphereeffect.helper.ClockScreen
+import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
+import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.helper.SubjectModelBuild
 import com.app.nosatmosphereeffect.helper.SubjectModelDelivery
 import com.app.nosatmosphereeffect.helper.SubjectModelManager
 import com.app.nosatmosphereeffect.helper.SubjectModelPhase
 import com.app.nosatmosphereeffect.helper.SubjectModelState
-import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreferences
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
+import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.screens.AdvancedConfig
 import com.app.nosatmosphereeffect.ui.screens.AdvancedResult
 import com.app.nosatmosphereeffect.ui.screens.AdvancedSettingsScreen
-import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 
 class AdvancedSettingsActivity : ComponentActivity() {
 
     private var subjectModelManager: SubjectModelManager? = null
 
-    private val rotationOptions = listOf(
-        "Every Lock (Instant)", "1 Minute", "15 Minutes",
-        "30 Minutes", "1 Hour", "3 Hours", "6 Hours", "12 Hours", "24 Hours"
-    )
+    // Lazy: resources aren't ready while the activity is being constructed.
+    private val rotationOptions by lazy {
+        listOf(getString(R.string.rotation_every_lock)) +
+            listOf(1, 15, 30).map { resources.getQuantityString(R.plurals.rotation_minutes, it, it) } +
+            listOf(1, 3, 6, 12, 24).map { resources.getQuantityString(R.plurals.rotation_hours, it, it) }
+    }
     private val rotationValues = longArrayOf(0, 1, 15, 30, 60, 180, 360, 720, 1440)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,7 +104,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val savedNoiseScale = prefs.getFloat("noise_scale", -1f)
         val savedNoiseStrength = prefs.getFloat("noise_strength", -1f)
         val config = AdvancedConfig(
-            activeEffectTitle = EffectCatalog.find(activeEffect).title,
+            activeEffectTitle = getString(EffectCatalog.find(activeEffect).title),
             recommendedDurationMs = defaultDuration,
             showHalftone = isHalftone,
             showColorFill = isColorFill,
@@ -246,6 +251,14 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val selectedRotationValue =
             rotationValues.getOrElse(result.rotationIndex) { rotationValues[0] }
 
+        // Choosing Vulkan by hand is a request to try it again, whatever was
+        // recorded against it before.
+        if (
+            result.rendererPreference == GraphicsBackendPreference.VULKAN &&
+            GraphicsBackendPreferences.read(this) != GraphicsBackendPreference.VULKAN
+        ) {
+            VulkanSupport.clearRecordedFailures(this)
+        }
         GraphicsBackendPreferences.write(this, result.rendererPreference)
         wpPrefs.edit { putLong("rotation_interval_minutes", selectedRotationValue) }
         WallpaperBehaviorPreferences.write(
@@ -373,7 +386,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val intent = Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG")
         intent.setPackage(packageName)
         sendBroadcast(intent)
-        Toast.makeText(this, "Settings Applied!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
         finish()
     }
 

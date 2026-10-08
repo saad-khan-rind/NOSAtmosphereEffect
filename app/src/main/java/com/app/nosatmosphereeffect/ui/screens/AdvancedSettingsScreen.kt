@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.ui.screens
 
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -40,19 +41,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.activity.ClockAdjustActivity
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
-import com.app.nosatmosphereeffect.helper.ClockScreen
-import com.app.nosatmosphereeffect.helper.ClockStyle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.activity.ClockAdjustActivity
 import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
+import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.helper.ClockScreen
+import com.app.nosatmosphereeffect.helper.ClockStyle
+import com.app.nosatmosphereeffect.helper.FilmGrainPolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
 import com.app.nosatmosphereeffect.helper.SubjectModelDelivery
@@ -67,8 +70,8 @@ import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoReveal
 import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
-import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
+import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.components.LabeledSlider
 import com.app.nosatmosphereeffect.ui.components.LockScreenClockHelpSheet
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
@@ -164,10 +167,10 @@ data class AdvancedResult(
     val rendererPreference: GraphicsBackendPreference
 )
 
-private enum class FineTuneTab(val label: String) {
-    Effect("Effect"),
-    Timing("Timing"),
-    Display("Display")
+private enum class FineTuneTab(@StringRes val label: Int) {
+    Effect(R.string.fine_tab_effect),
+    Timing(R.string.fine_tab_timing),
+    Display(R.string.fine_tab_display)
 }
 
 @Composable
@@ -242,32 +245,35 @@ fun AdvancedSettingsScreen(
         SubjectModelPhase.PAUSED
     )
     val subjectModelButtonText = when (subjectModelState.phase) {
-        SubjectModelPhase.CHECKING -> "Checking model"
-        SubjectModelPhase.NOT_DOWNLOADED -> "Download subject model"
+        SubjectModelPhase.CHECKING -> stringResource(R.string.model_checking)
+        SubjectModelPhase.NOT_DOWNLOADED -> stringResource(R.string.model_download)
         SubjectModelPhase.DOWNLOADING -> subjectModelState.progressPercent?.let {
-            "Downloading $it%"
-        } ?: "Downloading model"
-        SubjectModelPhase.INSTALLING -> "Installing model"
-        SubjectModelPhase.PAUSED -> "Download paused"
-        SubjectModelPhase.READY -> "Subject model downloaded"
-        SubjectModelPhase.FAILED -> "Retry model download"
+            stringResource(R.string.model_downloading_percent, it)
+        } ?: stringResource(R.string.model_downloading)
+        SubjectModelPhase.INSTALLING -> stringResource(R.string.model_installing)
+        SubjectModelPhase.PAUSED -> stringResource(R.string.model_download_paused)
+        SubjectModelPhase.READY -> stringResource(R.string.model_downloaded)
+        SubjectModelPhase.FAILED -> stringResource(R.string.model_retry_download)
+        SubjectModelPhase.BROKEN -> stringResource(R.string.model_paused)
     }
     val subjectModelStatusText = when {
         bundledSubjectModel ->
-            "Bundled U2NetP model. Open source, on-device, and ready offline."
+            stringResource(R.string.model_status_bundled)
         subjectModelState.phase == SubjectModelPhase.CHECKING ->
-            "Checking Google Play services without starting a download."
+            stringResource(R.string.model_status_checking)
         subjectModelState.phase == SubjectModelPhase.NOT_DOWNLOADED ->
-            "Optional. Google Play services downloads it only after you tap the button."
+            stringResource(R.string.model_status_optional)
         subjectModelState.phase == SubjectModelPhase.DOWNLOADING ->
-            "Google Play services is downloading the subject model."
+            stringResource(R.string.model_status_downloading)
         subjectModelState.phase == SubjectModelPhase.INSTALLING ->
-            "Completing the on-device model installation."
+            stringResource(R.string.model_status_installing)
         subjectModelState.phase == SubjectModelPhase.PAUSED ->
-            "The download is paused until a connection is available."
+            stringResource(R.string.model_status_paused)
         subjectModelState.phase == SubjectModelPhase.READY ->
-            "Installed and ready for offline, on-device segmentation."
-        else -> "The model check failed. Try again when Google Play services is available."
+            stringResource(R.string.model_status_ready)
+        subjectModelState.phase == SubjectModelPhase.BROKEN ->
+            stringResource(R.string.model_status_broken)
+        else -> stringResource(R.string.model_status_failed)
     }
 
     val result = AdvancedResult(
@@ -308,7 +314,7 @@ fun AdvancedSettingsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AtmoTopBar(
-                title = "Fine tuning",
+                title = stringResource(R.string.fine_title),
                 backIcon = painterResource(R.drawable.ic_arrow_back),
                 onBack = onBack
             )
@@ -327,12 +333,12 @@ fun AdvancedSettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     AtmoOutlinedButton(
-                        text = "Reset",
+                        text = stringResource(R.string.common_reset),
                         onClick = onReset,
                         modifier = Modifier.weight(0.42f)
                     )
                     AtmoPrimaryButton(
-                        text = "Save",
+                        text = stringResource(R.string.common_save),
                         onClick = { onApply(result) },
                         modifier = Modifier.weight(0.58f)
                     )
@@ -349,7 +355,7 @@ fun AdvancedSettingsScreen(
         ) {
             AtmoReveal {
                 AtmoSegmentedControl(
-                    options = FineTuneTab.entries.map { it.label },
+                    options = FineTuneTab.entries.map { stringResource(it.label) },
                     selectedIndex = selectedTab.ordinal,
                     onSelected = { selectedTab = FineTuneTab.entries[it] },
                     modifier = Modifier
@@ -462,10 +468,10 @@ fun AdvancedSettingsScreen(
         AlertDialog(
             onDismissRequest = { infoDialog = null },
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            title = { Text(dialog.title) },
-            text = { Text(dialog.message, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = { Text(stringResource(dialog.title)) },
+            text = { Text(stringResource(dialog.message), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
-                AtmoTextButton(text = "Done", onClick = { infoDialog = null })
+                AtmoTextButton(text = stringResource(R.string.common_done), onClick = { infoDialog = null })
             }
         )
     }
@@ -530,16 +536,16 @@ private fun EffectSettings(
             config.showGlass ||
             (config.showAtmosphereGlassToggle && transitionsEnabled)
         ) {
-            SettingsGroup("Glass effect") {
+            SettingsGroup(stringResource(R.string.glass_group)) {
                 if (config.showAtmosphereGlassToggle) {
                     SettingSwitchRow(
-                        title = "Add glass effect",
+                        title = stringResource(R.string.glass_add),
                         checked = atmosphereGlassEnabled,
                         onCheckedChange = onAtmosphereGlassEnabledChange,
                         subtitle = if (atmosphereGlassEnabled) {
-                            "The sharp Atmosphere state uses the Glass effect."
+                            stringResource(R.string.glass_on_sharp)
                         } else {
-                            "The sharp Atmosphere state uses the original wallpaper."
+                            stringResource(R.string.glass_off_sharp)
                         }
                     )
                 }
@@ -552,7 +558,7 @@ private fun EffectSettings(
                             Spacer(Modifier.height(18.dp))
                         }
                         LabeledSlider(
-                            label = "Number of lines",
+                            label = stringResource(R.string.glass_lines),
                             value = glassLineCount,
                             onValueChange = onGlassLineCountChange,
                             valueRange = GlassEffectPolicy.MIN_LINE_COUNT.toFloat()..
@@ -562,7 +568,7 @@ private fun EffectSettings(
                         )
                         Spacer(Modifier.height(12.dp))
                         LabeledSlider(
-                            label = "Line thickness",
+                            label = stringResource(R.string.common_line_thickness),
                             value = glassLineThickness,
                             onValueChange = onGlassLineThicknessChange,
                             valueRange = GlassEffectPolicy.MIN_LINE_THICKNESS..
@@ -573,15 +579,15 @@ private fun EffectSettings(
                         if (config.showGlass && transitionsEnabled) {
                             Spacer(Modifier.height(18.dp))
                             Text(
-                                "Transition style",
+                                stringResource(R.string.glass_transition_style),
                                 style = MaterialTheme.typography.labelLarge
                             )
                             Spacer(Modifier.height(8.dp))
                             AtmoSegmentedControl(
                                 options = if (config.glassReverse) {
-                                    listOf("Left to right", "Fade out")
+                                    listOf(stringResource(R.string.glass_left_to_right), stringResource(R.string.glass_fade_out))
                                 } else {
-                                    listOf("Right to left", "Fade in")
+                                    listOf(stringResource(R.string.glass_right_to_left), stringResource(R.string.glass_fade_in))
                                 },
                                 selectedIndex = glassTransitionStyle.ordinal,
                                 onSelected = {
@@ -595,15 +601,27 @@ private fun EffectSettings(
                             )
                         }
                         Spacer(Modifier.height(18.dp))
+                        // A clock with depth or Adapt to subject puts the
+                        // subject in front of it, so glass over the subject
+                        // would contradict it: Background only stays on.
+                        // GlassEffectPolicy.clockForcesBackgroundOnly does the
+                        // same for the wallpaper itself.
+                        val clockKeepsSubjectClear = config.showClockToggle &&
+                            !config.isPlaylistMode && clockEnabled && clockDepthEnabled
                         SubjectIsolationSetting(
-                            title = "Background only",
+                            title = stringResource(R.string.common_background_only),
                             checked = glassBackgroundOnly,
+                            forcedOnReason = if (clockKeepsSubjectClear) {
+                                stringResource(R.string.glass_forced_background)
+                            } else {
+                                null
+                            },
                             onCheckedChange = onGlassBackgroundOnlyChange,
-                            inactiveText = "Applies the glass lines to the complete wallpaper.",
+                            inactiveText = stringResource(R.string.glass_inactive),
                             activeDescription =
-                                "The subject stays sharp while the background becomes glass.",
+                                stringResource(R.string.glass_active),
                             waitingText =
-                                "The wallpaper stays unchanged until the subject model is ready.",
+                                stringResource(R.string.common_waiting_model),
                             subjectModelDelivery = subjectModelDelivery,
                             subjectModelReady = subjectModelReady,
                             subjectModelWorking = subjectModelWorking,
@@ -618,12 +636,9 @@ private fun EffectSettings(
         }
 
         if (config.showClockToggle && config.isPlaylistMode) {
-            SettingsGroup("Clock") {
+            SettingsGroup(stringResource(R.string.clock_group)) {
                 Text(
-                    "The wallpaper clock is available in single-image mode only " +
-                        "for now. In playlist and theme modes the image changes " +
-                        "underneath it, so a position calibrated against one " +
-                        "photo would be wrong for the next.",
+                    stringResource(R.string.clock_playlist_only_single),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -634,16 +649,15 @@ private fun EffectSettings(
             if (showClockHelp) {
                 LockScreenClockHelpSheet(onDismiss = { showClockHelp = false })
             }
-            SettingsGroup("Clock", onInfoClick = { showClockHelp = true }) {
+            SettingsGroup(stringResource(R.string.clock_group), onInfoClick = { showClockHelp = true }) {
                 SettingSwitchRow(
-                    title = "Show clock on wallpaper",
+                    title = stringResource(R.string.clock_show),
                     checked = clockEnabled,
                     onCheckedChange = onClockEnabledChange,
                     subtitle = if (clockEnabled) {
-                        "Hide your device's own lock screen clock to avoid " +
-                            "seeing two."
+                        stringResource(R.string.clock_show_on_hint)
                     } else {
-                        "Renders a clock into the wallpaper itself."
+                        stringResource(R.string.clock_show_off_hint)
                     }
                 )
                 if (clockEnabled) {
@@ -654,7 +668,7 @@ private fun EffectSettings(
                     if (config.clockOffersScreenChoice) {
                         Spacer(Modifier.height(18.dp))
                         Text(
-                            "Show on",
+                            stringResource(R.string.clock_show_on),
                             style = MaterialTheme.typography.labelLarge
                         )
                         Spacer(Modifier.height(8.dp))
@@ -664,7 +678,11 @@ private fun EffectSettings(
                             ClockScreen.BOTH
                         )
                         AtmoSegmentedControl(
-                            options = listOf("Lock screen", "Home screen", "Both"),
+                            options = listOf(
+                                stringResource(R.string.common_lock_screen),
+                                stringResource(R.string.common_home_screen),
+                                stringResource(R.string.common_both)
+                            ),
                             selectedIndex = screenOrder
                                 .indexOf(ClockScreen.fromId(clockScreenId))
                                 .coerceAtLeast(0),
@@ -686,24 +704,27 @@ private fun EffectSettings(
                     // depth effect silently did nothing unless Glass was on.
                     // The style is chosen on the clock screen, which this one
                     // opens, so it is read again whenever this comes back.
+                    // The Adaptive face is always in front of the subject, so
+                    // the same switch means something else there: whether it
+                    // fits itself around the subject at all.
                     val context = LocalContext.current
                     val adaptiveStyle = rememberClockStyleIsAdaptive()
                     SettingSwitchRow(
-                        title = "Depth effect",
-                        checked = clockDepthEnabled && !adaptiveStyle,
+                        title = stringResource(if (adaptiveStyle) R.string.clock_adapt else R.string.clock_depth),
+                        checked = clockDepthEnabled,
                         onCheckedChange = onClockDepthEnabledChange,
-                        enabled = !adaptiveStyle,
                         subtitle = if (adaptiveStyle) {
-                            "The Adaptive clock fits itself around the subject " +
-                                "and always stays in front, so depth does not apply."
+                            if (clockDepthEnabled) {
+                                stringResource(R.string.clock_adapt_on)
+                            } else {
+                                stringResource(R.string.clock_adapt_off)
+                            }
                         } else {
-                            "Draws the subject back over the clock, so " +
-                                "the clock sits behind them. Needs a photo with a " +
-                                "clear subject."
+                            stringResource(R.string.clock_depth_hint)
                         }
                     )
                     AtmoTextButton(
-                        text = "Choose style, position & size",
+                        text = stringResource(R.string.clock_choose_style),
                         onClick = {
                             context.startActivity(
                                 Intent(context, ClockAdjustActivity::class.java)
@@ -715,9 +736,9 @@ private fun EffectSettings(
         }
 
         if (config.showHalftone) {
-            SettingsGroup("Halftone") {
+            SettingsGroup(stringResource(R.string.halftone_group)) {
                 LabeledSlider(
-                    label = "Dot size",
+                    label = stringResource(R.string.halftone_dot_size),
                     value = dotSize,
                     onValueChange = onDotSizeChange,
                     valueRange = 0f..40f,
@@ -725,18 +746,18 @@ private fun EffectSettings(
                 )
                 Spacer(Modifier.height(8.dp))
                 SettingSwitchRow(
-                    title = "Black and white",
+                    title = stringResource(R.string.halftone_bw),
                     checked = grayscale,
                     onCheckedChange = onGrayscaleChange
                 )
                 Spacer(Modifier.height(18.dp))
                 SubjectIsolationSetting(
-                    title = "Background only",
+                    title = stringResource(R.string.common_background_only),
                     checked = halftoneBackgroundOnly,
                     onCheckedChange = onHalftoneBackgroundOnlyChange,
-                    inactiveText = "Applies Halftone to the complete wallpaper.",
-                    activeDescription = "The subject stays sharp while the background is printed.",
-                    waitingText = "The wallpaper stays unchanged until the subject model is ready.",
+                    inactiveText = stringResource(R.string.halftone_inactive),
+                    activeDescription = stringResource(R.string.halftone_active),
+                    waitingText = stringResource(R.string.common_waiting_model),
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
                     subjectModelWorking = subjectModelWorking,
@@ -749,9 +770,9 @@ private fun EffectSettings(
         }
 
         if (config.showColorFill && transitionsEnabled) {
-            SettingsGroup("Color origin") {
+            SettingsGroup(stringResource(R.string.origin_group)) {
                 LabeledSlider(
-                    label = "Horizontal position",
+                    label = stringResource(R.string.origin_horizontal),
                     value = originX,
                     onValueChange = onOriginXChange,
                     valueRange = 0f..1f,
@@ -759,7 +780,7 @@ private fun EffectSettings(
                 )
                 Spacer(Modifier.height(12.dp))
                 LabeledSlider(
-                    label = "Vertical position",
+                    label = stringResource(R.string.origin_vertical),
                     value = originY,
                     onValueChange = onOriginYChange,
                     valueRange = 0f..1f,
@@ -769,14 +790,14 @@ private fun EffectSettings(
         }
 
         if (config.showNeon) {
-            SettingsGroup("Canvas Sketch") {
+            SettingsGroup(stringResource(R.string.canvas_group)) {
                 SubjectIsolationSetting(
-                    title = "Subject segmentation",
+                    title = stringResource(R.string.canvas_segmentation),
                     checked = subjectSegmentationEnabled,
                     onCheckedChange = onSubjectSegmentationChange,
-                    inactiveText = "Sketches the complete wallpaper.",
-                    activeDescription = "The subject silhouette anchors the sketch.",
-                    waitingText = "The complete wallpaper is sketched until the model is ready.",
+                    inactiveText = stringResource(R.string.canvas_inactive),
+                    activeDescription = stringResource(R.string.canvas_active),
+                    waitingText = stringResource(R.string.canvas_waiting),
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
                     subjectModelWorking = subjectModelWorking,
@@ -787,7 +808,7 @@ private fun EffectSettings(
                 )
                 Spacer(Modifier.height(18.dp))
                 LabeledSlider(
-                    label = "Sketch detail",
+                    label = stringResource(R.string.canvas_detail),
                     value = neonSensitivity,
                     onValueChange = onNeonSensitivityChange,
                     valueRange = 0f..1f,
@@ -795,7 +816,7 @@ private fun EffectSettings(
                 )
                 Spacer(Modifier.height(12.dp))
                 LabeledSlider(
-                    label = "Line thickness",
+                    label = stringResource(R.string.common_line_thickness),
                     value = neonLineWidth,
                     onValueChange = onNeonLineWidthChange,
                     valueRange = 0.5f..4f,
@@ -805,9 +826,9 @@ private fun EffectSettings(
         }
 
         if (config.showBlob) {
-            SettingsGroup("Atmosphere color") {
+            SettingsGroup(stringResource(R.string.atmos_color_group)) {
                 LabeledSlider(
-                    label = "Saturation",
+                    label = stringResource(R.string.atmos_saturation),
                     value = saturation,
                     onValueChange = onSaturationChange,
                     valueRange = 0f..3f,
@@ -815,7 +836,7 @@ private fun EffectSettings(
                 )
                 Spacer(Modifier.height(12.dp))
                 LabeledSlider(
-                    label = "Contrast",
+                    label = stringResource(R.string.atmos_contrast),
                     value = contrast,
                     onValueChange = onContrastChange,
                     valueRange = 0f..3f,
@@ -825,29 +846,41 @@ private fun EffectSettings(
         }
 
         if (config.showNoiseSwitch) {
-            SettingsGroup("Film grain") {
+            SettingsGroup(stringResource(R.string.grain_group)) {
                 SettingSwitchRow(
-                    title = "Blur noise",
+                    title = stringResource(R.string.grain_add),
                     checked = noiseEnabled,
-                    onCheckedChange = onNoiseEnabledChange
+                    onCheckedChange = onNoiseEnabledChange,
+                    subtitle = stringResource(R.string.grain_hint)
                 )
                 AnimatedVisibility(visible = noiseEnabled) {
                     Column {
                         Spacer(Modifier.height(12.dp))
-                        AtmoNumberField(
-                            label = "Grain scale",
-                            value = noiseScale,
-                            onValueChange = { onNoiseScaleChange(it.filterDecimal()) },
-                            helper = "Recommended: 2000",
-                            decimal = true
+                        // Words rather than raw numbers: the stored values are
+                        // grains across the image and a colour offset, neither
+                        // of which means anything to look at.
+                        val sizePosition = FilmGrainPolicy.sizePosition(
+                            noiseScale.toFloatOrNull() ?: FilmGrainPolicy.DEFAULT_SCALE
                         )
-                        Spacer(Modifier.height(14.dp))
-                        AtmoNumberField(
-                            label = "Grain strength",
-                            value = noiseStrength,
-                            onValueChange = { onNoiseStrengthChange(it.filterDecimal()) },
-                            helper = "Recommended: 0.06",
-                            decimal = true
+                        val resources = LocalResources.current
+                        LabeledSlider(
+                            label = stringResource(R.string.grain_size),
+                            value = sizePosition,
+                            onValueChange = {
+                                onNoiseScaleChange(FilmGrainPolicy.scaleAt(it).toString())
+                            },
+                            valueRange = 0f..1f,
+                            valueText = { resources.getString(FilmGrainPolicy.sizeLabel(it)) }
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        LabeledSlider(
+                            label = stringResource(R.string.grain_strength),
+                            value = FilmGrainPolicy.sanitizeStrength(
+                                noiseStrength.toFloatOrNull() ?: FilmGrainPolicy.DEFAULT_STRENGTH
+                            ),
+                            onValueChange = { onNoiseStrengthChange(it.toString()) },
+                            valueRange = 0f..FilmGrainPolicy.MAX_STRENGTH,
+                            valueText = { resources.getString(FilmGrainPolicy.strengthLabel(it)) }
                         )
                     }
                 }
@@ -870,19 +903,22 @@ private fun SubjectIsolationSetting(
     subjectModelButtonText: String,
     subjectModelStatusText: String,
     subjectModelState: SubjectModelState,
-    onDownloadSubjectModel: () -> Unit
+    onDownloadSubjectModel: () -> Unit,
+    /** Set when something else needs this on: shown on and greyed out, with this reason. */
+    forcedOnReason: String? = null
 ) {
     SettingSwitchRow(
         title = title,
-        checked = checked,
+        checked = checked || forcedOnReason != null,
         onCheckedChange = onCheckedChange,
-        enabled = subjectModelReady || checked,
+        enabled = forcedOnReason == null && (subjectModelReady || checked),
         subtitle = when {
+            forcedOnReason != null -> forcedOnReason
             !checked -> inactiveText
             subjectModelDelivery == SubjectModelDelivery.BUNDLED_FOSS ->
-                "Uses the bundled on-device model. $activeDescription"
+                stringResource(R.string.model_uses_bundled, activeDescription)
             subjectModelReady ->
-                "Uses the installed on-device model. $activeDescription"
+                stringResource(R.string.model_uses_installed, activeDescription)
             else -> waitingText
         }
     )
@@ -891,7 +927,8 @@ private fun SubjectIsolationSetting(
         AtmoOutlinedButton(
             text = subjectModelButtonText,
             onClick = onDownloadSubjectModel,
-            enabled = !subjectModelWorking && !subjectModelReady,
+            enabled = !subjectModelWorking && !subjectModelReady &&
+                subjectModelState.phase != SubjectModelPhase.BROKEN,
             accent = true,
             icon = if (!subjectModelWorking && !subjectModelReady) {
                 painterResource(R.drawable.ic_download)
@@ -941,62 +978,66 @@ private fun TimingSettings(
     val info = painterResource(R.drawable.ic_info)
     val alwaysAppliedDescription = when (alwaysAppliedTarget) {
         AlwaysAppliedTarget.HOME ->
-            "The effect stays on the Home screen. The Lock screen shows the original."
+            stringResource(R.string.timing_always_home)
         AlwaysAppliedTarget.LOCK ->
-            "The effect stays on the Lock screen. The Home screen shows the original."
+            stringResource(R.string.timing_always_lock)
         AlwaysAppliedTarget.BOTH ->
-            "The effect stays on both screens."
+            stringResource(R.string.timing_always_both)
     }
     SettingsScroll {
-        SettingsGroup("Effect behavior") {
+        SettingsGroup(stringResource(R.string.timing_behavior_group)) {
             SettingSwitchRow(
-                title = "Animate transitions",
+                title = stringResource(R.string.timing_animate),
                 checked = transitionsEnabled,
                 onCheckedChange = onTransitionsEnabledChange,
                 subtitle = if (transitionsEnabled) {
-                    "Changes between effect states when the screen locks or unlocks."
+                    stringResource(R.string.timing_animate_on)
                 } else {
-                    "Keeps the fully applied effect visible on the selected screens."
+                    stringResource(R.string.timing_animate_off)
                 }
             )
         }
 
         AnimatedVisibility(visible = transitionsEnabled) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SettingsGroup("Unlock response") {
+                SettingsGroup(stringResource(R.string.timing_unlock_group)) {
                     AtmoNumberField(
-                        label = "Unlock check interval (ms)",
+                        label = stringResource(R.string.timing_poll),
                         value = poll,
                         onValueChange = onPollChange,
-                        helper = "Standard: 50 | Samsung: 30000",
+                        helper = stringResource(R.string.timing_poll_helper),
                         infoIcon = info,
                         onInfoClick = onPollInfo
                     )
                     Spacer(Modifier.height(16.dp))
                     AtmoNumberField(
-                        label = "Lock delay (ms)",
+                        label = stringResource(R.string.timing_delay),
                         value = delay,
                         onValueChange = onDelayChange,
-                        helper = "Standard: 800 | Samsung: 0",
+                        helper = stringResource(R.string.timing_delay_helper),
                         infoIcon = info,
                         onInfoClick = onDelayInfo
                     )
                 }
-                SettingsGroup("Animation") {
+                SettingsGroup(stringResource(R.string.timing_animation_group)) {
                     AtmoNumberField(
-                        label = "Duration (ms)",
+                        label = stringResource(R.string.timing_duration),
                         value = duration,
                         onValueChange = onDurationChange,
-                        helper = "Recommended for $activeEffectTitle: $recommendedDurationMs ms"
+                        helper = stringResource(R.string.timing_duration_helper, activeEffectTitle, recommendedDurationMs)
                     )
                 }
             }
         }
 
         AnimatedVisibility(visible = !transitionsEnabled) {
-            SettingsGroup("Keep effect applied on") {
+            SettingsGroup(stringResource(R.string.timing_keep_group)) {
                 AtmoSegmentedControl(
-                    options = listOf("Home screen", "Lock screen", "Both"),
+                    options = listOf(
+                        stringResource(R.string.common_home_screen),
+                        stringResource(R.string.common_lock_screen),
+                        stringResource(R.string.common_both)
+                    ),
                     selectedIndex = alwaysAppliedTarget.ordinal,
                     onSelected = { index ->
                         onAlwaysAppliedTargetChange(
@@ -1008,7 +1049,7 @@ private fun TimingSettings(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "$alwaysAppliedDescription Atmo Engine remains a live wallpaper.",
+                    stringResource(R.string.timing_still_live, alwaysAppliedDescription),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1046,9 +1087,9 @@ private fun DisplaySettings(
     }
 
     SettingsScroll {
-        SettingsGroup("Wallpaper appearance") {
+        SettingsGroup(stringResource(R.string.display_appearance_group)) {
             LabeledSlider(
-                label = "Dimness",
+                label = stringResource(R.string.display_dimness),
                 value = dimness,
                 onValueChange = onDimnessChange,
                 valueRange = 0f..0.8f,
@@ -1058,7 +1099,7 @@ private fun DisplaySettings(
             if (config.showFrosted) {
                 Spacer(Modifier.height(12.dp))
                 LabeledSlider(
-                    label = "Blur strength",
+                    label = stringResource(R.string.display_blur),
                     value = blurStrength,
                     onValueChange = onBlurStrengthChange,
                     valueRange = 0f..400f,
@@ -1081,18 +1122,18 @@ private fun DisplaySettings(
                 helper = rendererHelper
             )
         }
-        SettingsGroup("Home screen") {
+        SettingsGroup(stringResource(R.string.common_home_screen)) {
             SettingSwitchRow(
-                title = "Wallpaper scrolling",
+                title = stringResource(R.string.display_scrolling),
                 subtitle = "${stringResource(R.string.experimental)} ${stringResource(R.string.manualCroppingWillBeDisabled)}",
                 checked = scrollEnabled,
                 onCheckedChange = onScrollEnabledChange
             )
         }
         if (config.isPlaylistMode) {
-            SettingsGroup("Playlist") {
+            SettingsGroup(stringResource(R.string.display_playlist_group)) {
                 AtmoDropdownField(
-                    label = "Rotation mode",
+                    label = stringResource(R.string.display_rotation),
                     options = config.rotationOptions,
                     selectedIndex = rotationIndex,
                     onSelected = onRotationSelected
@@ -1134,7 +1175,7 @@ private fun SettingsGroup(
             if (onInfoClick != null) {
                 AtmoAnimatedIconButton(
                     painter = painterResource(R.drawable.ic_info),
-                    contentDescription = "About $title",
+                    contentDescription = stringResource(R.string.common_about, title),
                     onClick = onInfoClick,
                     motion = AtmoIconMotion.PRESS,
                     iconTint = MaterialTheme.colorScheme.primary
@@ -1170,24 +1211,10 @@ private fun rememberClockStyleIsAdaptive(): Boolean {
     return adaptive
 }
 
-private enum class InfoDialog(val title: String, val message: String) {
-    Poll(
-        "Unlock check interval",
-        "Lower values provide a faster reaction after unlocking but require more frequent checks, which may impact battery life. Use 30000 ms on Samsung devices, or 50 ms if the animation starts late."
-    ),
-    Delay(
-        "Lock delay",
-        "Increase this only if the wallpaper visibly resets before the screen turns off. " +
-            "Use 0 ms on Samsung or 500-800 ms when needed."
-    )
+private enum class InfoDialog(@StringRes val title: Int, @StringRes val message: Int) {
+    Poll(R.string.info_poll_title, R.string.info_poll_message),
+    Delay(R.string.info_delay_title, R.string.info_delay_message)
 }
 
 private fun String.filterDigits(): String = filter { it.isDigit() }
 
-private fun String.filterDecimal(): String {
-    val cleaned = filter { it.isDigit() || it == '.' }
-    val firstDot = cleaned.indexOf('.')
-    if (firstDot == -1) return cleaned
-    return cleaned.substring(0, firstDot + 1) +
-        cleaned.substring(firstDot + 1).replace(".", "")
-}

@@ -8,13 +8,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,17 +29,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Help
+import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Info
@@ -74,12 +74,15 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.ui.components.AtmoChip
+import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
+import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
+import com.app.nosatmosphereeffect.ui.components.AtmoChip
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
@@ -88,8 +91,6 @@ import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
 import com.app.nosatmosphereeffect.ui.components.AtmoTonalButton
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
 import com.app.nosatmosphereeffect.ui.components.WallpaperTransitionPreview
-import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.model.RendererStatusUiModel
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
@@ -137,7 +138,7 @@ fun MainScreen(
             TopAppBar(
                 title = {
                     Column(modifier = Modifier.clickable(onClick = onTitleTap)) {
-                        Text("Atmo Engine", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.main_app_title), style = MaterialTheme.typography.titleLarge)
                         AnimatedContent(
                             targetState = wallpaperActive,
                             transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -146,12 +147,12 @@ fun MainScreen(
                             Text(
                                 if (active) {
                                     if (wallpaperBehavior.transitionsEnabled) {
-                                        "Wallpaper active"
+                                        stringResource(R.string.main_status_active)
                                     } else {
-                                        "Live · effect always applied"
+                                        stringResource(R.string.main_status_always_applied)
                                     }
                                 } else {
-                                    "Wallpaper studio"
+                                    stringResource(R.string.main_status_studio)
                                 },
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -163,7 +164,7 @@ fun MainScreen(
                     if (isSamsungDevice) {
                         AtmoAnimatedIconButton(
                             imageVector = Icons.AutoMirrored.Rounded.Help,
-                            contentDescription = "Samsung adaptive clock setup",
+                            contentDescription = stringResource(R.string.main_samsung_clock_setup),
                             onClick = { showAdaptiveClockSheet = true },
                             motion = AtmoIconMotion.TILT,
                             filledTonal = true,
@@ -173,7 +174,7 @@ fun MainScreen(
                     }
                     AtmoAnimatedIconButton(
                         imageVector = Icons.Rounded.Settings,
-                        contentDescription = "Appearance settings",
+                        contentDescription = stringResource(R.string.main_appearance_settings),
                         onClick = { showSettingsSheet = true },
                         motion = AtmoIconMotion.SPIN,
                         filledTonal = true,
@@ -225,24 +226,24 @@ fun MainScreen(
                 if (wallpaperActive) {
                     item {
                         AtmoReveal(delayMillis = 70) {
-                            UnframedSettingsSection(title = "Wallpaper behavior") {
+                            UnframedSettingsSection(title = stringResource(R.string.main_wallpaper_behavior)) {
                                 SettingSwitchRow(
-                                    title = "Sync system colors",
+                                    title = stringResource(R.string.main_sync_colors),
                                     subtitle = if (isPlaylistMode) {
                                         if (isThemePlaylistMode) {
-                                            "Updates the system palette with each active theme playlist"
+                                            stringResource(R.string.main_sync_colors_theme)
                                         } else {
-                                            "Updates the system palette with every playlist image"
+                                            stringResource(R.string.main_sync_colors_playlist)
                                         }
                                     } else {
-                                        "Updates the system palette from this wallpaper"
+                                        stringResource(R.string.main_sync_colors_single)
                                     },
                                     checked = syncColors,
                                     onCheckedChange = onSyncColorsChange
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 AtmoOutlinedButton(
-                                    text = "Fine tune",
+                                    text = stringResource(R.string.main_fine_tune),
                                     onClick = onAdvancedSettings,
                                     accent = true,
                                     icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Tune),
@@ -266,7 +267,7 @@ fun MainScreen(
 
     if (showImageSheet) {
         WallpaperModeSheet(
-            title = "Wallpaper image",
+            title = stringResource(R.string.main_wallpaper_image),
             isPlaylistMode = isPlaylistMode,
             isThemePlaylistMode = isThemePlaylistMode,
             onDismiss = { showImageSheet = false },
@@ -418,29 +419,31 @@ private fun SamsungAdaptiveClockSheet(
     val effect = EffectCatalog.find(activeEffectId)
     val originalFirst = EffectCatalog.startsFromOriginalWallpaper(activeEffectId)
     val compatible = wallpaperActive && !isPlaylistMode && originalFirst
-    val compatibleEffectNames = remember {
+    val resources = LocalResources.current
+    val compatibleEffectNames = remember(resources) {
         EffectCatalog.items
             .filter { EffectCatalog.startsFromOriginalWallpaper(it.id) }
-            .joinToString { it.title }
+            .joinToString { resources.getString(it.title) }
     }
+    val effectTitle = stringResource(effect.title)
     val statusTitle: String
     val statusMessage: String
     when {
         !wallpaperActive -> {
-            statusTitle = "Choose a compatible setup"
-            statusMessage = "Use one image and a transition that begins with the unchanged wallpaper."
+            statusTitle = stringResource(R.string.samsung_status_choose_title)
+            statusMessage = stringResource(R.string.samsung_status_choose_message)
         }
         isPlaylistMode -> {
-            statusTitle = "Single image required"
-            statusMessage = "Samsung adaptive clock setup is not available for playlists yet."
+            statusTitle = stringResource(R.string.samsung_status_single_title)
+            statusMessage = stringResource(R.string.samsung_status_single_message)
         }
         !originalFirst -> {
-            statusTitle = "Change the transition direction"
-            statusMessage = "${effect.title} does not begin with the unchanged wallpaper."
+            statusTitle = stringResource(R.string.samsung_status_direction_title)
+            statusMessage = stringResource(R.string.samsung_status_direction_message, effectTitle)
         }
         else -> {
-            statusTitle = "Current setup is compatible"
-            statusMessage = "${effect.title} begins with the unchanged wallpaper and uses one image."
+            statusTitle = stringResource(R.string.samsung_status_ready_title)
+            statusMessage = stringResource(R.string.samsung_status_ready_message, effectTitle)
         }
     }
 
@@ -472,9 +475,9 @@ private fun SamsungAdaptiveClockSheet(
                 }
                 Spacer(Modifier.width(14.dp))
                 Column {
-                    Text("Adaptive clock", style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(R.string.samsung_title), style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Samsung lock screen setup",
+                        stringResource(R.string.samsung_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -482,7 +485,7 @@ private fun SamsungAdaptiveClockSheet(
             }
 
             Text(
-                "Keep Samsung's adaptive lock-screen clock while Atmo Engine handles the home-screen transition.",
+                stringResource(R.string.samsung_intro),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -526,41 +529,41 @@ private fun SamsungAdaptiveClockSheet(
                 AdaptiveClockStep(
                     number = 1,
                     icon = Icons.Rounded.Home,
-                    title = "Apply Atmo to the Home screen",
-                    message = "In Android's live wallpaper preview, choose Home screen only."
+                    title = stringResource(R.string.samsung_step1_title),
+                    message = stringResource(R.string.samsung_step1_message)
                 )
                 AdaptiveClockStep(
                     number = 2,
                     icon = Icons.Rounded.Lock,
-                    title = "Set the same Lock screen image",
-                    message = "Use Samsung system settings or LockStar and select the exact same image."
+                    title = stringResource(R.string.samsung_step2_title),
+                    message = stringResource(R.string.samsung_step2_message)
                 )
                 AdaptiveClockStep(
                     number = 3,
                     icon = Icons.Rounded.Schedule,
-                    title = "Enable Adaptive clock",
-                    message = "Choose Adaptive clock in Samsung's lock screen editor."
+                    title = stringResource(R.string.samsung_step3_title),
+                    message = stringResource(R.string.samsung_step3_message)
                 )
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("Compatible effects", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.samsung_compatible_effects), style = MaterialTheme.typography.titleMedium)
                 Text(
                     compatibleEffectNames,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "Playlist modes are not supported for this setup yet.",
+                    stringResource(R.string.samsung_no_playlists),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
 
             AtmoPrimaryButton(
-                text = "Got it",
+                text = stringResource(R.string.common_got_it),
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -656,9 +659,9 @@ private fun ActiveWallpaperPanel(
             Spacer(Modifier.width(9.dp))
             Text(
                 when {
-                    isThemePlaylistMode -> "Active theme playlists"
-                    isPlaylistMode -> "Active playlist"
-                    else -> "Active wallpaper"
+                    isThemePlaylistMode -> stringResource(R.string.main_active_theme_playlists)
+                    isPlaylistMode -> stringResource(R.string.main_active_playlist)
+                    else -> stringResource(R.string.main_active_wallpaper)
                 },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface
@@ -666,9 +669,9 @@ private fun ActiveWallpaperPanel(
             Spacer(Modifier.weight(1f))
             AtmoChip(
                 when {
-                    isThemePlaylistMode -> "Light + dark"
-                    isPlaylistMode -> "Playlist"
-                    else -> "Single image"
+                    isThemePlaylistMode -> stringResource(R.string.main_chip_light_dark)
+                    isPlaylistMode -> stringResource(R.string.main_chip_playlist)
+                    else -> stringResource(R.string.main_chip_single)
                 }
             )
         }
@@ -684,7 +687,7 @@ private fun ActiveWallpaperPanel(
 
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                effect.title,
+                stringResource(effect.title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -692,15 +695,15 @@ private fun ActiveWallpaperPanel(
             )
             Text(
                 if (wallpaperBehavior.transitionsEnabled) {
-                    effect.transition
+                    stringResource(effect.transition)
                 } else {
                     when (wallpaperBehavior.alwaysAppliedTarget) {
                         AlwaysAppliedTarget.HOME ->
-                            "Always applied on Home · original on Lock"
+                            stringResource(R.string.main_always_home)
                         AlwaysAppliedTarget.LOCK ->
-                            "Always applied on Lock · original on Home"
+                            stringResource(R.string.main_always_lock)
                         AlwaysAppliedTarget.BOTH ->
-                            "Always applied on Home and Lock"
+                            stringResource(R.string.main_always_both)
                     }
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -713,13 +716,13 @@ private fun ActiveWallpaperPanel(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             AtmoTonalButton(
-                text = "Effect",
+                text = stringResource(R.string.main_button_effect),
                 onClick = onChangeEffect,
                 icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Palette),
                 modifier = Modifier.weight(1f)
             )
             AtmoTonalButton(
-                text = "Image",
+                text = stringResource(R.string.main_button_image),
                 onClick = onChangeImage,
                 icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Wallpaper),
                 modifier = Modifier.weight(1f)
@@ -743,7 +746,7 @@ private fun EmptyWallpaperPanel(
                 .aspectRatio(0.92f)
         )
         Text(
-            "Create a wallpaper",
+            stringResource(R.string.main_create_wallpaper),
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -753,7 +756,7 @@ private fun EmptyWallpaperPanel(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         AtmoPrimaryButton(
-            text = "Choose effect and image",
+            text = stringResource(R.string.main_choose_effect_image),
             onClick = onSetupWallpaper,
             icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Wallpaper),
             modifier = Modifier.fillMaxWidth()
@@ -826,19 +829,23 @@ private fun AppearanceSettingsSheet(
                     )
                 }
                 Spacer(Modifier.width(14.dp))
-                Text("Appearance", style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.appearance_title), style = MaterialTheme.typography.headlineSmall)
             }
 
             SettingSwitchRow(
-                title = "Material Expressive",
+                title = stringResource(R.string.appearance_expressive),
                 checked = expressive,
                 onCheckedChange = onExpressiveChange
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Theme", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.appearance_theme), style = MaterialTheme.typography.titleMedium)
                 AtmoSegmentedControl(
-                    options = listOf("System", "Light", "Dark"),
+                    options = listOf(
+                        stringResource(R.string.appearance_theme_system),
+                        stringResource(R.string.appearance_theme_light),
+                        stringResource(R.string.appearance_theme_dark)
+                    ),
                     selectedIndex = themeMode.ordinal,
                     onSelected = { onThemeModeChange(AppThemeMode.entries[it]) }
                 )
@@ -846,8 +853,8 @@ private fun AppearanceSettingsSheet(
 
             AnimatedVisibility(visible = darkThemeActive) {
                 SettingSwitchRow(
-                    title = "Pitch-black background",
-                    subtitle = "Use pure black instead of the system dark surface.",
+                    title = stringResource(R.string.appearance_pitch_black),
+                    subtitle = stringResource(R.string.appearance_pitch_black_subtitle),
                     checked = pitchBlack,
                     onCheckedChange = onPitchBlackChange
                 )
@@ -859,7 +866,7 @@ private fun AppearanceSettingsSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WallpaperModeSheet(
-    title: String = "Wallpaper mode",
+    title: String = stringResource(R.string.mode_title),
     isPlaylistMode: Boolean = false,
     isThemePlaylistMode: Boolean = false,
     onDismiss: () -> Unit,
@@ -887,47 +894,47 @@ fun WallpaperModeSheet(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
             )
             ModeOption(
-                title = "Single image",
-                subtitle = "Use one wallpaper",
+                title = stringResource(R.string.mode_single),
+                subtitle = stringResource(R.string.mode_single_subtitle),
                 icon = Icons.Rounded.Image,
                 onClick = onPickSingle
             )
             ModeOption(
-                title = if (isPlaylistMode) "New playlist" else "Playlist",
-                subtitle = "Use several rotating images",
+                title = stringResource(if (isPlaylistMode) R.string.mode_new_playlist else R.string.mode_playlist),
+                subtitle = stringResource(R.string.mode_playlist_subtitle),
                 icon = Icons.Rounded.Collections,
                 onClick = onPickMultiple
             )
             if (onPickFolder != null) {
                 ModeOption(
-                    title = "Playlist from folder",
-                    subtitle = "Follow folders and add new images automatically",
+                    title = stringResource(R.string.mode_folder),
+                    subtitle = stringResource(R.string.mode_folder_subtitle),
                     icon = Icons.Rounded.Folder,
                     onClick = onPickFolder
                 )
             }
             ModeOption(
-                title = if (isThemePlaylistMode) "New theme playlists" else "Theme playlists",
-                subtitle = "Separate wallpapers for light and dark themes",
+                title = stringResource(if (isThemePlaylistMode) R.string.mode_new_theme else R.string.mode_theme),
+                subtitle = stringResource(R.string.mode_theme_subtitle),
                 icon = Icons.Rounded.Brightness6,
                 onClick = onPickThemePlaylists
             )
             if (isPlaylistMode && onEditExisting != null) {
                 ModeOption(
                     title = if (isThemePlaylistMode) {
-                        "Edit current theme playlists"
+                        stringResource(R.string.mode_edit_theme)
                     } else {
-                        "Edit current playlist"
+                        stringResource(R.string.mode_edit_playlist)
                     },
-                    subtitle = "Change its images and crops",
+                    subtitle = stringResource(R.string.mode_edit_subtitle),
                     icon = Icons.Rounded.Edit,
                     onClick = onEditExisting
                 )
             }
             if (onOpenSaved != null) {
                 ModeOption(
-                    title = "Saved playlists",
-                    subtitle = "Switch back to a playlist you used before",
+                    title = stringResource(R.string.mode_saved),
+                    subtitle = stringResource(R.string.mode_saved_subtitle),
                     icon = Icons.Rounded.Bookmarks,
                     onClick = onOpenSaved
                 )

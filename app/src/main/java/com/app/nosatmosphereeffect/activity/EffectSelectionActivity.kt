@@ -16,12 +16,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
 import com.app.nosatmosphereeffect.image.BitmapDecoder
-import com.app.nosatmosphereeffect.ui.screens.EffectSelectionScreen
-import com.app.nosatmosphereeffect.ui.screens.WallpaperModeSheet
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.model.EffectItem
+import com.app.nosatmosphereeffect.ui.screens.EffectSelectionScreen
+import com.app.nosatmosphereeffect.ui.screens.WallpaperModeSheet
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 import java.io.File
 import java.io.IOException
@@ -61,7 +62,10 @@ class EffectSelectionActivity : ComponentActivity() {
                 var pendingMode by remember { mutableStateOf(false) }
 
                 EffectSelectionScreen(
-                    title = if (isUpdateOnly && !isShare) "Change Effect" else "Choose Effect",
+                    title = getString(
+                        if (isUpdateOnly && !isShare) R.string.effects_change_title
+                        else R.string.effects_choose_title
+                    ),
                     effects = EffectCatalog.items,
                     previewBitmap = previewBitmap,
                     onEffectClick = { item ->
@@ -81,7 +85,7 @@ class EffectSelectionActivity : ComponentActivity() {
 
                 if (pendingMode) {
                     WallpaperModeSheet(
-                        title = "Wallpaper mode",
+                        title = getString(R.string.mode_title),
                         onDismiss = { pendingMode = false },
                         onPickSingle = { pendingMode = false; pickSingleImage.launch("image/*") },
                         onPickMultiple = { pendingMode = false; pickMultipleImages.launch("image/*") },
@@ -190,12 +194,19 @@ class EffectSelectionActivity : ComponentActivity() {
     }
 
     private fun applyEffectDirectly(effectId: String) {
+        // The same images under another effect: Fine tuning starts fresh
+        // (the same effect again keeps it). Written before the picker opens,
+        // because its preview starts the effect at once and reads these.
+        val appPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val editor = appPreferences.edit()
+        FineTuneRetention.applyTo(this, editor, effectId, imagesChanged = false)
+        editor.commit()
         if (WallpaperEffectServices.launchPicker(this, effectId)) {
             finish()
         } else {
             Toast.makeText(
                 this,
-                "No live wallpaper picker is available on this device.",
+                getString(R.string.playlist_no_picker),
                 Toast.LENGTH_LONG
             ).show()
         }

@@ -19,13 +19,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
 import com.app.nosatmosphereeffect.helper.FolderSyncPolicy
-import com.app.nosatmosphereeffect.helper.MediaImage
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.helper.GlassEffectSettings
 import com.app.nosatmosphereeffect.helper.MatrixStatePolicy
+import com.app.nosatmosphereeffect.helper.MediaImage
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
@@ -38,19 +39,19 @@ import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary
 import com.app.nosatmosphereeffect.storage.SharedPreferencesTransactions
 import com.app.nosatmosphereeffect.storage.WallpaperStorageCoordinator
 import com.app.nosatmosphereeffect.storage.WatchedFolder
+import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.screens.PlaylistEditorScreen
 import com.app.nosatmosphereeffect.ui.screens.PlaylistEntry
 import com.app.nosatmosphereeffect.ui.screens.ProcessingOverlay
 import com.app.nosatmosphereeffect.ui.screens.RenamePlaylistDialog
 import com.app.nosatmosphereeffect.ui.screens.SimpleConfirmDialog
-import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONException
 
@@ -96,7 +97,11 @@ class PlaylistEditorActivity : ComponentActivity() {
                         )
                     )
                 }
-                Toast.makeText(this, "${uris.size} images added", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    resources.getQuantityString(R.plurals.playlist_images_added, uris.size, uris.size),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
@@ -222,9 +227,9 @@ class PlaylistEditorActivity : ComponentActivity() {
                     effectId = effectId,
                     title = draftState.playlistName
                         ?: if (isEditExisting || draftState.savedPlaylistId != null) {
-                            "Edit Playlist"
+                            getString(R.string.playlist_edit_title)
                         } else {
-                            "New Playlist"
+                            getString(R.string.playlist_new_title)
                         },
                     onRename = { showRename = true },
                     watchedFolders = draftState.watchedFolders.map(WatchedFolder::name),
@@ -290,12 +295,10 @@ class PlaylistEditorActivity : ComponentActivity() {
 
                 if (showApplyConfirm) {
                     SimpleConfirmDialog(
-                        title = "Apply Wallpaper",
-                        message = "On the next screen, please select:\n\n" +
-                            "Set Wallpaper › Home Screen and Lock Screen.\n\n" +
-                            "(This ensures the lock-screen effect works correctly.)",
-                        confirmLabel = "Set Wallpaper",
-                        dismissLabel = "Cancel",
+                        title = getString(R.string.playlist_apply_title),
+                        message = getString(R.string.playlist_apply_message),
+                        confirmLabel = getString(R.string.playlist_set_wallpaper),
+                        dismissLabel = getString(R.string.common_cancel),
                         onConfirm = {
                             showApplyConfirm = false
                             applyFromDialog()
@@ -307,10 +310,13 @@ class PlaylistEditorActivity : ComponentActivity() {
                 if (isProcessing) {
                     ProcessingOverlay(
                         message = if (draftState.totalCount > 0) {
-                            "Processing ${draftState.processedCount} of " +
-                                "${draftState.totalCount} images…"
+                            getString(
+                                R.string.playlist_processing,
+                                draftState.processedCount,
+                                draftState.totalCount
+                            )
                         } else {
-                            "Processing playlist…"
+                            getString(R.string.playlist_getting_ready)
                         }
                     )
                 }
@@ -504,25 +510,25 @@ class PlaylistEditorActivity : ComponentActivity() {
                 reportApplyFailure(
                     "Unable to persist playlist",
                     error,
-                    "The playlist could not be saved. Check available storage and try again."
+                    getString(R.string.playlist_error_storage)
                 )
             } catch (error: SecurityException) {
                 reportApplyFailure(
                     "Playlist image permission was rejected",
                     error,
-                    "Atmo Engine no longer has permission to read one of the images."
+                    getString(R.string.playlist_error_permission)
                 )
             } catch (error: JSONException) {
                 reportApplyFailure(
                     "Unable to create playlist metadata",
                     error,
-                    "The playlist metadata could not be created."
+                    getString(R.string.playlist_error_metadata)
                 )
             } catch (error: RuntimeException) {
                 reportApplyFailure(
                     "Unexpected playlist apply failure",
                     error,
-                    "The playlist could not be prepared."
+                    getString(R.string.playlist_error_unexpected)
                 )
             }
         }
@@ -594,10 +600,10 @@ class PlaylistEditorActivity : ComponentActivity() {
         }
 
         SystemColorSyncPreferences.isEnabled(this)
+        // New images: Fine tuning starts fresh unless the same effect is
+        // already live, and then only the clock is switched off.
         val appPreferencesEditor = appPreferences.edit()
-        if (!isEditExisting) {
-            appPreferencesEditor.clear()
-        }
+        FineTuneRetention.applyTo(this, appPreferencesEditor, effectId, imagesChanged = true)
         appPreferencesEditor.putBoolean(
             AtmosphereGlassPolicy.ENABLED_KEY,
             atmosphereGlassEnabled
@@ -666,7 +672,7 @@ class PlaylistEditorActivity : ComponentActivity() {
         draftState.applyCompleted = false
         Toast.makeText(
             this,
-            "Setup complete. Select Home screen and Lock screen next.",
+            getString(R.string.playlist_applied),
             Toast.LENGTH_LONG
         ).show()
         sendBroadcast(Intent(ACTION_RELOAD_WALLPAPER).setPackage(packageName))
@@ -687,7 +693,7 @@ class PlaylistEditorActivity : ComponentActivity() {
         } else {
             Toast.makeText(
                 this,
-                "No live wallpaper picker is available on this device.",
+                getString(R.string.playlist_no_picker),
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -724,7 +730,7 @@ class PlaylistEditorActivity : ComponentActivity() {
 
     private fun loadSavedPlaylist(id: String) {
         if (!SavedPlaylistLibrary.exists(this, id)) {
-            Toast.makeText(this, "This saved playlist is no longer available.", Toast.LENGTH_LONG)
+            Toast.makeText(this, R.string.playlist_saved_missing, Toast.LENGTH_LONG)
                 .show()
             return
         }
@@ -790,8 +796,11 @@ class PlaylistEditorActivity : ComponentActivity() {
                 if (removed.isNotEmpty()) {
                     Toast.makeText(
                         this,
-                        if (removed.size == 1) "1 deleted image removed"
-                        else "${removed.size} deleted images removed",
+                        resources.getQuantityString(
+                            R.plurals.playlist_deleted_removed,
+                            removed.size,
+                            removed.size
+                        ),
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -808,8 +817,11 @@ class PlaylistEditorActivity : ComponentActivity() {
                 }
                 Toast.makeText(
                     this,
-                    if (fresh.size == 1) "1 image added from folders"
-                    else "${fresh.size} images added from folders",
+                    resources.getQuantityString(
+                        R.plurals.playlist_folder_images_added,
+                        fresh.size,
+                        fresh.size
+                    ),
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -886,7 +898,7 @@ class PlaylistEditorActivity : ComponentActivity() {
         loadLegacyPlaylist(playlistDir)
         Toast.makeText(
             this,
-            "Some saved crop details could not be restored.",
+            getString(R.string.playlist_crops_not_restored),
             Toast.LENGTH_LONG
         ).show()
     }
@@ -903,7 +915,7 @@ class PlaylistEditorActivity : ComponentActivity() {
 
     private fun applyFromDialog() {
         if (playlistItems.isEmpty()) {
-            Toast.makeText(this, "Playlist is empty", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.playlist_empty, Toast.LENGTH_SHORT).show()
         } else {
             applyPlaylist()
         }

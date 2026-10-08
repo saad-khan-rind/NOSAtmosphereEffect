@@ -410,11 +410,21 @@ vec3 applyClockDepth(vec3 color, vec3 subjectColor, vec2 maskUv) {
     );
 }
 
-float random(vec2 coordinate) {
-    return fract(
-        sin(dot(coordinate, vec2(12.9898, 78.233))) *
-        43758.5453
-    );
+// The same grain as the OpenGL shaders, so both backends look identical: a
+// bit-mixing hash over a grid of grains across the image. Not
+// fract(sin(dot(...))) — that idiom collapses to a repeating mesh at these
+// coordinate magnitudes, and on GPUs with a low-precision sin (seen on
+// Samsung's Xclipse) it does so across the whole screen.
+uint hashU(uvec2 p) {
+    uint h = p.x * 73856093u ^ p.y * 19349663u;
+    h ^= h >> 13;
+    h *= 0x85ebca6bu;
+    h ^= h >> 16;
+    return h;
+}
+
+float random(vec2 co) {
+    return float(hashU(uvec2(co)) & 0xFFFFFFu) / float(0x1000000u);
 }
 
 void main() {
@@ -434,15 +444,11 @@ void main() {
     );
 
     if (params.noise.x > 0.5) {
+        float visibility = smoothstep(0.4, 1.0, progress);
         vec2 noiseCoordinate = vTexCoord;
         noiseCoordinate.x *= params.render.z;
-        vec2 grain = floor(noiseCoordinate * params.noise.y);
-        float noiseValue = random(grain);
-        float visibility = smoothstep(0.4, 1.0, progress);
         finalColor += vec3(
-            noiseValue *
-            params.noise.z *
-            visibility
+            random(floor(noiseCoordinate * params.noise.y)) * params.noise.z * visibility
         );
     }
 

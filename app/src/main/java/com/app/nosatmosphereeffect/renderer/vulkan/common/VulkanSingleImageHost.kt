@@ -102,6 +102,18 @@ internal abstract class VulkanSingleImageHost<State : Any>(
     protected val wallpaperScrollOffsetX: Float
         get() = scrollOffsetX
 
+    /** The share of the image's width on screen, as the shader is given it. */
+    protected val wallpaperScrollWindowX: Float
+        get() = scrollWindowX
+
+    /** Width/height of the current surface, or 0 before there is one. */
+    protected val surfaceAspect: Float
+        get() = if (latestWidth > 0 && latestHeight > 0) {
+            latestWidth.toFloat() / latestHeight.toFloat()
+        } else {
+            0f
+        }
+
     fun reloadTexture() {
         postIfActive {
             needsReload = true

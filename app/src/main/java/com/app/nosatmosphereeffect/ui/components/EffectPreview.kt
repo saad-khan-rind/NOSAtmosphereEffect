@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -45,13 +46,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
+import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPolicy
+import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreferences
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
@@ -229,17 +231,15 @@ fun WallpaperTransitionPreview(
     val shownProgress = (progress ?: automaticProgress.value).coerceIn(0f, 1f)
     val shape = RoundedCornerShape(if (LocalAtmoExpressive.current) 28.dp else 16.dp)
 
+    val previewLabel = stringResource(
+        if (fixedMode) R.string.preview_effect_always_applied else R.string.preview_effect_transition,
+        stringResource(EffectCatalog.find(effectId).title)
+    )
     Box(
         modifier = modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .semantics {
-                contentDescription = if (fixedMode) {
-                    "${EffectCatalog.find(effectId).title} always-applied preview"
-                } else {
-                    "${EffectCatalog.find(effectId).title} transition preview"
-                }
-            }
+            .semantics { contentDescription = previewLabel }
     ) {
         ProductionEffectSurface(
             effectId = effectId,
@@ -383,7 +383,7 @@ private fun PreviewChrome(progress: Float) {
             ) {
                 Icon(
                     imageVector = if (home) Icons.Rounded.Home else Icons.Rounded.Lock,
-                    contentDescription = if (home) "Home screen" else "Lock screen",
+                    contentDescription = stringResource(if (home) R.string.common_home_screen else R.string.common_lock_screen),
                     tint = Color.White,
                     modifier = Modifier.size(17.dp)
                 )

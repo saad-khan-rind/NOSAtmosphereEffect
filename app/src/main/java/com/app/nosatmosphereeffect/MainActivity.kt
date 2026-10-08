@@ -1,6 +1,5 @@
 package com.app.nosatmosphereeffect
 
-import android.app.WallpaperManager
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
@@ -22,6 +21,7 @@ import com.app.nosatmosphereeffect.activity.AdvancedSettingsActivity
 import com.app.nosatmosphereeffect.activity.BlurToSharpCropActivity
 import com.app.nosatmosphereeffect.activity.CropActivity
 import com.app.nosatmosphereeffect.activity.EffectSelectionActivity
+import com.app.nosatmosphereeffect.activity.FineTuneRetention
 import com.app.nosatmosphereeffect.activity.FolderPickerActivity
 import com.app.nosatmosphereeffect.activity.PaletteDiagnosticsActivity
 import com.app.nosatmosphereeffect.activity.PlaylistEditorActivity
@@ -207,15 +207,19 @@ class MainActivity : ComponentActivity() {
                 if (result.changed) {
                     val message = listOfNotNull(
                         result.added.takeIf { it > 0 }?.let {
-                            if (it == 1) "added 1 new image" else "added $it new images"
+                            resources.getQuantityString(R.plurals.folders_added, it, it)
                         },
                         result.removed.takeIf { it > 0 }?.let {
-                            if (it == 1) "removed 1 deleted image" else "removed $it deleted images"
+                            resources.getQuantityString(R.plurals.folders_removed, it, it)
                         }
-                    ).joinToString(" and ").replaceFirstChar(Char::uppercase)
+                    ).joinToString(" ")
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
-                        Toast.makeText(this, "Folders synced: $message", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this,
+                            getString(R.string.folders_updated, message),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             } catch (error: Exception) {
@@ -251,7 +255,7 @@ class MainActivity : ComponentActivity() {
         if (activeEffect != null) {
             activeEffectId = activeEffect
             wallpaperActive = true
-            statusText = "Wallpaper is active. Customize your experience below."
+            statusText = getString(R.string.status_live)
             isPlaylistModeActive = PlaylistModeManager.isPlaylistMode(this)
             isThemePlaylistModeActive =
                 isPlaylistModeActive && PlaylistModeManager.isThemeMode(this)
@@ -359,34 +363,7 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
     }
 
-    private fun getActiveEffectType(): String? {
-        val wm = WallpaperManager.getInstance(this)
-        val homeInfo = try {
-            wm.wallpaperInfo
-        } catch (failure: RuntimeException) {
-            Log.w(TAG, "Unable to inspect the Home screen live wallpaper", failure)
-            null
-        }
-        if (homeInfo?.packageName == packageName) {
-            return WallpaperEffectServices.effectIdForService(
-                homeInfo.component.className
-            )
-        }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            return null
-        }
-        val lockInfo = try {
-            wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK)
-        } catch (failure: RuntimeException) {
-            Log.w(TAG, "Unable to inspect the Lock screen live wallpaper", failure)
-            null
-        }
-        if (lockInfo?.packageName != packageName) return null
-        return WallpaperEffectServices.effectIdForService(
-            lockInfo.component.className
-        )
-    }
+    private fun getActiveEffectType(): String? = FineTuneRetention.liveEffectId(this)
 
     private fun launchEditExistingPlaylist() {
         if (isThemePlaylistModeActive) {

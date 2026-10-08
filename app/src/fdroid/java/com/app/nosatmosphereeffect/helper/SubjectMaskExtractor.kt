@@ -18,22 +18,30 @@ import kotlin.math.roundToInt
 /** Runs the bundled U2NetP foreground model without network or Play services. */
 class SubjectMaskExtractor(
     context: Context,
-    private val onResult: (requestId: Long, mask: Bitmap?) -> Unit
+    /** `failed`: no mask because something went wrong, not for want of a subject. */
+    private val onResult: (requestId: Long, mask: Bitmap?, failed: Boolean) -> Unit
 ) : Closeable {
 
-    private companion object {
-        const val TAG = "SubjectMaskExtractor"
-        const val MODEL_ASSET = "models/u2netp_320x320.tflite"
-        const val INPUT_SIZE = 320
-        const val THREAD_COUNT = 2
-        const val CONFIDENT_FOREGROUND = 0.55f
-        const val HIGH_CONFIDENCE = 0.75f
-        const val MIN_FOREGROUND_FRACTION = 0.012f
-        const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
-        const val MIN_RAW_CONFIDENCE = 0.40f
-        const val MIN_CONFIDENCE_RANGE = 0.10f
-        const val MASK_LOW = 0.28f
-        const val MASK_HIGH = 0.72f
+    companion object {
+        /**
+         * The model is built into the app, so there's no outside version to
+         * pause detection for; see SegmentationCrashGuard.
+         */
+        @Suppress("UNUSED_PARAMETER")
+        fun modelVersion(context: Context): String? = null
+
+        private const val TAG = "SubjectMaskExtractor"
+        private const val MODEL_ASSET = "models/u2netp_320x320.tflite"
+        private const val INPUT_SIZE = 320
+        private const val THREAD_COUNT = 2
+        private const val CONFIDENT_FOREGROUND = 0.55f
+        private const val HIGH_CONFIDENCE = 0.75f
+        private const val MIN_FOREGROUND_FRACTION = 0.012f
+        private const val MIN_HIGH_CONFIDENCE_FRACTION = 0.003f
+        private const val MIN_RAW_CONFIDENCE = 0.40f
+        private const val MIN_CONFIDENCE_RANGE = 0.10f
+        private const val MASK_LOW = 0.28f
+        private const val MASK_HIGH = 0.72f
     }
 
     private val appContext = context.applicationContext
@@ -62,14 +70,18 @@ class SubjectMaskExtractor(
         } catch (error: Throwable) {
             Log.w(TAG, "Could not prepare an image for subject segmentation", error)
             SubjectMaskDiagnostics.recordFailure("Preparing image (bundled)", error)
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, true)
             return
         }
 
         try {
             worker.execute {
+                var failed = false
                 val mask = if (!SegmentationCrashGuard.beginAttempt(appContext)) {
                     inputBitmap.recycle()
+                    // Skipped once after a crash: worth another try. Disabled
+                    // for good after repeated crashes: not until it is reset.
+                    failed = !SegmentationCrashGuard.isDisabled(appContext)
                     null
                 } else {
                     try {
@@ -85,6 +97,7 @@ class SubjectMaskExtractor(
                         Log.w(TAG, "Bundled subject segmentation failed", error)
                         SubjectMaskDiagnostics.recordFailure("Inference (bundled)", error)
                         SegmentationCrashGuard.endAttempt(appContext)
+                        failed = true
                         null
                     } finally {
                         inputBitmap.recycle()
@@ -96,14 +109,14 @@ class SubjectMaskExtractor(
                 if (closed) {
                     mask?.recycle()
                 } else {
-                    onResult(requestId, mask)
+                    onResult(requestId, mask, failed)
                 }
             }
         } catch (error: RejectedExecutionException) {
             Log.w(TAG, "Subject-segmentation request was rejected", error)
             SubjectMaskDiagnostics.recordFailure("Scheduling (bundled)", error)
             inputBitmap.recycle()
-            if (!closed) onResult(requestId, null)
+            if (!closed) onResult(requestId, null, false)
         }
     }
 

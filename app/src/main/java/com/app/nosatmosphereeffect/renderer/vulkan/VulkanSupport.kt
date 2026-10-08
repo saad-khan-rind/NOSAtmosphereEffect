@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.edit
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectionAction
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectionPolicy
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
@@ -90,6 +91,9 @@ internal object VulkanSupport {
         // behind as a permanent fallback for a bug that was gone, which is
         // why asking for Vulkan appeared to do nothing and reported a failure
         // for a clock that was working.
+        // Before anything reads the failure store: a driver crash that killed
+        // the previous process becomes a recorded failure here.
+        VulkanCrashRecovery.checkPreviousExit(context)
         val featureQuery = runCatching {
             context.packageManager.hasSystemFeature(
                 PackageManager.FEATURE_VULKAN_HARDWARE_VERSION,
@@ -114,6 +118,9 @@ internal object VulkanSupport {
             blockedAfterFailure = blockedAfterFailure,
             preference = preference
         )
+        if (selectedBackend == GraphicsBackend.VULKAN) {
+            VulkanCrashRecovery.noteVulkanStarted(context, effectId)
+        }
         val capability = when {
             featureQuery.isFailure -> VulkanDeviceCapability.UNKNOWN
             !hasVulkan11 -> VulkanDeviceCapability.UNSUPPORTED
@@ -123,11 +130,11 @@ internal object VulkanSupport {
             null
         } else {
             when {
-                featureQuery.isFailure -> "Vulkan capability query failed"
-                !hasVulkan11 -> "Vulkan 1.1 is not advertised by this device"
-                probedVersion == null -> "No compatible Vulkan runtime was found"
-                blockedAfterFailure -> "Vulkan was disabled after a previous driver failure"
-                else -> "This effect does not have a Vulkan renderer"
+                featureQuery.isFailure -> context.getString(R.string.vulkan_reason_query_failed)
+                !hasVulkan11 -> context.getString(R.string.vulkan_reason_no_11)
+                probedVersion == null -> context.getString(R.string.vulkan_reason_no_runtime)
+                blockedAfterFailure -> context.getString(R.string.vulkan_reason_blocked)
+                else -> context.getString(R.string.vulkan_reason_no_renderer)
             }
         }
         return VulkanBackendResolution(
@@ -200,6 +207,17 @@ internal object VulkanSupport {
         return selection
     }
 
+
+    /**
+     * Forgets every recorded Vulkan failure, for when the user picks Vulkan
+     * themselves: a block recorded in error — a crash that was not the
+     * driver's — would otherwise last until the next app update. If the driver
+     * really is at fault, the next failure is caught and recorded again.
+     */
+    fun clearRecordedFailures(context: Context) {
+        runCatching { VulkanFailureStore.clearAll(context) }
+            .onFailure { Log.w(TAG, "Unable to clear the Vulkan failure state", it) }
+    }
 
     fun recordFailure(context: Context, effectId: String, reason: String) {
         VulkanFailureStore.record(context, effectId, reason)

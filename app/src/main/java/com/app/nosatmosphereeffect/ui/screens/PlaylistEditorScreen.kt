@@ -1,19 +1,5 @@
 package com.app.nosatmosphereeffect.ui.screens
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.CreateNewFolder
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.TextButton
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -26,6 +12,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -43,14 +30,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +68,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -95,12 +96,12 @@ data class PlaylistEntry(
 fun PlaylistEditorScreen(
     entries: List<PlaylistEntry>,
     effectId: String,
-    title: String = "Edit Playlist",
+    title: String = stringResource(R.string.playlist_edit_title),
     playlistTabs: List<String> = emptyList(),
     playlistCounts: List<Int> = emptyList(),
     selectedPlaylist: Int = 0,
     onPlaylistSelected: (Int) -> Unit = {},
-    applyLabel: String = "Apply playlist",
+    applyLabel: String = stringResource(R.string.playlist_apply),
     applyEnabled: Boolean = entries.isNotEmpty(),
     showAtmosphereGlassOption: Boolean = false,
     atmosphereGlassEnabled: Boolean = false,
@@ -137,14 +138,14 @@ fun PlaylistEditorScreen(
                     if (onRename != null) {
                         AtmoAnimatedIconButton(
                             imageVector = Icons.Rounded.Edit,
-                            contentDescription = "Rename playlist",
+                            contentDescription = stringResource(R.string.playlist_rename),
                             onClick = onRename
                         )
                     }
                     Box {
                         AtmoAnimatedIconButton(
                             painter = painterResource(id = R.drawable.ic_crop),
-                            contentDescription = "Default Crop Options",
+                            contentDescription = stringResource(R.string.crop_default_options),
                             onClick = onShowCropOptions
                         )
                         if (showCropOptions) {
@@ -178,7 +179,10 @@ fun PlaylistEditorScreen(
                         onSelected = onPlaylistSelected
                     )
                     Text(
-                        if (selectedPlaylist == 0) "Light theme wallpapers" else "Dark theme wallpapers",
+                        stringResource(
+                            if (selectedPlaylist == 0) R.string.theme_light_wallpapers
+                            else R.string.theme_dark_wallpapers
+                        ),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -192,13 +196,15 @@ fun PlaylistEditorScreen(
             ) {
                 if (entries.isEmpty()) {
                     EmptyPlaylist(
-                        label = if (playlistTabs.isEmpty()) {
-                            "this playlist"
-                        } else if (selectedPlaylist == 0) {
-                            "the light playlist"
-                        } else {
-                            "the dark playlist"
-                        }
+                        message = stringResource(
+                            if (playlistTabs.isEmpty()) {
+                                R.string.playlist_empty_hint
+                            } else if (selectedPlaylist == 0) {
+                                R.string.playlist_empty_hint_light
+                            } else {
+                                R.string.playlist_empty_hint_dark
+                            }
+                        )
                     )
                 } else {
                     HorizontalPager(
@@ -242,7 +248,11 @@ fun PlaylistEditorScreen(
                     modifier = Modifier.padding(top = 10.dp)
                 )
                 Text(
-                    text = "${pagerState.currentPage + 1} of ${entries.size}",
+                    text = stringResource(
+                        R.string.playlist_page_of,
+                        pagerState.currentPage + 1,
+                        entries.size
+                    ),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
@@ -272,8 +282,8 @@ fun PlaylistEditorScreen(
                     }
                     if (showAtmosphereGlassOption) {
                         SettingSwitchRow(
-                            title = "Add glass effect",
-                            subtitle = "Keeps the Atmosphere transition and finishes on reeded glass.",
+                            title = stringResource(R.string.glass_add),
+                            subtitle = stringResource(R.string.glass_add_subtitle),
                             checked = atmosphereGlassEnabled,
                             onCheckedChange = onAtmosphereGlassEnabledChange
                         )
@@ -283,7 +293,7 @@ fun PlaylistEditorScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         AtmoOutlinedButton(
-                            text = "Add",
+                            text = stringResource(R.string.playlist_add),
                             onClick = onAddMore,
                             accent = true,
                             icon = painterResource(R.drawable.ic_add),
@@ -311,9 +321,9 @@ private fun WatchedFoldersRow(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             if (folders.isEmpty()) {
-                "Follow a folder to add its new images automatically"
+                stringResource(R.string.playlist_follow_hint)
             } else {
-                "New images in these folders are added when you open the app"
+                stringResource(R.string.playlist_following_hint)
             },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -337,7 +347,7 @@ private fun WatchedFoldersRow(
                     trailingIcon = {
                         Icon(
                             Icons.Rounded.Close,
-                            contentDescription = "Stop following $name",
+                            contentDescription = stringResource(R.string.playlist_stop_following, name),
                             modifier = Modifier.size(InputChipDefaults.IconSize)
                         )
                     }
@@ -346,7 +356,12 @@ private fun WatchedFoldersRow(
             if (onAddFolder != null) {
                 AssistChip(
                     onClick = onAddFolder,
-                    label = { Text(if (folders.isEmpty()) "Follow folder" else "Folders") },
+                    label = { Text(
+                            stringResource(
+                                if (folders.isEmpty()) R.string.playlist_follow_folder
+                                else R.string.playlist_folders
+                            )
+                        ) },
                     leadingIcon = {
                         Icon(
                             Icons.Rounded.CreateNewFolder,
@@ -423,7 +438,7 @@ private fun PlaylistCard(
 
         if (entry.isEdited) {
             AtmoChip(
-                text = "Edited",
+                text = stringResource(R.string.playlist_edited),
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(12.dp)
@@ -432,7 +447,7 @@ private fun PlaylistCard(
 
         AtmoAnimatedIconButton(
             painter = painterResource(R.drawable.ic_delete),
-            contentDescription = "Remove image",
+            contentDescription = stringResource(R.string.playlist_remove_image),
             onClick = onDelete,
             motion = AtmoIconMotion.PRESS,
             iconTint = MaterialTheme.colorScheme.error,
@@ -484,7 +499,7 @@ private fun PageIndicator(
 }
 
 @Composable
-private fun EmptyPlaylist(label: String) {
+private fun EmptyPlaylist(message: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)
@@ -497,14 +512,14 @@ private fun EmptyPlaylist(label: String) {
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            "No images yet",
+            stringResource(R.string.playlist_no_images),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Tap Add to choose photos for $label.",
+            message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -548,23 +563,23 @@ fun CropOptionsDialog(
 
     val fitOptions = remember {
         listOf(
-            "Screen Fill (Crop)" to WallpaperFitHelper.MODE_FILL,
-            "Fit Image (Show All)" to WallpaperFitHelper.MODE_FIT,
-            "Stretch" to WallpaperFitHelper.MODE_STRETCH,
-            "Rotate to Fit (Landscape)" to WallpaperFitHelper.MODE_ROTATE_FIT
+            R.string.fit_fill to WallpaperFitHelper.MODE_FILL,
+            R.string.fit_show_all to WallpaperFitHelper.MODE_FIT,
+            R.string.fit_stretch to WallpaperFitHelper.MODE_STRETCH,
+            R.string.fit_rotate to WallpaperFitHelper.MODE_ROTATE_FIT
         )
     }
     val fillOptions = remember {
         listOf(
-            "Black" to WallpaperFitHelper.FILL_BLACK,
-            "Repeat" to WallpaperFitHelper.FILL_REPEAT,
-            "Mirror" to WallpaperFitHelper.FILL_MIRROR
+            R.string.fill_black to WallpaperFitHelper.FILL_BLACK,
+            R.string.fill_repeat to WallpaperFitHelper.FILL_REPEAT,
+            R.string.fill_mirror to WallpaperFitHelper.FILL_MIRROR
         )
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Default Crop Options") },
+        title = { Text(stringResource(R.string.crop_default_options)) },
         text = {
             Column {
                 fitOptions.forEach { (label, fitMode) ->
@@ -578,14 +593,14 @@ fun CropOptionsDialog(
                             selected = selectedFitMode == fitMode,
                             onClick = { selectedFitMode = fitMode }
                         )
-                        Text(label)
+                        Text(stringResource(label))
                     }
                 }
 
                 val letterboxed = selectedFitMode == WallpaperFitHelper.MODE_FIT || selectedFitMode == WallpaperFitHelper.MODE_ROTATE_FIT
                 if (letterboxed) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Background fill for fit modes:")
+                    Text(stringResource(R.string.crop_fill_space_with))
                     Spacer(Modifier.height(8.dp))
                     fillOptions.forEach { (label, fillMode) ->
                         Row(
@@ -598,7 +613,7 @@ fun CropOptionsDialog(
                                 selected = selectedFillMode == fillMode,
                                 onClick = { selectedFillMode = fillMode }
                             )
-                            Text(label)
+                            Text(stringResource(label))
                         }
                     }
                 }
@@ -611,12 +626,12 @@ fun CropOptionsDialog(
                     onDismiss()
                 }
             ) {
-                Text("Apply")
+                Text(stringResource(R.string.action_apply))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )

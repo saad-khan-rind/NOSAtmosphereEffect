@@ -3,7 +3,9 @@ package com.app.nosatmosphereeffect.helper
 import android.content.Context
 import android.graphics.Color
 import androidx.annotation.ColorInt
+import androidx.annotation.StringRes
 import androidx.core.graphics.ColorUtils
+import com.app.nosatmosphereeffect.R
 import java.io.File
 
 /**
@@ -46,21 +48,21 @@ object ClockPalette {
      * custom picker exists for anyone who wants to go outside this range.
      */
     val PRESETS: List<Swatch> = listOf(
-        Swatch("White", 0xFFFFFFFF.toInt()),
-        Swatch("Warm white", 0xFFFFF2E0.toInt()),
-        Swatch("Cool white", 0xFFE8F1FF.toInt()),
-        Swatch("Sand", 0xFFF2DCB3.toInt()),
-        Swatch("Blush", 0xFFFFD3D8.toInt()),
-        Swatch("Coral", 0xFFFFB4A2.toInt()),
-        Swatch("Amber", 0xFFFFD479.toInt()),
-        Swatch("Mint", 0xFFB8EBD0.toInt()),
-        Swatch("Sky", 0xFFA8D8FF.toInt()),
-        Swatch("Periwinkle", 0xFFC3C8FF.toInt()),
-        Swatch("Lilac", 0xFFE0C3FF.toInt()),
-        Swatch("Slate", 0xFFBFC7D1.toInt())
+        Swatch(R.string.clock_colour_white, 0xFFFFFFFF.toInt()),
+        Swatch(R.string.clock_colour_warm_white, 0xFFFFF2E0.toInt()),
+        Swatch(R.string.clock_colour_cool_white, 0xFFE8F1FF.toInt()),
+        Swatch(R.string.clock_colour_sand, 0xFFF2DCB3.toInt()),
+        Swatch(R.string.clock_colour_blush, 0xFFFFD3D8.toInt()),
+        Swatch(R.string.clock_colour_coral, 0xFFFFB4A2.toInt()),
+        Swatch(R.string.clock_colour_amber, 0xFFFFD479.toInt()),
+        Swatch(R.string.clock_colour_mint, 0xFFB8EBD0.toInt()),
+        Swatch(R.string.clock_colour_sky, 0xFFA8D8FF.toInt()),
+        Swatch(R.string.clock_colour_periwinkle, 0xFFC3C8FF.toInt()),
+        Swatch(R.string.clock_colour_lilac, 0xFFE0C3FF.toInt()),
+        Swatch(R.string.clock_colour_slate, 0xFFBFC7D1.toInt())
     )
 
-    data class Swatch(val label: String, @ColorInt val color: Int)
+    data class Swatch(@StringRes val label: Int, @ColorInt val color: Int)
 
     /**
      * Resolves the colour the face should be drawn in.
@@ -104,15 +106,17 @@ object ClockPalette {
             if (stamp == cachedStamp && cachedColor != null) return cachedColor
         }
 
-        val extracted = try {
-            WallpaperColorExtractor.extract(file)
+        // The whole picture's colour rather than its most vibrant accent: the
+        // clock sits on all of it.
+        val source = try {
+            WallpaperColorExtractor.representativeColor(file)
         } catch (_: RuntimeException) {
             null
         } catch (_: OutOfMemoryError) {
             null
         } ?: return null
 
-        val conditioned = condition(extracted.primaryColor.toArgb())
+        val conditioned = condition(source)
         synchronized(cacheLock) {
             cachedStamp = stamp
             cachedColor = conditioned
@@ -129,18 +133,23 @@ object ClockPalette {
     }
 
     /**
-     * Keeps the hue, pulls saturation and lightness into a legible band.
+     * The clock's colour for a wallpaper whose overall colour is [source]:
+     * its hue, at a fixed saturation and lightness.
      *
-     * A nearly-grey source (saturation under [MIN_SOURCE_SATURATION]) has no
-     * meaningful hue to preserve, so it becomes plain white instead of a
-     * muddy off-grey.
+     * The way One UI colours its own clock, measured from its lock screen: a
+     * near-black-and-white photo with a faint blue cast gets a clearly light
+     * blue clock, not grey. Only the hue comes from the picture — its
+     * strength does not, so a faint tint and a vivid one give an equally
+     * readable clock. A picture with no hue at all gets a light neutral grey.
      */
     @ColorInt
     fun condition(@ColorInt source: Int): Int {
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(source, hsl)
-        if (hsl[1] < MIN_SOURCE_SATURATION) return DEFAULT_FALLBACK
-        hsl[1] = hsl[1].coerceIn(MIN_TINT_SATURATION, MAX_TINT_SATURATION)
+        if (hsl[1] < MIN_SOURCE_SATURATION) {
+            return opaque(ColorUtils.HSLToColor(floatArrayOf(0f, 0f, TARGET_LIGHTNESS)))
+        }
+        hsl[1] = TARGET_SATURATION
         hsl[2] = TARGET_LIGHTNESS
         return opaque(ColorUtils.HSLToColor(hsl))
     }
@@ -152,8 +161,8 @@ object ClockPalette {
     private var cachedStamp: Long = Long.MIN_VALUE
     @ColorInt private var cachedColor: Int? = null
 
-    private const val MIN_SOURCE_SATURATION = 0.10f
-    private const val MIN_TINT_SATURATION = 0.18f
-    private const val MAX_TINT_SATURATION = 0.42f
-    private const val TARGET_LIGHTNESS = 0.90f
+    /** Below this the picture has no hue worth following. */
+    private const val MIN_SOURCE_SATURATION = 0.01f
+    private const val TARGET_SATURATION = 0.43f
+    private const val TARGET_LIGHTNESS = 0.78f
 }

@@ -95,6 +95,8 @@ data class AtmosphereRenderState(
      * face to tint each digit instead.
      */
     val clockAdaptiveColors: Boolean = false,
+    /** See ClockOverlayState.adaptToSubject. */
+    val clockAdaptToSubject: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
     /**
      * True when the colour came from the wallpaper (Auto or Adaptive) rather
      * than being picked, so the shaders let it follow the effect.
@@ -192,7 +194,7 @@ data class AtmosphereRenderState(
      */
     fun needsSubjectMask(): Boolean {
         return (glassEnabled && glassBackgroundOnly) ||
-            (clockEnabled && (clockDepthEnabled || clockStyle.adaptsToSubject))
+            (clockEnabled && (clockDepthEnabled || (clockStyle.adaptsToSubject && clockAdaptToSubject)))
     }
 
     val clockStyle: ClockStyle
@@ -232,6 +234,7 @@ data class AtmosphereRenderState(
     fun clockOverlay(): ClockOverlayState = ClockOverlayState(
         enabled = clockEnabled,
         depthEnabled = clockDepthEnabled,
+        adaptToSubject = clockAdaptToSubject,
         styleId = clockStyleId,
         showDate = clockShowDate,
         animate = clockAnimate,

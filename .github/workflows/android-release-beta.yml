@@ -14,11 +14,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set up JDK 17
+      # The Gradle daemon asks for a JetBrains JDK 21
+      # (gradle/gradle-daemon-jvm.properties, written by Android Studio).
+      # Installing it here means Gradle finds it instead of downloading one
+      # through foojay, whose pinned links can stop working.
+      - name: Set up JDK 21 (JetBrains)
         uses: actions/setup-java@v5
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: '21'
+          distribution: 'jetbrains'
           cache: gradle
 
       - name: Install Android NDK

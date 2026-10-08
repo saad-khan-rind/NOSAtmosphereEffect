@@ -1,12 +1,15 @@
 package com.app.nosatmosphereeffect.ui.model
 
+import androidx.annotation.StringRes
+import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 
+/** [title], [transition] and [description] are string resources, so they follow the phone's language. */
 data class EffectItem(
     val id: String,
-    val title: String,
-    val transition: String,
-    val description: String
+    @StringRes val title: Int,
+    @StringRes val transition: Int,
+    @StringRes val description: Int
 )
 
 object EffectCatalog {
@@ -22,75 +25,75 @@ object EffectCatalog {
     val items = listOf(
         EffectItem(
             "ORIGINAL",
-            "Original Atmosphere",
-            "Sharp to blur",
-            "Ambient color and drifting atmospheric clouds."
+            R.string.effect_original_title,
+            R.string.effect_original_transition,
+            R.string.effect_original_description
         ),
         EffectItem(
             "REVERSE",
-            "Reverse Atmosphere",
-            "Blur to sharp",
-            "Atmospheric clouds clear to reveal the wallpaper."
+            R.string.effect_reverse_title,
+            R.string.effect_reverse_transition,
+            R.string.effect_reverse_description
         ),
         EffectItem(
             "GLASS",
-            "Glass Effect",
-            "Right-to-left or fade in",
-            "Continuous reeded glass with a configurable transition."
+            R.string.effect_glass_title,
+            R.string.effect_glass_transition,
+            R.string.effect_glass_description
         ),
         EffectItem(
             "GLASS_REVERSE",
-            "Glass Effect Reverse",
-            "Left-to-right or fade out",
-            "Reeded glass clears with a configurable transition."
+            R.string.effect_glass_reverse_title,
+            R.string.effect_glass_reverse_transition,
+            R.string.effect_glass_reverse_description
         ),
         EffectItem(
             "COLORFILL",
-            "Color Fill",
-            "Monochrome to color",
-            "Color spreads outward from the fingerprint position."
+            R.string.effect_colorfill_title,
+            R.string.effect_colorfill_transition,
+            R.string.effect_colorfill_description
         ),
         EffectItem(
             "COLORFILL_REVERSE",
-            "Color Fill Reverse",
-            "Color to monochrome",
-            "Color drains toward the fingerprint position."
+            R.string.effect_colorfill_reverse_title,
+            R.string.effect_colorfill_reverse_transition,
+            R.string.effect_colorfill_reverse_description
         ),
         EffectItem(
             "NEON",
-            "Canvas Sketch",
-            "Sketch to image",
-            "A clean line drawing resolves into the wallpaper."
+            R.string.effect_neon_title,
+            R.string.effect_neon_transition,
+            R.string.effect_neon_description
         ),
         EffectItem(
             "NEON_REVERSE",
-            "Canvas Sketch Reverse",
-            "Image to sketch",
-            "The wallpaper settles into a clean line drawing."
+            R.string.effect_neon_reverse_title,
+            R.string.effect_neon_reverse_transition,
+            R.string.effect_neon_reverse_description
         ),
         EffectItem(
             "FROSTED",
-            "Simple Frosted",
-            "Sharp to blur",
-            "A clean, uniform frosted-glass transition."
+            R.string.effect_frosted_title,
+            R.string.effect_frosted_transition,
+            R.string.effect_frosted_description
         ),
         EffectItem(
             "FROSTED_REVERSE",
-            "Simple Frosted Reverse",
-            "Blur to sharp",
-            "Heavy frost dissolves into a clear image."
+            R.string.effect_frosted_reverse_title,
+            R.string.effect_frosted_reverse_transition,
+            R.string.effect_frosted_reverse_description
         ),
         EffectItem(
             "HALFTONE",
-            "Halftone Print",
-            "Sharp to halftone",
-            "The wallpaper resolves into a printed dot pattern."
+            R.string.effect_halftone_title,
+            R.string.effect_halftone_transition,
+            R.string.effect_halftone_description
         ),
         EffectItem(
             "HALFTONE_REVERSE",
-            "Halftone Print Reverse",
-            "Halftone to sharp",
-            "Printed dots expand into continuous color."
+            R.string.effect_halftone_reverse_title,
+            R.string.effect_halftone_reverse_transition,
+            R.string.effect_halftone_reverse_description
         )
     )
 
