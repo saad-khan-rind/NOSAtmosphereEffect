@@ -62,9 +62,7 @@ object PlaylistRotationController {
         if (isThemeChange && mode != PlaylistModeManager.MODE_THEME) return
 
         // Folder playlists follow their folders even while the app is closed.
-        if (!isThemeChange && mode == PlaylistModeManager.MODE_STANDARD &&
-            FolderPlaylistSource.isAvailable
-        ) {
+        if (!isThemeChange && mode == PlaylistModeManager.MODE_STANDARD) {
             try {
                 FolderPlaylistSource.syncActivePlaylist(context)
             } catch (error: Exception) {

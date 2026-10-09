@@ -17,7 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.model.EffectItem
@@ -98,14 +97,10 @@ class EffectSelectionActivity : ComponentActivity() {
                             startActivity(SavedPlaylistsActivity.intent(this, selectedEffectId))
                             finish()
                         },
-                        onPickFolder = if (FolderPlaylistSource.isAvailable) {
-                            {
-                                pendingMode = false
-                                startActivity(FolderPickerActivity.intent(this, selectedEffectId))
-                                finish()
-                            }
-                        } else {
-                            null
+                        onPickFolder = {
+                            pendingMode = false
+                            startActivity(FolderPickerActivity.intent(this, selectedEffectId))
+                            finish()
                         }
                     )
                 }

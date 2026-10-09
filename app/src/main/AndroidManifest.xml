@@ -70,7 +70,9 @@
         <activity android:name=".activity.ThemePlaylistEditorActivity" />
         <activity android:name=".activity.PaletteDiagnosticsActivity" />
         <activity android:name=".activity.SavedPlaylistsActivity" />
-        <activity android:name=".activity.FolderPickerActivity" />
+        <activity
+            android:name=".activity.FolderPickerActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service
             android:name=".service.AtmosphereService"

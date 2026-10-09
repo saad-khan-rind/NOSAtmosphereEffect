@@ -21,7 +21,7 @@ internal data class PlaylistDraftItem(
     val matrixState: FloatArray? = null,
     val fitMode: String = WallpaperFitHelper.MODE_FILL,
     val fillMode: String = WallpaperFitHelper.FILL_BLACK,
-    /** MediaStore id when the image came from a followed folder. */
+    /** Id of the folder image it came from (FolderPlaylistSource), when it did. */
     val mediaId: Long? = null
 )
 
@@ -32,7 +32,7 @@ internal class StandardPlaylistDraftState : ViewModel() {
     var savedPlaylistId by mutableStateOf<String?>(null)
     var playlistName by mutableStateOf<String?>(null)
     val watchedFolders = mutableStateListOf<WatchedFolder>()
-    /** MediaStore ids already offered from [watchedFolders]; never re-added. */
+    /** Folder image ids already offered from [watchedFolders]; never re-added. */
     var knownMediaIds: Set<Long> = emptySet()
     var atmosphereGlassEnabled by mutableStateOf(false)
     var isProcessing by mutableStateOf(false)
