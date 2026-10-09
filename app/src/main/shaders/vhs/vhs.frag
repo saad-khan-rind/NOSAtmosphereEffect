@@ -1,176 +1,45 @@
-#version 300 es
-precision highp float;
-// Integers too: the tape's hash needs full 32-bit arithmetic. Left at the
-// fragment shader's default (mediump), a GPU may run it in 16 bits and every
-// line comes out alike: no tracking tears, flat grain. Vulkan's are always 32.
-precision highp int;
+#version 450
 
-// VHS: the photo played back off a worn videotape. Soft, colour smeared to the
-// right, scanlines and grain, washed-out blacks and a warm cast, with head-
-// switching noise along the bottom edge. Mid-transition a tracking error rolls
-// down the frame and tears the lines, like a tape settling as it starts to play.
+layout(set = 0, binding = 0) uniform sampler2D wallpaperTexture;
+layout(set = 0, binding = 1) uniform sampler2D subjectMask;
+layout(set = 0, binding = 2) uniform sampler2D clockTexture;
+
+layout(location = 0) in vec2 vTexCoord;
+layout(location = 1) in vec2 vEffectCoord;
+layout(location = 0) out vec4 fragColor;
+
+layout(push_constant) uniform VhsParams {
+    vec4 render;
+    vec4 controls;
+    vec4 scroll;
+    // Appended after the existing vec4s so none of the offsets above shift.
+    //
+    // clockRect: centerX, top, widthFraction, heightFraction — all in the
+    // screen-locked vEffectCoord space. The width arrives already divided by
+    // the surface aspect (see the JNI), because this shader has no
+    // surface-aspect field of its own.
+    //
+    // clockMeta: opacity (with the lock/home fade already folded in by the
+    // host), "a face has been uploaded", "depth enabled AND a subject mask
+    // exists", unused.
+    vec4 clockRect;
+    vec4 clockMeta;
+} params;
+
+// Mirrors the GLES path in assets/shaders/vhs/; keep the two in step. The
+// push constants are Halftone's (the two share a native bridge): render.x is
+// progress, .y dim, .z aspect, .w "the tape shows first"; the dot size and
+// grey switches in controls are unused here.
 //
-// Nothing here moves with time, only with the transition's progress, so the
-// wallpaper is a still frame when it is not changing and costs nothing to keep.
-
-in vec2 vTexCoord;
-// Screen-locked, unaffected by the wallpaper's scroll window — the clock
-// overlay is positioned against the physical screen.
-in vec2 vEffectCoord;
-out vec4 fragColor;
-
-uniform sampler2D uTextureSharp;
-uniform sampler2D uSubjectMask;
-uniform float uAspectRatio;
-// The transition's progress, 0..1; see main() for which end is the tape.
-uniform float uBlurStrength;
-uniform float uDimLevel;
+// clockMeta.y is "a face has been uploaded", NOT the user's toggle: the
+// engine fills unwritten optional bindings with an opaque-black 1x1 clear
+// texture, so sampling before the first upload would paint a solid black
+// rectangle where the clock belongs.
 
 // How much colour the tape keeps.
 const float TAPE_SATURATION = 0.78;
 // Scanlines across the frame, whatever the photo's resolution: about a tape's worth.
 const float TAPE_LINES = 480.0;
-
-// A bit-mixing hash rather than fract(sin(...)), which collapses into a
-// visible mesh on GPUs with a low-precision sin.
-float hash(vec2 p) {
-    uvec2 q = uvec2(ivec2(floor(p)) + ivec2(65536));
-    uint h = (q.x * 1597334677u) ^ (q.y * 3812015801u);
-    h = (h ^ (h >> 16u)) * 2246822519u;
-    h ^= h >> 13u;
-    return float(h & 0xFFFFu) / 65535.0;
-}
-
-vec3 toYiq(vec3 c) {
-    return vec3(
-        dot(c, vec3(0.299, 0.587, 0.114)),
-        dot(c, vec3(0.596, -0.274, -0.322)),
-        dot(c, vec3(0.211, -0.523, 0.312))
-    );
-}
-
-vec3 fromYiq(vec3 c) {
-    return vec3(
-        c.x + 0.956 * c.y + 0.621 * c.z,
-        c.x - 0.272 * c.y - 0.647 * c.z,
-        c.x - 1.106 * c.y + 1.703 * c.z
-    );
-}
-
-// The tape at [strength] 0..1; 0 is the photo untouched. [roll] is the
-// tracking error, 0..1, which only shows mid-transition.
-vec3 tape(vec2 uv, float strength, float roll, float seed) {
-    // Read at full resolution: OpenGL keeps mipmaps of the wallpaper and
-    // Vulkan does not, and a blurrier level would make the two tapes differ.
-    // Reaches are in pixels of a 1080-wide frame, so every photo size looks alike.
-    float pixel = 1.0 / 1080.0;
-    float line = floor(uv.y * TAPE_LINES);
-    // Noise is seeded on a screen-pixel grid built from the screen-locked
-    // coordinate rather than the fragment position, whose origin is the
-    // bottom in OpenGL and the top in Vulkan and gave the two different grain.
-    vec2 screenPixel = vEffectCoord * vec2(1080.0, 1080.0 / max(uAspectRatio, 0.1));
-
-    // Each line sits a little off true; the tracking band tears its lines
-    // well off and drags them as it rolls down the frame.
-    float shift = (hash(vec2(line, 7.0 + seed)) - 0.5) * 2.4 * pixel * strength;
-    // Two bands, one in each half of the frame, so the whole picture is
-    // seen to settle rather than only its top. Each rolls downwards through
-    // its half as the transition goes, at a slightly random spot each step.
-    float travel = seed / 24.0;
-    float upperY = 0.05 + 0.38 * fract(travel * 0.9 + 0.12 * hash(vec2(seed, 5.0)));
-    float lowerY = 0.55 + 0.38 * fract(travel * 1.1 + 0.37 + 0.12 * hash(vec2(seed, 9.0)));
-    // Written as 1 - smoothstep(0, w, d): smoothstep with its edges reversed is
-    // undefined in GLSL, and the OpenGL driver drew no bands at all from it.
-    float upper = (1.0 - smoothstep(0.0, 0.06, abs(uv.y - upperY)));
-    float lower = (1.0 - smoothstep(0.0, 0.06, abs(uv.y - lowerY)));
-    float band = max(upper, lower) * roll;
-    // Each band tears its own way.
-    float tearSalt = upper > lower ? 13.0 : 17.0;
-    shift += band * (hash(vec2(line, tearSalt + seed)) - 0.35) * 60.0 * pixel;
-    // Head switching: the bottom few lines wrench sideways.
-    float head = smoothstep(0.955, 0.995, uv.y) * strength;
-    shift += head * (0.4 + hash(vec2(line, 3.0))) * 30.0 * pixel;
-    vec2 p = vec2(uv.x + shift, uv.y);
-
-    // Brightness soft; colour softer still and running late, smeared to the
-    // right: a tape carries far less colour than detail.
-    float lumaStep = 1.9 * pixel * strength;
-    float chromaStep = 6.0 * pixel * strength;
-    float chromaLag = 7.0 * pixel * strength;
-    float luma = 0.0;
-    for (int k = -2; k <= 2; k++) {
-        luma += toYiq(textureLod(uTextureSharp, clamp(p + vec2(float(k) * lumaStep, 0.0), 0.0, 1.0), 0.0).rgb).x;
-    }
-    luma /= 5.0;
-    vec2 chroma = vec2(0.0);
-    for (int k = -3; k <= 3; k++) {
-        chroma += toYiq(textureLod(uTextureSharp, clamp(p + vec2(float(k) * chromaStep - chromaLag, 0.0), 0.0, 1.0), 0.0).rgb).yz;
-    }
-    chroma /= 7.0;
-    vec3 color = fromYiq(vec3(luma, chroma * mix(1.0, TAPE_SATURATION, strength)));
-    // A red and blue fringe either side of every edge, the tape's colour
-    // channels never quite lining up.
-    float fringe = 2.5 * pixel * strength;
-    float redSide = textureLod(uTextureSharp, clamp(p - vec2(fringe, 0.0), 0.0, 1.0), 0.0).r;
-    float blueSide = textureLod(uTextureSharp, clamp(p + vec2(fringe, 0.0), 0.0, 1.0), 0.0).b;
-    color.r = mix(color.r, redSide, 0.35 * strength);
-    color.b = mix(color.b, blueSide, 0.35 * strength);
-
-    // The faded grade: lifted blacks, softer contrast, warm highlights and
-    // teal-tinged shadows.
-    vec3 graded = (color - 0.5) * 0.86 + 0.53;
-    graded *= vec3(1.045, 1.0, 0.93);
-    graded += vec3(0.0, 0.014, 0.026) * (1.0 - luma);
-    color = mix(color, graded, strength);
-
-    // Scanlines, a soft dark line between each pair.
-    float scan = 0.5 + 0.5 * cos(uv.y * TAPE_LINES * 6.2831853);
-    color *= 1.0 - 0.22 * strength * scan;
-
-    // Grain, and during the transition now and then a bright dropout streak
-    // along a line. Only then: on the still frame a streak just sits there as
-    // a white line.
-    float grain = hash(screenPixel + vec2(seed * 97.0, seed * 31.0)) - 0.5;
-    color += grain * 0.1 * strength;
-    float dropout = step(0.993, hash(vec2(line, 41.0 + seed)));
-    float streak = step(0.55, hash(vec2(floor(uv.x * 30.0), line + seed)));
-    color = mix(color, vec3(0.92), dropout * streak * 0.55 * roll);
-    // The faint noise band a tape always carries near the bottom of the
-    // picture, a little above the head-switching lines.
-    float idleBand = (1.0 - smoothstep(0.0, 0.035, abs(uv.y - 0.86))) * strength;
-    float idleShift = idleBand * (hash(vec2(line, 29.0)) - 0.5) * 8.0 * pixel;
-    color = mix(color, textureLod(uTextureSharp, clamp(p + vec2(idleShift, 0.0), 0.0, 1.0), 0.0).rgb, idleBand * 0.5);
-    color += (hash(screenPixel * 0.7 + vec2(seed)) - 0.5) * idleBand * 0.22;
-    // Snow in the torn band and the head-switching lines.
-    float snow = hash(screenPixel * 0.5 + vec2(seed * 13.0));
-    color = mix(color, vec3(snow), max(band * 0.35, head * 0.55));
-
-    // A faint vignette, as on a set's curved glass.
-    vec2 fromCentre = (uv - 0.5) * vec2(uAspectRatio, 1.0);
-    color *= 1.0 - 0.32 * strength * dot(fromCentre, fromCentre);
-
-    return clamp(color, 0.0, 1.0);
-}
-
-// ---------------------------------------------------------------- clock
-// Wallpaper clock overlay. uClockEnabled is 1.0 only once a real face has
-// been uploaded — it is NOT the user's toggle, because the texture starts
-// out as unwritten storage and sampling that would paint a rectangle of
-// garbage where the clock belongs. uClockRect is x, y, width, height in the
-// screen-locked vEffectCoord space, so the clock stays put while the photo
-// pans. uClockOpacity already has the lock/home fade folded in by the
-// renderer, so both backends share one curve.
-uniform sampler2D uClockTexture;
-uniform float uClockEnabled;
-uniform vec4 uClockRect;
-uniform float uClockOpacity;
-// The clock's own depth switch, already ANDed with "a real subject mask is
-// bound" by the renderer. Deliberately independent of the effect's own
-// background-only mode: the depth effect has to work whether or not the user
-// has asked for subject isolation elsewhere.
-uniform float uClockDepth;
-// 1 when the face is drawn as refracting glass (ClockStyle.liquidGlass).
-uniform float uClockGlass;
 
 // ------------------------------------------------------- what the glass shows
 // The glass shows the wallpaper from a little way off. It used to add
@@ -188,7 +57,7 @@ float clockPhotoWeight;
 float clockToneWeight;
 
 vec3 behindGlass(vec3 color, vec3 photoThere, vec2 uvThere) {
-    vec3 photoDelta = photoThere - texture(uTextureSharp, vTexCoord).rgb;
+    vec3 photoDelta = photoThere - texture(wallpaperTexture, vTexCoord).rgb;
     // The tape keeps most of the photo's colour, washed a little towards grey.
     vec3 toneDelta = mix(vec3(dot(photoDelta, vec3(0.299, 0.587, 0.114))), photoDelta, TAPE_SATURATION);
     return color + clockPhotoWeight * photoDelta + clockToneWeight * toneDelta;
@@ -224,7 +93,7 @@ vec4 clockFollowEffect(vec4 clockSample) {
 // gradient over a few texels, so the bevel costs no extra texture and no CPU
 // work per frame.
 //
-// uTextureSharp is the sharp photo. It reaches the glass through behindGlass, so
+// wallpaperTexture is the sharp photo. It reaches the glass through behindGlass, so
 // the glass keeps the effect's grade (dim, monochrome, ...) instead of
 // punching through to the raw photo.
 vec3 clockGlass(
@@ -248,12 +117,12 @@ vec3 clockGlass(
     float coverage = smoothstep(0.5 - softness, 0.5 + softness, field);
     if (coverage <= 0.002) return color;
 
-    vec2 texel = 1.0 / vec2(textureSize(uClockTexture, 0));
+    vec2 texel = 1.0 / vec2(textureSize(clockTexture, 0));
     vec2 gradient = vec2(
-        texture(uClockTexture, clamp(clockUv + vec2(texel.x, 0.0), 0.0, 1.0)).a -
-            texture(uClockTexture, clamp(clockUv - vec2(texel.x, 0.0), 0.0, 1.0)).a,
-        texture(uClockTexture, clamp(clockUv + vec2(0.0, texel.y), 0.0, 1.0)).a -
-            texture(uClockTexture, clamp(clockUv - vec2(0.0, texel.y), 0.0, 1.0)).a
+        texture(clockTexture, clamp(clockUv + vec2(texel.x, 0.0), 0.0, 1.0)).a -
+            texture(clockTexture, clamp(clockUv - vec2(texel.x, 0.0), 0.0, 1.0)).a,
+        texture(clockTexture, clamp(clockUv + vec2(0.0, texel.y), 0.0, 1.0)).a -
+            texture(clockTexture, clamp(clockUv - vec2(0.0, texel.y), 0.0, 1.0)).a
     );
     // The gradient of a distance field is a unit vector pointing into the
     // shape, at every point and at every glyph size. A coverage mask gives
@@ -329,22 +198,22 @@ vec3 clockGlass(
                 smoothstep(
                     lo,
                     hi,
-                    texture(uClockTexture, clamp(clockUv + vec2(reach.x, 0.0), 0.0, 1.0)).a
+                    texture(clockTexture, clamp(clockUv + vec2(reach.x, 0.0), 0.0, 1.0)).a
                 ) -
                     smoothstep(
                         lo,
                         hi,
-                        texture(uClockTexture, clamp(clockUv - vec2(reach.x, 0.0), 0.0, 1.0)).a
+                        texture(clockTexture, clamp(clockUv - vec2(reach.x, 0.0), 0.0, 1.0)).a
                     ),
                 smoothstep(
                     lo,
                     hi,
-                    texture(uClockTexture, clamp(clockUv + vec2(0.0, reach.y), 0.0, 1.0)).a
+                    texture(clockTexture, clamp(clockUv + vec2(0.0, reach.y), 0.0, 1.0)).a
                 ) -
                     smoothstep(
                         lo,
                         hi,
-                        texture(uClockTexture, clamp(clockUv - vec2(0.0, reach.y), 0.0, 1.0)).a
+                        texture(clockTexture, clamp(clockUv - vec2(0.0, reach.y), 0.0, 1.0)).a
                     )
             );
             slope *= confidence;
@@ -353,11 +222,11 @@ vec3 clockGlass(
         vec2 classicUv = clamp(vTexCoord - slope * (0.11 * rectSize.y), 0.0, 1.0);
         const float classicBlur = 0.0032;
         vec3 classicRefracted = (
-            2.0 * texture(uTextureSharp, classicUv).rgb +
-            texture(uTextureSharp, clamp(classicUv + vec2(classicBlur, 0.0), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(classicUv - vec2(classicBlur, 0.0), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(classicUv + vec2(0.0, classicBlur), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(classicUv - vec2(0.0, classicBlur), 0.0, 1.0)).rgb
+            2.0 * texture(wallpaperTexture, classicUv).rgb +
+            texture(wallpaperTexture, clamp(classicUv + vec2(classicBlur, 0.0), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(classicUv - vec2(classicBlur, 0.0), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(classicUv + vec2(0.0, classicBlur), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(classicUv - vec2(0.0, classicBlur), 0.0, 1.0)).rgb
         ) / 6.0;
         classicRefracted = clamp(
             behindGlass(color, classicRefracted, classicUv),
@@ -400,20 +269,20 @@ vec3 clockGlass(
     // Nothing is sampled for frost until there is some: the level is a
     // uniform, so this branch is taken by the whole draw or none of it, and a
     // clear clock costs eight fewer fetches per pixel than a frosted one.
-    vec3 refracted = texture(uTextureSharp, sampleUv).rgb;
+    vec3 refracted = texture(wallpaperTexture, sampleUv).rgb;
     if (frostLevel > 0.004) {
         float blur = mix(0.0012, 0.0110, frostLevel);
         float diagonal = blur * 0.7;
         refracted = (
             2.0 * refracted +
-            texture(uTextureSharp, clamp(sampleUv + vec2(blur, 0.0), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(sampleUv - vec2(blur, 0.0), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(sampleUv + vec2(0.0, blur), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(sampleUv - vec2(0.0, blur), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(sampleUv + vec2(diagonal, diagonal), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(sampleUv - vec2(diagonal, diagonal), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(sampleUv + vec2(diagonal, -diagonal), 0.0, 1.0)).rgb +
-            texture(uTextureSharp, clamp(sampleUv - vec2(diagonal, -diagonal), 0.0, 1.0)).rgb
+            texture(wallpaperTexture, clamp(sampleUv + vec2(blur, 0.0), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(sampleUv - vec2(blur, 0.0), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(sampleUv + vec2(0.0, blur), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(sampleUv - vec2(0.0, blur), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(sampleUv + vec2(diagonal, diagonal), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(sampleUv - vec2(diagonal, diagonal), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(sampleUv + vec2(diagonal, -diagonal), 0.0, 1.0)).rgb +
+            texture(wallpaperTexture, clamp(sampleUv - vec2(diagonal, -diagonal), 0.0, 1.0)).rgb
         ) / 10.0;
     }
     // Whatever the effect did to the wallpaper behind the clock applies to
@@ -455,16 +324,23 @@ vec3 clockGlass(
 }
 
 vec3 compositeClock(vec3 color, vec2 screenCoord) {
-    if (uClockEnabled <= 0.5 || uClockOpacity <= 0.0) return color;
-    vec2 clockUv = (screenCoord - uClockRect.xy) / max(uClockRect.zw, vec2(1e-5));
-    if (clockUv.x < 0.0 || clockUv.x > 1.0 ||
-        clockUv.y < 0.0 || clockUv.y > 1.0) {
+    if (params.clockMeta.y <= 0.5 || params.clockMeta.x <= 0.0) return color;
+    vec2 clockSize = max(params.clockRect.zw, vec2(1e-5));
+    vec2 clockOrigin = vec2(
+        params.clockRect.x - clockSize.x * 0.5,
+        params.clockRect.y
+    );
+    vec2 clockUv = (screenCoord - clockOrigin) / clockSize;
+    if (
+        clockUv.x < 0.0 || clockUv.x > 1.0 ||
+        clockUv.y < 0.0 || clockUv.y > 1.0
+    ) {
         return color;
     }
-    vec4 clockSample = texture(uClockTexture, clockUv);
+    vec4 clockSample = texture(clockTexture, clockUv);
     // 100 added to the mode says the colour follows the wallpaper — see
     // ClockOverlayState.glassMeta — and so follows the effect as well.
-    float clockMode = uClockGlass;
+    float clockMode = params.clockMeta.w;
     if (clockMode > 50.0) {
         clockMode -= 100.0;
         clockSample = clockFollowEffect(clockSample);
@@ -476,8 +352,8 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
             color,
             clockUv,
             clockSample,
-            uClockRect.zw,
-            uClockOpacity,
+            clockSize,
+            params.clockMeta.x,
             clockMode
         );
     }
@@ -487,16 +363,14 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
     float flatCoverage =
         smoothstep(0.5 - flatSoftness, 0.5 + flatSoftness, clockSample.a);
     vec3 flatColor = clockSample.rgb / max(clockSample.a, 0.001);
-    return mix(color, flatColor, flatCoverage * uClockOpacity);
+    return mix(color, flatColor, flatCoverage * params.clockMeta.x);
 }
 
-// Draws the sharp subject back over the clock, which is what sells "the clock
-// is behind them". Fades with the clock itself, so the subject is not left
+// Draws the sharp subject back over the clock, so the clock reads as sitting
+// behind them. Fades with the clock itself, so the subject is not left
 // re-sharpened over a stylised background once the clock has gone.
 vec3 applyClockDepth(vec3 color, vec3 subjectColor, float subjectMask) {
-    if (uClockEnabled <= 0.5 || uClockDepth <= 0.5 || uClockOpacity <= 0.0) {
-        return color;
-    }
+    if (params.clockMeta.y <= 0.5 || params.clockMeta.z <= 0.5) return color;
     float coverage = smoothstep(0.30, 0.72, subjectMask);
     // The subject hides the clock completely, at any opacity: the clock's own
     // opacity was already applied when it was drawn, so restoring the frame
@@ -504,36 +378,168 @@ vec3 applyClockDepth(vec3 color, vec3 subjectColor, float subjectMask) {
     return mix(color, subjectColor, coverage);
 }
 
-// Raw subject coverage for the clock's depth effect.
-//
-// VHS has no background-only mode; the mask is only ever here for the
-// clock's depth.
+// Raw subject coverage for the clock's depth effect. VHS has no
+// background-only mode; the mask is only ever here for the clock's depth.
 float clockSubjectMask(vec2 uv) {
-    vec2 stepSize = 2.0 / vec2(textureSize(uSubjectMask, 0));
-    float mask = texture(uSubjectMask, uv).r;
-    mask = max(mask, texture(uSubjectMask, clamp(uv + vec2(stepSize.x, 0.0), 0.0, 1.0)).r);
-    mask = max(mask, texture(uSubjectMask, clamp(uv - vec2(stepSize.x, 0.0), 0.0, 1.0)).r);
-    mask = max(mask, texture(uSubjectMask, clamp(uv + vec2(0.0, stepSize.y), 0.0, 1.0)).r);
-    mask = max(mask, texture(uSubjectMask, clamp(uv - vec2(0.0, stepSize.y), 0.0, 1.0)).r);
+    vec2 stepSize = 2.0 / vec2(textureSize(subjectMask, 0));
+    float mask = texture(subjectMask, uv).r;
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv + vec2(stepSize.x, 0.0), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv - vec2(stepSize.x, 0.0), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv + vec2(0.0, stepSize.y), 0.0, 1.0)).r
+    );
+    mask = max(
+        mask,
+        texture(subjectMask, clamp(uv - vec2(0.0, stepSize.y), 0.0, 1.0)).r
+    );
     return mask;
 }
 
-void main() {
-    float progress = clamp(uBlurStrength, 0.0, 1.0);
-    // The clean photo at the start (the lock screen), tape at the end.
-    float effectStrength = progress;
+// A bit-mixing hash rather than fract(sin(...)), which collapses into a
+// visible mesh on GPUs with a low-precision sin.
+float hash(vec2 p) {
+    uvec2 q = uvec2(ivec2(floor(p)) + ivec2(65536));
+    uint h = (q.x * 1597334677u) ^ (q.y * 3812015801u);
+    h = (h ^ (h >> 16u)) * 2246822519u;
+    h ^= h >> 13u;
+    return float(h & 0xFFFFu) / 65535.0;
+}
 
-    vec3 sharp = texture(uTextureSharp, vTexCoord).rgb;
+vec3 toYiq(vec3 c) {
+    return vec3(
+        dot(c, vec3(0.299, 0.587, 0.114)),
+        dot(c, vec3(0.596, -0.274, -0.322)),
+        dot(c, vec3(0.211, -0.523, 0.312))
+    );
+}
+
+vec3 fromYiq(vec3 c) {
+    return vec3(
+        c.x + 0.956 * c.y + 0.621 * c.z,
+        c.x - 0.272 * c.y - 0.647 * c.z,
+        c.x - 1.106 * c.y + 1.703 * c.z
+    );
+}
+
+// The tape at [strength] 0..1; 0 is the photo untouched. [roll] is the
+// tracking error, 0..1, which only shows mid-transition.
+vec3 tape(vec2 uv, float strength, float roll, float seed) {
+    // Read at full resolution: OpenGL keeps mipmaps of the wallpaper and
+    // Vulkan does not, and a blurrier level would make the two tapes differ.
+    // Reaches are in pixels of a 1080-wide frame, so every photo size looks alike.
+    float pixel = 1.0 / 1080.0;
+    float line = floor(uv.y * TAPE_LINES);
+    // Noise is seeded on a screen-pixel grid built from the screen-locked
+    // coordinate rather than the fragment position, whose origin is the
+    // bottom in OpenGL and the top in Vulkan and gave the two different grain.
+    vec2 screenPixel = vEffectCoord * vec2(1080.0, 1080.0 / max(params.render.z, 0.1));
+
+    // Each line sits a little off true; the tracking band tears its lines
+    // well off and drags them as it rolls down the frame.
+    float shift = (hash(vec2(line, 7.0 + seed)) - 0.5) * 2.4 * pixel * strength;
+    // Two bands, one in each half of the frame, so the whole picture is
+    // seen to settle rather than only its top. Each rolls downwards through
+    // its half as the transition goes, at a slightly random spot each step.
+    float travel = seed / 24.0;
+    float upperY = 0.05 + 0.38 * fract(travel * 0.9 + 0.12 * hash(vec2(seed, 5.0)));
+    float lowerY = 0.55 + 0.38 * fract(travel * 1.1 + 0.37 + 0.12 * hash(vec2(seed, 9.0)));
+    // Written as 1 - smoothstep(0, w, d): smoothstep with its edges reversed is
+    // undefined in GLSL, and the OpenGL driver drew no bands at all from it.
+    float upper = (1.0 - smoothstep(0.0, 0.06, abs(uv.y - upperY)));
+    float lower = (1.0 - smoothstep(0.0, 0.06, abs(uv.y - lowerY)));
+    float band = max(upper, lower) * roll;
+    // Each band tears its own way.
+    float tearSalt = upper > lower ? 13.0 : 17.0;
+    shift += band * (hash(vec2(line, tearSalt + seed)) - 0.35) * 60.0 * pixel;
+    // Head switching: the bottom few lines wrench sideways.
+    float head = smoothstep(0.955, 0.995, uv.y) * strength;
+    shift += head * (0.4 + hash(vec2(line, 3.0))) * 30.0 * pixel;
+    vec2 p = vec2(uv.x + shift, uv.y);
+
+    // Brightness soft; colour softer still and running late, smeared to the
+    // right: a tape carries far less colour than detail.
+    float lumaStep = 1.9 * pixel * strength;
+    float chromaStep = 6.0 * pixel * strength;
+    float chromaLag = 7.0 * pixel * strength;
+    float luma = 0.0;
+    for (int k = -2; k <= 2; k++) {
+        luma += toYiq(textureLod(wallpaperTexture, clamp(p + vec2(float(k) * lumaStep, 0.0), 0.0, 1.0), 0.0).rgb).x;
+    }
+    luma /= 5.0;
+    vec2 chroma = vec2(0.0);
+    for (int k = -3; k <= 3; k++) {
+        chroma += toYiq(textureLod(wallpaperTexture, clamp(p + vec2(float(k) * chromaStep - chromaLag, 0.0), 0.0, 1.0), 0.0).rgb).yz;
+    }
+    chroma /= 7.0;
+    vec3 color = fromYiq(vec3(luma, chroma * mix(1.0, TAPE_SATURATION, strength)));
+    // A red and blue fringe either side of every edge, the tape's colour
+    // channels never quite lining up.
+    float fringe = 2.5 * pixel * strength;
+    float redSide = textureLod(wallpaperTexture, clamp(p - vec2(fringe, 0.0), 0.0, 1.0), 0.0).r;
+    float blueSide = textureLod(wallpaperTexture, clamp(p + vec2(fringe, 0.0), 0.0, 1.0), 0.0).b;
+    color.r = mix(color.r, redSide, 0.35 * strength);
+    color.b = mix(color.b, blueSide, 0.35 * strength);
+
+    // The faded grade: lifted blacks, softer contrast, warm highlights and
+    // teal-tinged shadows.
+    vec3 graded = (color - 0.5) * 0.86 + 0.53;
+    graded *= vec3(1.045, 1.0, 0.93);
+    graded += vec3(0.0, 0.014, 0.026) * (1.0 - luma);
+    color = mix(color, graded, strength);
+
+    // Scanlines, a soft dark line between each pair.
+    float scan = 0.5 + 0.5 * cos(uv.y * TAPE_LINES * 6.2831853);
+    color *= 1.0 - 0.22 * strength * scan;
+
+    // Grain, and during the transition now and then a bright dropout streak
+    // along a line. Only then: on the still frame a streak just sits there as
+    // a white line.
+    float grain = hash(screenPixel + vec2(seed * 97.0, seed * 31.0)) - 0.5;
+    color += grain * 0.1 * strength;
+    float dropout = step(0.993, hash(vec2(line, 41.0 + seed)));
+    float streak = step(0.55, hash(vec2(floor(uv.x * 30.0), line + seed)));
+    color = mix(color, vec3(0.92), dropout * streak * 0.55 * roll);
+    // The faint noise band a tape always carries near the bottom of the
+    // picture, a little above the head-switching lines.
+    float idleBand = (1.0 - smoothstep(0.0, 0.035, abs(uv.y - 0.86))) * strength;
+    float idleShift = idleBand * (hash(vec2(line, 29.0)) - 0.5) * 8.0 * pixel;
+    color = mix(color, textureLod(wallpaperTexture, clamp(p + vec2(idleShift, 0.0), 0.0, 1.0), 0.0).rgb, idleBand * 0.5);
+    color += (hash(screenPixel * 0.7 + vec2(seed)) - 0.5) * idleBand * 0.22;
+    // Snow in the torn band and the head-switching lines.
+    float snow = hash(screenPixel * 0.5 + vec2(seed * 13.0));
+    color = mix(color, vec3(snow), max(band * 0.35, head * 0.55));
+
+    // A faint vignette, as on a set's curved glass.
+    vec2 fromCentre = (uv - 0.5) * vec2(params.render.z, 1.0);
+    color *= 1.0 - 0.32 * strength * dot(fromCentre, fromCentre);
+
+    return clamp(color, 0.0, 1.0);
+}
+
+void main() {
+    float progress = clamp(params.render.x, 0.0, 1.0);
+    // render.w: the tape shows at the start (the lock screen) and clears to
+    // the photo, or the photo rolls into tape.
+    bool tapeFirst = params.render.w > 0.5;
+    float effectStrength = tapeFirst ? 1.0 - progress : progress;
+
     // Strongest halfway through, gone at either end.
     float roll = clamp(4.0 * effectStrength * (1.0 - effectStrength), 0.0, 1.0);
     // Steps with the transition rather than running with time: a still frame
     // stays still, a transition flickers through tape noise.
     float seed = floor(progress * 24.0);
     vec3 finalColor = tape(vTexCoord, effectStrength, roll, seed);
-    finalColor = mix(finalColor, vec3(0.0), uDimLevel * effectStrength);
+    finalColor = mix(finalColor, vec3(0.0), params.render.y * effectStrength);
 
     // What is left of the photo and of the tape here, for the glass clock.
-    float layersKept = 1.0 - uDimLevel * effectStrength;
+    float layersKept = 1.0 - params.render.y * effectStrength;
     clockPhotoWeight = (1.0 - effectStrength) * layersKept;
     clockToneWeight = effectStrength * layersKept;
 
@@ -541,7 +547,11 @@ void main() {
     // clock, so it only ever changes pixels the clock touched.
     vec3 beforeClock = finalColor;
     finalColor = compositeClock(finalColor, vEffectCoord);
-    finalColor = applyClockDepth(finalColor, beforeClock, clockSubjectMask(vTexCoord));
+    finalColor = applyClockDepth(
+        finalColor,
+        beforeClock,
+        clockSubjectMask(vTexCoord)
+    );
 
     fragColor = vec4(finalColor, 1.0);
 }

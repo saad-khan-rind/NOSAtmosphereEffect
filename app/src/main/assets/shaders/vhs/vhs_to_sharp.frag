@@ -1,5 +1,9 @@
 #version 300 es
 precision highp float;
+// Integers too: the tape's hash needs full 32-bit arithmetic. Left at the
+// fragment shader's default (mediump), a GPU may run it in 16 bits and every
+// line comes out alike: no tracking tears, flat grain. Vulkan's are always 32.
+precision highp int;
 
 // VHS: the photo played back off a worn videotape. Soft, colour smeared to the
 // right, scanlines and grain, washed-out blacks and a warm cast, with head-
@@ -56,17 +60,33 @@ vec3 fromYiq(vec3 c) {
 // The tape at [strength] 0..1; 0 is the photo untouched. [roll] is the
 // tracking error, 0..1, which only shows mid-transition.
 vec3 tape(vec2 uv, float strength, float roll, float seed) {
-    vec2 texSize = vec2(textureSize(uTextureSharp, 0));
+    // Read at full resolution: OpenGL keeps mipmaps of the wallpaper and
+    // Vulkan does not, and a blurrier level would make the two tapes differ.
     // Reaches are in pixels of a 1080-wide frame, so every photo size looks alike.
     float pixel = 1.0 / 1080.0;
     float line = floor(uv.y * TAPE_LINES);
+    // Noise is seeded on a screen-pixel grid built from the screen-locked
+    // coordinate rather than the fragment position, whose origin is the
+    // bottom in OpenGL and the top in Vulkan and gave the two different grain.
+    vec2 screenPixel = vEffectCoord * vec2(1080.0, 1080.0 / max(uAspectRatio, 0.1));
 
     // Each line sits a little off true; the tracking band tears its lines
     // well off and drags them as it rolls down the frame.
     float shift = (hash(vec2(line, 7.0 + seed)) - 0.5) * 2.4 * pixel * strength;
-    float bandY = fract(0.08 + seed * 0.0137);
-    float band = smoothstep(0.07, 0.0, abs(uv.y - bandY)) * roll;
-    shift += band * (hash(vec2(line, 13.0 + seed)) - 0.35) * 60.0 * pixel;
+    // Two bands, one in each half of the frame, so the whole picture is
+    // seen to settle rather than only its top. Each rolls downwards through
+    // its half as the transition goes, at a slightly random spot each step.
+    float travel = seed / 24.0;
+    float upperY = 0.05 + 0.38 * fract(travel * 0.9 + 0.12 * hash(vec2(seed, 5.0)));
+    float lowerY = 0.55 + 0.38 * fract(travel * 1.1 + 0.37 + 0.12 * hash(vec2(seed, 9.0)));
+    // Written as 1 - smoothstep(0, w, d): smoothstep with its edges reversed is
+    // undefined in GLSL, and the OpenGL driver drew no bands at all from it.
+    float upper = (1.0 - smoothstep(0.0, 0.06, abs(uv.y - upperY)));
+    float lower = (1.0 - smoothstep(0.0, 0.06, abs(uv.y - lowerY)));
+    float band = max(upper, lower) * roll;
+    // Each band tears its own way.
+    float tearSalt = upper > lower ? 13.0 : 17.0;
+    shift += band * (hash(vec2(line, tearSalt + seed)) - 0.35) * 60.0 * pixel;
     // Head switching: the bottom few lines wrench sideways.
     float head = smoothstep(0.955, 0.995, uv.y) * strength;
     shift += head * (0.4 + hash(vec2(line, 3.0))) * 30.0 * pixel;
@@ -79,20 +99,20 @@ vec3 tape(vec2 uv, float strength, float roll, float seed) {
     float chromaLag = 7.0 * pixel * strength;
     float luma = 0.0;
     for (int k = -2; k <= 2; k++) {
-        luma += toYiq(texture(uTextureSharp, clamp(p + vec2(float(k) * lumaStep, 0.0), 0.0, 1.0)).rgb).x;
+        luma += toYiq(textureLod(uTextureSharp, clamp(p + vec2(float(k) * lumaStep, 0.0), 0.0, 1.0), 0.0).rgb).x;
     }
     luma /= 5.0;
     vec2 chroma = vec2(0.0);
     for (int k = -3; k <= 3; k++) {
-        chroma += toYiq(texture(uTextureSharp, clamp(p + vec2(float(k) * chromaStep - chromaLag, 0.0), 0.0, 1.0)).rgb).yz;
+        chroma += toYiq(textureLod(uTextureSharp, clamp(p + vec2(float(k) * chromaStep - chromaLag, 0.0), 0.0, 1.0), 0.0).rgb).yz;
     }
     chroma /= 7.0;
     vec3 color = fromYiq(vec3(luma, chroma * mix(1.0, TAPE_SATURATION, strength)));
     // A red and blue fringe either side of every edge, the tape's colour
     // channels never quite lining up.
     float fringe = 2.5 * pixel * strength;
-    float redSide = texture(uTextureSharp, clamp(p - vec2(fringe, 0.0), 0.0, 1.0)).r;
-    float blueSide = texture(uTextureSharp, clamp(p + vec2(fringe, 0.0), 0.0, 1.0)).b;
+    float redSide = textureLod(uTextureSharp, clamp(p - vec2(fringe, 0.0), 0.0, 1.0), 0.0).r;
+    float blueSide = textureLod(uTextureSharp, clamp(p + vec2(fringe, 0.0), 0.0, 1.0), 0.0).b;
     color.r = mix(color.r, redSide, 0.35 * strength);
     color.b = mix(color.b, blueSide, 0.35 * strength);
 
@@ -107,20 +127,22 @@ vec3 tape(vec2 uv, float strength, float roll, float seed) {
     float scan = 0.5 + 0.5 * cos(uv.y * TAPE_LINES * 6.2831853);
     color *= 1.0 - 0.22 * strength * scan;
 
-    // Grain, and now and then a bright dropout streak along a line.
-    float grain = hash(gl_FragCoord.xy + vec2(seed * 97.0, seed * 31.0)) - 0.5;
+    // Grain, and during the transition now and then a bright dropout streak
+    // along a line. Only then: on the still frame a streak just sits there as
+    // a white line.
+    float grain = hash(screenPixel + vec2(seed * 97.0, seed * 31.0)) - 0.5;
     color += grain * 0.1 * strength;
     float dropout = step(0.993, hash(vec2(line, 41.0 + seed)));
     float streak = step(0.55, hash(vec2(floor(uv.x * 30.0), line + seed)));
-    color = mix(color, vec3(0.92), dropout * streak * 0.55 * strength);
+    color = mix(color, vec3(0.92), dropout * streak * 0.55 * roll);
     // The faint noise band a tape always carries near the bottom of the
     // picture, a little above the head-switching lines.
-    float idleBand = smoothstep(0.035, 0.0, abs(uv.y - 0.86)) * strength;
+    float idleBand = (1.0 - smoothstep(0.0, 0.035, abs(uv.y - 0.86))) * strength;
     float idleShift = idleBand * (hash(vec2(line, 29.0)) - 0.5) * 8.0 * pixel;
-    color = mix(color, texture(uTextureSharp, clamp(p + vec2(idleShift, 0.0), 0.0, 1.0)).rgb, idleBand * 0.5);
-    color += (hash(gl_FragCoord.xy * 0.7 + vec2(seed)) - 0.5) * idleBand * 0.22;
+    color = mix(color, textureLod(uTextureSharp, clamp(p + vec2(idleShift, 0.0), 0.0, 1.0), 0.0).rgb, idleBand * 0.5);
+    color += (hash(screenPixel * 0.7 + vec2(seed)) - 0.5) * idleBand * 0.22;
     // Snow in the torn band and the head-switching lines.
-    float snow = hash(gl_FragCoord.xy * 0.5 + vec2(seed * 13.0));
+    float snow = hash(screenPixel * 0.5 + vec2(seed * 13.0));
     color = mix(color, vec3(snow), max(band * 0.35, head * 0.55));
 
     // A faint vignette, as on a set's curved glass.

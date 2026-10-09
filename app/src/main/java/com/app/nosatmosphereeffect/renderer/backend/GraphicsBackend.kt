@@ -30,7 +30,9 @@ object GraphicsBackendSelector {
         "FROSTED",
         "FROSTED_REVERSE",
         "HALFTONE",
-        "HALFTONE_REVERSE"
+        "HALFTONE_REVERSE",
+        "VHS",
+        "VHS_REVERSE"
     )
 
     fun select(

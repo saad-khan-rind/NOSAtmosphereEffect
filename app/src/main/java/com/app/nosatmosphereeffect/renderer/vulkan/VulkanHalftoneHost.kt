@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
+import com.app.nosatmosphereeffect.renderer.SinglePassLook
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 
@@ -14,12 +15,14 @@ internal class VulkanHalftoneHost(
     initialState: HalftoneRenderState,
     onFatalFailure: (WallpaperRenderHost, String) -> Unit,
     onVulkanActive: (WallpaperRenderHost, Int) -> Unit,
-    previewSource: (() -> Bitmap?)? = null
+    previewSource: (() -> Bitmap?)? = null,
+    /** Which one-pass look this draws; VHS shares Halftone's native bridge. */
+    look: SinglePassLook = SinglePassLook.HALFTONE
 ) : VulkanSingleImageHost<HalftoneRenderState>(
     context = context,
-    threadName = "AtmoVulkanHalftone",
+    threadName = "AtmoVulkan${look.label}",
     initialState = initialState.sanitized(),
-    bridge = HalftoneBridge(reverse),
+    bridge = HalftoneBridge(look.effectFirst(reverse), look),
     onFatalFailure = onFatalFailure,
     onVulkanActive = onVulkanActive,
     previewSource = previewSource
@@ -179,13 +182,15 @@ internal class VulkanHalftoneHost(
 }
 
 private class HalftoneBridge(
-    private val reverse: Boolean
+    /** The effect shows at the start of the transition rather than the end. */
+    private val effectFirst: Boolean,
+    private val look: SinglePassLook
 ) : VulkanSingleImageBridge<HalftoneRenderState> {
-    override val effectLabel = "Halftone"
+    override val effectLabel = look.label
 
     override fun create(assets: android.content.res.AssetManager): Long {
         if (!VulkanHalftoneNative.libraryLoaded) return 0L
-        return VulkanHalftoneNative.nativeCreate(assets, reverse)
+        return VulkanHalftoneNative.nativeCreate(assets, effectFirst, look.nativeShader)
     }
 
     override fun setSurface(

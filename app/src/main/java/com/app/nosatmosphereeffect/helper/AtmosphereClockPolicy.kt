@@ -228,8 +228,7 @@ object AtmosphereClockPolicy {
      * Every effect is listed now, and every one is wired on every backend it
      * can run on. An id belongs here only when each of those draws it — half a
      * pair would give the same effect a clock on one device and not on
-     * another, which reads as a bug rather than a limitation. VHS runs on
-     * OpenGL ES only (it has no Vulkan host), and that renderer draws it.
+     * another, which reads as a bug rather than a limitation.
      */
     private val SUPPORTED_EFFECT_IDS = setOf(
         "ORIGINAL",

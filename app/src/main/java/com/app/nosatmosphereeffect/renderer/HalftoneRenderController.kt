@@ -251,6 +251,7 @@ class HalftoneRenderController(
         }
         val snapshot = synchronized(lock) { state }
         val host = VulkanHalftoneHost(
+            look = look,
             context = appContext,
             reverse = isReverse,
             initialState = snapshot,
@@ -343,6 +344,7 @@ class HalftoneRenderController(
             when (resolution.backend) {
                 GraphicsBackend.VULKAN -> {
                     VulkanHalftoneHost(
+                        look = look,
                         context = appContext,
                         reverse = isReverse,
                         initialState = synchronized(lock) { state },
