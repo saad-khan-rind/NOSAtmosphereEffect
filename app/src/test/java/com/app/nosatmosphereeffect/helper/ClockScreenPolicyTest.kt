@@ -24,7 +24,8 @@ class ClockScreenPolicyTest {
             "COLORFILL", "COLORFILL_REVERSE",
             "NEON", "NEON_REVERSE",
             "FROSTED", "FROSTED_REVERSE",
-            "HALFTONE", "HALFTONE_REVERSE"
+            "HALFTONE", "HALFTONE_REVERSE",
+            "VHS", "VHS_REVERSE"
         )
         expected.forEach { effectId ->
             assertTrue(
@@ -44,12 +45,13 @@ class ClockScreenPolicyTest {
     @Test
     fun `only the effects that keep the photo intact offer a screen choice`() {
         // Colour Fill recolours, Sketch draws lines, Halftone screens into
-        // dots — none of them displaces or softens the image, so a clock reads
-        // at both ends and the user picks.
+        // dots, VHS only wears the photo — none of them displaces it far
+        // enough to lose a clock, so a clock reads at both ends and the user picks.
         listOf(
             "COLORFILL", "COLORFILL_REVERSE",
             "NEON", "NEON_REVERSE",
-            "HALFTONE", "HALFTONE_REVERSE"
+            "HALFTONE", "HALFTONE_REVERSE",
+            "VHS", "VHS_REVERSE"
         ).forEach { effectId ->
             assertTrue(
                 "$effectId should offer the lock/home/both choice",
@@ -122,7 +124,8 @@ class ClockScreenPolicyTest {
             "COLORFILL", "COLORFILL_REVERSE",
             "NEON", "NEON_REVERSE",
             "FROSTED", "FROSTED_REVERSE",
-            "HALFTONE", "HALFTONE_REVERSE"
+            "HALFTONE", "HALFTONE_REVERSE",
+            "VHS", "VHS_REVERSE"
         ).forEach { effectId ->
             assertTrue(
                 "$effectId should support clock depth",
@@ -339,7 +342,9 @@ class ClockFaceGeometryTest {
                 "translucent",
                 "translucent_stacked",
                 "adaptive",
-                "adaptive_stacked"
+                "adaptive_stacked",
+                "normal",
+                "normal_stacked"
             ),
             ClockStyle.entries.map { it.id }
         )

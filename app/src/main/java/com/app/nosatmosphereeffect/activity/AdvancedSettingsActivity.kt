@@ -66,13 +66,16 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val isNeon = activeEffect.contains("NEON")
         val isFrosted = activeEffect.contains("FROSTED")
         val isGlass = activeEffect.contains("GLASS")
+        val isVhs = activeEffect.contains("VHS")
         val isAtmosphere = AtmosphereGlassPolicy.supportsEffect(activeEffect)
         // Every effect composites the clock now, on both backends, so this is
         // no longer an Atmosphere-only question.
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
-        val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass
+        // VHS draws its own tape grain, so the film-grain switch would do nothing there.
+        val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass && !isVhs
         val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
-        val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere
+        // VHS needs the subject only for the clock's depth.
+        val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere || isVhs
 
         val defaultDuration = EffectCatalog.recommendedDurationMillis(activeEffect)
         val defaultDimness = EffectCatalog.defaultDimness(activeEffect)

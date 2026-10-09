@@ -69,6 +69,7 @@ import com.app.nosatmosphereeffect.ui.components.AtmoNumberField
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoReveal
+import com.app.nosatmosphereeffect.ui.components.AtmoSettingsGroup
 import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
@@ -580,7 +581,8 @@ private fun EffectSettings(
                             Spacer(Modifier.height(18.dp))
                             Text(
                                 stringResource(R.string.glass_transition_style),
-                                style = MaterialTheme.typography.labelLarge
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = GroupTextInset
                             )
                             Spacer(Modifier.height(8.dp))
                             AtmoSegmentedControl(
@@ -639,7 +641,8 @@ private fun EffectSettings(
             SettingsGroup(stringResource(R.string.clock_group)) {
                 Text(
                     stringResource(R.string.clock_playlist_only_single),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = GroupTextInset
                 )
             }
         }
@@ -669,7 +672,8 @@ private fun EffectSettings(
                         Spacer(Modifier.height(18.dp))
                         Text(
                             stringResource(R.string.clock_show_on),
-                            style = MaterialTheme.typography.labelLarge
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = GroupTextInset
                         )
                         Spacer(Modifier.height(8.dp))
                         val screenOrder = listOf(
@@ -954,7 +958,8 @@ private fun SubjectIsolationSetting(
     Text(
         subjectModelStatusText,
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = GroupTextInset
     )
 }
 
@@ -1051,7 +1056,8 @@ private fun TimingSettings(
                 Text(
                     stringResource(R.string.timing_still_live, alwaysAppliedDescription),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = GroupTextInset
                 )
             }
         }
@@ -1165,31 +1171,25 @@ private fun SettingsGroup(
     onInfoClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (onInfoClick != null) {
+    AtmoSettingsGroup(
+        title = title,
+        action = onInfoClick?.let { onClick ->
+            {
                 AtmoAnimatedIconButton(
                     painter = painterResource(R.drawable.ic_info),
                     contentDescription = stringResource(R.string.common_about, title),
-                    onClick = onInfoClick,
+                    onClick = onClick,
                     motion = AtmoIconMotion.PRESS,
                     iconTint = MaterialTheme.colorScheme.primary
                 )
             }
-        }
-        Column(
-            modifier = Modifier.padding(horizontal = 2.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            content()
-        }
-    }
+        },
+        content = content
+    )
 }
+
+/** Loose text inside a group card, inset to line up with the rows' own text. */
+private val GroupTextInset = Modifier.padding(horizontal = 10.dp)
 
 /** Whether the chosen clock face is the Adaptive one, re-read on every resume. */
 @Composable

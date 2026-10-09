@@ -1,9 +1,15 @@
 package com.app.nosatmosphereeffect.ui.components
 
+import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -19,6 +25,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,13 +35,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -45,6 +54,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -55,11 +65,14 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,10 +85,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.ui.theme.AtmoMotion
+import com.app.nosatmosphereeffect.ui.theme.LocalAtmoEntranceStart
 import com.app.nosatmosphereeffect.ui.theme.LocalAtmoExpressive
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -88,24 +105,88 @@ fun AtmoReveal(
     content: @Composable () -> Unit
 ) {
     val expressive = LocalAtmoExpressive.current
-    var visible by remember { mutableStateOf(!expressive) }
-    LaunchedEffect(expressive) {
-        if (expressive) {
+    val entranceStart = LocalAtmoEntranceStart.current
+    // Only a screen's opening plays the entrance. Anything composed later, as a
+    // list scrolls it in, simply appears: scrolling never waits on an animation.
+    // Saveable, so a list item that scrolls out and back does not replay it.
+    var visible by rememberSaveable {
+        mutableStateOf(!expressive || SystemClock.uptimeMillis() - entranceStart > ENTRANCE_WINDOW_MS)
+    }
+    LaunchedEffect(Unit) {
+        if (!visible) {
             delay(delayMillis.toLong())
-            visible = true
-        } else {
             visible = true
         }
     }
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = fadeIn(tween(260)) + slideInVertically(
-            animationSpec = spring(stiffness = 360f, dampingRatio = 0.78f),
-            initialOffsetY = { it.coerceAtMost(32) }
-        )
+        enter = fadeIn(AtmoMotion.defaultEffects()) + slideInVertically(
+            animationSpec = AtmoMotion.slowSpatial(),
+            initialOffsetY = { it.coerceAtMost(48) }
+        ) + scaleIn(AtmoMotion.slowSpatial(), initialScale = 0.96f)
     ) {
         content()
+    }
+}
+
+private const val ENTRANCE_WINDOW_MS = 500L
+
+/** True inside [AtmoSettingsGroup]: rows sit one tone up, with corners nested inside the card's. */
+val LocalAtmoGrouped = staticCompositionLocalOf { false }
+
+@Composable
+private fun atmoRowColor() = if (LocalAtmoGrouped.current) {
+    MaterialTheme.colorScheme.surfaceContainerHigh
+} else {
+    MaterialTheme.colorScheme.surfaceContainerLow
+}
+
+@Composable
+private fun atmoRowCorner() = when {
+    LocalAtmoGrouped.current -> 20.dp
+    LocalAtmoExpressive.current -> 26.dp
+    else -> 18.dp
+}
+
+/** A titled tonal card that gathers related settings, the M3 Expressive grouped list. */
+@Composable
+fun AtmoSettingsGroup(
+    title: String,
+    modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier
+                .padding(start = 12.dp)
+                .heightIn(min = 40.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.semantics { heading() }
+            )
+            action?.invoke()
+        }
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(if (LocalAtmoExpressive.current) 28.dp else 20.dp)
+        ) {
+            CompositionLocalProvider(LocalAtmoGrouped provides true) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(AtmoMotion.defaultSpatial())
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    content = content
+                )
+            }
+        }
     }
 }
 
@@ -131,7 +212,7 @@ fun AtmoPrimaryButton(
             if (expressive) haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
             onClick()
         },
-        shape = if (expressive) RoundedCornerShape(50) else RoundedCornerShape(18.dp),
+        shape = atmoPressShape(pressed),
         enabled = enabled,
         modifier = modifier
             .heightIn(min = 58.dp)
@@ -156,11 +237,12 @@ fun AtmoTonalButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    icon: Painter? = null
+    icon: Painter? = null,
+    interactionSource: MutableInteractionSource? = null
 ) {
     val expressive = LocalAtmoExpressive.current
     val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
+    val interaction = interactionSource ?: remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed && expressive) 0.98f else 1f,
@@ -172,7 +254,7 @@ fun AtmoTonalButton(
             if (expressive) haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
             onClick()
         },
-        shape = if (expressive) RoundedCornerShape(50) else RoundedCornerShape(18.dp),
+        shape = atmoPressShape(pressed),
         modifier = modifier.heightIn(min = 58.dp).scale(scale),
         interactionSource = interaction,
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
@@ -218,7 +300,7 @@ fun AtmoOutlinedButton(
             if (expressive) haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
             onClick()
         },
-        shape = if (expressive) RoundedCornerShape(50) else RoundedCornerShape(18.dp),
+        shape = atmoPressShape(pressed),
         enabled = enabled,
         modifier = modifier.heightIn(min = 58.dp).scale(scale),
         interactionSource = interaction,
@@ -259,7 +341,7 @@ fun AtmoTextButton(
             if (expressive) haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
             onClick()
         },
-        shape = if (expressive) RoundedCornerShape(50) else RoundedCornerShape(14.dp),
+        shape = atmoPressShape(pressed, restingFallback = 14.dp),
         modifier = modifier.scale(scale),
         enabled = enabled,
         interactionSource = interaction,
@@ -267,70 +349,6 @@ fun AtmoTextButton(
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
-}
-
-@Composable
-fun AtmoCard(
-    modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(20.dp),
-    selected: Boolean = false,
-    onClick: (() -> Unit)? = null,
-    content: @Composable () -> Unit
-) {
-    val expressive = LocalAtmoExpressive.current
-    val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (onClick != null && pressed && expressive) 0.985f else 1f,
-        animationSpec = spring(stiffness = 700f, dampingRatio = 0.7f),
-        label = "cardScale"
-    )
-    val borderColor = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outlineVariant
-    }
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize()
-            .scale(scale)
-            .then(
-                if (onClick != null) Modifier.clickable(
-                    interactionSource = interaction,
-                    indication = LocalIndication.current,
-                    onClick = {
-                        if (expressive) {
-                            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                        }
-                        onClick()
-                    }
-                )
-                else Modifier
-            ),
-        shape = RoundedCornerShape(if (expressive) 28.dp else 18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f)
-            } else {
-                MaterialTheme.colorScheme.surfaceContainer
-            }
-        ),
-        border = if (selected) BorderStroke(2.dp, borderColor) else null
-    ) {
-        Column(Modifier.padding(contentPadding)) { content() }
-    }
-}
-
-@Composable
-fun SectionHeader(title: String, modifier: Modifier = Modifier) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier
-    )
 }
 
 /**
@@ -350,13 +368,13 @@ fun LabeledSlider(
     val expressive = LocalAtmoExpressive.current
     val haptics = LocalHapticFeedback.current
     var lastHapticValue by remember(label) { mutableFloatStateOf(value) }
-    val shape = RoundedCornerShape(if (expressive) 26.dp else 18.dp)
+    val shape = RoundedCornerShape(atmoRowCorner())
 
     Column(
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .background(atmoRowColor())
             .padding(horizontal = 18.dp, vertical = 14.dp)
     ) {
         Row(
@@ -436,12 +454,17 @@ fun SettingSwitchRow(
         targetValue = if (checked) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
         } else {
-            MaterialTheme.colorScheme.surfaceContainerLow
+            atmoRowColor()
         },
         animationSpec = tween(220),
         label = "settingSwitchContainer"
     )
-    val shape = RoundedCornerShape(if (expressive) 26.dp else 18.dp)
+    val corner by animateDpAsState(
+        targetValue = if (pressed && expressive) 14.dp else atmoRowCorner(),
+        animationSpec = AtmoMotion.fastSpatial(),
+        label = "settingSwitchCorner"
+    )
+    val shape = RoundedCornerShape(corner)
 
     Row(
         modifier = modifier
@@ -485,7 +508,17 @@ fun SettingSwitchRow(
             checked = checked,
             onCheckedChange = null,
             enabled = enabled,
+            thumbContent = if (checked && expressive) {
+                {
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                    )
+                }
+            } else null,
             colors = SwitchDefaults.colors(
+                checkedIconColor = MaterialTheme.colorScheme.primary,
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -527,7 +560,7 @@ fun AtmoDropdownField(
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 colors = atmoFieldColors(),
-                shape = RoundedCornerShape(if (expressive) 26.dp else 18.dp),
+                shape = RoundedCornerShape(atmoRowCorner()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -552,7 +585,8 @@ fun AtmoDropdownField(
             Text(
                 helper,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
         }
     }
@@ -596,7 +630,7 @@ fun AtmoNumberField(
                 }
             } else null,
             colors = atmoFieldColors(),
-            shape = RoundedCornerShape(if (expressive) 26.dp else 18.dp),
+            shape = RoundedCornerShape(atmoRowCorner()),
             modifier = Modifier.fillMaxWidth()
         )
         if (helper != null) {
@@ -604,7 +638,8 @@ fun AtmoNumberField(
             Text(
                 helper,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
         }
     }
@@ -616,8 +651,8 @@ private fun atmoFieldColors() = TextFieldDefaults.colors(
     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
     cursorColor = MaterialTheme.colorScheme.primary,
     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    unfocusedContainerColor = atmoRowColor(),
+    disabledContainerColor = atmoRowColor(),
     errorContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.28f),
     focusedIndicatorColor = Color.Transparent,
     unfocusedIndicatorColor = Color.Transparent,
@@ -662,52 +697,67 @@ fun AtmoSegmentedControl(
 ) {
     val expressive = LocalAtmoExpressive.current
     val haptics = LocalHapticFeedback.current
-    val outerShape = RoundedCornerShape(50)
+    // Expressive: a connected button group, one container per segment. Otherwise one shared track.
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(outerShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .padding(5.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
+            .then(
+                if (expressive) Modifier
+                else Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .padding(5.dp)
+            ),
+        horizontalArrangement = Arrangement.spacedBy(if (expressive) 3.dp else 5.dp)
     ) {
         options.forEachIndexed { index, option ->
             val selected = index == selectedIndex
             val interaction = remember { MutableInteractionSource() }
             val pressed by interaction.collectIsPressedAsState()
-            val segmentScale by animateFloatAsState(
-                targetValue = if (pressed && expressive) 0.94f else if (selected) 1.025f else 1f,
-                animationSpec = spring(stiffness = 460f, dampingRatio = 0.62f),
-                label = "segmentScale"
+            val width by animateFloatAsState(
+                targetValue = if (pressed && expressive) 1.15f else 1f,
+                animationSpec = AtmoMotion.fastSpatial(),
+                label = "segmentWidth"
             )
+            // Inner corners stay tight until the segment is chosen, then round out fully.
+            val inner by animateFloatAsState(
+                targetValue = if (selected || !expressive) 50f else if (pressed) 30f else 16f,
+                animationSpec = AtmoMotion.fastSpatial(),
+                label = "segmentInnerCorner"
+            )
+            val start = if (index == 0) CornerSize(50) else CornerSize(inner)
+            val end = if (index == options.lastIndex) CornerSize(50) else CornerSize(inner)
+            val shape = RoundedCornerShape(start, end, end, start)
             val containerColor by animateColorAsState(
-                targetValue = if (selected) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    Color.Transparent
+                targetValue = when {
+                    selected && expressive -> MaterialTheme.colorScheme.primary
+                    selected -> MaterialTheme.colorScheme.primaryContainer
+                    expressive -> MaterialTheme.colorScheme.surfaceContainerHigh
+                    else -> Color.Transparent
                 },
-                animationSpec = tween(180),
+                animationSpec = AtmoMotion.defaultEffects(),
                 label = "segmentColor"
             )
             val contentColor by animateColorAsState(
-                targetValue = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                targetValue = when {
+                    selected && expressive -> MaterialTheme.colorScheme.onPrimary
+                    selected -> MaterialTheme.colorScheme.onPrimaryContainer
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                animationSpec = tween(180),
+                animationSpec = AtmoMotion.defaultEffects(),
                 label = "segmentContentColor"
             )
-            Box(
+            Row(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(width)
                     .heightIn(min = 48.dp)
-                    .scale(segmentScale)
-                    .clip(RoundedCornerShape(50))
+                    .clip(shape)
                     .background(containerColor)
-                    .clickable(
+                    .selectable(
+                        selected = selected,
                         interactionSource = interaction,
                         indication = LocalIndication.current,
+                        role = Role.RadioButton,
                         onClick = {
                             if (index != selectedIndex && expressive) {
                                 haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
@@ -716,8 +766,25 @@ fun AtmoSegmentedControl(
                         }
                     )
                     .padding(horizontal = 10.dp, vertical = 11.dp),
-                contentAlignment = Alignment.Center
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                AnimatedVisibility(
+                    visible = selected && expressive,
+                    enter = expandHorizontally(AtmoMotion.fastSpatial()) +
+                        scaleIn(AtmoMotion.fastSpatial()),
+                    exit = shrinkHorizontally(AtmoMotion.fastSpatial()) +
+                        scaleOut(AtmoMotion.fastSpatial())
+                ) {
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .size(16.dp)
+                    )
+                }
                 Text(
                     text = option,
                     style = MaterialTheme.typography.labelMedium,
@@ -746,61 +813,3 @@ fun AtmoChip(text: String, modifier: Modifier = Modifier) {
         )
     }
 }
-
-@Composable
-fun AtmoDialogRow(
-    title: String,
-    subtitle: String?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val expressive = LocalAtmoExpressive.current
-    val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed && expressive) 0.98f else 1f,
-        animationSpec = spring(stiffness = 430f, dampingRatio = 0.66f),
-        label = "dialogRowScale"
-    )
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .scale(scale)
-            .background(
-                MaterialTheme.colorScheme.surfaceContainerHighest,
-                RoundedCornerShape(if (expressive) 26.dp else 18.dp)
-            )
-            .clip(RoundedCornerShape(if (expressive) 26.dp else 18.dp))
-            .clickable(
-                interactionSource = interaction,
-                indication = LocalIndication.current,
-                onClick = {
-                    if (expressive) haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                    onClick()
-                }
-            )
-            .padding(horizontal = 18.dp, vertical = 16.dp)
-    ) {
-        Column {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (subtitle != null) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun rememberNoRippleInteraction(): MutableInteractionSource =
-    remember { MutableInteractionSource() }

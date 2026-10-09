@@ -21,7 +21,9 @@ import javax.microedition.khronos.opengles.GL10
 class HalftoneRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
-    private val previewSource: (() -> Bitmap?)? = null
+    private val previewSource: (() -> Bitmap?)? = null,
+    /** Which one-pass look this draws: Halftone, or another sharing its pipeline. */
+    private val look: SinglePassLook = SinglePassLook.HALFTONE
 ) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
 
     @Volatile
@@ -211,12 +213,8 @@ class HalftoneRenderer(
         renderFailureLogged = false
         renderRetryCount = 0
         try {
-            val vertexCode = loadShaderFromAssets("shaders/halftone/halftone.vert")
-            val fragmentCode = if (isReverse) {
-                loadShaderFromAssets("shaders/halftone/sharp_to_halftone.frag")
-            } else {
-                loadShaderFromAssets("shaders/halftone/halftone_to_sharp.frag")
-            }
+            val vertexCode = loadShaderFromAssets(SinglePassLook.VERTEX_SHADER)
+            val fragmentCode = loadShaderFromAssets(look.fragmentShader(isReverse))
             programId = createProgram(vertexCode, fragmentCode)
             needsReload = true
         } catch (failure: Exception) {

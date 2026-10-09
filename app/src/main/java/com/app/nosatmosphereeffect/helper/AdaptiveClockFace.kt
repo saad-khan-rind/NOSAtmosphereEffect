@@ -41,6 +41,9 @@ import kotlin.math.roundToInt
  * like any other.
  */
 internal class AdaptiveClockFace {
+    /** Off leaves the colon's lane empty: the switch is shared by every look. */
+    var showColon: Boolean = true
+
 
     /** 0 thin .. 1 bold. Constant through every animation. */
     var weight: Float = AtmosphereClockPolicy.DEFAULT_WEIGHT
@@ -322,6 +325,7 @@ internal class AdaptiveClockFace {
         colorAt: Float
     ) {
         character ?: return
+        if (character == ':' && !showColon) return
         if (old != null && progress != null && old != character) {
             val eased = smooth(progress)
             // The old digit thins back into its centre line and is gone

@@ -9,6 +9,7 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.util.Log
 import androidx.core.graphics.createBitmap
+import com.app.nosatmosphereeffect.helper.ClockFont
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockBoxPlacement
 import com.app.nosatmosphereeffect.helper.ClockScreen
@@ -167,6 +168,9 @@ class AtmosphereRenderer(
     var clockStyle: ClockStyle
         get() = clockTexture.style
         set(value) { clockTexture.style = value }
+    internal var clockFont: ClockFont
+        get() = clockTexture.font
+        set(value) { clockTexture.font = value }
     var clockShowDate: Boolean
         get() = clockTexture.showDate
         set(value) { clockTexture.showDate = value }

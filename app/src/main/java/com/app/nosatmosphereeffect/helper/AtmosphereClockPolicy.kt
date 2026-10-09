@@ -27,6 +27,8 @@ object AtmosphereClockPolicy {
     const val ENABLED_KEY = "atmosphere_clock_enabled"
     const val DEPTH_KEY = "atmosphere_clock_depth"
     const val STYLE_KEY = "atmosphere_clock_style"
+    /** Which face draws the digits, and whether it keeps its colon; see [ClockFont]. */
+    const val FONT_KEY = "atmosphere_clock_font"
     /** Draws the day and date, placed and sized on its own. */
     const val DATE_KEY = "atmosphere_clock_date"
     const val ANIMATE_KEY = "atmosphere_clock_animate"
@@ -194,6 +196,7 @@ object AtmosphereClockPolicy {
         ENABLED_KEY,
         DEPTH_KEY,
         STYLE_KEY,
+        FONT_KEY,
         DATE_KEY,
         ANIMATE_KEY,
         COLOR_KEY,
@@ -222,10 +225,10 @@ object AtmosphereClockPolicy {
      * would silently ignore it. Add an id here in the same change that wires
      * that effect's compositing, never before.
      *
-     * Every effect is listed now, and every one is wired on BOTH backends. An
-     * id belongs here only when the GLES renderer and the Vulkan host both
-     * draw it — half a pair would give the same effect a clock on one device
-     * and not on another, which reads as a bug rather than a limitation.
+     * Every effect is listed now, and every one is wired on every backend it
+     * can run on. An id belongs here only when each of those draws it — half a
+     * pair would give the same effect a clock on one device and not on
+     * another, which reads as a bug rather than a limitation.
      */
     private val SUPPORTED_EFFECT_IDS = setOf(
         "ORIGINAL",
@@ -239,7 +242,9 @@ object AtmosphereClockPolicy {
         "FROSTED",
         "FROSTED_REVERSE",
         "HALFTONE",
-        "HALFTONE_REVERSE"
+        "HALFTONE_REVERSE",
+        "VHS",
+        "VHS_REVERSE"
     )
 
     /**
@@ -312,6 +317,8 @@ object AtmosphereClockPolicy {
     }
 
     fun sanitizeStyleId(value: String?): String = ClockStyle.fromId(value).id
+
+    fun sanitizeFontId(value: String?): String = ClockFont.fromId(value).id
 
     fun sanitizeHourFormat(value: String?): String = when (value) {
         HOUR_FORMAT_12, HOUR_FORMAT_24 -> value

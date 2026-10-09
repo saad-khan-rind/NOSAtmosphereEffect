@@ -29,3 +29,6 @@ local.properties
 *.spv
 # Google Services
 google-services.json
+# Claude
+.claude/
+.claude*
