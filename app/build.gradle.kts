@@ -20,8 +20,8 @@ android {
 
     defaultConfig {
         applicationId = "com.saad_khan_rind.atmosphere_effect"
-        versionName = "7.3.1"
-        versionCode = 500731
+        versionName = "7.3.5"
+        versionCode = 500735
         buildConfigField("boolean", "FOLDER_PLAYLISTS", "false")
     }
 
@@ -48,21 +48,21 @@ android {
             dimension = "apiLevel"
             minSdk = 36
             targetSdk = 36
-            versionCode = 500731
+            versionCode = 500735
         }
 
         create("v35") {
             dimension = "apiLevel"
             minSdk = 35
             targetSdk = 36
-            versionCode = 400731
+            versionCode = 400735
         }
 
         create("v33") {
             dimension = "apiLevel"
             minSdk = 33
             targetSdk = 33
-            versionCode = 300731
+            versionCode = 300735
         }
 
         create("play") {

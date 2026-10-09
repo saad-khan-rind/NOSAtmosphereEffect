@@ -10,21 +10,27 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +51,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -88,6 +95,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -97,6 +105,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -124,11 +133,15 @@ import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
 import com.app.nosatmosphereeffect.image.BitmapDecoder
+import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.ClockBoxOverlay
 import com.app.nosatmosphereeffect.ui.components.ClockGlassPreview
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
+import com.app.nosatmosphereeffect.ui.theme.AppThemeMode
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
+import com.app.nosatmosphereeffect.ui.theme.AtmoMotion
+import com.app.nosatmosphereeffect.ui.theme.LocalAtmoExpressive
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -156,7 +169,8 @@ class ClockAdjustActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            AtmoEngineTheme {
+            // The editor's panel is always dark over the wallpaper, so its controls are too.
+            AtmoEngineTheme(themeMode = AppThemeMode.DARK) {
                 ClockAdjustScreen(onDone = { finish() })
             }
         }
@@ -558,14 +572,22 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
         dateWidthScale = value.widthScale
     }
 
-    // Saves at once rather than waiting out the debounce below: leaving within
-    // it would otherwise drop the last change.
+    // Saves at once on the way out rather than waiting out the debounce above:
+    // leaving within it would otherwise drop the last change. Done on pause, not
+    // in a back handler, so the system's predictive back can still peek behind.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val persistOnPause by rememberUpdatedState(::persist)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) persistOnPause()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    BackHandler(enabled = eyedropperArmed) { eyedropperArmed = false }
     fun finishEditing() {
         persist()
         onDone()
-    }
-    BackHandler {
-        if (eyedropperArmed) eyedropperArmed = false else finishEditing()
     }
 
     var panelTab by remember { mutableStateOf(ClockPanelTab.STYLE) }
@@ -1078,25 +1100,43 @@ private fun StyleTab(
     selected: ClockStyle,
     onStyleSelected: (ClockStyle) -> Unit
 ) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(vertical = 2.dp)
-    ) {
-        items(ClockStyle.entries) { candidate ->
+    // Grouped like the effects: one card per look, and the layout as a toggle,
+    // instead of every look-and-layout pair as its own card.
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ClockStyle.entries.filter { !it.stacked }.forEach { look ->
+            val shown = look.withLayout(selected.stacked)
             StyleCard(
-                style = candidate,
-                thumbnail = thumbnails[candidate],
-                selected = candidate == selected,
-                onClick = { onStyleSelected(candidate) }
+                label = look.label,
+                thumbnail = thumbnails[shown],
+                selected = look.treatment == selected.treatment,
+                onClick = { onStyleSelected(shown) },
+                modifier = Modifier.weight(1f)
             )
         }
     }
-    Spacer(Modifier.height(10.dp))
-    Text(
-        stringResource(selected.description),
-        color = Color.White.copy(alpha = 0.7f),
-        style = MaterialTheme.typography.bodySmall
+    Spacer(Modifier.height(14.dp))
+    Text(stringResource(R.string.clock_layout), color = Color.White, style = MaterialTheme.typography.labelLarge)
+    Spacer(Modifier.height(8.dp))
+    AtmoSegmentedControl(
+        options = listOf(
+            stringResource(R.string.clock_layout_row),
+            stringResource(R.string.clock_layout_stacked)
+        ),
+        selectedIndex = if (selected.stacked) 1 else 0,
+        onSelected = { onStyleSelected(selected.withLayout(stacked = it == 1)) }
     )
+    Spacer(Modifier.height(10.dp))
+    AnimatedContent(
+        targetState = selected.description,
+        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        label = "clockStyleDescription"
+    ) { description ->
+        Text(
+            stringResource(description),
+            color = Color.White.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
 }
 
 @Composable
@@ -1495,41 +1535,77 @@ private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun StyleCard(
-    style: ClockStyle,
+    @StringRes label: Int,
     thumbnail: ImageBitmap?,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val haptics = LocalHapticFeedback.current
+    val expressive = LocalAtmoExpressive.current
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && expressive) 0.95f else 1f,
+        animationSpec = AtmoMotion.fastSpatial(),
+        label = "clockStyleScale"
+    )
+    val corner by animateDpAsState(
+        targetValue = when {
+            !expressive -> 14.dp
+            pressed -> 12.dp
+            selected -> 24.dp
+            else -> 16.dp
+        },
+        animationSpec = AtmoMotion.defaultSpatial(),
+        label = "clockStyleCorner"
+    )
+    val fill by animateFloatAsState(if (selected) 0.18f else 0.07f, label = "clockStyleFill")
+    val edge by animateFloatAsState(if (selected) 0.9f else 0.16f, label = "clockStyleEdge")
+    val shape = RoundedCornerShape(corner)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(112.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = if (selected) 0.18f else 0.07f))
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = Color.White.copy(alpha = if (selected) 0.9f else 0.16f),
-                shape = RoundedCornerShape(14.dp)
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .background(Color.White.copy(alpha = fill))
+            .border(width = if (selected) 2.dp else 1.dp, color = Color.White.copy(alpha = edge), shape = shape)
+            .selectable(
+                selected = selected,
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                role = Role.RadioButton,
+                onClick = {
+                    if (expressive) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    onClick()
+                }
             )
-            .clickable(onClick = onClick)
             .padding(8.dp)
     ) {
-        // Taller than the old 46dp: the faces are now stretched vertically,
-        // and ContentScale.Fit would otherwise shrink a tall face until its
-        // digits were unreadable in the picker — which is the one place the
-        // shape is what the user is choosing between.
-        Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) {
-            if (thumbnail != null) {
+        // Tall enough for the vertically stretched faces: ContentScale.Fit would
+        // otherwise shrink them until the digits were unreadable, and the shape
+        // is exactly what is being chosen here.
+        AnimatedContent(
+            targetState = thumbnail,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            modifier = Modifier.fillMaxWidth().height(64.dp),
+            contentAlignment = Alignment.Center,
+            label = "clockStyleThumbnail"
+        ) { image ->
+            if (image != null) {
                 Image(
-                    bitmap = thumbnail,
-                    contentDescription = stringResource(style.label),
+                    bitmap = image,
+                    contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(stringResource(style.label), color = Color.White, style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(label), color = Color.White, style = MaterialTheme.typography.labelMedium)
     }
 }
 

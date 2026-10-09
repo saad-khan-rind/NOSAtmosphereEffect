@@ -12,6 +12,15 @@ data class EffectItem(
     @StringRes val description: Int
 )
 
+/** One look in both directions; [reverse] is null when only one direction is offered. */
+data class EffectFamily(
+    val key: String,
+    val forward: EffectItem,
+    val reverse: EffectItem?
+) {
+    fun pick(reversed: Boolean): EffectItem = if (reversed) reverse ?: forward else forward
+}
+
 object EffectCatalog {
     private val originalFirstEffectIds = setOf(
         "ORIGINAL",
@@ -124,6 +133,17 @@ object EffectCatalog {
 
     fun supportsAtmosphereGlass(id: String?): Boolean =
         AtmosphereGlassPolicy.supportsEffect(id)
+
+    /** Groups [effects] by [family], keeping catalog order; a lone reverse effect stands as its own forward. */
+    fun families(effects: List<EffectItem> = items): List<EffectFamily> =
+        effects.groupBy { family(it.id) }.map { (key, members) ->
+            val forward = members.firstOrNull { !isReverse(it.id) }
+            EffectFamily(
+                key = key,
+                forward = forward ?: members.first(),
+                reverse = if (forward == null) null else members.firstOrNull { isReverse(it.id) }
+            )
+        }
 
     fun family(id: String): String = when {
         id.contains("FROSTED") -> "FROSTED"

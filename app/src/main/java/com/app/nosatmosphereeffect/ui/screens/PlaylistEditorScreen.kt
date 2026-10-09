@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -34,6 +33,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Edit
@@ -77,12 +77,14 @@ import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoChip
+import com.app.nosatmosphereeffect.ui.components.AtmoShapeBadge
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
 import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
+import com.app.nosatmosphereeffect.ui.theme.AtmoMotion
 import com.app.nosatmosphereeffect.ui.theme.LocalAtmoExpressive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -391,8 +393,13 @@ private fun PlaylistCard(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed && expressive) 0.975f else 1f,
-        animationSpec = spring(stiffness = 420f, dampingRatio = 0.66f),
+        animationSpec = AtmoMotion.fastSpatial(),
         label = "playlistCardScale"
+    )
+    val corner by animateDpAsState(
+        targetValue = if (!expressive) 20.dp else if (pressed) 22.dp else 32.dp,
+        animationSpec = AtmoMotion.fastSpatial(),
+        label = "playlistCardCorner"
     )
     val thumb = rememberThumbnail(context, entry.displayUri)
 
@@ -401,7 +408,7 @@ private fun PlaylistCard(
             .fillMaxWidth()
             .aspectRatio(0.62f)
             .scale(scale)
-            .clip(RoundedCornerShape(if (expressive) 32.dp else 20.dp))
+            .clip(RoundedCornerShape(corner))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(
                 interactionSource = interaction,
@@ -476,7 +483,7 @@ private fun PageIndicator(
             val selected = index == current.coerceAtMost(8)
             val width by animateDpAsState(
                 targetValue = if (selected) 22.dp else 7.dp,
-                animationSpec = spring(stiffness = 420f, dampingRatio = 0.68f),
+                animationSpec = AtmoMotion.fastSpatial(),
                 label = "pageIndicatorWidth"
             )
             val color by animateColorAsState(
@@ -504,16 +511,15 @@ private fun EmptyPlaylist(message: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)
     ) {
-        Icon(
-            painterResource(R.drawable.ic_add),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(48.dp)
+        AtmoShapeBadge(
+            icon = Icons.Rounded.AddPhotoAlternate,
+            active = true,
+            size = 96.dp
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         Text(
             stringResource(R.string.playlist_no_images),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold
         )

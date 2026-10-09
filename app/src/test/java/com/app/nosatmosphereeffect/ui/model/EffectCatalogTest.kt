@@ -56,6 +56,35 @@ class EffectCatalogTest {
     }
 
     @Test
+    fun `families pair every effect with its reverse in catalog order`() {
+        val families = EffectCatalog.families()
+
+        assertEquals(
+            listOf("ATMOSPHERE", "GLASS", "COLORFILL", "CANVAS", "FROSTED", "HALFTONE"),
+            families.map(EffectFamily::key)
+        )
+        families.forEach { family ->
+            assertFalse(EffectCatalog.isReverse(family.forward.id))
+            assertTrue(EffectCatalog.isReverse(family.reverse!!.id))
+            assertSame(family.reverse, family.pick(reversed = true))
+            assertSame(family.forward, family.pick(reversed = false))
+        }
+        assertEquals(
+            EffectCatalog.items.toSet(),
+            families.flatMap { listOfNotNull(it.forward, it.reverse) }.toSet()
+        )
+    }
+
+    @Test
+    fun `a family offered in one direction falls back to it`() {
+        val reverseOnly = EffectCatalog.families(listOf(EffectCatalog.find("NEON_REVERSE"))).single()
+
+        assertEquals("NEON_REVERSE", reverseOnly.forward.id)
+        assertEquals(null, reverseOnly.reverse)
+        assertSame(reverseOnly.forward, reverseOnly.pick(reversed = true))
+    }
+
+    @Test
     fun `unknown and null identifiers resolve to the default effect`() {
         val default = EffectCatalog.items.first()
 

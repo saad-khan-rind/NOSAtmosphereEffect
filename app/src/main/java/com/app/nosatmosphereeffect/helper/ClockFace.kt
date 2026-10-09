@@ -215,6 +215,10 @@ enum class ClockStyle(
     val hasWeight: Boolean
         get() = treatment == ClockTreatment.ADAPTIVE
 
+    /** The same look in the other layout: one row, or hours above minutes. */
+    fun withLayout(stacked: Boolean): ClockStyle =
+        entries.firstOrNull { it.treatment == treatment && it.stacked == stacked } ?: this
+
     fun typeface(): Typeface {
         return try {
             Typeface.create(

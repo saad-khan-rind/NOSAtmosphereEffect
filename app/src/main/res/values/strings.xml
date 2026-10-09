@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Atmo Engine</string>
+    <string name="app_name" translatable="false">Atmo Engine</string>
     <string name="share_target_label">Set with Atmo Engine</string>
 
-    <string name="app_title">Atmo Engine</string>
+    <string name="app_title" translatable="false">Atmo Engine</string>
     <string name="app_logo_desc">App Logo</string>
     <string name="status_instruction">Pick an effect and a photo to\nmake your own live wallpaper.</string>
     <string name="action_select_effect">Select Effect</string>
@@ -19,13 +19,13 @@
     <string name="renderer_opengl_active">OpenGL ES active</string>
     <string name="renderer_vulkan_fallback_reason">Vulkan fallback: %1$s</string>
     <string name="renderer_current_wallpaper_renderer">Current wallpaper renderer</string>
-    <string name="renderer_backend_vulkan">Vulkan</string>
-    <string name="renderer_backend_opengl">OpenGL ES</string>
+    <string name="renderer_backend_vulkan" translatable="false">Vulkan</string>
+    <string name="renderer_backend_opengl" translatable="false">OpenGL ES</string>
     <string name="renderer_preference_group">Display renderer</string>
     <string name="renderer_preference_label">Graphics API</string>
     <string name="renderer_preference_automatic">Automatic (recommended)</string>
-    <string name="renderer_preference_vulkan">Vulkan</string>
-    <string name="renderer_preference_opengl">OpenGL ES</string>
+    <string name="renderer_preference_vulkan" translatable="false">Vulkan</string>
+    <string name="renderer_preference_opengl" translatable="false">OpenGL ES</string>
     <string name="renderer_preference_automatic_helper">Uses Vulkan when your phone supports it, and switches to OpenGL ES if it doesn\'t. Changes apply right away, to the previews and your wallpaper.</string>
     <string name="renderer_preference_vulkan_helper">Tries Vulkan first. If your phone doesn\'t support it or it runs into trouble, it switches to OpenGL ES. Changes apply right away, to the previews and your wallpaper.</string>
     <string name="renderer_preference_opengl_helper">Always uses OpenGL ES and doesn\'t try Vulkan at all. Changes apply right away, to the previews and your wallpaper.</string>
@@ -70,10 +70,12 @@
     <string name="effect_halftone_reverse_description">Printed dots grow back into your full photo.</string>
     <string name="effects_continue_with">Continue with %1$s</string>
     <string name="effects_title">Effects</string>
+    <string name="effects_direction">Direction</string>
+    <string name="effects_two_directions">Both directions</string>
     <string name="effects_show_lock_screen">Show lock screen</string>
     <string name="effects_play_transition">Play transition</string>
     <string name="effects_show_home_screen">Show home screen</string>
-    <string name="main_app_title">Atmo Engine</string>
+    <string name="main_app_title" translatable="false">Atmo Engine</string>
     <string name="main_status_active">Wallpaper active</string>
     <string name="main_status_always_applied">Live · effect always applied</string>
     <string name="main_status_studio">Wallpaper studio</string>
@@ -120,7 +122,7 @@
     <string name="main_create_wallpaper">Create a wallpaper</string>
     <string name="main_choose_effect_image">Choose effect and image</string>
     <string name="appearance_title">Appearance</string>
-    <string name="appearance_expressive">Material Expressive</string>
+    <string name="appearance_expressive" translatable="false">Material Expressive</string>
     <string name="appearance_theme">Theme</string>
     <string name="appearance_theme_system">System</string>
     <string name="appearance_theme_light">Light</string>
@@ -285,6 +287,9 @@
     <string name="clock_style_adaptive_description">Digits stretch around the subject</string>
     <string name="clock_style_adaptive_stacked">Adaptive Stacked</string>
     <string name="clock_style_adaptive_stacked_description">Hours over minutes, stretching around the subject</string>
+    <string name="clock_layout">Layout</string>
+    <string name="clock_layout_row">One row</string>
+    <string name="clock_layout_stacked">Stacked</string>
     <string name="clock_colour_white">White</string>
     <string name="clock_colour_warm_white">Warm white</string>
     <string name="clock_colour_cool_white">Cool white</string>
