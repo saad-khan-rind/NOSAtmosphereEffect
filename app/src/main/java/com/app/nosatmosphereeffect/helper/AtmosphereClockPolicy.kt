@@ -27,6 +27,8 @@ object AtmosphereClockPolicy {
     const val ENABLED_KEY = "atmosphere_clock_enabled"
     const val DEPTH_KEY = "atmosphere_clock_depth"
     const val STYLE_KEY = "atmosphere_clock_style"
+    /** Which face draws the digits, and whether it keeps its colon; see [ClockFont]. */
+    const val FONT_KEY = "atmosphere_clock_font"
     /** Draws the day and date, placed and sized on its own. */
     const val DATE_KEY = "atmosphere_clock_date"
     const val ANIMATE_KEY = "atmosphere_clock_animate"
@@ -194,6 +196,7 @@ object AtmosphereClockPolicy {
         ENABLED_KEY,
         DEPTH_KEY,
         STYLE_KEY,
+        FONT_KEY,
         DATE_KEY,
         ANIMATE_KEY,
         COLOR_KEY,
@@ -312,6 +315,8 @@ object AtmosphereClockPolicy {
     }
 
     fun sanitizeStyleId(value: String?): String = ClockStyle.fromId(value).id
+
+    fun sanitizeFontId(value: String?): String = ClockFont.fromId(value).id
 
     fun sanitizeHourFormat(value: String?): String = when (value) {
         HOUR_FORMAT_12, HOUR_FORMAT_24 -> value

@@ -403,10 +403,13 @@ float clockSubjectCoverage(vec2 uv) {
 // Mirrors the GLES path in assets/shaders/neon/neon.frag; keep the two in step.
 vec3 applyClockDepth(vec3 color, vec3 subjectColor, vec2 maskUv) {
     if (params.clockMeta.y <= 0.5 || params.clockMeta.z <= 0.5) return color;
+    // The subject hides the clock completely, at any opacity: the clock's own
+    // opacity was already applied when it was drawn, so restoring the frame
+    // only part way left a muted ghost of the digits on the subject.
     return mix(
         color,
         subjectColor,
-        clockSubjectCoverage(maskUv) * params.clockMeta.x
+        clockSubjectCoverage(maskUv)
     );
 }
 

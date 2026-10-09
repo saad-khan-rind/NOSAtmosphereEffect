@@ -38,7 +38,11 @@ enum class ClockTreatment {
      * Not glass at all: solid digits that stretch around the subject — see
      * [AdaptiveClockFace].
      */
-    ADAPTIVE
+    ADAPTIVE,
+    /**
+     * Not glass either: plain solid digits in the clock's colour, with depth.
+     */
+    SOLID
 }
 
 /**
@@ -201,7 +205,38 @@ enum class ClockStyle(
         verticalStretch = 1f,
         horizontalScale = 1f,
         treatment = ClockTreatment.ADAPTIVE
+    ),
+
+    /** Solid digits, the face for the fonts; Classic is this typeface. */
+    NORMAL(
+        id = "normal",
+        label = R.string.clock_style_normal,
+        description = R.string.clock_style_normal_description,
+        familyName = "sans-serif",
+        weight = 500,
+        letterSpacingEm = -0.02f,
+        stacked = false,
+        verticalStretch = 1.4f,
+        horizontalScale = 1f,
+        treatment = ClockTreatment.SOLID
+    ),
+
+    NORMAL_STACKED(
+        id = "normal_stacked",
+        label = R.string.clock_style_normal_stacked,
+        description = R.string.clock_style_normal_stacked_description,
+        familyName = "sans-serif",
+        weight = 500,
+        letterSpacingEm = -0.03f,
+        stacked = true,
+        verticalStretch = 1.42f,
+        horizontalScale = 1f,
+        treatment = ClockTreatment.SOLID
     );
+
+    /** Every look but Adaptive, which stretches its own digits, draws in the chosen font. */
+    val takesFont: Boolean
+        get() = treatment != ClockTreatment.ADAPTIVE
 
     /** Only the translucent faces are glass all the way through to frost. */
     val usesFrost: Boolean
@@ -311,8 +346,19 @@ class ClockFaceRenderer(private val context: Context) {
         set(value) {
             if (field != value) {
                 field = value
-                atlas = ClockGlyphAtlas.of(value)
+                atlas = ClockGlyphAtlas.of(value, font)
                 adaptiveFace.stacked = value.stacked
+                invalidateLayout()
+            }
+        }
+
+    /** Which face draws the digits; the Adaptive look ignores it and keeps its own. */
+    internal var font: ClockFont = ClockFont.DEFAULT
+        set(value) {
+            if (field != value) {
+                field = value
+                atlas = ClockGlyphAtlas.of(style, value)
+                adaptiveFace.showColon = value.showColon
                 invalidateLayout()
             }
         }
@@ -511,12 +557,6 @@ class ClockFaceRenderer(private val context: Context) {
     private val is24Hour: Boolean
         get() = hourFormatOverride ?: systemIs24Hour
 
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        // Set per glyph in drawGlyph — alpha is animated, so the colour has
-        // to be reapplied each time anyway.
-        color = Color.WHITE
-        textAlign = Paint.Align.LEFT
-    }
 
     // Kept rather than rebuilt per frame: the pattern lookup and the parse
     // behind SimpleDateFormat are not free, and this runs on the render path.
@@ -529,7 +569,7 @@ class ClockFaceRenderer(private val context: Context) {
      * The glyphs, as distance fields. Rebuilt when the face changes, because
      * the field has the style's own stretch and weight baked into it.
      */
-    private var atlas: ClockGlyphAtlas = ClockGlyphAtlas.of(style)
+    private var atlas: ClockGlyphAtlas = ClockGlyphAtlas.of(style, font)
     private val glyphMatrix = Matrix()
     private val tilePaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
         // Overlapping fields take the larger value rather than blending:
@@ -1092,7 +1132,7 @@ class ClockFaceRenderer(private val context: Context) {
         val entryScale = entry?.let { ENTRY_SCALE_FROM + (1f - ENTRY_SCALE_FROM) * easeOutBack(it) } ?: 1f
 
         val glyphScale = face.glyphScale * scale * entryScale
-        val spread = ClockGlyphAtlas.SPREAD_EM * ClockGlyphAtlas.CANONICAL_EM
+        val spread = tile.origin
         // A typeface sets its colon low, against the baseline, because it
         // normally separates words of lowercase. Between two digits it wants
         // to be in the middle of them, so it is moved there — the only glyph
@@ -1218,22 +1258,16 @@ class ClockFaceRenderer(private val context: Context) {
         dateText: String?,
         textSize: Float
     ): FaceLayout {
-        textPaint.typeface = style.typeface()
-        textPaint.textSize = textSize
-        textPaint.letterSpacing = style.letterSpacingEm
-        // Set before the advances are measured, so the slots below are sized
-        // for the condensed form rather than the wide one.
-        textPaint.textScaleX = style.horizontalScale
+        val glyphs = atlas.source
+        val stretch = glyphs.verticalStretch
 
         // Slot width is the widest digit, so the layout never reflows as the
         // time changes.
         var digitAdvance = 0f
         for (digit in '0'..'9') {
-            digitAdvance = max(digitAdvance, textPaint.measureText(digit.toString()))
+            digitAdvance = max(digitAdvance, glyphs.advance(digit, textSize))
         }
-        val separatorAdvance = textPaint.measureText(":")
-
-        val stretch = style.verticalStretch
+        val separatorAdvance = glyphs.advance(':', textSize)
         // The Adaptive face draws its own digits from skeletons, in units of a
         // digit's width; its box is the row at full stretch.
         val adaptive = isAdaptive
@@ -1264,13 +1298,19 @@ class ClockFaceRenderer(private val context: Context) {
         // from the glyphs themselves rather than from the font's line box:
         // a line box includes room for accents no digit has, which made the
         // calibration frame sit visibly loose around the clock.
-        val ink = android.graphics.Rect()
-        textPaint.getTextBounds(DIGITS_SAMPLE, 0, DIGITS_SAMPLE.length, ink)
-        val baselineFromInkTop = if (adaptive) 0f else -ink.top * stretch
+        val glyphInk = android.graphics.RectF()
+        var inkTop = Float.MAX_VALUE
+        var inkBottom = -Float.MAX_VALUE
+        for (digit in DIGITS_SAMPLE) {
+            glyphs.ink(digit, textSize, glyphInk)
+            inkTop = min(inkTop, glyphInk.top)
+            inkBottom = max(inkBottom, glyphInk.bottom)
+        }
+        val baselineFromInkTop = if (adaptive) 0f else -inkTop
         val inkHeight = if (adaptive) {
             AdaptiveClockGlyphs.boxHeight(style.stacked) * unit
         } else {
-            (ink.bottom - ink.top) * stretch
+            inkBottom - inkTop
         }
         // Rows are pitched on their ink rather than on the font's line box.
         // A line box carries room for ascenders and descenders no digit has,

@@ -339,7 +339,9 @@ class ClockFaceGeometryTest {
                 "translucent",
                 "translucent_stacked",
                 "adaptive",
-                "adaptive_stacked"
+                "adaptive_stacked",
+                "normal",
+                "normal_stacked"
             ),
             ClockStyle.entries.map { it.id }
         )

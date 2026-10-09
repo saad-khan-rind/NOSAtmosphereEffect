@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -121,8 +122,12 @@ import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockBoxHandle
 import com.app.nosatmosphereeffect.helper.ClockBoxPlacement
 import com.app.nosatmosphereeffect.helper.ClockBoxRect
+import com.app.nosatmosphereeffect.helper.ClockDesign
 import com.app.nosatmosphereeffect.helper.ClockFaceBox
 import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
+import com.app.nosatmosphereeffect.helper.ClockFont
+import com.app.nosatmosphereeffect.helper.ClockFontFamily
+import com.app.nosatmosphereeffect.helper.ClockGlyphSource
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockPlacement
@@ -260,6 +265,9 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             ClockStyle.fromId(prefs.getString(AtmosphereClockPolicy.STYLE_KEY, null))
         )
     }
+    var font by remember {
+        mutableStateOf(ClockFont.fromId(prefs.getString(AtmosphereClockPolicy.FONT_KEY, null)))
+    }
     var showDate by remember {
         mutableStateOf(
             prefs.getBoolean(
@@ -324,10 +332,14 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
 
     var thumbnails by remember { mutableStateOf<Map<ClockStyle, ImageBitmap>>(emptyMap()) }
-    LaunchedEffect(hourFormat) {
+    LaunchedEffect(hourFormat, font) {
         thumbnails = withContext(Dispatchers.Default) {
-            renderStyleThumbnails(context, hourFormat)
+            renderStyleThumbnails(context, hourFormat, font)
         }
+    }
+    var fontThumbnails by remember { mutableStateOf<Map<ClockDesign, ImageBitmap>>(emptyMap()) }
+    LaunchedEffect(Unit) {
+        fontThumbnails = withContext(Dispatchers.Default) { renderFontThumbnails() }
     }
 
     fun persist() {
@@ -362,6 +374,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 AtmosphereClockPolicy.GEOMETRY_VERSION
             )
             putString(AtmosphereClockPolicy.STYLE_KEY, style.id)
+            putString(AtmosphereClockPolicy.FONT_KEY, font.id)
             putBoolean(AtmosphereClockPolicy.DATE_KEY, showDate)
             putBoolean(AtmosphereClockPolicy.ANIMATE_KEY, animate)
             putInt(
@@ -376,7 +389,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     }
 
     LaunchedEffect(
-        centerX, top, heightFraction, widthScale, heightScale, opacity, frost, weight, style,
+        centerX, top, heightFraction, widthScale, heightScale, opacity, frost, weight, style, font,
         showDate, dateCenterX, dateTop, dateHeightFraction, dateWidthScale,
         animate, colorPref, hourFormat
     ) {
@@ -480,7 +493,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
     // redraw it. The loop reads the current placement on each pass rather than
     // being keyed on it: keying would restart the whole coroutine on every
     // frame of a drag.
-    LaunchedEffect(style, showDate, animate, resolvedColor, colorPref, weight, hourFormat) {
+    LaunchedEffect(style, font, showDate, animate, resolvedColor, colorPref, weight, hourFormat) {
         var lastGeometry: Pair<ClockPlacement, ClockPlacement>? = null
         while (true) {
             val wantedClock = ClockPlacement(centerX, top, heightFraction, widthScale)
@@ -498,6 +511,7 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
             val measured = withContext(Dispatchers.Default) {
                 synchronized(faceRenderer) {
                     faceRenderer.style = style
+                    faceRenderer.font = font
                     faceRenderer.showDate = showDate
                     faceRenderer.animateDigits = animate
                     faceRenderer.animateEntry = false
@@ -879,6 +893,9 @@ private fun ClockAdjustScreen(onDone: () -> Unit) {
                 thumbnails = thumbnails,
                 selected = style,
                 onStyleSelected = { style = it },
+                fontThumbnails = fontThumbnails,
+                font = font,
+                onFontSelected = { font = it },
                 opacity = opacity,
                 onOpacityChange = { opacity = AtmosphereClockPolicy.sanitizeOpacity(it) },
                 frost = frost,
@@ -974,6 +991,9 @@ private fun ClockPanel(
     thumbnails: Map<ClockStyle, ImageBitmap>,
     selected: ClockStyle,
     onStyleSelected: (ClockStyle) -> Unit,
+    fontThumbnails: Map<ClockDesign, ImageBitmap>,
+    font: ClockFont,
+    onFontSelected: (ClockFont) -> Unit,
     opacity: Float,
     onOpacityChange: (Float) -> Unit,
     frost: Float,
@@ -1050,7 +1070,14 @@ private fun ClockPanel(
                     .padding(top = 14.dp)
             ) {
                 when (tab) {
-                    ClockPanelTab.STYLE -> StyleTab(thumbnails, selected, onStyleSelected)
+                    ClockPanelTab.STYLE -> StyleTab(
+                        thumbnails = thumbnails,
+                        selected = selected,
+                        onStyleSelected = onStyleSelected,
+                        fontThumbnails = fontThumbnails,
+                        font = font,
+                        onFontSelected = onFontSelected
+                    )
                     ClockPanelTab.COLOUR -> ColourTab(
                         selected = selected,
                         colorPref = colorPref,
@@ -1098,7 +1125,10 @@ private fun ClockPanel(
 private fun StyleTab(
     thumbnails: Map<ClockStyle, ImageBitmap>,
     selected: ClockStyle,
-    onStyleSelected: (ClockStyle) -> Unit
+    onStyleSelected: (ClockStyle) -> Unit,
+    fontThumbnails: Map<ClockDesign, ImageBitmap>,
+    font: ClockFont,
+    onFontSelected: (ClockFont) -> Unit
 ) {
     // Grouped like the effects: one card per look, and the layout as a toggle,
     // instead of every look-and-layout pair as its own card.
@@ -1136,6 +1166,73 @@ private fun StyleTab(
             color = Color.White.copy(alpha = 0.7f),
             style = MaterialTheme.typography.bodySmall
         )
+    }
+    Spacer(Modifier.height(12.dp))
+    // Every look's colon, so it lives here rather than with the fonts.
+    SettingSwitchRow(
+        title = stringResource(R.string.clock_show_colon),
+        subtitle = stringResource(R.string.clock_show_colon_hint),
+        checked = font.showColon,
+        onCheckedChange = { onFontSelected(font.copy(showColon = it)) }
+    )
+    // Fonts are the Normal look's; the glass looks and Adaptive keep their own digits.
+    AnimatedVisibility(visible = selected.takesFont) {
+        Column {
+            Spacer(Modifier.height(16.dp))
+            FontPicker(thumbnails = fontThumbnails, font = font, onFontSelected = onFontSelected)
+        }
+    }
+}
+
+/**
+ * The font, grouped like the effects: one card per family, its variants
+ * (tall or short, light or heavy) on a toggle beneath, so eighteen faces read
+ * as a short row rather than a wall of near-twins.
+ */
+@Composable
+private fun FontPicker(
+    thumbnails: Map<ClockDesign, ImageBitmap>,
+    font: ClockFont,
+    onFontSelected: (ClockFont) -> Unit
+) {
+    val family = ClockFontFamily.of(font.design)
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = ClockFontFamily.entries.indexOf(family).coerceAtLeast(0)
+    )
+    Text(stringResource(R.string.clock_font), color = Color.White, style = MaterialTheme.typography.labelLarge)
+    Spacer(Modifier.height(8.dp))
+    LazyRow(
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(vertical = 2.dp)
+    ) {
+        items(ClockFontFamily.entries) { candidate ->
+            // A family shows the variant in use, or its first.
+            val design = if (candidate == family) font.design else candidate.variants.first()
+            StyleCard(
+                label = candidate.label,
+                thumbnail = thumbnails[design],
+                selected = candidate == family,
+                onClick = { onFontSelected(font.copy(design = design)) },
+                modifier = Modifier.width(96.dp)
+            )
+        }
+    }
+    AnimatedVisibility(visible = family.variants.size > 1) {
+        Column {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                stringResource(R.string.clock_font_variant),
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge
+            )
+            Spacer(Modifier.height(8.dp))
+            AtmoSegmentedControl(
+                options = family.variants.map { stringResource(it.variantLabel) },
+                selectedIndex = family.variants.indexOf(font.design).coerceAtLeast(0),
+                onSelected = { onFontSelected(font.copy(design = family.variants[it])) }
+            )
+        }
     }
 }
 
@@ -1899,13 +1996,16 @@ private fun sampleWallpaperColor(
 
 private fun renderStyleThumbnails(
     context: Context,
-    hourFormat: String
+    hourFormat: String,
+    font: ClockFont
 ): Map<ClockStyle, ImageBitmap> {
     val now = System.currentTimeMillis()
     val result = LinkedHashMap<ClockStyle, ImageBitmap>()
     for (candidate in ClockStyle.entries) {
         val renderer = ClockFaceRenderer(context).apply {
             style = candidate
+            // The looks are shown in the chosen font, so a card shows what picking it gives.
+            this.font = font
             // Digits only: these pick a face, and a date placed off to one
             // side would make the thumbnail mostly empty bitmap.
             showDate = false
@@ -1937,6 +2037,47 @@ private fun renderStyleThumbnails(
     }
     return result
 }
+
+/**
+ * "12" in every face, for the font cards. Drawn straight from the glyph
+ * geometry rather than through the face renderer: a card needs a crisp
+ * silhouette, not a distance field, and there are eighteen of them.
+ */
+private fun renderFontThumbnails(): Map<ClockDesign, ImageBitmap> {
+    // Fonts belong to the Normal look, so that is where they are previewed.
+    val look = ClockStyle.NORMAL
+    val result = LinkedHashMap<ClockDesign, ImageBitmap>()
+    for (design in ClockDesign.entries) {
+        val glyphs = ClockGlyphSource.of(look, ClockFont(design))
+        val em = FONT_THUMB_EM
+        val text = "12"
+        val width = text.sumOf { glyphs.advance(it, em).toDouble() }.toFloat()
+        val top = glyphs.lineTop(em)
+        val height = glyphs.lineBottom(em) - top
+        if (width <= 0f || height <= 0f) continue
+        try {
+            val bitmap = Bitmap.createBitmap(
+                kotlin.math.ceil(width).toInt().coerceAtLeast(1),
+                kotlin.math.ceil(height).toInt().coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = android.graphics.Canvas(bitmap)
+            var x = 0f
+            for (character in text) {
+                glyphs.draw(canvas, character, x, -top, em)
+                x += glyphs.advance(character, em)
+            }
+            result[design] = bitmap.asImageBitmap()
+        } catch (_: RuntimeException) {
+            // A face that will not draw is left out of the gallery.
+        } catch (_: OutOfMemoryError) {
+            break
+        }
+    }
+    return result
+}
+
+private const val FONT_THUMB_EM = 72f
 
 /**
  * Turns a face bitmap into something that can simply be shown.

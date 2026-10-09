@@ -21,6 +21,7 @@ import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPreferences
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
+import com.app.nosatmosphereeffect.helper.ClockFont
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
@@ -191,12 +192,14 @@ class EffectPreviewService(
         styleId: String,
         animate: Boolean,
         color: Int,
-        hourFormat: String
+        hourFormat: String,
+        fontId: String = ClockFont.DEFAULT.id
     ) {
         updateClock { current ->
             current.copy(
                 enabled = true,
                 styleId = styleId,
+                fontId = fontId,
                 animate = animate,
                 requestedColor = color,
                 color = color,
@@ -409,6 +412,11 @@ class EffectPreviewService(
                             prefs,
                             AtmosphereClockPolicy.STYLE_KEY,
                             ClockStyle.DEFAULT.id
+                        ),
+                        clockFontId = previewString(
+                            prefs,
+                            AtmosphereClockPolicy.FONT_KEY,
+                            ClockFont.DEFAULT.id
                         ),
                         clockShowDate = previewBoolean(
                             prefs,
@@ -759,6 +767,7 @@ class EffectPreviewService(
                 renderer.clockEnabled = value.clockEnabled
                 renderer.clockDepthEnabled = value.clockDepthEnabled
                 renderer.clockStyle = value.clockStyle
+                renderer.clockFont = value.clockFont
                 renderer.clockShowDate = value.clockShowDate
                 renderer.clockAnimate = value.clockAnimate
                 renderer.clockColor = value.clockColor
