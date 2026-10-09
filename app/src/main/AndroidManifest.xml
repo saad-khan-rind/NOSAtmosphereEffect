@@ -240,6 +240,34 @@
                 android:resource="@xml/wallpaper" />
         </service>
 
+        <service
+            android:name=".service.VhsService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_vhs"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
+        <service
+            android:name=".service.VhsReverseService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_vhs_reverse"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
     </application>
 
 </manifest>

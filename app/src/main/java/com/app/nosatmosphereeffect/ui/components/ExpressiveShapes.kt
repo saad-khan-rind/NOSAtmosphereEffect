@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.FormatColorFill
 import androidx.compose.material.icons.rounded.Grain
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.ViewWeek
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -176,6 +177,7 @@ fun effectFamilyIcon(effectId: String): ImageVector = when (EffectCatalog.family
     "CANVAS" -> Icons.Rounded.Draw
     "FROSTED" -> Icons.Rounded.AcUnit
     "HALFTONE" -> Icons.Rounded.Grain
+    "VHS" -> Icons.Rounded.Videocam
     else -> Icons.Rounded.Cloud
 }
 

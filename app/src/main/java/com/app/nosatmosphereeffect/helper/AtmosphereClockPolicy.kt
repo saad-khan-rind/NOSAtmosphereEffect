@@ -225,10 +225,11 @@ object AtmosphereClockPolicy {
      * would silently ignore it. Add an id here in the same change that wires
      * that effect's compositing, never before.
      *
-     * Every effect is listed now, and every one is wired on BOTH backends. An
-     * id belongs here only when the GLES renderer and the Vulkan host both
-     * draw it — half a pair would give the same effect a clock on one device
-     * and not on another, which reads as a bug rather than a limitation.
+     * Every effect is listed now, and every one is wired on every backend it
+     * can run on. An id belongs here only when each of those draws it — half a
+     * pair would give the same effect a clock on one device and not on
+     * another, which reads as a bug rather than a limitation. VHS runs on
+     * OpenGL ES only (it has no Vulkan host), and that renderer draws it.
      */
     private val SUPPORTED_EFFECT_IDS = setOf(
         "ORIGINAL",
@@ -242,7 +243,9 @@ object AtmosphereClockPolicy {
         "FROSTED",
         "FROSTED_REVERSE",
         "HALFTONE",
-        "HALFTONE_REVERSE"
+        "HALFTONE_REVERSE",
+        "VHS",
+        "VHS_REVERSE"
     )
 
     /**

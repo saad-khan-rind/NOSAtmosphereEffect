@@ -28,7 +28,8 @@ object EffectCatalog {
         "FROSTED",
         "HALFTONE",
         "COLORFILL_REVERSE",
-        "NEON_REVERSE"
+        "NEON_REVERSE",
+        "VHS_REVERSE"
     )
 
     val items = listOf(
@@ -103,6 +104,18 @@ object EffectCatalog {
             R.string.effect_halftone_reverse_title,
             R.string.effect_halftone_reverse_transition,
             R.string.effect_halftone_reverse_description
+        ),
+        EffectItem(
+            "VHS",
+            R.string.effect_vhs_title,
+            R.string.effect_vhs_transition,
+            R.string.effect_vhs_description
+        ),
+        EffectItem(
+            "VHS_REVERSE",
+            R.string.effect_vhs_reverse_title,
+            R.string.effect_vhs_reverse_transition,
+            R.string.effect_vhs_reverse_description
         )
     )
 
@@ -114,6 +127,7 @@ object EffectCatalog {
         "GLASS", "GLASS_REVERSE" -> 1200L
         "FROSTED", "FROSTED_REVERSE" -> 500L
         "HALFTONE", "HALFTONE_REVERSE" -> 500L
+        "VHS", "VHS_REVERSE" -> 900L
         "COLORFILL", "COLORFILL_REVERSE" -> 1500L
         "NEON", "NEON_REVERSE" -> 1000L
         else -> 1000L
@@ -121,6 +135,7 @@ object EffectCatalog {
 
     fun defaultDimness(id: String?): Float = when {
         id?.contains("HALFTONE") == true -> 0f
+        id?.contains("VHS") == true -> 0f
         id?.contains("COLORFILL") == true -> 0f
         id?.contains("NEON") == true -> 0f
         id?.contains("GLASS") == true -> 0f
@@ -148,6 +163,7 @@ object EffectCatalog {
     fun family(id: String): String = when {
         id.contains("FROSTED") -> "FROSTED"
         id.contains("HALFTONE") -> "HALFTONE"
+        id.contains("VHS") -> "VHS"
         id.contains("COLORFILL") -> "COLORFILL"
         id.contains("NEON") -> "CANVAS"
         id.contains("GLASS") -> "GLASS"

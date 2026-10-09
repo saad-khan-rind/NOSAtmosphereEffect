@@ -32,10 +32,10 @@
     <string name="experimental">Experimental</string>
     <string name="manualCroppingWillBeDisabled">(Turns off manual cropping)</string>
 
-    <string name="effect_original_title">Original Atmosphere</string>
+    <string name="effect_original_title">Atmosphere</string>
     <string name="effect_original_transition">Sharp to blur</string>
     <string name="effect_original_description">Soft color and clouds that drift across your photo.</string>
-    <string name="effect_reverse_title">Reverse Atmosphere</string>
+    <string name="effect_reverse_title">Atmosphere Reverse</string>
     <string name="effect_reverse_transition">Blur to sharp</string>
     <string name="effect_reverse_description">The clouds clear away to show your photo.</string>
     <string name="effect_glass_title">Glass Effect</string>
@@ -68,6 +68,12 @@
     <string name="effect_halftone_reverse_title">Halftone Print Reverse</string>
     <string name="effect_halftone_reverse_transition">Halftone to sharp</string>
     <string name="effect_halftone_reverse_description">Printed dots grow back into your full photo.</string>
+    <string name="effect_vhs_title">VHS Tape</string>
+    <string name="effect_vhs_transition">Tape to sharp</string>
+    <string name="effect_vhs_description">Your photo plays like a worn videotape, then the tracking settles into a clean picture.</string>
+    <string name="effect_vhs_reverse_title">VHS Tape Reverse</string>
+    <string name="effect_vhs_reverse_transition">Sharp to tape</string>
+    <string name="effect_vhs_reverse_description">Your photo rolls into the soft, noisy look of an old videotape.</string>
     <string name="effects_continue_with">Continue with %1$s</string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>
@@ -675,4 +681,6 @@
     <string name="service_frosted_reverse">Frosted (Reverse)</string>
     <string name="service_halftone">Halftone Print Effect</string>
     <string name="service_halftone_reverse">Halftone Print (Reverse) Effect</string>
+    <string name="service_vhs">VHS Tape</string>
+    <string name="service_vhs_reverse">VHS Tape (Reverse)</string>
 </resources>

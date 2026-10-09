@@ -37,8 +37,8 @@ The fastest way to apply a wallpaper. Instead of opening the app and browsing fo
 
 Open the app and choose your desired atmosphere style from the selection screen:
 
-* **Original Atmosphere:** Signature style. A sharp wallpaper flows into drifting ambient clouds and blur.
-* **Reverse Atmosphere:** Mysterious reveal. Deep ambient clouds clear to reveal the wallpaper.
+* **Atmosphere:** Signature style. A sharp wallpaper flows into drifting ambient clouds and blur.
+* **Atmosphere (Reverse):** Mysterious reveal. Deep ambient clouds clear to reveal the wallpaper.
 * **Glass Effect:** Strong, continuous reeded-glass refraction can appear one rib at a time from right to left or fade in.
 * **Glass Effect (Reverse):** The reeded glass can clear from left to right or fade out.
 * **Color Fill:** Liquid awakening. Colors flow outward from your fingerprint.
@@ -49,10 +49,12 @@ Open the app and choose your desired atmosphere style from the selection screen:
 * **Simple Frosted (Reverse):** Elegant clarity. Wakes up from a heavy frosted blur into a crystal clear wallpaper.
 * **Halftone Print:** Retro aesthetic. Sharp view dissolves into comic-book CMYK dots when locked.
 * **Halftone Print (Reverse):** Retro aesthetic. CMYK dots seamlessly expand into continuous color when unlocked.
+* **VHS Tape:** Worn videotape playback (soft colour smear, scanlines, grain and a faded grade) that settles into a clean picture when unlocked, with a tracking roll mid-transition.
+* **VHS Tape (Reverse):** The clean wallpaper rolls into the old videotape look.
 
 #### Atmosphere with Glass
 
-For Original or Reverse Atmosphere, enable **Add glass effect** while setting the image or from **Fine tuning → Effect**. The Fine Tune screen also exposes the rib count, rib thickness, and **Background only** subject isolation while Glass is enabled. With transitions enabled, the animation remains an Atmosphere transition: Original Atmosphere moves from the glass-treated image into its ambient state, while Reverse Atmosphere finishes on the glass-treated image. With transitions disabled, Atmo holds the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
+For Atmosphere or Atmosphere Reverse, enable **Add glass effect** while setting the image or from **Fine tuning → Effect**. The Fine Tune screen also exposes the rib count, rib thickness, and **Background only** subject isolation while Glass is enabled. With transitions enabled, the animation remains an Atmosphere transition: Atmosphere moves from the glass-treated image into its ambient state, while Atmosphere Reverse finishes on the glass-treated image. With transitions disabled, Atmo holds the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
 
 #### Subject Isolation for Canvas, Glass, and Halftone
 
@@ -166,9 +168,9 @@ Fine tuning is kept when you change only the image or playlist under the same ef
 
 ### Visual Adjustments
 * **Dimness Level:** Adjust the darkening overlay to ensure your home screen icons remain readable against bright wallpapers.
-* **Blob Saturation:** (Original Atmosphere & Reverse Atmosphere Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
-* **Blob Contrast:** (Original Atmosphere & Reverse Atmosphere Effects Only) Adjusts the harshness of the atmospheric clouds. Higher values create distinct, separated color pools, while lower values blend the colors softly and smoothly together.
-* **Add Glass Effect:** (Original Atmosphere & Reverse Atmosphere Only) Available while setting or editing an image and in Fine Tune. Uses a customizable reeded-glass image for the clear side of the Atmosphere transition. The always-applied mode keeps the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
+* **Blob Saturation:** (Atmosphere & Atmosphere Reverse Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
+* **Blob Contrast:** (Atmosphere & Atmosphere Reverse Effects Only) Adjusts the harshness of the atmospheric clouds. Higher values create distinct, separated color pools, while lower values blend the colors softly and smoothly together.
+* **Add Glass Effect:** (Atmosphere & Atmosphere Reverse Only) Available while setting or editing an image and in Fine Tune. Uses a customizable reeded-glass image for the clear side of the Atmosphere transition. The always-applied mode keeps the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
 * **Glass Lines:** (Glass Effects Only) Adjusts the number of refractive ribs and the shape of each rib.
 * **Glass Transition Style:** (Glass Effects Only) Choose right-to-left or fade-in for Glass Effect, and left-to-right or fade-out for Glass Effect Reverse.
 * **Blur Strength:** (Frosted Effects Only) Use the slider to fine-tune the intensity of the blur radius, from a light mist to heavy glass.

@@ -39,6 +39,7 @@ import com.app.nosatmosphereeffect.renderer.GlassRenderer
 import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderer
+import com.app.nosatmosphereeffect.renderer.SinglePassLook
 import com.app.nosatmosphereeffect.renderer.NeonRenderState
 import com.app.nosatmosphereeffect.renderer.NeonRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
@@ -570,6 +571,18 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
+            // VHS shares Halftone's renderer and state; it has no background-only mode.
+            "VHS", "VHS_REVERSE" -> EffectPreviewRenderState.Halftone(
+                HalftoneRenderState(
+                    dimLevel = previewFloat(prefs, "dim_level", 0f),
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS,
+                        unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
+                    )
+                ).sanitized()
+            )
+
             "COLORFILL", "COLORFILL_REVERSE" -> EffectPreviewRenderState.ColorFill(
                 ColorFillRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
@@ -698,8 +711,9 @@ class EffectPreviewService(
                 GlassRenderer(appContext, sourceProvider)
             is EffectPreviewRenderState.Halftone -> HalftoneRenderer(
                 appContext,
-                isReverse = effectId == "HALFTONE_REVERSE",
-                previewSource = sourceProvider
+                isReverse = SinglePassLook.isReverse(effectId),
+                previewSource = sourceProvider,
+                look = SinglePassLook.of(effectId)
             )
             is EffectPreviewRenderState.ColorFill -> ColorFillRenderer(
                 appContext,
@@ -871,7 +885,7 @@ class EffectPreviewService(
             is AtmosphereRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
-                // Was missing: the clock's arrival on Original Atmosphere drew
+                // Was missing: the clock's arrival on Atmosphere drew
                 // its first frame on OpenGL and stopped there.
                 renderer.onAnimationFrameRequested = render
             }
