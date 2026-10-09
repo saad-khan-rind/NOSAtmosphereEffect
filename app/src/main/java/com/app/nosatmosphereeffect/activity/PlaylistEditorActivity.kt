@@ -81,7 +81,7 @@ class PlaylistEditorActivity : ComponentActivity() {
     private val pickFolders =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                updateWatchedFolders(FolderPickerActivity.foldersFrom(result.data))
+                updateWatchedFolders(draftState.watchedFolders + FolderPickerActivity.foldersFrom(result.data))
             }
         }
 
@@ -233,11 +233,7 @@ class PlaylistEditorActivity : ComponentActivity() {
                         },
                     onRename = { showRename = true },
                     watchedFolders = draftState.watchedFolders.map(WatchedFolder::name),
-                    onAddFolder = if (FolderPlaylistSource.isAvailable) {
-                        { launchFolderPicker() }
-                    } else {
-                        null
-                    },
+                    onAddFolder = { pickFolders.launch(Intent(this, FolderPickerActivity::class.java)) },
                     onRemoveFolder = { index ->
                         if (index in draftState.watchedFolders.indices) {
                             draftState.watchedFolders.removeAt(index)
@@ -745,21 +741,9 @@ class PlaylistEditorActivity : ComponentActivity() {
     }
 
     private fun applyWatchState(state: FolderWatchState) {
-        // A saved folder playlist opened in a build without folder support
-        // keeps its images but stops following the folders.
-        if (!FolderPlaylistSource.isAvailable) return
         draftState.watchedFolders.clear()
         draftState.watchedFolders.addAll(state.folders)
         draftState.knownMediaIds = state.knownMediaIds
-    }
-
-    private fun launchFolderPicker() {
-        pickFolders.launch(
-            Intent(this, FolderPickerActivity::class.java).putStringArrayListExtra(
-                FolderPickerActivity.EXTRA_FOLDER_IDS,
-                ArrayList(draftState.watchedFolders.map(WatchedFolder::id))
-            )
-        )
     }
 
     /** Replaces the watched folders and adds images from newly chosen ones. */
@@ -774,8 +758,7 @@ class PlaylistEditorActivity : ComponentActivity() {
      * has not seen and drops entries whose source image was deleted.
      */
     private fun addNewFolderImages() {
-        if (!FolderPlaylistSource.isAvailable || draftState.watchedFolders.isEmpty()) return
-        if (!FolderPlaylistSource.hasFullAccess(this)) return
+        if (draftState.watchedFolders.isEmpty()) return
         val folderIds = draftState.watchedFolders.map(WatchedFolder::id)
         ioExecutor.execute {
             // null means the folders could not be read; never treat that as

@@ -1,15 +1,11 @@
 package com.app.nosatmosphereeffect.helper
 
-import android.Manifest
-import android.content.ContentUris
 import android.content.Context
-import android.content.pm.PackageManager
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
+import android.provider.DocumentsContract
 import android.util.Log
-import com.app.nosatmosphereeffect.BuildConfig
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.storage.ActiveFolderWatch
 import com.app.nosatmosphereeffect.storage.PlaylistCollectionStore
@@ -18,13 +14,8 @@ import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary
 import com.app.nosatmosphereeffect.storage.WallpaperStorageCoordinator
 import com.app.nosatmosphereeffect.storage.WatchedFolder
 import java.io.File
-
-internal data class MediaFolder(
-    val id: String,
-    val name: String,
-    val imageCount: Int,
-    val cover: Uri?
-)
+import java.nio.ByteBuffer
+import java.security.MessageDigest
 
 internal data class MediaImage(
     val id: Long,
@@ -32,120 +23,84 @@ internal data class MediaImage(
 )
 
 /**
- * Folder playlists: reads device folders (MediaStore image buckets) and keeps
- * the active playlist in sync with them. Only the `folder` build flavor
- * declares the photo permissions this needs; everywhere else
- * [isAvailable] is false and the UI never offers it.
+ * Folder playlists: reads folders the user picked in the system folder picker
+ * (Storage Access Framework) and keeps the active playlist in sync with them.
+ * No permission is involved: picking a folder grants read access to it alone,
+ * kept across restarts. A folder's id is its tree URI.
  */
 internal object FolderPlaylistSource {
     private const val TAG = "FolderPlaylistSource"
     private const val WALLPAPER_PREFS = "wallpaper_prefs"
     private const val KEY_FORCE_ROTATION = "folder_force_rotation"
 
-    val isAvailable: Boolean get() = BuildConfig.FOLDER_PLAYLISTS
+    /** Where the system folder picker opens: Pictures on the phone's own storage. */
+    fun initialFolder(): Uri =
+        DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Pictures")
 
     /**
-     * What to request. Normally both photo permissions, so the system offers
-     * its own "Allow all / Select photos" choice. With "Select photos" already
-     * granted, asking for READ_MEDIA_VISUAL_USER_SELECTED again only reopens
-     * the photo picker, so ask for full access alone to get the permission
-     * dialog (with "Allow all") back.
+     * Keeps read access to the picked [treeUri] and names it. Null when the
+     * folder can't be followed (the provider gives no lasting access).
      */
-    fun requestedPermissions(context: Context): Array<String> {
-        if (hasPartialAccessOnly(context)) {
-            return arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
-        }
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
-            )
-        } else {
-            arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
-        }
-    }
-
-    /** Full photo access, required to notice images added later. */
-    fun hasFullAccess(context: Context): Boolean {
-        return context.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) ==
-            PackageManager.PERMISSION_GRANTED
-    }
-
-    /** Android 14+ "Select photos": only the picked images are visible. */
-    fun hasPartialAccessOnly(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return false
-        return !hasFullAccess(context) &&
-            context.checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) ==
-            PackageManager.PERMISSION_GRANTED
-    }
-
-    fun listFolders(context: Context): List<MediaFolder> {
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.BUCKET_ID,
-            MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+    fun follow(context: Context, treeUri: Uri): WatchedFolder? = try {
+        // shortcut: grants are never released (Android keeps up to 512); release unused ones if that's ever reached.
+        context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val name = context.contentResolver.query(
+            rootDocument(treeUri),
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        WatchedFolder(
+            treeUri.toString(),
+            name?.takeIf(String::isNotBlank) ?: context.getString(R.string.folders_unnamed)
         )
-        val folders = LinkedHashMap<String, MediaFolder>()
-        try {
-            context.contentResolver.query(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                projection,
-                null,
-                null,
-                "${MediaStore.Images.Media.DATE_ADDED} DESC"
-            )?.use { cursor ->
-                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_ID)
-                val nameColumn =
-                    cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-                while (cursor.moveToNext()) {
-                    val bucketId = cursor.getString(bucketColumn) ?: continue
-                    val existing = folders[bucketId]
-                    folders[bucketId] = existing?.copy(imageCount = existing.imageCount + 1)
-                        ?: MediaFolder(
-                            id = bucketId,
-                            name = cursor.getString(nameColumn)?.takeIf(String::isNotBlank)
-                                ?: context.getString(R.string.folders_unnamed),
-                            imageCount = 1,
-                            cover = imageUri(cursor.getLong(idColumn))
-                        )
-                }
-            }
-        } catch (error: SecurityException) {
-            Log.w(TAG, "Photo access was denied while listing folders", error)
-        }
-        return folders.values.sortedBy { it.name.lowercase() }
+    } catch (error: Exception) {
+        Log.w(TAG, "Could not follow the picked folder", error)
+        null
     }
 
     /**
-     * Images in [folderIds], oldest first so playlists keep a stable order.
-     * Returns null when the folders could not be read, which callers must not
-     * mistake for "every image was deleted".
+     * Images directly inside [folderIds], oldest first so playlists keep a
+     * stable order. Returns null when any folder could not be read (access
+     * lost, folder moved or renamed, storage unmounted), which callers must
+     * not mistake for "every image was deleted".
      */
     fun imagesIn(context: Context, folderIds: Collection<String>): List<MediaImage>? {
-        if (folderIds.isEmpty()) return emptyList()
-        val placeholders = folderIds.joinToString(",") { "?" }
-        val images = mutableListOf<MediaImage>()
-        try {
-            val cursor = context.contentResolver.query(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.Images.Media._ID),
-                "${MediaStore.Images.Media.BUCKET_ID} IN ($placeholders)",
-                folderIds.toTypedArray(),
-                "${MediaStore.Images.Media.DATE_ADDED} ASC"
-            ) ?: return null
-            cursor.use {
-                val idColumn = it.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                while (it.moveToNext()) {
-                    val id = it.getLong(idColumn)
-                    images += MediaImage(id, imageUri(id))
+        val images = mutableListOf<Pair<Long, MediaImage>>()
+        for (folderId in folderIds) {
+            try {
+                val tree = Uri.parse(folderId)
+                val children = DocumentsContract.buildChildDocumentsUriUsingTree(
+                    tree,
+                    DocumentsContract.getTreeDocumentId(tree)
+                )
+                val cursor = context.contentResolver.query(
+                    children,
+                    arrayOf(
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                        DocumentsContract.Document.COLUMN_MIME_TYPE,
+                        DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                    ),
+                    null,
+                    null,
+                    null
+                ) ?: return null
+                cursor.use {
+                    while (it.moveToNext()) {
+                        if (it.getString(1)?.startsWith("image/") != true) continue
+                        val uri = DocumentsContract.buildDocumentUriUsingTree(tree, it.getString(0))
+                        images += it.getLong(2) to MediaImage(idOf(uri), uri)
+                    }
                 }
+            } catch (error: Exception) {
+                Log.w(TAG, "Could not read a followed folder", error)
+                return null
             }
-        } catch (error: SecurityException) {
-            Log.w(TAG, "Photo access was denied while reading folders", error)
-            return null
         }
         return images
+            .sortedWith(compareBy({ it.first }, { it.second.uri.toString() }))
+            .map { it.second }
     }
 
     internal data class SyncResult(val added: Int, val removed: Int) {
@@ -160,7 +115,6 @@ internal object FolderPlaylistSource {
      */
     fun syncActivePlaylist(context: Context): SyncResult {
         val unchanged = SyncResult(0, 0)
-        if (!isAvailable || !hasFullAccess(context)) return unchanged
         return WallpaperStorageCoordinator.runExclusive {
             if (PlaylistModeManager.getMode(context) != PlaylistModeManager.MODE_STANDARD) {
                 return@runExclusive unchanged
@@ -168,9 +122,9 @@ internal object FolderPlaylistSource {
             val watch = ActiveFolderWatch.read(context)
             if (watch.isEmpty) return@runExclusive unchanged
             val playlistDir = PlaylistModeManager.standardPlaylistDir(context)
-            // This runs on every screen-off. When nothing in the media library,
-            // the followed folders or the playlist has changed since the last
-            // sync, there is nothing to find, so the query is skipped.
+            // This runs on every screen-off. When none of the followed folders,
+            // the watch or the playlist has changed since the last sync, there
+            // is nothing to find, so the listing is skipped.
             val before = syncKey(context, watch, playlistDir)
             if (before != null && before == lastSyncKey) return@runExclusive unchanged
             val current = imagesIn(context, watch.folders.map(WatchedFolder::id))
@@ -245,21 +199,31 @@ internal object FolderPlaylistSource {
     @Volatile private var lastSyncKey: String? = null
 
     /**
-     * What a sync depends on: the media library's version and generation on
-     * every external volume (they advance on any change to it), the followed
-     * folders and seen images, and the playlist's size. Null when the library
-     * will not say, which always syncs.
+     * What a sync depends on: each followed folder's last-modified time (on
+     * the phone's storage it changes whenever a file is added or deleted in
+     * it), the followed folders and seen images, and the playlist's size.
+     * Null, which always syncs, when a folder doesn't report the time, as
+     * some cloud providers don't.
      */
     private fun syncKey(
         context: Context,
         watch: com.app.nosatmosphereeffect.storage.FolderWatchState,
         playlistDir: File
     ): String? = runCatching {
-        val generations = MediaStore.getExternalVolumeNames(context)
-            .sorted()
-            .joinToString(",") { volume -> "$volume=${MediaStore.getGeneration(context, volume)}" }
+        val modified = watch.folders.map { folder ->
+            val tree = Uri.parse(folder.id)
+            context.contentResolver.query(
+                rootDocument(tree),
+                arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                cursor.takeIf { it.moveToFirst() && !it.isNull(0) }?.getLong(0)?.takeIf { it > 0 }
+            } ?: return@runCatching null
+        }
         val entries = PlaylistModeManager.imageFiles(playlistDir).size
-        "${MediaStore.getVersion(context)}|$generations|${watch.hashCode()}|$entries"
+        "$modified|${watch.hashCode()}|$entries"
     }.getOrNull()
 
     /**
@@ -313,6 +277,14 @@ internal object FolderPlaylistSource {
         }
     }
 
-    private fun imageUri(id: Long): Uri =
-        ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+    private fun rootDocument(tree: Uri): Uri =
+        DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+
+    /**
+     * Playlists keep a Long id per image (MediaStore's, before folders were
+     * picked through the system picker); a document's is taken from a hash
+     * of its URI, so the same file always gets the same id.
+     */
+    private fun idOf(document: Uri): Long =
+        ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(document.toString().toByteArray())).long
 }

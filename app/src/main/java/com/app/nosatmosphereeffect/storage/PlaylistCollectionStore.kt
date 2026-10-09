@@ -29,7 +29,7 @@ internal data class PlaylistImageSource(
     val matrixState: FloatArray?,
     val fitMode: String,
     val fillMode: String,
-    /** MediaStore id when the image came from a followed folder. */
+    /** Id of the folder image it came from (FolderPlaylistSource), when it did. */
     val mediaId: Long? = null
 )
 
@@ -234,7 +234,7 @@ internal object PlaylistCollectionStore {
         return index - nextIndex
     }
 
-    /** MediaStore ids recorded for each entry of a playlist, by file index. */
+    /** Folder image ids recorded for each entry of a playlist, by file index. */
     fun mediaIds(playlistDirectory: File): Map<Int, Long> {
         val metadataFile = File(playlistDirectory, "metadata.json")
         if (!metadataFile.isFile) return emptyMap()

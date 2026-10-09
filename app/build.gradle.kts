@@ -22,7 +22,6 @@ android {
         applicationId = "com.saad_khan_rind.atmosphere_effect"
         versionName = "7.3.5"
         versionCode = 500735
-        buildConfigField("boolean", "FOLDER_PLAYLISTS", "false")
     }
 
     signingConfigs {
@@ -71,23 +70,6 @@ android {
 
         create("fdroid") {
             dimension = "distribution"
-        }
-
-        // Play-services build plus folder playlists. Declares the photo
-        // permissions (READ_MEDIA_IMAGES) that the Play Store build must not,
-        // so it ships separately. Sits in the existing dimension so current
-        // task names (assembleV36PlayRelease, ...) are unchanged.
-        create("folder") {
-            dimension = "distribution"
-            buildConfigField("boolean", "FOLDER_PLAYLISTS", "true")
-        }
-    }
-
-    sourceSets {
-        // The folder flavor reuses the Play build's ML Kit subject model code.
-        getByName("folder") {
-            java.directories.add("src/play/java")
-            kotlin.directories.add("src/play/java")
         }
     }
 
@@ -142,9 +124,6 @@ dependencies {
 
     "playImplementation"("com.google.android.gms:play-services-base:18.10.0")
     "playImplementation"("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
-
-    "folderImplementation"("com.google.android.gms:play-services-base:18.10.0")
-    "folderImplementation"("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
     "fdroidImplementation"(libs.litert.api)
     "fdroidImplementation"(libs.litert.fdroid)

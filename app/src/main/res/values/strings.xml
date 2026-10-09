@@ -82,9 +82,6 @@
     <string name="effects_play_transition">Play transition</string>
     <string name="effects_show_home_screen">Show home screen</string>
     <string name="main_app_title" translatable="false">Atmo Engine</string>
-    <string name="main_status_active">Wallpaper active</string>
-    <string name="main_status_always_applied">Live · effect always applied</string>
-    <string name="main_status_studio">Wallpaper studio</string>
     <string name="main_samsung_clock_setup">Samsung adaptive clock setup</string>
     <string name="main_appearance_settings">Appearance settings</string>
     <string name="main_wallpaper_behavior">Wallpaper behavior</string>
@@ -528,20 +525,8 @@
         <item quantity="one">watches %1$d folder</item>
         <item quantity="other">watches %1$d folders</item>
     </plurals>
-    <string name="folders_title">Choose folders</string>
-    <string name="folders_select">Select a folder</string>
-    <string name="folders_none">Couldn\'t find any folders with photos on your phone.</string>
-    <string name="folders_hint">New photos in these folders get added to your playlist the next time you open Atmo Engine.</string>
-    <string name="folders_allow_all_title">Allow access to all photos</string>
-    <string name="folders_access_title">Photo access needed</string>
-    <string name="folders_partial_message">With \"Select photos\", Atmo Engine only sees the photos you picked, so it can\'t spot new ones added to a folder later. Pick \"Allow all\" to follow folders.</string>
-    <string name="folders_access_message">Folder playlists look through your photo folders for new photos you add later. Your photos never leave your phone.</string>
-    <string name="folders_allow">Allow access</string>
-    <string name="folders_open_settings">Open app settings</string>
-    <plurals name="folders_use">
-        <item quantity="one">Use %1$d folder</item>
-        <item quantity="other">Use %1$d folders</item>
-    </plurals>
+    <string name="folders_unreadable">Couldn\'t open that folder. Pick a folder on your phone\'s storage.</string>
+    <string name="folders_unavailable">This phone has no folder picker, so folder playlists aren\'t available.</string>
     <string name="saved_rename_failed">Couldn\'t rename the playlist. Please try again.</string>
     <string name="saved_delete_failed">Couldn\'t delete the playlist. Please try again.</string>
     <string name="crop_no_image">No image came through. Please pick one again.</string>

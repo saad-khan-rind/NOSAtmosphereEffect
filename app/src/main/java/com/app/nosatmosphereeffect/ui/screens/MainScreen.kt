@@ -139,28 +139,11 @@ fun MainScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column(modifier = Modifier.clickable(onClick = onTitleTap)) {
-                        Text(stringResource(R.string.main_app_title), style = MaterialTheme.typography.titleLarge)
-                        AnimatedContent(
-                            targetState = wallpaperActive,
-                            transitionSpec = { fadeIn() togetherWith fadeOut() },
-                            label = "wallpaperStatusLabel"
-                        ) { active ->
-                            Text(
-                                if (active) {
-                                    if (wallpaperBehavior.transitionsEnabled) {
-                                        stringResource(R.string.main_status_active)
-                                    } else {
-                                        stringResource(R.string.main_status_always_applied)
-                                    }
-                                } else {
-                                    stringResource(R.string.main_status_studio)
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text(
+                        stringResource(R.string.main_app_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.clickable(onClick = onTitleTap)
+                    )
                 },
                 actions = {
                     if (isSamsungDevice) {
