@@ -58,10 +58,18 @@ internal object PlaylistImageRef {
         null
     }
 
+    /** Thrown when a followed folder's image can't be opened while saving a playlist. */
+    class UnavailableException(uri: Uri, cause: Throwable) : IOException("Can't open folder image $uri", cause)
+
     /** Fails, as copying would have, when [uri] can't be opened as an image. */
-    @Throws(IOException::class, SecurityException::class)
+    @Throws(UnavailableException::class)
     fun checkReadable(context: Context, uri: Uri) {
-        BitmapDecoder.decodeUri(context, uri, maxDimension = 64).recycle()
+        try {
+            BitmapDecoder.decodeUri(context, uri, maxDimension = 64).recycle()
+        } catch (error: Exception) {
+            // The provider reports a missing folder as IllegalArgumentException, not an IOException.
+            throw UnavailableException(uri, error)
+        }
     }
 
     /**

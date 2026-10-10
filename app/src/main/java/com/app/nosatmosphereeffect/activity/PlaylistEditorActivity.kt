@@ -503,6 +503,12 @@ class PlaylistEditorActivity : ComponentActivity() {
                     isProcessing = false
                     draftState.applyCompleted = true
                 }
+            } catch (error: PlaylistImageRef.UnavailableException) {
+                reportApplyFailure(
+                    "A followed folder's image can't be opened",
+                    error,
+                    getString(R.string.playlist_error_folder_image)
+                )
             } catch (error: IOException) {
                 reportApplyFailure(
                     "Unable to persist playlist",

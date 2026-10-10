@@ -436,6 +436,8 @@
     <string name="playlist_error_storage">Couldn\'t save the playlist. Check you have some free space and try again.</string>
     <string name="playlist_error_permission">Atmo Engine can\'t open one of the images anymore. Try adding it again.</string>
     <string name="playlist_error_metadata">Something went wrong saving the playlist. Please try again.</string>
+    <string name="playlist_error_folder_image">Can\'t open some photos. Was their folder moved or renamed?</string>
+    <string name="playlist_image_unavailable">Can\'t open this photo. Its folder may have been moved or renamed.</string>
     <string name="playlist_error_unexpected">Couldn\'t get the playlist ready. Please try again.</string>
     <string name="playlist_applied">All set. Now pick Home screen and Lock screen.</string>
     <string name="playlist_no_picker">Your phone doesn\'t seem to have a live wallpaper picker.</string>
