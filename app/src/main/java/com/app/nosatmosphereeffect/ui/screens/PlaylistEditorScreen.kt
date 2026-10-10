@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Edit
@@ -77,11 +78,11 @@ import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoChip
-import com.app.nosatmosphereeffect.ui.components.AtmoShapeBadge
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
+import com.app.nosatmosphereeffect.ui.components.AtmoShapeBadge
 import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
 import com.app.nosatmosphereeffect.ui.theme.AtmoMotion
@@ -218,6 +219,8 @@ fun PlaylistEditorScreen(
                         // Pager state can briefly outlive an entry removed during composition.
                         val entry = entries.getOrNull(page) ?: return@HorizontalPager
                         Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                             // Modifier.graphicsLayer {
                             //     val pageOffset = (
                             //         (pagerState.currentPage - page) +
@@ -401,12 +404,15 @@ private fun PlaylistCard(
         animationSpec = AtmoMotion.fastSpatial(),
         label = "playlistCardCorner"
     )
-    val thumb = rememberThumbnail(context, entry.displayUri)
+    val thumbnail = rememberThumbnail(context, entry.displayUri)
+    val thumb = thumbnail.image
+    val thumbFailed = thumbnail.failed
 
     Box(
+        // As large as fits both ways: sized from the width alone, a short
+        // screen made the card taller than its space, under the top bar.
         modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(0.62f)
+            .aspectRatio(0.62f, matchHeightConstraintsFirst = true)
             .scale(scale)
             .clip(RoundedCornerShape(corner))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
@@ -434,6 +440,30 @@ private fun PlaylistCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+        } else if (thumbFailed) {
+            // A photo that can't be opened (its folder renamed or removed, the
+            // file gone) says so instead of loading forever.
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Rounded.BrokenImage,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.playlist_image_unavailable),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
@@ -533,19 +563,17 @@ private fun EmptyPlaylist(message: String) {
     }
 }
 
+/** A card's picture: still loading, ready, or [failed] because the image can't be opened. */
+private class Thumbnail(val image: androidx.compose.ui.graphics.ImageBitmap?, val failed: Boolean)
+
 @Composable
-private fun rememberThumbnail(
-    context: Context,
-    uri: Uri
-): androidx.compose.ui.graphics.ImageBitmap? {
-    var image by remember(uri) {
-        mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
-    }
+private fun rememberThumbnail(context: Context, uri: Uri): Thumbnail {
+    var thumbnail by remember(uri) { mutableStateOf(Thumbnail(null, failed = false)) }
     LaunchedEffect(uri) {
         val bmp = withContext(Dispatchers.IO) { decodeThumbnail(context, uri) }
-        image = bmp?.asImageBitmap()
+        thumbnail = Thumbnail(bmp?.asImageBitmap(), failed = bmp == null)
     }
-    return image
+    return thumbnail
 }
 
 private fun decodeThumbnail(context: Context, uri: Uri): Bitmap? {

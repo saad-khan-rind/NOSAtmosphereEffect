@@ -1,8 +1,14 @@
 package com.app.nosatmosphereeffect.ui.screens
 
+import android.net.Uri
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,13 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Delete
@@ -41,15 +42,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -65,7 +67,6 @@ import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.theme.AtmoMotion
 import com.app.nosatmosphereeffect.ui.theme.LocalAtmoExpressive
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -227,8 +228,8 @@ private fun SavedPlaylistRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            FileThumbnail(
-                file = playlist.cover,
+            CoverThumbnail(
+                cover = playlist.cover,
                 modifier = Modifier
                     .size(width = 56.dp, height = 88.dp)
                     .clip(RoundedCornerShape(16.dp))
@@ -321,12 +322,13 @@ internal fun RenamePlaylistDialog(
 }
 
 @Composable
-private fun FileThumbnail(file: File?, modifier: Modifier) {
-    var bitmap by remember(file) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(file) {
-        bitmap = file?.let {
+private fun CoverThumbnail(cover: Uri?, modifier: Modifier) {
+    val context = LocalContext.current
+    var bitmap by remember(cover) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(cover) {
+        bitmap = cover?.let {
             withContext(Dispatchers.IO) {
-                runCatching { BitmapDecoder.decodePreview(it, THUMBNAIL_SIZE).asImageBitmap() }
+                runCatching { BitmapDecoder.decodeUri(context, it, THUMBNAIL_SIZE).asImageBitmap() }
                     .getOrNull()
             }
         }
