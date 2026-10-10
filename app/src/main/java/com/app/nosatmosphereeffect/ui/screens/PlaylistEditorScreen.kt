@@ -218,6 +218,8 @@ fun PlaylistEditorScreen(
                         // Pager state can briefly outlive an entry removed during composition.
                         val entry = entries.getOrNull(page) ?: return@HorizontalPager
                         Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                             // Modifier.graphicsLayer {
                             //     val pageOffset = (
                             //         (pagerState.currentPage - page) +
@@ -404,9 +406,10 @@ private fun PlaylistCard(
     val thumb = rememberThumbnail(context, entry.displayUri)
 
     Box(
+        // As large as fits both ways: sized from the width alone, a short
+        // screen made the card taller than its space, under the top bar.
         modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(0.62f)
+            .aspectRatio(0.62f, matchHeightConstraintsFirst = true)
             .scale(scale)
             .clip(RoundedCornerShape(corner))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)

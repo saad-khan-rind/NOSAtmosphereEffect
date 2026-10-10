@@ -9,6 +9,7 @@ import android.util.Log
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.storage.ActiveFolderWatch
 import com.app.nosatmosphereeffect.storage.PlaylistCollectionStore
+import com.app.nosatmosphereeffect.storage.PlaylistImageRef
 import com.app.nosatmosphereeffect.storage.PlaylistImageSource
 import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary
 import com.app.nosatmosphereeffect.storage.WallpaperStorageCoordinator
@@ -141,13 +142,26 @@ internal object FolderPlaylistSource {
                 present
             )
             val removed = PlaylistCollectionStore.removeEntries(playlistDir, originalsDir, removable)
-            if (removed > 0) followRenumbering(context, removable)
+            if (removed > 0) followRenumbering(context, playlistDir, removable)
+
+            // Playlists made before folder pointers kept two copies of each folder image.
+            val size = playlistImageSize(playlistDir)
+            val converted = size?.let { (width, height) ->
+                PlaylistCollectionStore.convertToPointers(
+                    playlistDir,
+                    originalsDir,
+                    current.associate { it.id to it.uri },
+                    width,
+                    height
+                )
+            }.orEmpty()
+            if (converted.isNotEmpty()) followRename(context, converted)
 
             val fresh = current.filter { it.id !in watch.knownMediaIds }
             val added = if (fresh.isEmpty()) {
                 0
             } else {
-                val (width, height) = playlistImageSize(playlistDir) ?: return@runExclusive SyncResult(0, removed)
+                val (width, height) = size ?: return@runExclusive SyncResult(0, removed)
                 val fitMode = WallpaperFitHelper.getDefaultFitMode(context)
                 val fillMode = WallpaperFitHelper.getDefaultFillMode(context)
                 PlaylistCollectionStore.append(
@@ -182,7 +196,7 @@ internal object FolderPlaylistSource {
             if (updated != watch) ActiveFolderWatch.write(context, updated)
             lastSyncKey = syncKey(context, updated, playlistDir)
             val result = SyncResult(added, removed)
-            if (result.changed) {
+            if (result.changed || converted.isNotEmpty()) {
                 SavedPlaylistLibrary.activeId(context)?.let { id ->
                     runCatching {
                         SavedPlaylistLibrary.saveActive(context, id, name = null, watch = updated)
@@ -231,7 +245,7 @@ internal object FolderPlaylistSource {
      * name must follow its image — or, if that image was the one deleted,
      * the next rotation is forced so a deleted photo does not stay on screen.
      */
-    private fun followRenumbering(context: Context, removedIndices: Set<Int>) {
+    private fun followRenumbering(context: Context, playlistDir: File, removedIndices: Set<Int>) {
         val prefs = context.getSharedPreferences(WALLPAPER_PREFS, Context.MODE_PRIVATE)
         val key = PlaylistModeManager.lastImagePreferenceKey(PlaylistModeManager.MODE_STANDARD, false)
         val lastIndex = prefs.getString(key, null)?.let(PlaylistFilePolicy::index)
@@ -240,9 +254,18 @@ internal object FolderPlaylistSource {
             editor.remove(key).putBoolean(KEY_FORCE_ROTATION, true)
         } else {
             val shifted = lastIndex - removedIndices.count { it < lastIndex }
-            editor.putString(key, "wallpaper_$shifted.jpg")
+            val name = PlaylistModeManager.entryFile(playlistDir, shifted)?.name ?: "wallpaper_$shifted.jpg"
+            editor.putString(key, name)
         }
         editor.commit()
+    }
+
+    /** An entry turned into a pointer is still the image last shown. */
+    private fun followRename(context: Context, renamed: Map<String, String>) {
+        val prefs = context.getSharedPreferences(WALLPAPER_PREFS, Context.MODE_PRIVATE)
+        val key = PlaylistModeManager.lastImagePreferenceKey(PlaylistModeManager.MODE_STANDARD, false)
+        val newName = prefs.getString(key, null)?.let(renamed::get) ?: return
+        prefs.edit().putString(key, newName).commit()
     }
 
     /** True when the displayed image was deleted and must be replaced. */
@@ -267,7 +290,11 @@ internal object FolderPlaylistSource {
      * works from the wallpaper service too (it has no window to measure).
      */
     private fun playlistImageSize(playlistDir: File): Pair<Int, Int>? {
-        val sample = PlaylistModeManager.imageFiles(playlistDir).firstOrNull() ?: return null
+        val entries = PlaylistModeManager.imageFiles(playlistDir)
+        entries.firstOrNull(PlaylistImageRef::isRef)?.let(PlaylistImageRef::read)?.let { ref ->
+            return ref.width to ref.height
+        }
+        val sample = entries.firstOrNull() ?: return null
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(sample.absolutePath, options)
         return if (options.outWidth > 0 && options.outHeight > 0) {

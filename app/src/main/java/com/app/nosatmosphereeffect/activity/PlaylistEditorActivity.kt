@@ -34,6 +34,7 @@ import com.app.nosatmosphereeffect.storage.ActiveFolderWatch
 import com.app.nosatmosphereeffect.storage.FileTransactions
 import com.app.nosatmosphereeffect.storage.FolderWatchState
 import com.app.nosatmosphereeffect.storage.PlaylistCollectionStore
+import com.app.nosatmosphereeffect.storage.PlaylistImageRef
 import com.app.nosatmosphereeffect.storage.PlaylistImageSource
 import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary
 import com.app.nosatmosphereeffect.storage.SharedPreferencesTransactions
@@ -825,9 +826,15 @@ class PlaylistEditorActivity : ComponentActivity() {
                 val item = metadata.getJSONObject(index)
                 val wallpaper = File(playlistDir, "wallpaper_$index.jpg")
                 val original = File(originalsDir, item.getString("original"))
+                // A folder image kept as a pointer is read from its folder.
+                val pointed = File(playlistDir, "wallpaper_$index.${PlaylistImageRef.EXTENSION}")
+                    .takeIf { !wallpaper.isFile && it.isFile }
+                    ?.let(PlaylistImageRef::read)
+                    ?.uri
                 val source = when {
-                    original.isFile -> original
-                    wallpaper.isFile -> wallpaper
+                    pointed != null -> pointed
+                    original.isFile -> Uri.fromFile(original)
+                    wallpaper.isFile -> Uri.fromFile(wallpaper)
                     else -> {
                         Log.w(TAG, "Skipping playlist entry $index because its files are missing")
                         return@repeat
@@ -852,7 +859,7 @@ class PlaylistEditorActivity : ComponentActivity() {
                 }
 
                 playlistItems += PlaylistItem(
-                    originalUri = Uri.fromFile(source),
+                    originalUri = source,
                     isEdited = savedEdited,
                     editedFilePath = wallpaper.takeIf { savedEdited }?.absolutePath,
                     matrixState = matrix,
@@ -888,8 +895,13 @@ class PlaylistEditorActivity : ComponentActivity() {
 
     private fun loadLegacyPlaylist(playlistDir: File) {
         PlaylistModeManager.imageFiles(playlistDir).forEach { file ->
+            val uri = if (PlaylistImageRef.isRef(file)) {
+                PlaylistImageRef.read(file)?.uri ?: return@forEach
+            } else {
+                Uri.fromFile(file)
+            }
             playlistItems += PlaylistItem(
-                originalUri = Uri.fromFile(file),
+                originalUri = uri,
                 fitMode = defaultFitMode,
                 fillMode = defaultFillMode
             )
