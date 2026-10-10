@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Atmo Engine</string>
+    <string name="app_name" translatable="false">Atmo Engine</string>
     <string name="share_target_label">Set with Atmo Engine</string>
 
-    <string name="app_title">Atmo Engine</string>
+    <string name="app_title" translatable="false">Atmo Engine</string>
     <string name="app_logo_desc">App Logo</string>
     <string name="status_instruction">Pick an effect and a photo to\nmake your own live wallpaper.</string>
     <string name="action_select_effect">Select Effect</string>
@@ -19,23 +19,23 @@
     <string name="renderer_opengl_active">OpenGL ES active</string>
     <string name="renderer_vulkan_fallback_reason">Vulkan fallback: %1$s</string>
     <string name="renderer_current_wallpaper_renderer">Current wallpaper renderer</string>
-    <string name="renderer_backend_vulkan">Vulkan</string>
-    <string name="renderer_backend_opengl">OpenGL ES</string>
+    <string name="renderer_backend_vulkan" translatable="false">Vulkan</string>
+    <string name="renderer_backend_opengl" translatable="false">OpenGL ES</string>
     <string name="renderer_preference_group">Display renderer</string>
     <string name="renderer_preference_label">Graphics API</string>
     <string name="renderer_preference_automatic">Automatic (recommended)</string>
-    <string name="renderer_preference_vulkan">Vulkan</string>
-    <string name="renderer_preference_opengl">OpenGL ES</string>
+    <string name="renderer_preference_vulkan" translatable="false">Vulkan</string>
+    <string name="renderer_preference_opengl" translatable="false">OpenGL ES</string>
     <string name="renderer_preference_automatic_helper">Uses Vulkan when your phone supports it, and switches to OpenGL ES if it doesn\'t. Changes apply right away, to the previews and your wallpaper.</string>
     <string name="renderer_preference_vulkan_helper">Tries Vulkan first. If your phone doesn\'t support it or it runs into trouble, it switches to OpenGL ES. Changes apply right away, to the previews and your wallpaper.</string>
     <string name="renderer_preference_opengl_helper">Always uses OpenGL ES and doesn\'t try Vulkan at all. Changes apply right away, to the previews and your wallpaper.</string>
     <string name="experimental">Experimental</string>
     <string name="manualCroppingWillBeDisabled">(Turns off manual cropping)</string>
 
-    <string name="effect_original_title">Original Atmosphere</string>
+    <string name="effect_original_title">Atmosphere</string>
     <string name="effect_original_transition">Sharp to blur</string>
     <string name="effect_original_description">Soft color and clouds that drift across your photo.</string>
-    <string name="effect_reverse_title">Reverse Atmosphere</string>
+    <string name="effect_reverse_title">Atmosphere Reverse</string>
     <string name="effect_reverse_transition">Blur to sharp</string>
     <string name="effect_reverse_description">The clouds clear away to show your photo.</string>
     <string name="effect_glass_title">Glass Effect</string>
@@ -68,15 +68,20 @@
     <string name="effect_halftone_reverse_title">Halftone Print Reverse</string>
     <string name="effect_halftone_reverse_transition">Halftone to sharp</string>
     <string name="effect_halftone_reverse_description">Printed dots grow back into your full photo.</string>
+    <string name="effect_vhs_title">VHS Tape</string>
+    <string name="effect_vhs_transition">Tape to sharp</string>
+    <string name="effect_vhs_description">Your photo plays like a worn videotape, then the tracking settles into a clean picture.</string>
+    <string name="effect_vhs_reverse_title">VHS Tape Reverse</string>
+    <string name="effect_vhs_reverse_transition">Sharp to tape</string>
+    <string name="effect_vhs_reverse_description">Your photo rolls into the soft, noisy look of an old videotape.</string>
     <string name="effects_continue_with">Continue with %1$s</string>
     <string name="effects_title">Effects</string>
+    <string name="effects_direction">Direction</string>
+    <string name="effects_two_directions">Both directions</string>
     <string name="effects_show_lock_screen">Show lock screen</string>
     <string name="effects_play_transition">Play transition</string>
     <string name="effects_show_home_screen">Show home screen</string>
-    <string name="main_app_title">Atmo Engine</string>
-    <string name="main_status_active">Wallpaper active</string>
-    <string name="main_status_always_applied">Live · effect always applied</string>
-    <string name="main_status_studio">Wallpaper studio</string>
+    <string name="main_app_title" translatable="false">Atmo Engine</string>
     <string name="main_samsung_clock_setup">Samsung adaptive clock setup</string>
     <string name="main_appearance_settings">Appearance settings</string>
     <string name="main_wallpaper_behavior">Wallpaper behavior</string>
@@ -120,7 +125,7 @@
     <string name="main_create_wallpaper">Create a wallpaper</string>
     <string name="main_choose_effect_image">Choose effect and image</string>
     <string name="appearance_title">Appearance</string>
-    <string name="appearance_expressive">Material Expressive</string>
+    <string name="appearance_expressive" translatable="false">Material Expressive</string>
     <string name="appearance_theme">Theme</string>
     <string name="appearance_theme_system">System</string>
     <string name="appearance_theme_light">Light</string>
@@ -285,6 +290,41 @@
     <string name="clock_style_adaptive_description">Digits stretch around the subject</string>
     <string name="clock_style_adaptive_stacked">Adaptive Stacked</string>
     <string name="clock_style_adaptive_stacked_description">Hours over minutes, stretching around the subject</string>
+    <string name="clock_style_normal">Normal</string>
+    <string name="clock_style_normal_description">Solid digits in one row, in any font</string>
+    <string name="clock_style_normal_stacked">Normal Stacked</string>
+    <string name="clock_style_normal_stacked_description">Solid digits, hours above minutes, in any font</string>
+    <string name="clock_layout">Layout</string>
+    <string name="clock_layout_row">One row</string>
+    <string name="clock_layout_stacked">Stacked</string>
+    <string name="clock_font">Font</string>
+    <string name="clock_font_variant">Variant</string>
+    <string name="clock_show_colon">Show colon</string>
+    <string name="clock_show_colon_hint">The two dots between hours and minutes</string>
+    <string name="clock_font_default">Classic</string>
+    <string name="clock_font_tower">Tower</string>
+    <string name="clock_font_heavy">Heavy</string>
+    <string name="clock_font_narrow">Narrow</string>
+    <string name="clock_font_geometric">Geometric</string>
+    <string name="clock_font_soft">Soft</string>
+    <string name="clock_font_chunky">Chunky</string>
+    <string name="clock_font_bubble">Bubble</string>
+    <string name="clock_font_techno">Techno</string>
+    <string name="clock_font_block">Block</string>
+    <string name="clock_font_wireframe">Wireframe</string>
+    <string name="clock_font_dots">Dot matrix</string>
+    <string name="clock_font_neon">Neon lines</string>
+    <string name="clock_font_brush">Brush</string>
+    <string name="clock_font_didone">Didone</string>
+    <string name="clock_font_serif">Serif</string>
+    <string name="clock_font_poster">Poster</string>
+    <string name="clock_font_hanzi">Chinese numerals</string>
+    <string name="clock_variant_tall">Tall</string>
+    <string name="clock_variant_short">Short</string>
+    <string name="clock_variant_regular">Regular</string>
+    <string name="clock_variant_bold">Bold</string>
+    <string name="clock_variant_light">Light</string>
+    <string name="clock_variant_heavy">Heavy</string>
     <string name="clock_colour_white">White</string>
     <string name="clock_colour_warm_white">Warm white</string>
     <string name="clock_colour_cool_white">Cool white</string>
@@ -396,6 +436,8 @@
     <string name="playlist_error_storage">Couldn\'t save the playlist. Check you have some free space and try again.</string>
     <string name="playlist_error_permission">Atmo Engine can\'t open one of the images anymore. Try adding it again.</string>
     <string name="playlist_error_metadata">Something went wrong saving the playlist. Please try again.</string>
+    <string name="playlist_error_folder_image">Can\'t open some photos. Was their folder moved or renamed?</string>
+    <string name="playlist_image_unavailable">Can\'t open this photo. Its folder may have been moved or renamed.</string>
     <string name="playlist_error_unexpected">Couldn\'t get the playlist ready. Please try again.</string>
     <string name="playlist_applied">All set. Now pick Home screen and Lock screen.</string>
     <string name="playlist_no_picker">Your phone doesn\'t seem to have a live wallpaper picker.</string>
@@ -485,20 +527,8 @@
         <item quantity="one">watches %1$d folder</item>
         <item quantity="other">watches %1$d folders</item>
     </plurals>
-    <string name="folders_title">Choose folders</string>
-    <string name="folders_select">Select a folder</string>
-    <string name="folders_none">Couldn\'t find any folders with photos on your phone.</string>
-    <string name="folders_hint">New photos in these folders get added to your playlist the next time you open Atmo Engine.</string>
-    <string name="folders_allow_all_title">Allow access to all photos</string>
-    <string name="folders_access_title">Photo access needed</string>
-    <string name="folders_partial_message">With \"Select photos\", Atmo Engine only sees the photos you picked, so it can\'t spot new ones added to a folder later. Pick \"Allow all\" to follow folders.</string>
-    <string name="folders_access_message">Folder playlists look through your photo folders for new photos you add later. Your photos never leave your phone.</string>
-    <string name="folders_allow">Allow access</string>
-    <string name="folders_open_settings">Open app settings</string>
-    <plurals name="folders_use">
-        <item quantity="one">Use %1$d folder</item>
-        <item quantity="other">Use %1$d folders</item>
-    </plurals>
+    <string name="folders_unreadable">Couldn\'t open that folder. Pick a folder on your phone\'s storage.</string>
+    <string name="folders_unavailable">This phone has no folder picker, so folder playlists aren\'t available.</string>
     <string name="saved_rename_failed">Couldn\'t rename the playlist. Please try again.</string>
     <string name="saved_delete_failed">Couldn\'t delete the playlist. Please try again.</string>
     <string name="crop_no_image">No image came through. Please pick one again.</string>
@@ -638,4 +668,6 @@
     <string name="service_frosted_reverse">Frosted (Reverse)</string>
     <string name="service_halftone">Halftone Print Effect</string>
     <string name="service_halftone_reverse">Halftone Print (Reverse) Effect</string>
+    <string name="service_vhs">VHS Tape</string>
+    <string name="service_vhs_reverse">VHS Tape (Reverse)</string>
 </resources>

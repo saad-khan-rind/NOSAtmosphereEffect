@@ -34,6 +34,7 @@ import com.app.nosatmosphereeffect.storage.ActiveFolderWatch
 import com.app.nosatmosphereeffect.storage.FileTransactions
 import com.app.nosatmosphereeffect.storage.FolderWatchState
 import com.app.nosatmosphereeffect.storage.PlaylistCollectionStore
+import com.app.nosatmosphereeffect.storage.PlaylistImageRef
 import com.app.nosatmosphereeffect.storage.PlaylistImageSource
 import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary
 import com.app.nosatmosphereeffect.storage.SharedPreferencesTransactions
@@ -81,7 +82,7 @@ class PlaylistEditorActivity : ComponentActivity() {
     private val pickFolders =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                updateWatchedFolders(FolderPickerActivity.foldersFrom(result.data))
+                updateWatchedFolders(draftState.watchedFolders + FolderPickerActivity.foldersFrom(result.data))
             }
         }
 
@@ -233,11 +234,7 @@ class PlaylistEditorActivity : ComponentActivity() {
                         },
                     onRename = { showRename = true },
                     watchedFolders = draftState.watchedFolders.map(WatchedFolder::name),
-                    onAddFolder = if (FolderPlaylistSource.isAvailable) {
-                        { launchFolderPicker() }
-                    } else {
-                        null
-                    },
+                    onAddFolder = { pickFolders.launch(Intent(this, FolderPickerActivity::class.java)) },
                     onRemoveFolder = { index ->
                         if (index in draftState.watchedFolders.indices) {
                             draftState.watchedFolders.removeAt(index)
@@ -506,6 +503,12 @@ class PlaylistEditorActivity : ComponentActivity() {
                     isProcessing = false
                     draftState.applyCompleted = true
                 }
+            } catch (error: PlaylistImageRef.UnavailableException) {
+                reportApplyFailure(
+                    "A followed folder's image can't be opened",
+                    error,
+                    getString(R.string.playlist_error_folder_image)
+                )
             } catch (error: IOException) {
                 reportApplyFailure(
                     "Unable to persist playlist",
@@ -745,21 +748,9 @@ class PlaylistEditorActivity : ComponentActivity() {
     }
 
     private fun applyWatchState(state: FolderWatchState) {
-        // A saved folder playlist opened in a build without folder support
-        // keeps its images but stops following the folders.
-        if (!FolderPlaylistSource.isAvailable) return
         draftState.watchedFolders.clear()
         draftState.watchedFolders.addAll(state.folders)
         draftState.knownMediaIds = state.knownMediaIds
-    }
-
-    private fun launchFolderPicker() {
-        pickFolders.launch(
-            Intent(this, FolderPickerActivity::class.java).putStringArrayListExtra(
-                FolderPickerActivity.EXTRA_FOLDER_IDS,
-                ArrayList(draftState.watchedFolders.map(WatchedFolder::id))
-            )
-        )
     }
 
     /** Replaces the watched folders and adds images from newly chosen ones. */
@@ -774,8 +765,7 @@ class PlaylistEditorActivity : ComponentActivity() {
      * has not seen and drops entries whose source image was deleted.
      */
     private fun addNewFolderImages() {
-        if (!FolderPlaylistSource.isAvailable || draftState.watchedFolders.isEmpty()) return
-        if (!FolderPlaylistSource.hasFullAccess(this)) return
+        if (draftState.watchedFolders.isEmpty()) return
         val folderIds = draftState.watchedFolders.map(WatchedFolder::id)
         ioExecutor.execute {
             // null means the folders could not be read; never treat that as
@@ -842,9 +832,15 @@ class PlaylistEditorActivity : ComponentActivity() {
                 val item = metadata.getJSONObject(index)
                 val wallpaper = File(playlistDir, "wallpaper_$index.jpg")
                 val original = File(originalsDir, item.getString("original"))
+                // A folder image kept as a pointer is read from its folder.
+                val pointed = File(playlistDir, "wallpaper_$index.${PlaylistImageRef.EXTENSION}")
+                    .takeIf { !wallpaper.isFile && it.isFile }
+                    ?.let(PlaylistImageRef::read)
+                    ?.uri
                 val source = when {
-                    original.isFile -> original
-                    wallpaper.isFile -> wallpaper
+                    pointed != null -> pointed
+                    original.isFile -> Uri.fromFile(original)
+                    wallpaper.isFile -> Uri.fromFile(wallpaper)
                     else -> {
                         Log.w(TAG, "Skipping playlist entry $index because its files are missing")
                         return@repeat
@@ -869,7 +865,7 @@ class PlaylistEditorActivity : ComponentActivity() {
                 }
 
                 playlistItems += PlaylistItem(
-                    originalUri = Uri.fromFile(source),
+                    originalUri = source,
                     isEdited = savedEdited,
                     editedFilePath = wallpaper.takeIf { savedEdited }?.absolutePath,
                     matrixState = matrix,
@@ -905,8 +901,13 @@ class PlaylistEditorActivity : ComponentActivity() {
 
     private fun loadLegacyPlaylist(playlistDir: File) {
         PlaylistModeManager.imageFiles(playlistDir).forEach { file ->
+            val uri = if (PlaylistImageRef.isRef(file)) {
+                PlaylistImageRef.read(file)?.uri ?: return@forEach
+            } else {
+                Uri.fromFile(file)
+            }
             playlistItems += PlaylistItem(
-                originalUri = Uri.fromFile(file),
+                originalUri = uri,
                 fitMode = defaultFitMode,
                 fillMode = defaultFillMode
             )

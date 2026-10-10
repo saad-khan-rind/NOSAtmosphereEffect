@@ -110,7 +110,9 @@ class WallpaperBehaviorPolicyTest {
             "FROSTED" to EffectStateEndpoints(0f, 1f),
             "FROSTED_REVERSE" to EffectStateEndpoints(0f, 1f),
             "HALFTONE" to EffectStateEndpoints(0f, 1f),
-            "HALFTONE_REVERSE" to EffectStateEndpoints(1f, 0f)
+            "HALFTONE_REVERSE" to EffectStateEndpoints(1f, 0f),
+            "VHS" to EffectStateEndpoints(1f, 0f),
+            "VHS_REVERSE" to EffectStateEndpoints(0f, 1f)
         )
 
         assertEquals(EFFECT_IDS, expectedEndpoints.keys)
@@ -218,7 +220,9 @@ class WallpaperBehaviorPolicyTest {
             "FROSTED" to false,
             "FROSTED_REVERSE" to true,
             "HALFTONE" to false,
-            "HALFTONE_REVERSE" to false
+            "HALFTONE_REVERSE" to false,
+            "VHS" to false,
+            "VHS_REVERSE" to false
         )
         val EFFECT_IDS = TRANSITION_DIRECTIONS.keys
         val VALID_PROGRESS_VALUES = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)

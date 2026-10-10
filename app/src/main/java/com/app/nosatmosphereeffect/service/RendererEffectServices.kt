@@ -11,6 +11,7 @@ import com.app.nosatmosphereeffect.renderer.FrostedRenderController
 import com.app.nosatmosphereeffect.renderer.FrostedRenderer
 import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderController
+import com.app.nosatmosphereeffect.renderer.SinglePassLook
 import com.app.nosatmosphereeffect.renderer.NeonRenderController
 
 abstract class ColorFillWallpaperService protected constructor(
@@ -172,17 +173,17 @@ abstract class FrostedWallpaperService protected constructor(
 }
 
 abstract class HalftoneWallpaperService protected constructor(
-    private val reverseEffect: Boolean
+    private val reverseEffect: Boolean,
+    private val look: SinglePassLook = SinglePassLook.HALFTONE
 ) : AnimatedEffectWallpaperService<HalftoneRenderController>() {
 
-    final override val effectId =
-        if (reverseEffect) "HALFTONE_REVERSE" else "HALFTONE"
+    final override val effectId = look.effectId(reverseEffect)
     final override val lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS
     final override val unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
-    final override val defaultAnimationDurationMs = 500L
+    final override val defaultAnimationDurationMs = look.defaultDurationMs
 
     final override fun createEffectRenderer(): HalftoneRenderController {
-        return HalftoneRenderController(applicationContext, isReverse = reverseEffect)
+        return HalftoneRenderController(applicationContext, isReverse = reverseEffect, look = look)
     }
 
     final override fun attachEffectRenderer(
@@ -200,7 +201,7 @@ abstract class HalftoneWallpaperService protected constructor(
             dimLevel = preferences.readFloat("dim_level", 0f),
             dotSize = preferences.readFloat("halftone_dot_size", 12f),
             grayscale = preferences.readBoolean("halftone_grayscale", false),
-            backgroundOnly = preferences.readBoolean(
+            backgroundOnly = look.hasBackgroundOnly && preferences.readBoolean(
                 SubjectIsolationPolicy.HALFTONE_BACKGROUND_ONLY_KEY,
                 false
             )

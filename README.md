@@ -37,8 +37,8 @@ The fastest way to apply a wallpaper. Instead of opening the app and browsing fo
 
 Open the app and choose your desired atmosphere style from the selection screen:
 
-* **Original Atmosphere:** Signature style. A sharp wallpaper flows into drifting ambient clouds and blur.
-* **Reverse Atmosphere:** Mysterious reveal. Deep ambient clouds clear to reveal the wallpaper.
+* **Atmosphere:** Signature style. A sharp wallpaper flows into drifting ambient clouds and blur.
+* **Atmosphere (Reverse):** Mysterious reveal. Deep ambient clouds clear to reveal the wallpaper.
 * **Glass Effect:** Strong, continuous reeded-glass refraction can appear one rib at a time from right to left or fade in.
 * **Glass Effect (Reverse):** The reeded glass can clear from left to right or fade out.
 * **Color Fill:** Liquid awakening. Colors flow outward from your fingerprint.
@@ -49,10 +49,12 @@ Open the app and choose your desired atmosphere style from the selection screen:
 * **Simple Frosted (Reverse):** Elegant clarity. Wakes up from a heavy frosted blur into a crystal clear wallpaper.
 * **Halftone Print:** Retro aesthetic. Sharp view dissolves into comic-book CMYK dots when locked.
 * **Halftone Print (Reverse):** Retro aesthetic. CMYK dots seamlessly expand into continuous color when unlocked.
+* **VHS Tape:** Worn videotape playback (soft colour smear, scanlines, grain and a faded grade) that settles into a clean picture when unlocked, with a tracking roll mid-transition.
+* **VHS Tape (Reverse):** The clean wallpaper rolls into the old videotape look.
 
 #### Atmosphere with Glass
 
-For Original or Reverse Atmosphere, enable **Add glass effect** while setting the image or from **Fine tuning → Effect**. The Fine Tune screen also exposes the rib count, rib thickness, and **Background only** subject isolation while Glass is enabled. With transitions enabled, the animation remains an Atmosphere transition: Original Atmosphere moves from the glass-treated image into its ambient state, while Reverse Atmosphere finishes on the glass-treated image. With transitions disabled, Atmo holds the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
+For Atmosphere or Atmosphere Reverse, enable **Add glass effect** while setting the image or from **Fine tuning → Effect**. The Fine Tune screen also exposes the rib count, rib thickness, and **Background only** subject isolation while Glass is enabled. With transitions enabled, the animation remains an Atmosphere transition: Atmosphere moves from the glass-treated image into its ambient state, while Atmosphere Reverse finishes on the glass-treated image. With transitions disabled, Atmo holds the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
 
 #### Subject Isolation for Canvas, Glass, and Halftone
 
@@ -111,7 +113,7 @@ After selecting an effect, you will be prompted to choose your wallpaper mode:
 
 * **Saved Playlists:** Every playlist you apply is saved automatically, so switching to a single image or to theme playlists no longer discards it. Open **Saved playlists** to switch back to, rename, or delete any of them. Tap the pencil in the playlist editor to name a playlist.
 
-* **Playlist from Folder (folder build only):** Pick one or more device folders; their images become the playlist, and the playlist stays in sync with them: images you add are added and images you delete are removed, whenever the screen turns off and whenever you open Atmo Engine. If the image on screen is deleted, it is replaced at the next screen-off. A folder playlist is never emptied by a sync, so it keeps its images if its folders become unreadable (for example, an unmounted SD card). This needs photo access (`READ_MEDIA_IMAGES`), so it ships as a separate `folder` build flavor (`assembleV36FolderRelease`, `assembleV33FolderRelease`, …) instead of the Play Store and F-Droid builds. The app asks for access each time you set up a folder playlist. With Android 14+ **Select photos** access only the chosen images are visible, so new images can't be detected; choose **Allow all** to follow folders.
+* **Playlist from Folder:** Pick one or more folders in Android's own folder picker; their images become the playlist, and the playlist stays in sync with them: images you add are added and images you delete are removed, whenever the screen turns off and whenever you open Atmo Engine. If the image on screen is deleted, it is replaced at the next screen-off. A folder playlist is never emptied by a sync, so it keeps its images if its folders become unreadable (for example, an unmounted SD card, or a folder that was renamed or moved; pick it again to resume). No permission is needed: picking a folder gives Atmo Engine read access to that folder alone, so it works in every build. Only images directly inside a picked folder are used, not its subfolders. Android doesn't allow picking the root of the storage or of `Download`.
 
 ### 3\. Application & Activation
 
@@ -166,9 +168,9 @@ Fine tuning is kept when you change only the image or playlist under the same ef
 
 ### Visual Adjustments
 * **Dimness Level:** Adjust the darkening overlay to ensure your home screen icons remain readable against bright wallpapers.
-* **Blob Saturation:** (Original Atmosphere & Reverse Atmosphere Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
-* **Blob Contrast:** (Original Atmosphere & Reverse Atmosphere Effects Only) Adjusts the harshness of the atmospheric clouds. Higher values create distinct, separated color pools, while lower values blend the colors softly and smoothly together.
-* **Add Glass Effect:** (Original Atmosphere & Reverse Atmosphere Only) Available while setting or editing an image and in Fine Tune. Uses a customizable reeded-glass image for the clear side of the Atmosphere transition. The always-applied mode keeps the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
+* **Blob Saturation:** (Atmosphere & Atmosphere Reverse Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
+* **Blob Contrast:** (Atmosphere & Atmosphere Reverse Effects Only) Adjusts the harshness of the atmospheric clouds. Higher values create distinct, separated color pools, while lower values blend the colors softly and smoothly together.
+* **Add Glass Effect:** (Atmosphere & Atmosphere Reverse Only) Available while setting or editing an image and in Fine Tune. Uses a customizable reeded-glass image for the clear side of the Atmosphere transition. The always-applied mode keeps the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
 * **Glass Lines:** (Glass Effects Only) Adjusts the number of refractive ribs and the shape of each rib.
 * **Glass Transition Style:** (Glass Effects Only) Choose right-to-left or fade-in for Glass Effect, and left-to-right or fade-out for Glass Effect Reverse.
 * **Blur Strength:** (Frosted Effects Only) Use the slider to fine-tune the intensity of the blur radius, from a light mist to heavy glass.
@@ -227,21 +229,19 @@ This project is built using Kotlin, C++17, the Android NDK, and Gradle. The proj
 
 Atmo Engine keeps one shared codebase and combines two flavor dimensions:
 
-All artifacts in the table below use version name **7.3.1**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
+All artifacts in the table below use version name **7.3.5**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
 
 | Flavor | Minimum Android | Target SDK | Version code | Intended release |
 | --- | ---: |-----------:|-------------:| --- |
-| `v33Play` | Android 13 / API 33 |     API 33 |     `300731` | ML Kit APK |
-| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300731` | FOSS APK for F-Droid |
-| `v33Folder` | Android 13 / API 33 |     API 33 |     `300731` | ML Kit APK with folder playlists |
-| `v35Play` | Android 15 / API 35 |     API 36 |     `400731` | Google Play ML Kit AAB |
-| `v36Play` | Android 16 / API 36 |     API 36 |     `500731` | ML Kit APK |
-| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500731` | FOSS APK |
-| `v36Folder` | Android 16 / API 36 |     API 36 |     `500731` | ML Kit APK with folder playlists |
+| `v33Play` | Android 13 / API 33 |     API 33 |     `300735` | ML Kit APK |
+| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300735` | FOSS APK for F-Droid |
+| `v35Play` | Android 15 / API 35 |     API 36 |     `400735` | Google Play ML Kit AAB |
+| `v36Play` | Android 16 / API 36 |     API 36 |     `500735` | ML Kit APK |
+| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500735` | FOSS APK |
 
-The `play` source set contains only the ML Kit implementation and explicit model-download controller. The `fdroid` source set contains only [U2NetP](https://github.com/xuebinqin/U-2-Net), its model files, and the source-built FOSS LiteRT runtime. UI, effects, playlists, palette behavior, and settings remain shared in `main`. The `folder` flavor reuses the `play` source set and additionally declares `READ_MEDIA_IMAGES` and `READ_MEDIA_VISUAL_USER_SELECTED` for folder playlists; the Play Store and F-Droid builds do not request photo access. Model and runtime provenance is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The `play` source set contains only the ML Kit implementation and explicit model-download controller. The `fdroid` source set contains only [U2NetP](https://github.com/xuebinqin/U-2-Net), its model files, and the source-built FOSS LiteRT runtime. UI, effects, playlists, palette behavior, and settings remain shared in `main`. No build requests photo access: folder playlists use the system folder picker. Model and runtime provenance is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Stable and beta release workflows produce exactly seven artifacts: Android 16+ ML Kit, FOSS, and folder-playlist APKs, Android 13+ ML Kit, FOSS, and folder-playlist APKs, and an Android 15+ ML Kit AAB for Google Play. Only the folder-playlist APKs may declare `READ_MEDIA_IMAGES`; CI fails if any other artifact does. CI installs the pinned NDK and inspects every archive before signing: the Vulkan library for all four ABIs and every effect's SPIR-V pair must be present, ML Kit artifacts must not contain the [U2NetP model](https://github.com/xuebinqin/U-2-Net) or LiteRT native runtime, both FOSS APKs must contain them, and each ML Kit APK must remain smaller than its matching FOSS APK and below 10 MiB.
+Stable and beta release workflows produce exactly five artifacts: Android 16+ ML Kit and FOSS APKs, Android 13+ ML Kit and FOSS APKs, and an Android 15+ ML Kit AAB for Google Play. None may declare `READ_MEDIA_IMAGES`; CI fails if any does. CI installs the pinned NDK and inspects every archive before signing: the Vulkan library for all four ABIs and every effect's SPIR-V pair must be present, ML Kit artifacts must not contain the [U2NetP model](https://github.com/xuebinqin/U-2-Net) or LiteRT native runtime, both FOSS APKs must contain them, and each ML Kit APK must remain smaller than its matching FOSS APK and below 10 MiB.
 
 1.  Clone the repository.
 2.  Open in the latest stable Android Studio.
@@ -254,8 +254,6 @@ Stable and beta release workflows produce exactly seven artifacts: Android 16+ M
 ./gradlew bundleV35PlayRelease
 ./gradlew assembleV36PlayRelease
 ./gradlew assembleV36FdroidRelease
-./gradlew assembleV33FolderRelease
-./gradlew assembleV36FolderRelease
 ```
 
 Release signing keys are intentionally not stored in the repository. Configure your Play upload key locally before uploading either AAB; F-Droid builds and signs its own APK.

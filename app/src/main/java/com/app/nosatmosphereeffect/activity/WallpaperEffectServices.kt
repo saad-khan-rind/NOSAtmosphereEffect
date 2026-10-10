@@ -17,6 +17,8 @@ import com.app.nosatmosphereeffect.service.GlassReverseService
 import com.app.nosatmosphereeffect.service.GlassService
 import com.app.nosatmosphereeffect.service.HalftoneReverseService
 import com.app.nosatmosphereeffect.service.HalftoneService
+import com.app.nosatmosphereeffect.service.VhsReverseService
+import com.app.nosatmosphereeffect.service.VhsService
 import com.app.nosatmosphereeffect.service.NeonReverseService
 import com.app.nosatmosphereeffect.service.NeonService
 
@@ -37,7 +39,9 @@ internal object WallpaperEffectServices {
         "FROSTED" to FrostedService::class.java,
         "FROSTED_REVERSE" to FrostedReverseService::class.java,
         "HALFTONE" to HalftoneService::class.java,
-        "HALFTONE_REVERSE" to HalftoneReverseService::class.java
+        "HALFTONE_REVERSE" to HalftoneReverseService::class.java,
+        "VHS" to VhsService::class.java,
+        "VHS_REVERSE" to VhsReverseService::class.java
     )
 
     private val effectIdByServiceName = serviceByEffectId.entries.associate { (id, service) ->

@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.renderer
 
+import com.app.nosatmosphereeffect.helper.ClockFont
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPalette
@@ -72,6 +73,7 @@ data class AtmosphereRenderState(
      */
     val clockDepthEnabled: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
     val clockStyleId: String = ClockStyle.DEFAULT.id,
+    val clockFontId: String = ClockFont.DEFAULT.id,
     val clockShowDate: Boolean = AtmosphereClockPolicy.DEFAULT_DATE,
     val clockAnimate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
     val clockCenterX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
@@ -158,6 +160,7 @@ data class AtmosphereRenderState(
             scrollOffsetX = scrollOffsetX.finiteOr(0.5f).coerceIn(0f, 1f),
             scrollWindowX = scrollWindowX.finiteOr(1f).coerceIn(MIN_SCROLL_WINDOW, 1f),
             clockStyleId = AtmosphereClockPolicy.sanitizeStyleId(clockStyleId),
+            clockFontId = AtmosphereClockPolicy.sanitizeFontId(clockFontId),
             // Never behind the subject: see ClockOverlayState.sanitized.
             clockDepthEnabled = clockDepthEnabled &&
                 !ClockStyle.fromId(clockStyleId).adaptsToSubject,
@@ -200,6 +203,9 @@ data class AtmosphereRenderState(
     val clockStyle: ClockStyle
         get() = ClockStyle.fromId(clockStyleId)
 
+    internal val clockFont: ClockFont
+        get() = ClockFont.fromId(clockFontId)
+
     val clockScreen: ClockScreen
         get() = ClockScreen.fromId(clockScreenId)
 
@@ -236,6 +242,7 @@ data class AtmosphereRenderState(
         depthEnabled = clockDepthEnabled,
         adaptToSubject = clockAdaptToSubject,
         styleId = clockStyleId,
+        fontId = clockFontId,
         showDate = clockShowDate,
         animate = clockAnimate,
         centerX = clockCenterX,

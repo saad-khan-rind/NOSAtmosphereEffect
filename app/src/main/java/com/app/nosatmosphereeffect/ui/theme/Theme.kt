@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.ui.theme
 
 import android.app.Activity
+import android.os.SystemClock
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -10,6 +11,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -107,6 +109,9 @@ private val ExpressiveShapes = Shapes(
 
 val LocalAtmoExpressive = staticCompositionLocalOf { true }
 
+/** When this screen's content was first composed; entrance animations only play just after it. */
+val LocalAtmoEntranceStart = staticCompositionLocalOf { 0L }
+
 @Composable
 fun AtmoEngineTheme(
     expressive: Boolean? = null,
@@ -149,7 +154,11 @@ fun AtmoEngineTheme(
         systemOrFixedColors
     }
 
-    CompositionLocalProvider(LocalAtmoExpressive provides useExpressive) {
+    val entranceStart = remember { SystemClock.uptimeMillis() }
+    CompositionLocalProvider(
+        LocalAtmoExpressive provides useExpressive,
+        LocalAtmoEntranceStart provides entranceStart
+    ) {
         MaterialTheme(
             colorScheme = colors,
             typography = AtmoTypography,

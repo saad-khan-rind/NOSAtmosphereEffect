@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import com.app.nosatmosphereeffect.storage.FileTransactions
+import com.app.nosatmosphereeffect.storage.PlaylistImageRef
 import com.app.nosatmosphereeffect.storage.UriFiles
 import com.app.nosatmosphereeffect.storage.WallpaperStorageCoordinator
 import java.io.File
@@ -14,6 +15,7 @@ import java.util.concurrent.Executors
 /** A single rotation pipeline used by every effect service. */
 object PlaylistRotationController {
     private const val TAG = "PlaylistRotation"
+    private const val MAX_ATTEMPTS = 3
     private val rotationExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "wallpaper-playlist-rotation")
     }
@@ -62,9 +64,7 @@ object PlaylistRotationController {
         if (isThemeChange && mode != PlaylistModeManager.MODE_THEME) return
 
         // Folder playlists follow their folders even while the app is closed.
-        if (!isThemeChange && mode == PlaylistModeManager.MODE_STANDARD &&
-            FolderPlaylistSource.isAvailable
-        ) {
+        if (!isThemeChange && mode == PlaylistModeManager.MODE_STANDARD) {
             try {
                 FolderPlaylistSource.syncActivePlaylist(context)
             } catch (error: Exception) {
@@ -100,8 +100,13 @@ object PlaylistRotationController {
             playlistFiles.map(File::getName),
             lastUsedName
         ).toSet()
-        val selected = playlistFiles.filter { it.name in eligibleNames }.random()
-        if (!stageAndPromote(context, selected, isNightMode, queueTransition)) return
+        // A folder image may be unreadable right now (storage removed, access
+        // lost, a cloud file offline): then try a few others before giving up.
+        val selected = playlistFiles.filter { it.name in eligibleNames }
+            .shuffled()
+            .take(MAX_ATTEMPTS)
+            .firstOrNull { candidate -> stageAndPromote(context, candidate, isNightMode, queueTransition) }
+            ?: return
 
         val editor = prefs.edit()
             .putString(lastKey, selected.name)
@@ -126,15 +131,27 @@ object PlaylistRotationController {
         var decodedBitmap: Bitmap? = null
         return try {
             val nextFile = File(context.filesDir, WallpaperFitHelper.NEXT_WALLPAPER_FILE)
-            UriFiles.copyAtomically(context, Uri.fromFile(selected), nextFile)
-            val hasSource = WallpaperFitHelper.stageNextSource(
-                filesDir = context.filesDir,
-                playlistFileName = selected.name,
-                originalsDirectoryName = PlaylistModeManager.activeOriginalsDirName(
+            val hasSource = if (PlaylistImageRef.isRef(selected)) {
+                val ref = PlaylistImageRef.read(selected)
+                    ?: throw IOException("${selected.name} is not a readable folder image pointer")
+                PlaylistImageRef.materialize(
                     context,
-                    isNightMode
+                    ref,
+                    nextFile,
+                    File(context.filesDir, WallpaperFitHelper.NEXT_SOURCE_FILE)
                 )
-            )
+                true
+            } else {
+                UriFiles.copyAtomically(context, Uri.fromFile(selected), nextFile)
+                WallpaperFitHelper.stageNextSource(
+                    filesDir = context.filesDir,
+                    playlistFileName = selected.name,
+                    originalsDirectoryName = PlaylistModeManager.activeOriginalsDirName(
+                        context,
+                        isNightMode
+                    )
+                )
+            }
             WallpaperFitHelper.setNextModes(
                 context,
                 WallpaperFitHelper.MODE_FILL,

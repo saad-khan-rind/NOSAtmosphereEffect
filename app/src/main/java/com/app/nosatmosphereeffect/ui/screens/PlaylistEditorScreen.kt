@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -34,6 +33,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
+import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Edit
@@ -81,8 +82,10 @@ import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
+import com.app.nosatmosphereeffect.ui.components.AtmoShapeBadge
 import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
+import com.app.nosatmosphereeffect.ui.theme.AtmoMotion
 import com.app.nosatmosphereeffect.ui.theme.LocalAtmoExpressive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -216,6 +219,8 @@ fun PlaylistEditorScreen(
                         // Pager state can briefly outlive an entry removed during composition.
                         val entry = entries.getOrNull(page) ?: return@HorizontalPager
                         Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                             // Modifier.graphicsLayer {
                             //     val pageOffset = (
                             //         (pagerState.currentPage - page) +
@@ -391,17 +396,25 @@ private fun PlaylistCard(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed && expressive) 0.975f else 1f,
-        animationSpec = spring(stiffness = 420f, dampingRatio = 0.66f),
+        animationSpec = AtmoMotion.fastSpatial(),
         label = "playlistCardScale"
     )
-    val thumb = rememberThumbnail(context, entry.displayUri)
+    val corner by animateDpAsState(
+        targetValue = if (!expressive) 20.dp else if (pressed) 22.dp else 32.dp,
+        animationSpec = AtmoMotion.fastSpatial(),
+        label = "playlistCardCorner"
+    )
+    val thumbnail = rememberThumbnail(context, entry.displayUri)
+    val thumb = thumbnail.image
+    val thumbFailed = thumbnail.failed
 
     Box(
+        // As large as fits both ways: sized from the width alone, a short
+        // screen made the card taller than its space, under the top bar.
         modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(0.62f)
+            .aspectRatio(0.62f, matchHeightConstraintsFirst = true)
             .scale(scale)
-            .clip(RoundedCornerShape(if (expressive) 32.dp else 20.dp))
+            .clip(RoundedCornerShape(corner))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(
                 interactionSource = interaction,
@@ -427,6 +440,30 @@ private fun PlaylistCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
+        } else if (thumbFailed) {
+            // A photo that can't be opened (its folder renamed or removed, the
+            // file gone) says so instead of loading forever.
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Rounded.BrokenImage,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.playlist_image_unavailable),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
@@ -476,7 +513,7 @@ private fun PageIndicator(
             val selected = index == current.coerceAtMost(8)
             val width by animateDpAsState(
                 targetValue = if (selected) 22.dp else 7.dp,
-                animationSpec = spring(stiffness = 420f, dampingRatio = 0.68f),
+                animationSpec = AtmoMotion.fastSpatial(),
                 label = "pageIndicatorWidth"
             )
             val color by animateColorAsState(
@@ -504,16 +541,15 @@ private fun EmptyPlaylist(message: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)
     ) {
-        Icon(
-            painterResource(R.drawable.ic_add),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(48.dp)
+        AtmoShapeBadge(
+            icon = Icons.Rounded.AddPhotoAlternate,
+            active = true,
+            size = 96.dp
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         Text(
             stringResource(R.string.playlist_no_images),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold
         )
@@ -527,19 +563,17 @@ private fun EmptyPlaylist(message: String) {
     }
 }
 
+/** A card's picture: still loading, ready, or [failed] because the image can't be opened. */
+private class Thumbnail(val image: androidx.compose.ui.graphics.ImageBitmap?, val failed: Boolean)
+
 @Composable
-private fun rememberThumbnail(
-    context: Context,
-    uri: Uri
-): androidx.compose.ui.graphics.ImageBitmap? {
-    var image by remember(uri) {
-        mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
-    }
+private fun rememberThumbnail(context: Context, uri: Uri): Thumbnail {
+    var thumbnail by remember(uri) { mutableStateOf(Thumbnail(null, failed = false)) }
     LaunchedEffect(uri) {
         val bmp = withContext(Dispatchers.IO) { decodeThumbnail(context, uri) }
-        image = bmp?.asImageBitmap()
+        thumbnail = Thumbnail(bmp?.asImageBitmap(), failed = bmp == null)
     }
-    return image
+    return thumbnail
 }
 
 private fun decodeThumbnail(context: Context, uri: Uri): Bitmap? {

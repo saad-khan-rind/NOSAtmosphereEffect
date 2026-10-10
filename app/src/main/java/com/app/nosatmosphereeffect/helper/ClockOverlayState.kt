@@ -42,6 +42,7 @@ data class ClockOverlayState(
      */
     val adaptToSubject: Boolean = AtmosphereClockPolicy.DEFAULT_DEPTH,
     val styleId: String = ClockStyle.DEFAULT.id,
+    val fontId: String = ClockFont.DEFAULT.id,
     val showDate: Boolean = AtmosphereClockPolicy.DEFAULT_DATE,
     val animate: Boolean = AtmosphereClockPolicy.DEFAULT_ANIMATE,
     val centerX: Float = AtmosphereClockPolicy.DEFAULT_CENTER_X,
@@ -119,6 +120,9 @@ data class ClockOverlayState(
     val style: ClockStyle
         get() = ClockStyle.fromId(styleId)
 
+    internal val font: ClockFont
+        get() = ClockFont.fromId(fontId)
+
     val screen: ClockScreen
         get() = ClockScreen.fromId(screenId)
 
@@ -129,6 +133,7 @@ data class ClockOverlayState(
         val safeStyle = ClockStyle.fromId(styleId)
         return copy(
             styleId = safeStyle.id,
+            fontId = AtmosphereClockPolicy.sanitizeFontId(fontId),
             // The Adaptive face is fitted around the subject and always drawn
             // over it. Depth would put the subject back on top wherever a
             // digit touches it — a spring's overshoot, a digit that could not
@@ -268,6 +273,7 @@ data class ClockOverlayState(
             ClockTreatment.TRANSLUCENT -> 1f + AtmosphereClockPolicy.sanitizeFrost(frost)
             // Solid digits: the shaders' flat path.
             ClockTreatment.ADAPTIVE -> 0f
+            ClockTreatment.SOLID -> 0f
         }
 
     /** The Adaptive face paints each digit a tint of what is behind it. */

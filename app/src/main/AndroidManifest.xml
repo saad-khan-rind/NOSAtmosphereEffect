@@ -21,6 +21,7 @@
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -69,7 +70,9 @@
         <activity android:name=".activity.ThemePlaylistEditorActivity" />
         <activity android:name=".activity.PaletteDiagnosticsActivity" />
         <activity android:name=".activity.SavedPlaylistsActivity" />
-        <activity android:name=".activity.FolderPickerActivity" />
+        <activity
+            android:name=".activity.FolderPickerActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service
             android:name=".service.AtmosphereService"
@@ -230,6 +233,34 @@
             android:enabled="true"
             android:exported="true"
             android:label="@string/service_halftone_reverse"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
+        <service
+            android:name=".service.VhsService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_vhs"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
+        <service
+            android:name=".service.VhsReverseService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_vhs_reverse"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />

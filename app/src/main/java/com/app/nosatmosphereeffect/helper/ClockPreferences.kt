@@ -65,6 +65,10 @@ object ClockPreferences {
                 AtmosphereClockPolicy.STYLE_KEY,
                 ClockStyle.DEFAULT.id
             ),
+            fontId = preferences.readString(
+                AtmosphereClockPolicy.FONT_KEY,
+                ClockFont.DEFAULT.id
+            ),
             showDate = preferences.readBoolean(
                 AtmosphereClockPolicy.DATE_KEY,
                 AtmosphereClockPolicy.DEFAULT_DATE

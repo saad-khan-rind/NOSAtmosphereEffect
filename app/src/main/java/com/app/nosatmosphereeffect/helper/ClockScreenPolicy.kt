@@ -102,6 +102,8 @@ object ClockScreenPolicy {
      * | FROSTED_REVERSE    | blur            | photo           | HOME  |
      * | HALFTONE           | photo           | halftone dots   | BOTH  |
      * | HALFTONE_REVERSE   | halftone dots   | photo           | BOTH  |
+     * | VHS                | videotape       | photo           | BOTH  |
+     * | VHS_REVERSE        | photo           | videotape       | BOTH  |
      *
      * "Sharp" here means "a clock stays legible and depth composites
      * correctly", not "the unmodified photo". Sketch and Halftone restyle the
@@ -115,7 +117,8 @@ object ClockScreenPolicy {
     fun sharpSide(effectId: String?): ClockSharpSide = when (effectId) {
         "COLORFILL", "COLORFILL_REVERSE",
         "NEON", "NEON_REVERSE",
-        "HALFTONE", "HALFTONE_REVERSE" -> ClockSharpSide.BOTH
+        "HALFTONE", "HALFTONE_REVERSE",
+        "VHS", "VHS_REVERSE" -> ClockSharpSide.BOTH
         "REVERSE",
         "GLASS_REVERSE",
         "FROSTED_REVERSE" -> ClockSharpSide.HOME

@@ -5,7 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
-import android.graphics.Typeface
+import android.graphics.RectF
 import android.util.Log
 import androidx.core.graphics.createBitmap
 import java.nio.ByteBuffer
@@ -46,8 +46,12 @@ import kotlin.math.sqrt
  * a second.
  */
 internal class ClockGlyphAtlas private constructor(
-    private val style: ClockStyle
+    private val style: ClockStyle,
+    font: ClockFont
 ) {
+    /** Where the digits come from; the date always uses the look's own typeface. */
+    val source: ClockGlyphSource = ClockGlyphSource.of(style, font)
+
     /** One glyph, as a distance field, with where its ink sits inside the tile. */
     class Tile(
         val bitmap: Bitmap,
@@ -59,7 +63,9 @@ internal class ClockGlyphAtlas private constructor(
         val inkLeft: Float,
         val inkTop: Float,
         val inkRight: Float,
-        val inkBottom: Float
+        val inkBottom: Float,
+        /** Where the glyph's origin sits from the tile's left edge: the spread its field was built with. */
+        val origin: Float
     ) {
         val width: Float get() = bitmap.width.toFloat()
         val height: Float get() = bitmap.height.toFloat()
@@ -118,46 +124,41 @@ internal class ClockGlyphAtlas private constructor(
     // thumbnail — is the same megabyte several times over plus the transform
     // that produced it.
 
-    private fun configurePaint(em: Float, stretched: Boolean) {
+    private fun configurePaint(em: Float) {
         paint.typeface = style.typeface()
         paint.textSize = em
-        paint.letterSpacing = if (stretched) style.letterSpacingEm else DATE_TRACKING_EM
-        paint.textScaleX = if (stretched) style.horizontalScale else 1f
+        paint.letterSpacing = DATE_TRACKING_EM
+        paint.textScaleX = 1f
     }
 
     private fun buildGlyph(character: Char): Tile? {
-        configurePaint(CANONICAL_EM, stretched = true)
-        val stretch = style.verticalStretch
-        val metrics = paint.fontMetrics
-        val advance = paint.measureText(character.toString())
-        val spread = SPREAD_EM * CANONICAL_EM
-        // The tile is the line box, stretched, with room for the field to run
-        // out to its full spread on every side.
-        val lineHeight = (metrics.bottom - metrics.top) * stretch
-        val width = ceil(advance + spread * 2f).toInt().coerceAtLeast(1)
-        val height = ceil(lineHeight + spread * 2f).toInt().coerceAtLeast(1)
-        val baseline = spread + (-metrics.top) * stretch
-        val ink = Rect()
-        paint.getTextBounds(character.toString(), 0, 1, ink)
+        val em = CANONICAL_EM
+        val advance = source.advance(character, em)
+        // A face's own spread: thin strokes need a narrower field, or the glass
+        // bevel, which is measured off it, reaches clean across them.
+        val spread = source.spreadEm * em
+        val ink = RectF()
+        source.ink(character, em, ink)
+        // The tile is the line box, with room for the field to run out to its
+        // full spread on every side — and wide enough for a slanted glyph
+        // whose ink reaches past its own advance.
+        val top = source.lineTop(em)
+        val width = ceil(max(advance, ink.right) + spread * 2f).toInt().coerceAtLeast(1)
+        val height = ceil(source.lineBottom(em) - top + spread * 2f).toInt().coerceAtLeast(1)
+        val baseline = spread - top
 
         return rasterise(width, height, spread) { canvas ->
-            canvas.save()
-            // The stretch is baked in rather than applied when the tile is
-            // drawn: a distance field survives being scaled evenly, but
-            // stretching one axis stops it measuring distance, and the
-            // lighting goes with it.
-            canvas.scale(1f, stretch, spread + advance / 2f, baseline)
-            canvas.drawText(character.toString(), spread, baseline, paint)
-            canvas.restore()
+            source.draw(canvas, character, spread, baseline, em)
         }?.let { bitmap ->
             Tile(
                 bitmap = bitmap,
                 baseline = baseline,
                 advance = advance,
                 inkLeft = spread + ink.left,
-                inkTop = baseline + ink.top * stretch,
+                inkTop = baseline + ink.top,
                 inkRight = spread + ink.right,
-                inkBottom = baseline + ink.bottom * stretch
+                inkBottom = baseline + ink.bottom,
+                origin = spread
             )
         }
     }
@@ -168,7 +169,7 @@ internal class ClockGlyphAtlas private constructor(
         // digits' do: the spread is a fraction of the em either way, so the
         // date is lit exactly like the clock rather than being swamped by a
         // bevel meant for a glyph ten times its size.
-        configurePaint(RUN_EM, stretched = false)
+        configurePaint(RUN_EM)
         val advance = paint.measureText(text)
         if (advance <= 0f) return null
         val ink = Rect()
@@ -190,7 +191,8 @@ internal class ClockGlyphAtlas private constructor(
                 inkLeft = spread + ink.left,
                 inkTop = baseline + ink.top,
                 inkRight = spread + ink.right,
-                inkBottom = baseline + ink.bottom
+                inkBottom = baseline + ink.bottom,
+                origin = spread
             )
         }
     }
@@ -314,7 +316,7 @@ internal class ClockGlyphAtlas private constructor(
     }
 
     companion object {
-        private val shared = HashMap<ClockStyle, ClockGlyphAtlas>()
+        private val shared = HashMap<Pair<ClockStyle, ClockFont>, ClockGlyphAtlas>()
 
         /**
          * The atlas for [style], built once for the whole process.
@@ -323,8 +325,10 @@ internal class ClockGlyphAtlas private constructor(
          * thumbnails all want the same fields; building them per renderer
          * meant running the distance transform five times over for one clock.
          */
-        fun of(style: ClockStyle): ClockGlyphAtlas = synchronized(shared) {
-            shared.getOrPut(style) { ClockGlyphAtlas(style) }
+        fun of(style: ClockStyle, font: ClockFont = ClockFont.DEFAULT): ClockGlyphAtlas = synchronized(shared) {
+            // Only the Normal look draws in the font; the others share one atlas per colon setting.
+            val key = style to if (style.takesFont) font else ClockFont(ClockDesign.DEFAULT, font.showColon)
+            shared.getOrPut(key) { ClockGlyphAtlas(key.first, key.second) }
         }
 
         /**

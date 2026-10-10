@@ -618,7 +618,8 @@ void main() {
             // changes pixels the clock touched. It used to mix in the sharp
             // photo, which re-sharpened the subject across the whole screen
             // while the clock faded during the unlock.
-            finalColor = mix(finalColor, beforeClock, subjectCoverage * uClockOpacity);
+            // At any opacity: the clock's own opacity was applied when it was drawn.
+            finalColor = mix(finalColor, beforeClock, subjectCoverage);
         }
     }
 

@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from October 19, 2026, which may
+    # not ship the same Android SDK and Java setup. Move up once that's checked.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -55,8 +57,6 @@ jobs:
             assembleV36FdroidRelease \
             assembleV33PlayRelease \
             assembleV33FdroidRelease \
-            assembleV36FolderRelease \
-            assembleV33FolderRelease \
             bundleV35PlayRelease
 
       - name: Verify model isolation and APK sizes
@@ -80,8 +80,6 @@ jobs:
           APK_16_FOSS=$(find_apk "app/build/outputs/apk/v36Fdroid/release" "v36-fdroid")
           APK_13_MLKIT=$(find_apk "app/build/outputs/apk/v33Play/release" "v33-play")
           APK_13_FOSS=$(find_apk "app/build/outputs/apk/v33Fdroid/release" "v33-fdroid")
-          APK_16_FOLDER=$(find_apk "app/build/outputs/apk/v36Folder/release" "v36-folder")
-          APK_13_FOLDER=$(find_apk "app/build/outputs/apk/v33Folder/release" "v33-folder")
           AAB_15_MLKIT="app/build/outputs/bundle/v35PlayRelease/app-v35-play-release.aab"
 
           assert_no_foss_payload() {
@@ -105,11 +103,9 @@ jobs:
           assert_no_foss_payload "$APK_16_MLKIT"
           assert_no_foss_payload "$APK_13_MLKIT"
           assert_no_foss_payload "$AAB_15_MLKIT"
-          assert_no_foss_payload "$APK_16_FOLDER"
-          assert_no_foss_payload "$APK_13_FOLDER"
 
-          # Photo access is the reason the folder flavor exists; it must never
-          # reach the Play Store or F-Droid builds.
+          # No build may ask for photo access: folder playlists use the
+          # system folder picker, which needs no permission.
           BUILD_TOOLS_DIR=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d -print | sort -V | tail -n 1)
           AAPT2="$BUILD_TOOLS_DIR/aapt2"
           test -x "$AAPT2"
@@ -119,15 +115,13 @@ jobs:
             if "$AAPT2" dump permissions "$apk" | grep -q "android.permission.READ_MEDIA_IMAGES"; then
               [ "$expected" = "yes" ] || { echo "Unexpected photo permission in $apk"; exit 1; }
             else
-              [ "$expected" = "no" ] || { echo "Folder APK is missing READ_MEDIA_IMAGES: $apk"; exit 1; }
+              [ "$expected" = "no" ] || { echo "Missing READ_MEDIA_IMAGES: $apk"; exit 1; }
             fi
           }
           assert_photo_permission "$APK_16_MLKIT" no
           assert_photo_permission "$APK_13_MLKIT" no
           assert_photo_permission "$APK_16_FOSS" no
           assert_photo_permission "$APK_13_FOSS" no
-          assert_photo_permission "$APK_16_FOLDER" yes
-          assert_photo_permission "$APK_13_FOLDER" yes
           if unzip -p "$AAB_15_MLKIT" base/manifest/AndroidManifest.xml | grep -aq "READ_MEDIA_IMAGES"; then
             echo "Unexpected photo permission in the Play Store bundle"
             exit 1
@@ -158,7 +152,7 @@ jobs:
             echo "### Beta artifact sizes"
             echo '```text'
             du -h "$APK_16_MLKIT" "$APK_16_FOSS" "$APK_13_MLKIT" "$APK_13_FOSS" \
-              "$APK_16_FOLDER" "$APK_13_FOLDER" "$AAB_15_MLKIT"
+              "$AAB_15_MLKIT"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -182,8 +176,6 @@ jobs:
           verify_and_copy "app/build/outputs/apk/v36Fdroid/release/app-v36-fdroid-release.apk" "atmo-engine-beta-android-16-plus-foss.apk"
           verify_and_copy "app/build/outputs/apk/v33Play/release/app-v33-play-release.apk" "atmo-engine-beta-android-13-plus-mlkit.apk"
           verify_and_copy "app/build/outputs/apk/v33Fdroid/release/app-v33-fdroid-release.apk" "atmo-engine-beta-android-13-plus-foss-fdroid.apk"
-          verify_and_copy "app/build/outputs/apk/v36Folder/release/app-v36-folder-release.apk" "atmo-engine-beta-android-16-plus-mlkit-folder.apk"
-          verify_and_copy "app/build/outputs/apk/v33Folder/release/app-v33-folder-release.apk" "atmo-engine-beta-android-13-plus-mlkit-folder.apk"
 
           cp \
             app/build/outputs/bundle/v35PlayRelease/app-v35-play-release.aab \
@@ -194,8 +186,6 @@ jobs:
             atmo-engine-beta-android-16-plus-foss.apk \
             atmo-engine-beta-android-13-plus-mlkit.apk \
             atmo-engine-beta-android-13-plus-foss-fdroid.apk \
-            atmo-engine-beta-android-16-plus-mlkit-folder.apk \
-            atmo-engine-beta-android-13-plus-mlkit-folder.apk \
             atmo-engine-beta-playstore-android-15-plus-mlkit.aab \
             > SHA256SUMS-beta.txt
 
@@ -213,7 +203,5 @@ jobs:
             atmo-engine-beta-android-16-plus-foss.apk
             atmo-engine-beta-android-13-plus-mlkit.apk
             atmo-engine-beta-android-13-plus-foss-fdroid.apk
-            atmo-engine-beta-android-16-plus-mlkit-folder.apk
-            atmo-engine-beta-android-13-plus-mlkit-folder.apk
             atmo-engine-beta-playstore-android-15-plus-mlkit.aab
             SHA256SUMS-beta.txt
