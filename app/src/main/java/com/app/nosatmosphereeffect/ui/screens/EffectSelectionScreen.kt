@@ -19,7 +19,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -161,94 +160,77 @@ fun EffectSelectionScreen(
                 .padding(inner),
             contentAlignment = Alignment.TopCenter
         ) {
-            // Preview and details stay put; only the effect list below them scrolls.
-            BoxWithConstraints(
-                Modifier
+            Column(
+                modifier = Modifier
                     .fillMaxSize()
                     .widthIn(max = 760.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                val previewMaxHeight = maxHeight * PREVIEW_HEIGHT_FRACTION
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 20.dp, end = 20.dp, top = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    AtmoReveal {
-                        WallpaperTransitionPreview(
-                            effectId = selected.id,
-                            wallpaper = previewBitmap,
-                            progress = if (autoPlay) null else manualProgress,
-                            settingsMode = EffectPreviewSettingsMode.EFFECT_DEFAULTS,
-                            // Full width, unless that would be too tall to leave the list room.
-                            modifier = Modifier
-                                .heightIn(max = previewMaxHeight)
-                                .aspectRatio(0.92f)
-                                .graphicsLayer {
-                                    scaleX = previewScale.value
-                                    scaleY = previewScale.value
-                                }
-                        )
-                    }
-
-                    AtmoReveal(delayMillis = 60) {
-                        SelectedEffectDetails(
-                            family = selectedFamily,
-                            selected = selected,
-                            reversed = reversed,
-                            autoPlay = autoPlay,
-                            manualProgress = manualProgress,
-                            onAutoPlay = { autoPlay = true },
-                            onPosition = {
-                                autoPlay = false
-                                manualProgress = it
-                            },
-                            onDirection = { selectedId = selectedFamily.pick(it).id }
-                        )
-                    }
-
-                    AtmoReveal(delayMillis = 110) {
-                        Text(
-                            stringResource(R.string.effects_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .semantics { heading() }
-                        )
-                    }
-
-                    Column(
+                AtmoReveal {
+                    WallpaperTransitionPreview(
+                        effectId = selected.id,
+                        wallpaper = previewBitmap,
+                        progress = if (autoPlay) null else manualProgress,
+                        settingsMode = EffectPreviewSettingsMode.EFFECT_DEFAULTS,
                         modifier = Modifier
-                            .weight(1f)
                             .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                            .padding(bottom = 28.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        families.chunked(2).forEachIndexed { rowIndex, row ->
-                            AtmoReveal(delayMillis = 140 + rowIndex * 60) {
-                                // Both cards of a row take the taller one's height, so a longer
-                                // name never leaves one card standing taller than its neighbour.
-                                Row(
-                                    modifier = Modifier.height(IntrinsicSize.Min),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    row.forEach { family ->
-                                        FamilyTile(
-                                            family = family,
-                                            reversed = reversed,
-                                            selected = family == selectedFamily,
-                                            onClick = { selectedId = family.pick(reversed).id },
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight()
-                                        )
-                                    }
-                                    if (row.size == 1) Spacer(Modifier.weight(1f))
-                                }
+                            .aspectRatio(0.92f)
+                            .graphicsLayer {
+                                scaleX = previewScale.value
+                                scaleY = previewScale.value
                             }
+                    )
+                }
+
+                AtmoReveal(delayMillis = 60) {
+                    SelectedEffectDetails(
+                        family = selectedFamily,
+                        selected = selected,
+                        reversed = reversed,
+                        autoPlay = autoPlay,
+                        manualProgress = manualProgress,
+                        onAutoPlay = { autoPlay = true },
+                        onPosition = {
+                            autoPlay = false
+                            manualProgress = it
+                        },
+                        onDirection = { selectedId = selectedFamily.pick(it).id }
+                    )
+                }
+
+                AtmoReveal(delayMillis = 110) {
+                    Text(
+                        stringResource(R.string.effects_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .semantics { heading() }
+                    )
+                }
+
+                families.chunked(2).forEachIndexed { rowIndex, row ->
+                    AtmoReveal(delayMillis = 140 + rowIndex * 60) {
+                        // Both cards of a row take the taller one's height, so a longer
+                        // name never leaves one card standing taller than its neighbour.
+                        Row(
+                            modifier = Modifier.height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            row.forEach { family ->
+                                FamilyTile(
+                                    family = family,
+                                    reversed = reversed,
+                                    selected = family == selectedFamily,
+                                    onClick = { selectedId = family.pick(reversed).id },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                )
+                            }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
@@ -256,9 +238,6 @@ fun EffectSelectionScreen(
         }
     }
 }
-
-/** Most of the screen's height the preview may take, so the effect list keeps room. */
-private const val PREVIEW_HEIGHT_FRACTION = 0.3f
 
 @Composable
 private fun SelectedEffectDetails(
