@@ -111,6 +111,25 @@ android {
     }
 }
 
+// Beta builds (the develop release workflow passes -PbetaBuild=<run number>):
+// named "<version>-beta.<n>", with a version code one below that version's
+// stable code, so the stable release always installs over its betas and the
+// betas still install over the stable before it. Done here, not in the
+// versionName / versionCode lines above, which F-Droid reads as plain numbers.
+val betaBuild = providers.gradleProperty("betaBuild").orNull
+if (betaBuild != null) {
+    androidComponents {
+        onVariants { variant ->
+            variant.outputs.forEach { output ->
+                val name = output.versionName.get()
+                val code = output.versionCode.get()
+                output.versionName.set("$name-beta.$betaBuild")
+                output.versionCode.set(code - 1)
+            }
+        }
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
