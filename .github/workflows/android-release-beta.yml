@@ -196,12 +196,15 @@ jobs:
             atmo-engine-beta-playstore-android-15-plus-mlkit.aab \
             > SHA256SUMS-beta.txt
 
-      # Betas are published as one rolling "beta" release whose tag points at
-      # an empty commit, not at the app's source. F-Droid (UpdateCheckMode:
-      # Tags) checks out the newest tags and builds the highest versionCode it
-      # finds in app/build.gradle.kts; a tag on a develop commit made it ship
-      # a beta as a stable update. Stable releases keep their v<version> tags
-      # on master. The source commit is named in the release notes.
+      # Each beta is its own pre-release, tagged beta-<run>, and the tag
+      # points at an empty commit, not at the app's source. F-Droid
+      # (UpdateCheckMode: Tags) checks out the 5 newest tags and builds the
+      # highest versionCode it finds in app/build.gradle.kts; a tag on a
+      # develop commit made it ship a beta as a stable update. The empty
+      # commit is dated 2000-01-01 because F-Droid orders tags by commit date:
+      # beta tags then always count as the oldest, so they never take one of
+      # those 5 places from a stable v<version> tag on master. The source
+      # commit is named in the release notes.
       - name: Publish the beta release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -210,7 +213,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           EMPTY_TREE=$(git mktree < /dev/null)
-          TAG_COMMIT=$(git commit-tree "$EMPTY_TREE" -m "Beta $GITHUB_RUN_NUMBER ($VERSION_NAME), built from $GITHUB_SHA")
+          TAG_COMMIT=$(GIT_AUTHOR_DATE="2000-01-01T00:00:00Z" GIT_COMMITTER_DATE="2000-01-01T00:00:00Z" \
+            git commit-tree "$EMPTY_TREE" -m "Beta $GITHUB_RUN_NUMBER ($VERSION_NAME), built from $GITHUB_SHA")
+          TAG="beta-$GITHUB_RUN_NUMBER"
           {
             echo "**Beta build. Not a stable release.**"
             echo
@@ -219,9 +224,8 @@ jobs:
             echo
             git log --no-merges --format='- %s' -15 "$GITHUB_SHA"
           } > beta-notes.md
-          gh release delete beta --yes --cleanup-tag 2>/dev/null || true
-          git push --force origin "$TAG_COMMIT:refs/tags/beta"
-          gh release create beta \
+          git push origin "$TAG_COMMIT:refs/tags/$TAG"
+          gh release create "$TAG" \
             atmo-engine-beta-android-16-plus-mlkit.apk \
             atmo-engine-beta-android-16-plus-foss.apk \
             atmo-engine-beta-android-13-plus-mlkit.apk \
