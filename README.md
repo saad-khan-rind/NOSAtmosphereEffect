@@ -273,7 +273,7 @@ git clone https://github.com/saad-khan-rind/NOSAtmosphereEffect.git
 📧 [khansaad45678900@gmail.com](mailto:khansaad45678900@gmail.com)
 🔗 [LinkedIn](https://www.linkedin.com/in/saadullahkhan456)
 💻 [GitHub](https://github.com/saad-khan-rind)
-📄 [Download Resume](https://drive.google.com/uc?export=download&id=1gVGO5wOwkPiNFu0MeO5kcSgEAEfx3MQS)
+📄 [Download Resume](https://drive.google.com/uc?export=download&id=1tGnnqq0MRVyqwtv5bXd9xt2qbgw91nZe)
 🌐 [Portfolio](https://portfolio-frontend-lovat-nine.vercel.app)
 
 ## License
