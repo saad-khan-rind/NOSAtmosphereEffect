@@ -8,6 +8,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewOutlineProvider
+import com.app.nosatmosphereeffect.renderer.SinglePassLook
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanColorFillHost
@@ -131,8 +132,9 @@ internal class VulkanEffectPreviewSession(
                 previewSource = previewSource
             )
             is EffectPreviewRenderState.Halftone -> VulkanHalftoneHost(
+                look = SinglePassLook.of(effectId),
                 context = context,
-                reverse = effectId == "HALFTONE_REVERSE",
+                reverse = SinglePassLook.isReverse(effectId),
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },

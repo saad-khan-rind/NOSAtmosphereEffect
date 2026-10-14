@@ -20,9 +20,8 @@ android {
 
     defaultConfig {
         applicationId = "com.saad_khan_rind.atmosphere_effect"
-        versionName = "7.3.1"
-        versionCode = 500731
-        buildConfigField("boolean", "FOLDER_PLAYLISTS", "false")
+        versionName = "7.3.7"
+        versionCode = 500737
     }
 
     signingConfigs {
@@ -48,21 +47,21 @@ android {
             dimension = "apiLevel"
             minSdk = 36
             targetSdk = 36
-            versionCode = 500731
+            versionCode = 500737
         }
 
         create("v35") {
             dimension = "apiLevel"
             minSdk = 35
             targetSdk = 36
-            versionCode = 400731
+            versionCode = 400737
         }
 
         create("v33") {
             dimension = "apiLevel"
             minSdk = 33
             targetSdk = 33
-            versionCode = 300731
+            versionCode = 300737
         }
 
         create("play") {
@@ -71,23 +70,6 @@ android {
 
         create("fdroid") {
             dimension = "distribution"
-        }
-
-        // Play-services build plus folder playlists. Declares the photo
-        // permissions (READ_MEDIA_IMAGES) that the Play Store build must not,
-        // so it ships separately. Sits in the existing dimension so current
-        // task names (assembleV36PlayRelease, ...) are unchanged.
-        create("folder") {
-            dimension = "distribution"
-            buildConfigField("boolean", "FOLDER_PLAYLISTS", "true")
-        }
-    }
-
-    sourceSets {
-        // The folder flavor reuses the Play build's ML Kit subject model code.
-        getByName("folder") {
-            java.directories.add("src/play/java")
-            kotlin.directories.add("src/play/java")
         }
     }
 
@@ -129,6 +111,25 @@ android {
     }
 }
 
+// Beta builds (the develop release workflow passes -PbetaBuild=<run number>):
+// named "<version>-beta.<n>", with a version code one below that version's
+// stable code, so the stable release always installs over its betas and the
+// betas still install over the stable before it. Done here, not in the
+// versionName / versionCode lines above, which F-Droid reads as plain numbers.
+val betaBuild = providers.gradleProperty("betaBuild").orNull
+if (betaBuild != null) {
+    androidComponents {
+        onVariants { variant ->
+            variant.outputs.forEach { output ->
+                val name = output.versionName.get()
+                val code = output.versionCode.get()
+                output.versionName.set("$name-beta.$betaBuild")
+                output.versionCode.set(code - 1)
+            }
+        }
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -142,9 +143,6 @@ dependencies {
 
     "playImplementation"("com.google.android.gms:play-services-base:18.10.0")
     "playImplementation"("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
-
-    "folderImplementation"("com.google.android.gms:play-services-base:18.10.0")
-    "folderImplementation"("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
     "fdroidImplementation"(libs.litert.api)
     "fdroidImplementation"(libs.litert.fdroid)

@@ -18,8 +18,16 @@
         <item name="colorOnSurface">@color/white</item>
         <item name="colorOnSurfaceVariant">@color/white_alpha_70</item>
 
+        <item name="android:windowAnimationStyle">@style/Animation.Atmo.Activity</item>
         <item name="android:alertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
         <item name="materialAlertDialogTheme">@style/Theme.NOSAtmosphereEffect.Dialog</item>
+    </style>
+
+    <style name="Animation.Atmo.Activity" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/atmo_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/atmo_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/atmo_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/atmo_close_exit</item>
     </style>
 
     <style name="Theme.NOSAtmosphereEffect.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">

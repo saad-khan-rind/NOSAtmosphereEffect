@@ -9,7 +9,9 @@ on:
 
 jobs:
   notify:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from October 19, 2026, which may
+    # not ship the same Android SDK and Java setup. Move up once that's checked.
+    runs-on: ubuntu-24.04
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout Code
@@ -34,8 +36,6 @@ jobs:
           LINK_16_FOSS="https://github.com/$REPO/releases/download/$TAG/atmo-engine-android-16-plus-foss.apk"
           LINK_13_MLKIT="https://github.com/$REPO/releases/download/$TAG/atmo-engine-android-13-plus-mlkit.apk"
           LINK_13_FOSS="https://github.com/$REPO/releases/download/$TAG/atmo-engine-android-13-plus-foss-fdroid.apk"
-          LINK_16_FOLDER="https://github.com/$REPO/releases/download/$TAG/atmo-engine-android-16-plus-mlkit-folder.apk"
-          LINK_13_FOLDER="https://github.com/$REPO/releases/download/$TAG/atmo-engine-android-13-plus-mlkit-folder.apk"
 
           MESSAGE="🚀 <b>New Release: $TAG</b>
 
@@ -43,9 +43,7 @@ jobs:
           • <a href=\"$LINK_16_MLKIT\">Android 16+ (ML Kit)</a>
           • <a href=\"$LINK_16_FOSS\">Android 16+ (FOSS)</a>
           • <a href=\"$LINK_13_MLKIT\">Android 13+ (ML Kit)</a>
-          • <a href=\"$LINK_13_FOSS\">Android 13+ (FOSS/F-Droid)</a>
-          • <a href=\"$LINK_16_FOLDER\">Android 16+ (ML Kit + folder playlists)</a>
-          • <a href=\"$LINK_13_FOLDER\">Android 13+ (ML Kit + folder playlists)</a>"
+          • <a href=\"$LINK_13_FOSS\">Android 13+ (FOSS/F-Droid)</a>"
 
           RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
                -d chat_id="$CHAT_ID" \

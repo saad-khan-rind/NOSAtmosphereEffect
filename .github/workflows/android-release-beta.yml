@@ -9,10 +9,15 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from October 19, 2026, which may
+    # not ship the same Android SDK and Java setup. Move up once that's checked.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # Recent history, for the beta release notes.
+          fetch-depth: 20
 
       # The Gradle daemon asks for a JetBrains JDK 21
       # (gradle/gradle-daemon-jvm.properties, written by Android Studio).
@@ -38,8 +43,10 @@ jobs:
       - name: Extract build metadata
         run: |
           VERSION_NAME=$(grep "versionName =" app/build.gradle.kts | awk -F\" '{print $2}')
-          echo "Found version name: $VERSION_NAME"
+          BETA_NAME="$VERSION_NAME-beta.$GITHUB_RUN_NUMBER"
+          echo "Building beta $BETA_NAME"
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "BETA_NAME=$BETA_NAME" >> "$GITHUB_ENV"
 
       - name: Grant execute permission for Gradle
         run: chmod +x gradlew
@@ -50,13 +57,13 @@ jobs:
           ALIAS: ${{ secrets.ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew \
+          # -PbetaBuild marks the APKs as betas: "<version>-beta.<run>", with a
+          # version code one below that version's stable code (app/build.gradle.kts).
+          ./gradlew -PbetaBuild="$GITHUB_RUN_NUMBER" \
             assembleV36PlayRelease \
             assembleV36FdroidRelease \
             assembleV33PlayRelease \
             assembleV33FdroidRelease \
-            assembleV36FolderRelease \
-            assembleV33FolderRelease \
             bundleV35PlayRelease
 
       - name: Verify model isolation and APK sizes
@@ -80,8 +87,6 @@ jobs:
           APK_16_FOSS=$(find_apk "app/build/outputs/apk/v36Fdroid/release" "v36-fdroid")
           APK_13_MLKIT=$(find_apk "app/build/outputs/apk/v33Play/release" "v33-play")
           APK_13_FOSS=$(find_apk "app/build/outputs/apk/v33Fdroid/release" "v33-fdroid")
-          APK_16_FOLDER=$(find_apk "app/build/outputs/apk/v36Folder/release" "v36-folder")
-          APK_13_FOLDER=$(find_apk "app/build/outputs/apk/v33Folder/release" "v33-folder")
           AAB_15_MLKIT="app/build/outputs/bundle/v35PlayRelease/app-v35-play-release.aab"
 
           assert_no_foss_payload() {
@@ -105,11 +110,9 @@ jobs:
           assert_no_foss_payload "$APK_16_MLKIT"
           assert_no_foss_payload "$APK_13_MLKIT"
           assert_no_foss_payload "$AAB_15_MLKIT"
-          assert_no_foss_payload "$APK_16_FOLDER"
-          assert_no_foss_payload "$APK_13_FOLDER"
 
-          # Photo access is the reason the folder flavor exists; it must never
-          # reach the Play Store or F-Droid builds.
+          # No build may ask for photo access: folder playlists use the
+          # system folder picker, which needs no permission.
           BUILD_TOOLS_DIR=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d -print | sort -V | tail -n 1)
           AAPT2="$BUILD_TOOLS_DIR/aapt2"
           test -x "$AAPT2"
@@ -119,15 +122,13 @@ jobs:
             if "$AAPT2" dump permissions "$apk" | grep -q "android.permission.READ_MEDIA_IMAGES"; then
               [ "$expected" = "yes" ] || { echo "Unexpected photo permission in $apk"; exit 1; }
             else
-              [ "$expected" = "no" ] || { echo "Folder APK is missing READ_MEDIA_IMAGES: $apk"; exit 1; }
+              [ "$expected" = "no" ] || { echo "Missing READ_MEDIA_IMAGES: $apk"; exit 1; }
             fi
           }
           assert_photo_permission "$APK_16_MLKIT" no
           assert_photo_permission "$APK_13_MLKIT" no
           assert_photo_permission "$APK_16_FOSS" no
           assert_photo_permission "$APK_13_FOSS" no
-          assert_photo_permission "$APK_16_FOLDER" yes
-          assert_photo_permission "$APK_13_FOLDER" yes
           if unzip -p "$AAB_15_MLKIT" base/manifest/AndroidManifest.xml | grep -aq "READ_MEDIA_IMAGES"; then
             echo "Unexpected photo permission in the Play Store bundle"
             exit 1
@@ -158,7 +159,7 @@ jobs:
             echo "### Beta artifact sizes"
             echo '```text'
             du -h "$APK_16_MLKIT" "$APK_16_FOSS" "$APK_13_MLKIT" "$APK_13_FOSS" \
-              "$APK_16_FOLDER" "$APK_13_FOLDER" "$AAB_15_MLKIT"
+              "$AAB_15_MLKIT"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -182,8 +183,6 @@ jobs:
           verify_and_copy "app/build/outputs/apk/v36Fdroid/release/app-v36-fdroid-release.apk" "atmo-engine-beta-android-16-plus-foss.apk"
           verify_and_copy "app/build/outputs/apk/v33Play/release/app-v33-play-release.apk" "atmo-engine-beta-android-13-plus-mlkit.apk"
           verify_and_copy "app/build/outputs/apk/v33Fdroid/release/app-v33-fdroid-release.apk" "atmo-engine-beta-android-13-plus-foss-fdroid.apk"
-          verify_and_copy "app/build/outputs/apk/v36Folder/release/app-v36-folder-release.apk" "atmo-engine-beta-android-16-plus-mlkit-folder.apk"
-          verify_and_copy "app/build/outputs/apk/v33Folder/release/app-v33-folder-release.apk" "atmo-engine-beta-android-13-plus-mlkit-folder.apk"
 
           cp \
             app/build/outputs/bundle/v35PlayRelease/app-v35-play-release.aab \
@@ -194,26 +193,44 @@ jobs:
             atmo-engine-beta-android-16-plus-foss.apk \
             atmo-engine-beta-android-13-plus-mlkit.apk \
             atmo-engine-beta-android-13-plus-foss-fdroid.apk \
-            atmo-engine-beta-android-16-plus-mlkit-folder.apk \
-            atmo-engine-beta-android-13-plus-mlkit-folder.apk \
             atmo-engine-beta-playstore-android-15-plus-mlkit.aab \
             > SHA256SUMS-beta.txt
 
-      - name: Create beta release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: v${{ env.VERSION_NAME }}-beta.${{ github.run_number }}
-          target_commitish: ${{ github.sha }}
-          name: Beta v${{ env.VERSION_NAME }} (Build ${{ github.run_number }})
-          generate_release_notes: true
-          draft: false
-          prerelease: true
-          files: |
-            atmo-engine-beta-android-16-plus-mlkit.apk
-            atmo-engine-beta-android-16-plus-foss.apk
-            atmo-engine-beta-android-13-plus-mlkit.apk
-            atmo-engine-beta-android-13-plus-foss-fdroid.apk
-            atmo-engine-beta-android-16-plus-mlkit-folder.apk
-            atmo-engine-beta-android-13-plus-mlkit-folder.apk
-            atmo-engine-beta-playstore-android-15-plus-mlkit.aab
-            SHA256SUMS-beta.txt
+      # Each beta is its own pre-release, tagged beta-<run>, and the tag
+      # points at an empty commit, not at the app's source. F-Droid
+      # (UpdateCheckMode: Tags) checks out the 5 newest tags and builds the
+      # highest versionCode it finds in app/build.gradle.kts; a tag on a
+      # develop commit made it ship a beta as a stable update. The empty
+      # commit is dated 2000-01-01 because F-Droid orders tags by commit date:
+      # beta tags then always count as the oldest, so they never take one of
+      # those 5 places from a stable v<version> tag on master. The source
+      # commit is named in the release notes.
+      - name: Publish the beta release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          EMPTY_TREE=$(git mktree < /dev/null)
+          TAG_COMMIT=$(GIT_AUTHOR_DATE="2000-01-01T00:00:00Z" GIT_COMMITTER_DATE="2000-01-01T00:00:00Z" \
+            git commit-tree "$EMPTY_TREE" -m "Beta $GITHUB_RUN_NUMBER ($VERSION_NAME), built from $GITHUB_SHA")
+          TAG="beta-$GITHUB_RUN_NUMBER"
+          {
+            echo "**Beta build. Not a stable release.**"
+            echo
+            echo "Beta $GITHUB_RUN_NUMBER of version $VERSION_NAME (in the app: $BETA_NAME), built from $GITHUB_SHA on develop."
+            echo "These APKs have their own version codes, one below the stable $VERSION_NAME, so the stable release installs over them."
+            echo
+            git log --no-merges --format='- %s' -15 "$GITHUB_SHA"
+          } > beta-notes.md
+          git push origin "$TAG_COMMIT:refs/tags/$TAG"
+          gh release create "$TAG" \
+            atmo-engine-beta-android-16-plus-mlkit.apk \
+            atmo-engine-beta-android-16-plus-foss.apk \
+            atmo-engine-beta-android-13-plus-mlkit.apk \
+            atmo-engine-beta-android-13-plus-foss-fdroid.apk \
+            atmo-engine-beta-playstore-android-15-plus-mlkit.aab \
+            SHA256SUMS-beta.txt \
+            --verify-tag --prerelease --latest=false \
+            --title "Beta $GITHUB_RUN_NUMBER ($VERSION_NAME)" --notes-file beta-notes.md

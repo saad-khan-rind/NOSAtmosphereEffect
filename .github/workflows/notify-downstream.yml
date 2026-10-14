@@ -1,0 +1,27 @@
+name: Notify downstream
+
+# Tells a repository built on this one that develop or master changed, so it
+# can pick the change up straight away instead of waiting for its own check.
+# Does nothing unless the DOWNSTREAM_REPO and DOWNSTREAM_TOKEN secrets are set.
+on:
+  push:
+    branches: [ "develop", "master" ]
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Send repository_dispatch
+        env:
+          GH_TOKEN: ${{ secrets.DOWNSTREAM_TOKEN }}
+          DOWNSTREAM_REPO: ${{ secrets.DOWNSTREAM_REPO }}
+        run: |
+          if [ -z "$GH_TOKEN" ] || [ -z "$DOWNSTREAM_REPO" ]; then
+            echo "No downstream repository configured."
+            exit 0
+          fi
+          gh api "repos/$DOWNSTREAM_REPO/dispatches" \
+            -f event_type=upstream-updated \
+            -f "client_payload[branch]=$GITHUB_REF_NAME"

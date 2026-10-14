@@ -405,7 +405,10 @@ vec3 applyClockDepth(vec3 color, vec3 subjectColor, float subjectMask) {
         return color;
     }
     float coverage = smoothstep(0.30, 0.72, subjectMask);
-    return mix(color, subjectColor, coverage * uClockOpacity);
+    // The subject hides the clock completely, at any opacity: the clock's own
+    // opacity was already applied when it was drawn, so restoring the frame
+    // only part way left a muted ghost of the digits on the subject.
+    return mix(color, subjectColor, coverage);
 }
 
 // Raw subject coverage for the clock's depth effect.

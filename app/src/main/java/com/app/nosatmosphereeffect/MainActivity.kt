@@ -35,7 +35,6 @@ import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatus
-import com.app.nosatmosphereeffect.storage.ActiveFolderWatch
 import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary
 import com.app.nosatmosphereeffect.storage.WallpaperStorageCoordinator
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatusListener
@@ -70,7 +69,6 @@ class MainActivity : ComponentActivity() {
     private var rendererStatusUi by mutableStateOf<RendererStatusUiModel?>(null)
     private var skipNextResumeStatusRefresh = false
     private var titleTapCount = 0
-    private var folderAccessRequested = false
     private var lastTitleTapTime = 0L
 
     private val rendererStatusListener = RendererRuntimeStatusListener { status ->
@@ -89,11 +87,6 @@ class MainActivity : ComponentActivity() {
     private val pickMultipleImages =
         registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
             if (uris.isNotEmpty()) launchMultiCropActivity(ArrayList(uris))
-        }
-
-    private val requestFolderAccess =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            if (FolderPlaylistSource.hasFullAccess(this)) syncPlaylistLibrary()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -150,14 +143,10 @@ class MainActivity : ComponentActivity() {
                             SavedPlaylistsActivity.intent(this, getActiveEffectType() ?: "ORIGINAL")
                         )
                     },
-                    onPickFolderPlaylist = if (FolderPlaylistSource.isAvailable) {
-                        {
-                            startActivity(
-                                FolderPickerActivity.intent(this, getActiveEffectType() ?: "ORIGINAL")
-                            )
-                        }
-                    } else {
-                        null
+                    onPickFolderPlaylist = {
+                        startActivity(
+                            FolderPickerActivity.intent(this, getActiveEffectType() ?: "ORIGINAL")
+                        )
                     },
                     onAdvancedSettings = { openAdvancedSettings() },
                     onTitleTap = { handleTitleTap() }
@@ -182,18 +171,10 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Keeps the saved-playlist library current: adopts a playlist applied
-     * before the library existed, and (folder build) mirrors the active
-     * playlist's watched folders, adding new images and dropping deleted ones.
+     * before the library existed, and mirrors the active playlist's followed
+     * folders, adding new images and dropping deleted ones.
      */
     private fun syncPlaylistLibrary() {
-        if (FolderPlaylistSource.isAvailable && !folderAccessRequested &&
-            !FolderPlaylistSource.hasFullAccess(this) &&
-            !ActiveFolderWatch.read(this).isEmpty
-        ) {
-            // Once per launch: without full photo access new images stay invisible.
-            folderAccessRequested = true
-            requestFolderAccess.launch(FolderPlaylistSource.requestedPermissions(this))
-        }
         ioExecutor.execute {
             try {
                 WallpaperStorageCoordinator.runExclusive {

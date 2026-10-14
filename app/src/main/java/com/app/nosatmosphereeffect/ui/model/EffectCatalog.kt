@@ -12,6 +12,15 @@ data class EffectItem(
     @StringRes val description: Int
 )
 
+/** One look in both directions; [reverse] is null when only one direction is offered. */
+data class EffectFamily(
+    val key: String,
+    val forward: EffectItem,
+    val reverse: EffectItem?
+) {
+    fun pick(reversed: Boolean): EffectItem = if (reversed) reverse ?: forward else forward
+}
+
 object EffectCatalog {
     private val originalFirstEffectIds = setOf(
         "ORIGINAL",
@@ -19,7 +28,8 @@ object EffectCatalog {
         "FROSTED",
         "HALFTONE",
         "COLORFILL_REVERSE",
-        "NEON_REVERSE"
+        "NEON_REVERSE",
+        "VHS_REVERSE"
     )
 
     val items = listOf(
@@ -94,6 +104,18 @@ object EffectCatalog {
             R.string.effect_halftone_reverse_title,
             R.string.effect_halftone_reverse_transition,
             R.string.effect_halftone_reverse_description
+        ),
+        EffectItem(
+            "VHS",
+            R.string.effect_vhs_title,
+            R.string.effect_vhs_transition,
+            R.string.effect_vhs_description
+        ),
+        EffectItem(
+            "VHS_REVERSE",
+            R.string.effect_vhs_reverse_title,
+            R.string.effect_vhs_reverse_transition,
+            R.string.effect_vhs_reverse_description
         )
     )
 
@@ -105,6 +127,7 @@ object EffectCatalog {
         "GLASS", "GLASS_REVERSE" -> 1200L
         "FROSTED", "FROSTED_REVERSE" -> 500L
         "HALFTONE", "HALFTONE_REVERSE" -> 500L
+        "VHS", "VHS_REVERSE" -> 900L
         "COLORFILL", "COLORFILL_REVERSE" -> 1500L
         "NEON", "NEON_REVERSE" -> 1000L
         else -> 1000L
@@ -112,6 +135,7 @@ object EffectCatalog {
 
     fun defaultDimness(id: String?): Float = when {
         id?.contains("HALFTONE") == true -> 0f
+        id?.contains("VHS") == true -> 0f
         id?.contains("COLORFILL") == true -> 0f
         id?.contains("NEON") == true -> 0f
         id?.contains("GLASS") == true -> 0f
@@ -125,9 +149,21 @@ object EffectCatalog {
     fun supportsAtmosphereGlass(id: String?): Boolean =
         AtmosphereGlassPolicy.supportsEffect(id)
 
+    /** Groups [effects] by [family], keeping catalog order; a lone reverse effect stands as its own forward. */
+    fun families(effects: List<EffectItem> = items): List<EffectFamily> =
+        effects.groupBy { family(it.id) }.map { (key, members) ->
+            val forward = members.firstOrNull { !isReverse(it.id) }
+            EffectFamily(
+                key = key,
+                forward = forward ?: members.first(),
+                reverse = if (forward == null) null else members.firstOrNull { isReverse(it.id) }
+            )
+        }
+
     fun family(id: String): String = when {
         id.contains("FROSTED") -> "FROSTED"
         id.contains("HALFTONE") -> "HALFTONE"
+        id.contains("VHS") -> "VHS"
         id.contains("COLORFILL") -> "COLORFILL"
         id.contains("NEON") -> "CANVAS"
         id.contains("GLASS") -> "GLASS"

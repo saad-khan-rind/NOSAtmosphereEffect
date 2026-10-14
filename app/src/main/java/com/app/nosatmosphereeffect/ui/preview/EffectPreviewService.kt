@@ -21,6 +21,7 @@ import com.app.nosatmosphereeffect.helper.ClockPalette
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPreferences
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
+import com.app.nosatmosphereeffect.helper.ClockFont
 import com.app.nosatmosphereeffect.helper.ClockStyle
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
@@ -38,6 +39,7 @@ import com.app.nosatmosphereeffect.renderer.GlassRenderer
 import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderer
+import com.app.nosatmosphereeffect.renderer.SinglePassLook
 import com.app.nosatmosphereeffect.renderer.NeonRenderState
 import com.app.nosatmosphereeffect.renderer.NeonRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
@@ -191,12 +193,14 @@ class EffectPreviewService(
         styleId: String,
         animate: Boolean,
         color: Int,
-        hourFormat: String
+        hourFormat: String,
+        fontId: String = ClockFont.DEFAULT.id
     ) {
         updateClock { current ->
             current.copy(
                 enabled = true,
                 styleId = styleId,
+                fontId = fontId,
                 animate = animate,
                 requestedColor = color,
                 color = color,
@@ -410,6 +414,11 @@ class EffectPreviewService(
                             AtmosphereClockPolicy.STYLE_KEY,
                             ClockStyle.DEFAULT.id
                         ),
+                        clockFontId = previewString(
+                            prefs,
+                            AtmosphereClockPolicy.FONT_KEY,
+                            ClockFont.DEFAULT.id
+                        ),
                         clockShowDate = previewBoolean(
                             prefs,
                             AtmosphereClockPolicy.DATE_KEY,
@@ -562,6 +571,18 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
+            // VHS shares Halftone's renderer and state; it has no background-only mode.
+            "VHS", "VHS_REVERSE" -> EffectPreviewRenderState.Halftone(
+                HalftoneRenderState(
+                    dimLevel = previewFloat(prefs, "dim_level", 0f),
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS,
+                        unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
+                    )
+                ).sanitized()
+            )
+
             "COLORFILL", "COLORFILL_REVERSE" -> EffectPreviewRenderState.ColorFill(
                 ColorFillRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
@@ -690,8 +711,9 @@ class EffectPreviewService(
                 GlassRenderer(appContext, sourceProvider)
             is EffectPreviewRenderState.Halftone -> HalftoneRenderer(
                 appContext,
-                isReverse = effectId == "HALFTONE_REVERSE",
-                previewSource = sourceProvider
+                isReverse = SinglePassLook.isReverse(effectId),
+                previewSource = sourceProvider,
+                look = SinglePassLook.of(effectId)
             )
             is EffectPreviewRenderState.ColorFill -> ColorFillRenderer(
                 appContext,
@@ -759,6 +781,7 @@ class EffectPreviewService(
                 renderer.clockEnabled = value.clockEnabled
                 renderer.clockDepthEnabled = value.clockDepthEnabled
                 renderer.clockStyle = value.clockStyle
+                renderer.clockFont = value.clockFont
                 renderer.clockShowDate = value.clockShowDate
                 renderer.clockAnimate = value.clockAnimate
                 renderer.clockColor = value.clockColor
@@ -862,7 +885,7 @@ class EffectPreviewService(
             is AtmosphereRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
-                // Was missing: the clock's arrival on Original Atmosphere drew
+                // Was missing: the clock's arrival on Atmosphere drew
                 // its first frame on OpenGL and stopped there.
                 renderer.onAnimationFrameRequested = render
             }

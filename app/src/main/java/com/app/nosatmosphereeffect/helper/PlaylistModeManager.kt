@@ -101,6 +101,11 @@ object PlaylistModeManager {
         FileTransactions.deleteRecursively(File(context.filesDir, DARK_ORIGINALS_DIR))
     }
 
+    /**
+     * The playlist's entries in order, one file per index: `wallpaper_N.jpg`
+     * or a `wallpaper_N.ref` pointer. If both exist (a conversion to a
+     * pointer was interrupted) the complete .jpg wins.
+     */
     fun imageFiles(directory: File): List<File> {
         return directory.listFiles()
             ?.mapNotNull { file ->
@@ -108,10 +113,15 @@ object PlaylistModeManager {
                 val index = PlaylistFilePolicy.index(file.name) ?: return@mapNotNull null
                 index to file
             }
-            ?.sortedBy { (index, _) -> index }
+            ?.sortedWith(compareBy({ (index, _) -> index }, { (_, file) -> file.extension != "jpg" }))
+            ?.distinctBy { (index, _) -> index }
             ?.map { (_, file) -> file }
             .orEmpty()
     }
+
+    /** The entry at [index] in [directory], copied or pointer, or null. */
+    fun entryFile(directory: File, index: Int): File? =
+        imageFiles(directory).firstOrNull { PlaylistFilePolicy.index(it.name) == index }
 
     private fun hasImages(directory: File): Boolean = imageFiles(directory).isNotEmpty()
 }

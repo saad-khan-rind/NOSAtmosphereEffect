@@ -16,7 +16,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -28,7 +27,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,7 +35,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Help
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Brightness6
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Edit
@@ -87,7 +84,11 @@ import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoOutlinedButton
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
 import com.app.nosatmosphereeffect.ui.components.AtmoReveal
+import com.app.nosatmosphereeffect.ui.components.AtmoShapeBadge
+import com.app.nosatmosphereeffect.ui.components.LivePulseDot
+import com.app.nosatmosphereeffect.ui.components.effectFamilyIcon
 import com.app.nosatmosphereeffect.ui.components.AtmoSegmentedControl
+import com.app.nosatmosphereeffect.ui.components.AtmoSettingsGroup
 import com.app.nosatmosphereeffect.ui.components.AtmoTonalButton
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
 import com.app.nosatmosphereeffect.ui.components.WallpaperTransitionPreview
@@ -95,6 +96,7 @@ import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.model.RendererStatusUiModel
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewSettingsMode
 import com.app.nosatmosphereeffect.ui.theme.AppThemeMode
+import com.app.nosatmosphereeffect.ui.theme.AtmoMotion
 import com.app.nosatmosphereeffect.ui.theme.LocalAtmoExpressive
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,28 +139,11 @@ fun MainScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column(modifier = Modifier.clickable(onClick = onTitleTap)) {
-                        Text(stringResource(R.string.main_app_title), style = MaterialTheme.typography.titleLarge)
-                        AnimatedContent(
-                            targetState = wallpaperActive,
-                            transitionSpec = { fadeIn() togetherWith fadeOut() },
-                            label = "wallpaperStatusLabel"
-                        ) { active ->
-                            Text(
-                                if (active) {
-                                    if (wallpaperBehavior.transitionsEnabled) {
-                                        stringResource(R.string.main_status_active)
-                                    } else {
-                                        stringResource(R.string.main_status_always_applied)
-                                    }
-                                } else {
-                                    stringResource(R.string.main_status_studio)
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text(
+                        stringResource(R.string.main_app_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.clickable(onClick = onTitleTap)
+                    )
                 },
                 actions = {
                     if (isSamsungDevice) {
@@ -195,70 +180,64 @@ fun MainScreen(
                 .padding(inner),
             contentAlignment = Alignment.TopCenter
         ) {
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 760.dp),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 42.dp),
+                    .widthIn(max = 760.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 42.dp),
                 verticalArrangement = Arrangement.spacedBy(26.dp)
             ) {
-                item {
-                    AtmoReveal {
-                        if (wallpaperActive) {
-                            ActiveWallpaperPanel(
-                                effectId = activeEffectId ?: "ORIGINAL",
-                                previewBitmap = previewBitmap,
-                                isPlaylistMode = isPlaylistMode,
-                                isThemePlaylistMode = isThemePlaylistMode,
-                                wallpaperBehavior = wallpaperBehavior,
-                                onChangeEffect = onChangeEffect,
-                                onChangeImage = { showImageSheet = true }
-                            )
-                        } else {
-                            EmptyWallpaperPanel(
-                                statusText = statusText,
-                                onSetupWallpaper = onSetupWallpaper
-                            )
-                        }
+                AtmoReveal {
+                    if (wallpaperActive) {
+                        ActiveWallpaperPanel(
+                            effectId = activeEffectId ?: "ORIGINAL",
+                            previewBitmap = previewBitmap,
+                            isPlaylistMode = isPlaylistMode,
+                            isThemePlaylistMode = isThemePlaylistMode,
+                            wallpaperBehavior = wallpaperBehavior,
+                            onChangeEffect = onChangeEffect,
+                            onChangeImage = { showImageSheet = true }
+                        )
+                    } else {
+                        EmptyWallpaperPanel(
+                            statusText = statusText,
+                            onSetupWallpaper = onSetupWallpaper
+                        )
                     }
                 }
 
                 if (wallpaperActive) {
-                    item {
-                        AtmoReveal(delayMillis = 70) {
-                            UnframedSettingsSection(title = stringResource(R.string.main_wallpaper_behavior)) {
-                                SettingSwitchRow(
-                                    title = stringResource(R.string.main_sync_colors),
-                                    subtitle = if (isPlaylistMode) {
-                                        if (isThemePlaylistMode) {
-                                            stringResource(R.string.main_sync_colors_theme)
-                                        } else {
-                                            stringResource(R.string.main_sync_colors_playlist)
-                                        }
+                    AtmoReveal(delayMillis = 70) {
+                        AtmoSettingsGroup(title = stringResource(R.string.main_wallpaper_behavior)) {
+                            SettingSwitchRow(
+                                title = stringResource(R.string.main_sync_colors),
+                                subtitle = if (isPlaylistMode) {
+                                    if (isThemePlaylistMode) {
+                                        stringResource(R.string.main_sync_colors_theme)
                                     } else {
-                                        stringResource(R.string.main_sync_colors_single)
-                                    },
-                                    checked = syncColors,
-                                    onCheckedChange = onSyncColorsChange
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                AtmoOutlinedButton(
-                                    text = stringResource(R.string.main_fine_tune),
-                                    onClick = onAdvancedSettings,
-                                    accent = true,
-                                    icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Tune),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                                        stringResource(R.string.main_sync_colors_playlist)
+                                    }
+                                } else {
+                                    stringResource(R.string.main_sync_colors_single)
+                                },
+                                checked = syncColors,
+                                onCheckedChange = onSyncColorsChange
+                            )
+                            AtmoOutlinedButton(
+                                text = stringResource(R.string.main_fine_tune),
+                                onClick = onAdvancedSettings,
+                                accent = true,
+                                icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Tune),
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
 
                 if (rendererStatus != null) {
-                    item(key = "rendererStatus") {
-                        AtmoReveal(delayMillis = 140) {
-                            RendererStatusFooter(status = rendererStatus)
-                        }
+                    AtmoReveal(delayMillis = 140) {
+                        RendererStatusFooter(status = rendererStatus)
                     }
                 }
             }
@@ -461,18 +440,7 @@ private fun SamsungAdaptiveClockSheet(
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(46.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.Schedule,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(11.dp)
-                    )
-                }
+                AtmoShapeBadge(icon = Icons.Rounded.Schedule, active = true, size = 46.dp)
                 Spacer(Modifier.width(14.dp))
                 Column {
                     Text(stringResource(R.string.samsung_title), style = MaterialTheme.typography.headlineSmall)
@@ -644,19 +612,8 @@ private fun ActiveWallpaperPanel(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            ) {
-                Icon(
-                    Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(4.dp)
-                )
-            }
-            Spacer(Modifier.width(9.dp))
+            LivePulseDot(color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(6.dp))
             Text(
                 when {
                     isThemePlaylistMode -> stringResource(R.string.main_active_theme_playlists)
@@ -685,6 +642,13 @@ private fun ActiveWallpaperPanel(
                 .aspectRatio(0.92f)
         )
 
+        Row(verticalAlignment = Alignment.CenterVertically) {
+        AtmoShapeBadge(
+            icon = effectFamilyIcon(effectId),
+            active = true,
+            size = 52.dp
+        )
+        Spacer(Modifier.width(14.dp))
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 stringResource(effect.title),
@@ -710,26 +674,46 @@ private fun ActiveWallpaperPanel(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        }
 
+        // Expressive button group: the pressed button grows, its neighbour gives way.
+        val effectInteraction = remember { MutableInteractionSource() }
+        val imageInteraction = remember { MutableInteractionSource() }
+        val effectWeight by animateFloatAsState(
+            targetValue = groupWeight(effectInteraction.collectIsPressedAsState().value),
+            animationSpec = AtmoMotion.fastSpatial(),
+            label = "effectButtonWeight"
+        )
+        val imageWeight by animateFloatAsState(
+            targetValue = groupWeight(imageInteraction.collectIsPressedAsState().value),
+            animationSpec = AtmoMotion.fastSpatial(),
+            label = "imageButtonWeight"
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             AtmoTonalButton(
                 text = stringResource(R.string.main_button_effect),
                 onClick = onChangeEffect,
                 icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Palette),
-                modifier = Modifier.weight(1f)
+                interactionSource = effectInteraction,
+                modifier = Modifier.weight(effectWeight)
             )
             AtmoTonalButton(
                 text = stringResource(R.string.main_button_image),
                 onClick = onChangeImage,
                 icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Wallpaper),
-                modifier = Modifier.weight(1f)
+                interactionSource = imageInteraction,
+                modifier = Modifier.weight(imageWeight)
             )
         }
     }
 }
+
+@Composable
+private fun groupWeight(pressed: Boolean): Float =
+    if (pressed && LocalAtmoExpressive.current) 1.18f else 1f
 
 @Composable
 private fun EmptyWallpaperPanel(
@@ -747,7 +731,7 @@ private fun EmptyWallpaperPanel(
         )
         Text(
             stringResource(R.string.main_create_wallpaper),
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
@@ -760,29 +744,6 @@ private fun EmptyWallpaperPanel(
             onClick = onSetupWallpaper,
             icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.Wallpaper),
             modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-@Composable
-private fun UnframedSettingsSection(
-    title: String,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Column(
-            modifier = Modifier.padding(horizontal = 2.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            content = content
-        )
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }
@@ -816,18 +777,7 @@ private fun AppearanceSettingsSheet(
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.Settings,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
+                AtmoShapeBadge(icon = Icons.Rounded.Settings, active = true, size = 46.dp)
                 Spacer(Modifier.width(14.dp))
                 Text(stringResource(R.string.appearance_title), style = MaterialTheme.typography.headlineSmall)
             }
@@ -991,17 +941,13 @@ private fun ModeOption(
                 .padding(horizontal = 18.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(10.dp).size(22.dp)
-                )
-            }
+            AtmoShapeBadge(
+                icon = icon,
+                active = pressed,
+                size = 44.dp,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)

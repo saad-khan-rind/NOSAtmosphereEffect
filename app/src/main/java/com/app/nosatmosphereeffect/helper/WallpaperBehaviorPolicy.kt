@@ -55,7 +55,8 @@ object WallpaperBehaviorPolicy {
 
 object EffectStatePolicy {
     fun endpoints(effectId: String?): EffectStateEndpoints = when (effectId) {
-        "HALFTONE_REVERSE" -> EffectStateEndpoints(
+        // The effect shows at the start of these, the photo at the end.
+        "HALFTONE_REVERSE", "VHS" -> EffectStateEndpoints(
             originalProgress = 1f,
             appliedProgress = 0f
         )

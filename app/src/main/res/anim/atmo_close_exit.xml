@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- M3 shared axis Z, back: the closing screen sinks away and fades. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shareInterpolator="false">
+    <alpha
+        android:duration="160"
+        android:startOffset="60"
+        android:fromAlpha="1"
+        android:toAlpha="0"
+        android:interpolator="@android:interpolator/linear" />
+    <scale
+        android:duration="300"
+        android:fromXScale="1"
+        android:fromYScale="1"
+        android:toXScale="0.9"
+        android:toYScale="0.9"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:interpolator="@interpolator/atmo_emphasized_accelerate" />
+</set>

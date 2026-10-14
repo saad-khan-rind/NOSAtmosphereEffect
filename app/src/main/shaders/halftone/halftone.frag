@@ -367,7 +367,10 @@ vec3 compositeClock(vec3 color, vec2 screenCoord) {
 vec3 applyClockDepth(vec3 color, vec3 subjectColor, float subjectMask) {
     if (params.clockMeta.y <= 0.5 || params.clockMeta.z <= 0.5) return color;
     float coverage = smoothstep(0.30, 0.72, subjectMask);
-    return mix(color, subjectColor, coverage * params.clockMeta.x);
+    // The subject hides the clock completely, at any opacity: the clock's own
+    // opacity was already applied when it was drawn, so restoring the frame
+    // only part way left a muted ghost of the digits on the subject.
+    return mix(color, subjectColor, coverage);
 }
 
 // Raw subject coverage for the clock's depth effect.

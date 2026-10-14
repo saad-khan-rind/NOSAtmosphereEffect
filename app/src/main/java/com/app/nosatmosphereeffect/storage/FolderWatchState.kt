@@ -6,14 +6,14 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
-/** A MediaStore bucket (device folder) whose new images join a playlist. */
+/** A folder picked in the system folder picker (its tree URI) whose new images join a playlist. */
 internal data class WatchedFolder(
     val id: String,
     val name: String
 )
 
 /**
- * The folders a standard playlist follows, plus every MediaStore image id
+ * The folders a standard playlist follows, plus every folder image id
  * already seen in them. Images whose ids are known are never re-added, so
  * removing a folder image from the playlist sticks.
  */
@@ -43,7 +43,10 @@ internal data class FolderWatchState(
             val folders = json.optJSONArray(KEY_FOLDERS)?.let { array ->
                 (0 until array.length()).mapNotNull { index ->
                     val folder = array.optJSONObject(index) ?: return@mapNotNull null
-                    val id = folder.optString(KEY_ID).takeIf(String::isNotEmpty)
+                    // Folders followed before the system folder picker were photo
+                    // library buckets, which can't be read any more: they are dropped
+                    // and the playlist keeps its images until a folder is picked again.
+                    val id = folder.optString(KEY_ID).takeIf { it.startsWith("content://") }
                         ?: return@mapNotNull null
                     WatchedFolder(id, folder.optString(KEY_NAME, id))
                 }

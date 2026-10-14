@@ -44,6 +44,23 @@ class PlaylistFilePolicyTest {
     }
 
     @Test
+    fun `folder pointers count as entries and a complete copy wins a shared index`() {
+        assertEquals(5, PlaylistFilePolicy.index("wallpaper_5.ref"))
+        assertNull(PlaylistFilePolicy.index("wallpaper_5.REF"))
+
+        val directory = temporaryFolder.newFolder("mixed")
+        listOf("wallpaper_0.ref", "wallpaper_1.jpg", "wallpaper_2.ref", "wallpaper_2.jpg", "wallpaper_3.ref")
+            .forEach { name -> check(File(directory, name).createNewFile()) }
+
+        assertEquals(
+            listOf("wallpaper_0.ref", "wallpaper_1.jpg", "wallpaper_2.jpg", "wallpaper_3.ref"),
+            PlaylistModeManager.imageFiles(directory).map(File::getName)
+        )
+        assertEquals("wallpaper_3.ref", PlaylistModeManager.entryFile(directory, 3)?.name)
+        assertNull(PlaylistModeManager.entryFile(directory, 9))
+    }
+
+    @Test
     fun `missing playlist directory is treated as empty`() {
         assertEquals(
             emptyList<File>(),

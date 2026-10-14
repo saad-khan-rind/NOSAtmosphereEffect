@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
+import com.app.nosatmosphereeffect.helper.ClockFont
 import com.app.nosatmosphereeffect.helper.ClockFaceBox
 import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
 import com.app.nosatmosphereeffect.helper.ClockPlacement
@@ -41,6 +42,10 @@ internal class VulkanClockTextureUploader(context: Context) {
     var style: ClockStyle
         get() = face.style
         set(value) { face.style = value }
+
+    internal var font: ClockFont
+        get() = face.font
+        set(value) { face.font = value }
 
     /** Draws the day and date, wherever its own placement puts it. */
     var showDate: Boolean

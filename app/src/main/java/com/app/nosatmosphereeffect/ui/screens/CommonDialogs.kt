@@ -52,6 +52,7 @@ import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton
+import com.app.nosatmosphereeffect.ui.components.PredictiveBackPeek
 import com.app.nosatmosphereeffect.ui.components.AtmoTextButton
 import com.app.nosatmosphereeffect.ui.components.WallpaperTransitionPreview
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
@@ -140,120 +141,122 @@ fun WallpaperPreviewDialog(
             decorFitsSystemWindows = false
         )
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            androidx.compose.foundation.layout.Column(
-                modifier = Modifier.fillMaxSize()
+        PredictiveBackPeek(onBack = onDismiss) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 8.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AnimatedIconAction(
-                        icon = Icons.Rounded.Close,
-                        description = stringResource(R.string.preview_close),
-                        onClick = onDismiss
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
-                        Text(
-                            if (behavior.transitionsEnabled) {
-                                stringResource(R.string.preview_transition)
-                            } else {
-                                stringResource(R.string.preview_always_applied)
-                            },
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Text(
-                            stringResource(EffectCatalog.find(effectId).title),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    WallpaperTransitionPreview(
-                        effectId = effectId,
-                        wallpaper = image,
-                        progress = if (behavior.transitionsEnabled) shownProgress else null,
-                        atmosphereGlassEnabledOverride =
-                            atmosphereGlassEnabledOverride,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .heightIn(max = 720.dp)
-                    )
-                }
-
                 androidx.compose.foundation.layout.Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    if (behavior.transitionsEnabled) {
-                        Surface(
-                            shape = RoundedCornerShape(28.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerLow
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AnimatedIconAction(
-                                    icon = if (playing) {
-                                        Icons.Rounded.Pause
-                                    } else {
-                                        Icons.Rounded.PlayArrow
-                                    },
-                                    description = if (playing) {
-                                        stringResource(R.string.preview_pause)
-                                    } else {
-                                        stringResource(R.string.preview_play)
-                                    },
-                                    onClick = {
-                                        if (playing) {
-                                            manualProgress = automaticProgress.value
-                                        }
-                                        playing = !playing
-                                    }
-                                )
-                                Slider(
-                                    value = shownProgress,
-                                    onValueChange = {
-                                        playing = false
-                                        manualProgress = it
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AnimatedIconAction(
+                            icon = Icons.Rounded.Close,
+                            description = stringResource(R.string.preview_close),
+                            onClick = onDismiss
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+                            Text(
+                                if (behavior.transitionsEnabled) {
+                                    stringResource(R.string.preview_transition)
+                                } else {
+                                    stringResource(R.string.preview_always_applied)
+                                },
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            Text(
+                                stringResource(EffectCatalog.find(effectId).title),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                    Text(
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        WallpaperTransitionPreview(
+                            effectId = effectId,
+                            wallpaper = image,
+                            progress = if (behavior.transitionsEnabled) shownProgress else null,
+                            atmosphereGlassEnabledOverride =
+                                atmosphereGlassEnabledOverride,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .heightIn(max = 720.dp)
+                        )
+                    }
+
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                    ) {
                         if (behavior.transitionsEnabled) {
-                            stringResource(R.string.apply_next_transitions)
-                        } else {
-                            stringResource(R.string.apply_next_always)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                    )
-                    AtmoPrimaryButton(
-                        text = stringResource(R.string.common_continue),
-                        onClick = onConfirm,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                            Surface(
+                                shape = RoundedCornerShape(28.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AnimatedIconAction(
+                                        icon = if (playing) {
+                                            Icons.Rounded.Pause
+                                        } else {
+                                            Icons.Rounded.PlayArrow
+                                        },
+                                        description = if (playing) {
+                                            stringResource(R.string.preview_pause)
+                                        } else {
+                                            stringResource(R.string.preview_play)
+                                        },
+                                        onClick = {
+                                            if (playing) {
+                                                manualProgress = automaticProgress.value
+                                            }
+                                            playing = !playing
+                                        }
+                                    )
+                                    Slider(
+                                        value = shownProgress,
+                                        onValueChange = {
+                                            playing = false
+                                            manualProgress = it
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            if (behavior.transitionsEnabled) {
+                                stringResource(R.string.apply_next_transitions)
+                            } else {
+                                stringResource(R.string.apply_next_always)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        )
+                        AtmoPrimaryButton(
+                            text = stringResource(R.string.common_continue),
+                            onClick = onConfirm,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }

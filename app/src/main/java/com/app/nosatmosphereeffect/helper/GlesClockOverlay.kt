@@ -132,6 +132,7 @@ class GlesClockOverlay(
             pendingState = null
             appliedState = next
             provider.style = next.style
+            provider.font = next.font
             provider.showDate = next.showDate
             provider.clockPlacement = next.placement
             provider.datePlacement = next.datePlacement

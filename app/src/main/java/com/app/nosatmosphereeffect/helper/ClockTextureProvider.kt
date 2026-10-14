@@ -39,6 +39,10 @@ class ClockTextureProvider(context: Context) {
         get() = face.style
         set(value) { face.style = value }
 
+    internal var font: ClockFont
+        get() = face.font
+        set(value) { face.font = value }
+
     /** Draws the day and date above the digits. */
     var showDate: Boolean
         get() = face.showDate

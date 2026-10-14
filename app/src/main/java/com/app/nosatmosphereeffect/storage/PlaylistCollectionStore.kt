@@ -29,7 +29,7 @@ internal data class PlaylistImageSource(
     val matrixState: FloatArray?,
     val fitMode: String,
     val fillMode: String,
-    /** MediaStore id when the image came from a followed folder. */
+    /** Id of the folder image it came from (FolderPlaylistSource), when it did. */
     val mediaId: Long? = null
 )
 
@@ -60,6 +60,16 @@ internal object PlaylistCollectionStore {
         items.forEachIndexed { index, item ->
             val wallpaper = File(stagedImages, "wallpaper_$index.jpg")
             val original = File(stagedOriginals, "original_$index.jpg")
+            if (PlaylistImageRef.canPoint(item.originalUri, item.mediaId, item.isEdited)) {
+                PlaylistImageRef.checkReadable(context, item.originalUri)
+                PlaylistImageRef.write(
+                    File(stagedImages, "wallpaper_$index.${PlaylistImageRef.EXTENSION}"),
+                    PlaylistImageRef.Ref(item.originalUri, targetWidth, targetHeight)
+                )
+                metadata.put(metadataFor(index, item))
+                onProgress(index + 1, items.size)
+                return@forEachIndexed
+            }
             UriFiles.copyAtomically(context, item.originalUri, original)
 
             if (item.isEdited) {
@@ -118,7 +128,8 @@ internal object PlaylistCollectionStore {
             activeSource
         )
         transaction.commit()
-        return File(playlistDirectory, "wallpaper_0.jpg")
+        return PlaylistModeManager.entryFile(playlistDirectory, 0)
+            ?: File(playlistDirectory, "wallpaper_0.jpg")
     }
 
     fun beginActivatingFirst(
@@ -128,9 +139,11 @@ internal object PlaylistCollectionStore {
         activeWallpaper: File,
         activeSource: File
     ): FileTransactions.ReplacementTransaction {
+        val first = PlaylistModeManager.entryFile(playlistDirectory, 0)
+        val firstRef = first?.takeIf(PlaylistImageRef::isRef)?.let(PlaylistImageRef::read)
         val firstWallpaper = File(playlistDirectory, "wallpaper_0.jpg")
         val firstOriginal = File(originalsDirectory, "original_0.jpg")
-        if (!firstWallpaper.isFile || !firstOriginal.isFile) {
+        if (firstRef == null && (!firstWallpaper.isFile || !firstOriginal.isFile)) {
             throw FileNotFoundException("The playlist has no complete first image")
         }
 
@@ -139,8 +152,12 @@ internal object PlaylistCollectionStore {
         val stagedSource = File(activeSource.parentFile, ".active-source-$token.staged")
         var failure: Exception? = null
         try {
-            UriFiles.copyAtomically(context, Uri.fromFile(firstWallpaper), stagedWallpaper)
-            UriFiles.copyAtomically(context, Uri.fromFile(firstOriginal), stagedSource)
+            if (firstRef != null) {
+                PlaylistImageRef.materialize(context, firstRef, stagedWallpaper, stagedSource)
+            } else {
+                UriFiles.copyAtomically(context, Uri.fromFile(firstWallpaper), stagedWallpaper)
+                UriFiles.copyAtomically(context, Uri.fromFile(firstOriginal), stagedSource)
+            }
             return FileTransactions.beginReplacingFiles(
                 listOf(
                     stagedWallpaper to activeWallpaper,
@@ -198,6 +215,23 @@ internal object PlaylistCollectionStore {
         items.forEach { item ->
             val wallpaper = File(playlistDirectory, "wallpaper_$index.jpg")
             val original = File(originalsDirectory, "original_$index.jpg")
+            if (PlaylistImageRef.canPoint(item.originalUri, item.mediaId, item.isEdited)) {
+                val pointer = File(playlistDirectory, "wallpaper_$index.${PlaylistImageRef.EXTENSION}")
+                try {
+                    PlaylistImageRef.checkReadable(context, item.originalUri)
+                    PlaylistImageRef.write(
+                        pointer,
+                        PlaylistImageRef.Ref(item.originalUri, targetWidth, targetHeight)
+                    )
+                } catch (error: Exception) {
+                    Log.w(TAG, "Skipping ${item.originalUri} while extending the playlist", error)
+                    FileTransactions.deleteRecursively(pointer)
+                    return@forEach
+                }
+                metadata?.put(metadataFor(index, item))
+                index++
+                return@forEach
+            }
             try {
                 UriFiles.copyAtomically(context, item.originalUri, original)
                 val source = BitmapDecoder.decodeUri(
@@ -234,7 +268,7 @@ internal object PlaylistCollectionStore {
         return index - nextIndex
     }
 
-    /** MediaStore ids recorded for each entry of a playlist, by file index. */
+    /** Folder image ids recorded for each entry of a playlist, by file index. */
     fun mediaIds(playlistDirectory: File): Map<Int, Long> {
         val metadataFile = File(playlistDirectory, "metadata.json")
         if (!metadataFile.isFile) return emptyMap()
@@ -263,8 +297,10 @@ internal object PlaylistCollectionStore {
         val metadataFile = File(playlistDirectory, "metadata.json")
         if (!metadataFile.isFile) return 0
         val metadata = JSONArray(metadataFile.readText())
+        val entries = PlaylistModeManager.imageFiles(playlistDirectory)
+            .associateBy { PlaylistFilePolicy.index(it.name) }
         val kept = (0 until metadata.length()).filter { index ->
-            index !in removeIndices && File(playlistDirectory, "wallpaper_$index.jpg").isFile
+            index !in removeIndices && entries[index] != null
         }
         if (kept.isEmpty() || kept.size == metadata.length()) return 0
 
@@ -276,8 +312,8 @@ internal object PlaylistCollectionStore {
             FileTransactions.prepareEmptyDirectory(stagedOriginals)
             val compacted = JSONArray()
             kept.forEachIndexed { newIndex, oldIndex ->
-                File(playlistDirectory, "wallpaper_$oldIndex.jpg")
-                    .copyTo(File(stagedImages, "wallpaper_$newIndex.jpg"))
+                val entry = entries.getValue(oldIndex)
+                entry.copyTo(File(stagedImages, "wallpaper_$newIndex.${entry.extension}"))
                 val original = File(originalsDirectory, "original_$oldIndex.jpg")
                 if (original.isFile) {
                     original.copyTo(File(stagedOriginals, "original_$newIndex.jpg"))
@@ -304,6 +340,50 @@ internal object PlaylistCollectionStore {
             }
         }
         return metadata.length() - kept.size
+    }
+
+    /**
+     * Replaces copied folder images the user never cropped with pointers to
+     * the same file in its folder ([PlaylistImageRef]), freeing both copies.
+     * [folderImages] maps the folder image ids present now to their files; an
+     * entry whose image isn't among them stays as it is. Each entry is written
+     * as a pointer before its copies go, so an interruption only leaves a copy
+     * behind. Returns the renamed entries (old name to new name).
+     * Run inside [WallpaperStorageCoordinator.runExclusive].
+     */
+    fun convertToPointers(
+        playlistDirectory: File,
+        originalsDirectory: File,
+        folderImages: Map<Long, Uri>,
+        width: Int,
+        height: Int
+    ): Map<String, String> {
+        val metadataFile = File(playlistDirectory, "metadata.json")
+        if (!metadataFile.isFile || width <= 0 || height <= 0) return emptyMap()
+        val metadata = try {
+            JSONArray(metadataFile.readText())
+        } catch (error: Exception) {
+            Log.w(TAG, "Not converting a playlist whose metadata can't be read", error)
+            return emptyMap()
+        }
+        val renamed = LinkedHashMap<String, String>()
+        for (index in 0 until metadata.length()) {
+            val entry = metadata.optJSONObject(index) ?: continue
+            if (!entry.has(KEY_MEDIA_ID) || entry.optBoolean("isEdited", false)) continue
+            val uri = folderImages[entry.getLong(KEY_MEDIA_ID)] ?: continue
+            val copy = File(playlistDirectory, "wallpaper_$index.jpg")
+            if (!copy.isFile) continue
+            val pointer = File(playlistDirectory, "wallpaper_$index.${PlaylistImageRef.EXTENSION}")
+            try {
+                PlaylistImageRef.write(pointer, PlaylistImageRef.Ref(uri, width, height))
+                FileTransactions.deleteRecursively(copy)
+                FileTransactions.deleteRecursively(File(originalsDirectory, "original_$index.jpg"))
+                renamed[copy.name] = pointer.name
+            } catch (error: IOException) {
+                Log.w(TAG, "Could not convert ${copy.name} to a folder pointer", error)
+            }
+        }
+        return renamed
     }
 
     private fun metadataFor(index: Int, item: PlaylistImageSource): JSONObject {

@@ -87,6 +87,7 @@ internal class VulkanAtmosphereHost(
      */
     private fun applyClockConfiguration(state: AtmosphereRenderState) {
         clockTexture.style = state.clockStyle
+        clockTexture.font = state.clockFont
         clockTexture.showDate = state.clockShowDate
         clockTexture.clockPlacement = state.clockOverlay().placement
         clockTexture.datePlacement = state.clockOverlay().datePlacement

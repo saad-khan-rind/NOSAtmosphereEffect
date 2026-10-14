@@ -12,6 +12,11 @@ constexpr char kVertexShader[] =
     "shaders/vulkan/halftone/halftone.vert.spv";
 constexpr char kFragmentShader[] =
     "shaders/vulkan/halftone/halftone.frag.spv";
+// VHS shares this bridge, its push constants and its bindings; only the
+// fragment shader differs. Matches SinglePassLook.nativeShader.
+constexpr char kVhsFragmentShader[] =
+    "shaders/vulkan/vhs/vhs.frag.spv";
+constexpr jint kShaderVhs = 1;
 constexpr uint32_t kWallpaperBinding = 0;
 constexpr uint32_t kSubjectMaskBinding = 1;
 constexpr uint32_t kClockBinding = 2;
@@ -68,13 +73,15 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanHalftoneNative_nativeCrea
     JNIEnv* env,
     jobject,
     jobject assetManager,
-    jboolean reverse
+    jboolean reverse,
+    jint shader
 ) {
     if (assetManager == nullptr) return 0;
+    const bool vhs = shader == kShaderVhs;
     const atmo::vulkan::OnePassConfig config{
-        "Atmo Halftone",
+        vhs ? "Atmo VHS" : "Atmo Halftone",
         kVertexShader,
-        kFragmentShader,
+        vhs ? kVhsFragmentShader : kFragmentShader,
         3,
         // Both the mask and the clock are optional: each holds the engine's
         // 1x1 clear texture until real content lands.

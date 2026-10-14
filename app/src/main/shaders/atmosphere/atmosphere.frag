@@ -559,7 +559,8 @@ void main() {
             finalColor = mix(
                 finalColor,
                 beforeClock,
-                subjectCoverage * params.clockMeta.x
+                // At any opacity: the clock's own opacity was applied when it was drawn.
+                subjectCoverage
             );
         }
     }

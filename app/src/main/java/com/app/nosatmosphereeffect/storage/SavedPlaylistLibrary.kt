@@ -1,6 +1,7 @@
 package com.app.nosatmosphereeffect.storage
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
@@ -17,7 +18,8 @@ internal data class SavedPlaylistSummary(
     val name: String,
     val imageCount: Int,
     val updatedAt: Long,
-    val cover: File?,
+    /** The first image, copied or in its folder. */
+    val cover: Uri?,
     val watch: FolderWatchState,
     val isActive: Boolean
 )
@@ -72,7 +74,13 @@ internal object SavedPlaylistLibrary {
                     imageCount = images.size,
                     updatedAt = info?.optLong(KEY_UPDATED, directory.lastModified())
                         ?: directory.lastModified(),
-                    cover = images.first(),
+                    cover = images.first().let { first ->
+                        if (PlaylistImageRef.isRef(first)) {
+                            PlaylistImageRef.read(first)?.uri
+                        } else {
+                            Uri.fromFile(first)
+                        }
+                    },
                     watch = FolderWatchState.fromJson(info?.optJSONObject(KEY_WATCH)),
                     isActive = directory.name == activeId
                 )
