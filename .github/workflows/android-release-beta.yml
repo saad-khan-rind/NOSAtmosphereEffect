@@ -196,7 +196,7 @@ jobs:
             atmo-engine-beta-playstore-android-15-plus-mlkit.aab \
             > SHA256SUMS-beta.txt
 
-      # Each beta is its own pre-release, tagged beta-<run>, and the tag
+      # Each beta is its own pre-release, tagged beta-<run>(<version>), and the tag
       # points at an empty commit, not at the app's source. F-Droid
       # (UpdateCheckMode: Tags) checks out the 5 newest tags and builds the
       # highest versionCode it finds in app/build.gradle.kts; a tag on a
@@ -215,7 +215,7 @@ jobs:
           EMPTY_TREE=$(git mktree < /dev/null)
           TAG_COMMIT=$(GIT_AUTHOR_DATE="2000-01-01T00:00:00Z" GIT_COMMITTER_DATE="2000-01-01T00:00:00Z" \
             git commit-tree "$EMPTY_TREE" -m "Beta $GITHUB_RUN_NUMBER ($VERSION_NAME), built from $GITHUB_SHA")
-          TAG="beta-$GITHUB_RUN_NUMBER"
+          TAG="beta-$GITHUB_RUN_NUMBER($VERSION_NAME)"
           {
             echo "**Beta build. Not a stable release.**"
             echo
