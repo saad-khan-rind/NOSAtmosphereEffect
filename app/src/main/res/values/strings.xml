@@ -172,11 +172,13 @@
     <string name="model_downloaded">Subject model downloaded</string>
     <string name="model_retry_download">Retry model download</string>
     <string name="model_paused">Google\'s model is paused</string>
-    <string name="model_downloading_percent">Downloading %1$d%%%</string>
+    <string name="model_downloading_percent">Downloading %1$d%%</string>
     <string name="model_downloading">Downloading model</string>
+    <string name="model_group">Subject model</string>
+    <string name="model_required">Needs the subject model. Download it under Subject model at the top.</string>
     <string name="model_status_bundled">Built into the app. Open source, runs on your phone and works offline.</string>
     <string name="model_status_checking">Checking with Google Play services. Nothing is downloaded yet.</string>
-    <string name="model_status_optional">Optional. Google Play services only downloads it when you tap the button.</string>
+    <string name="model_status_optional">Needed for the depth effect, Background only and other subject features. Google Play services downloads it only when you tap the button.</string>
     <string name="model_status_downloading">Google Play services is downloading it now.</string>
     <string name="model_status_installing">Almost done, finishing the install.</string>
     <string name="model_status_paused">Paused. It\'ll carry on once you\'re back online.</string>

@@ -37,7 +37,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -448,8 +447,9 @@ private fun PreviewPositionControls(
     onAutoPlay: () -> Unit,
     onPosition: (Float) -> Unit
 ) {
+    // Same corner as the selected control, so the track and the thumb share one shape.
     Surface(
-        shape = CircleShape,
+        shape = RoundedCornerShape(if (LocalAtmoExpressive.current) 32 else 50),
         color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Row(Modifier.padding(3.dp)) {

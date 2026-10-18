@@ -74,8 +74,9 @@ class AdvancedSettingsActivity : ComponentActivity() {
         // VHS draws its own tape grain, so the film-grain switch would do nothing there.
         val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass && !isVhs
         val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
-        // VHS needs the subject only for the clock's depth.
-        val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere || isVhs
+        // Every clock effect needs the subject for the clock's depth, Colour Fill and Frosted included.
+        val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere ||
+            AtmosphereClockPolicy.supportsDepth(activeEffect)
 
         val defaultDuration = EffectCatalog.recommendedDurationMillis(activeEffect)
         val defaultDimness = EffectCatalog.defaultDimness(activeEffect)
