@@ -79,6 +79,9 @@ bool setUniformData(
 
 int render(OnePassHandle handle);
 
+/** The lock screen's wake transition for every engine: mode 0 is none, amount 1 to 0. */
+void setWake(int mode, float amount);
+
 void destroySurface(OnePassHandle handle);
 
 void destroyOnePass(JNIEnv* env, OnePassHandle handle);

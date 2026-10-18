@@ -38,6 +38,48 @@ class WallpaperBehaviorPolicyTest {
     }
 
     @Test
+    fun `wake transition is off by default and its stored values are safe`() {
+        val wake = WallpaperBehaviorSettings().wakeTransition
+        assertFalse(wake.enabled)
+        assertEquals(WakeTransitionStyle.ZOOM, wake.style)
+
+        WakeTransitionStyle.entries.forEach {
+            assertEquals(it, WakeTransitionStyle.fromStoredValue(it.storedValue))
+        }
+        listOf(null, "", "ZOOM", "fade").forEach {
+            assertEquals(WakeTransitionStyle.ZOOM, WakeTransitionStyle.fromStoredValue(it))
+        }
+
+        assertEquals(250, wake.durationMs)
+        assertEquals(150, WakeTransitionSettings.sanitizeDuration(0))
+        assertEquals(300, WakeTransitionSettings.sanitizeDuration(300))
+        assertEquals(500, WakeTransitionSettings.sanitizeDuration(5_000))
+    }
+
+    @Test
+    fun `wake zoom never stacks on the adaptive clock's own zoom`() {
+        WakeTransition.show(WakeTransitionStyle.ZOOM, 1f)
+        assertEquals(WakeTransition.START_ZOOM, WakeTransition.zoom(1f))
+        assertEquals(1.1f, WakeTransition.zoom(1.1f))
+        WakeTransition.clear()
+        assertEquals(1f, WakeTransition.zoom(1f))
+    }
+
+    @Test
+    fun `colour fill and blur go to the post pass and clear fully`() {
+        WakeTransition.show(WakeTransitionStyle.BLUR, 0.5f)
+        assertEquals(WakeTransition.MODE_BLUR, WakeTransition.postMode)
+        assertEquals(0.5f, WakeTransition.postAmount)
+        assertEquals(1f, WakeTransition.zoom(1f))
+        WakeTransition.show(WakeTransitionStyle.COLOR_FILL, 2f)
+        assertEquals(WakeTransition.MODE_COLOR_FILL, WakeTransition.postMode)
+        assertEquals(1f, WakeTransition.postAmount)
+        WakeTransition.clear()
+        assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
+        assertEquals(0f, WakeTransition.postAmount)
+    }
+
+    @Test
     fun `always applied targets select the expected surfaces`() {
         assertTrue(AlwaysAppliedTarget.HOME.showsEffectOn(WallpaperSurface.HOME))
         assertFalse(AlwaysAppliedTarget.HOME.showsEffectOn(WallpaperSurface.LOCK))

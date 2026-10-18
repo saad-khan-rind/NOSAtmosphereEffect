@@ -61,6 +61,8 @@ import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
 import com.app.nosatmosphereeffect.helper.SubjectModelDelivery
 import com.app.nosatmosphereeffect.helper.SubjectModelPhase
 import com.app.nosatmosphereeffect.helper.SubjectModelState
+import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
+import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoDropdownField
@@ -111,6 +113,7 @@ data class AdvancedConfig(
     val duration: String,
     val transitionsEnabled: Boolean,
     val alwaysAppliedTarget: AlwaysAppliedTarget,
+    val wakeTransition: WakeTransitionSettings,
     val dimness: Float,
     val blurStrength: Float,
     val enableNoise: Boolean,
@@ -140,6 +143,7 @@ data class AdvancedResult(
     val duration: String,
     val transitionsEnabled: Boolean,
     val alwaysAppliedTarget: AlwaysAppliedTarget,
+    val wakeTransition: WakeTransitionSettings,
     val dimness: Float,
     val blurStrength: Float,
     val enableNoise: Boolean,
@@ -190,6 +194,7 @@ fun AdvancedSettingsScreen(
     var duration by remember { mutableStateOf(config.duration) }
     var transitionsEnabled by remember { mutableStateOf(config.transitionsEnabled) }
     var alwaysAppliedTarget by remember { mutableStateOf(config.alwaysAppliedTarget) }
+    var wakeTransition by remember { mutableStateOf(config.wakeTransition) }
     var dimness by remember { mutableFloatStateOf(config.dimness) }
     var blurStrength by remember { mutableFloatStateOf(config.blurStrength) }
     var rotationIndex by remember { mutableIntStateOf(config.initialRotationIndex) }
@@ -283,6 +288,7 @@ fun AdvancedSettingsScreen(
         duration = duration,
         transitionsEnabled = transitionsEnabled,
         alwaysAppliedTarget = alwaysAppliedTarget,
+        wakeTransition = wakeTransition,
         dimness = dimness,
         blurStrength = blurStrength,
         enableNoise = noiseEnabled,
@@ -444,6 +450,8 @@ fun AdvancedSettingsScreen(
                         onTransitionsEnabledChange = { transitionsEnabled = it },
                         alwaysAppliedTarget = alwaysAppliedTarget,
                         onAlwaysAppliedTargetChange = { alwaysAppliedTarget = it },
+                        wakeTransition = wakeTransition,
+                        onWakeTransitionChange = { wakeTransition = it },
                         onPollInfo = { infoDialog = InfoDialog.Poll },
                         onDelayInfo = { infoDialog = InfoDialog.Delay }
                     )
@@ -975,6 +983,8 @@ private fun TimingSettings(
     onTransitionsEnabledChange: (Boolean) -> Unit,
     alwaysAppliedTarget: AlwaysAppliedTarget,
     onAlwaysAppliedTargetChange: (AlwaysAppliedTarget) -> Unit,
+    wakeTransition: WakeTransitionSettings,
+    onWakeTransitionChange: (WakeTransitionSettings) -> Unit,
     onPollInfo: () -> Unit,
     onDelayInfo: () -> Unit
 ) {
@@ -999,6 +1009,66 @@ private fun TimingSettings(
                     stringResource(R.string.timing_animate_off)
                 }
             )
+        }
+
+        SettingsGroup(stringResource(R.string.wake_group)) {
+            SettingSwitchRow(
+                title = stringResource(R.string.wake_animate),
+                checked = wakeTransition.enabled,
+                onCheckedChange = { onWakeTransitionChange(wakeTransition.copy(enabled = it)) },
+                subtitle = stringResource(
+                    if (wakeTransition.enabled) R.string.wake_animate_on else R.string.wake_animate_off
+                )
+            )
+            AnimatedVisibility(visible = wakeTransition.enabled) {
+                Column {
+                    Spacer(Modifier.height(12.dp))
+                    AtmoSegmentedControl(
+                        options = listOf(
+                            stringResource(R.string.wake_zoom),
+                            stringResource(R.string.wake_color_fill),
+                            stringResource(R.string.wake_blur)
+                        ),
+                        selectedIndex = wakeTransition.style.ordinal,
+                        onSelected = { index ->
+                            onWakeTransitionChange(
+                                wakeTransition.copy(style = WakeTransitionStyle.entries[index])
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(
+                            when (wakeTransition.style) {
+                                WakeTransitionStyle.ZOOM -> R.string.wake_zoom_hint
+                                WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill_hint
+                                WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
+                            }
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = GroupTextInset
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    val resources = LocalResources.current
+                    LabeledSlider(
+                        label = stringResource(R.string.wake_length),
+                        value = wakeTransition.durationMs.toFloat(),
+                        onValueChange = {
+                            onWakeTransitionChange(
+                                wakeTransition.copy(
+                                    durationMs = WakeTransitionSettings.sanitizeDuration(it.roundToInt())
+                                )
+                            )
+                        },
+                        valueRange = WakeTransitionSettings.MIN_DURATION_MS.toFloat()..
+                            WakeTransitionSettings.MAX_DURATION_MS.toFloat(),
+                        step = 50f,
+                        valueText = { resources.getString(R.string.wake_length_ms, it.roundToInt()) }
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(visible = transitionsEnabled) {

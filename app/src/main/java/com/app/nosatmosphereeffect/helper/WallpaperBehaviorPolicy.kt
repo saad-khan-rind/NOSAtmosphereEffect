@@ -29,7 +29,8 @@ enum class WallpaperSurface {
 
 data class WallpaperBehaviorSettings(
     val transitionsEnabled: Boolean = true,
-    val alwaysAppliedTarget: AlwaysAppliedTarget = AlwaysAppliedTarget.BOTH
+    val alwaysAppliedTarget: AlwaysAppliedTarget = AlwaysAppliedTarget.BOTH,
+    val wakeTransition: WakeTransitionSettings = WakeTransitionSettings()
 )
 
 data class EffectStateEndpoints(
@@ -40,6 +41,9 @@ data class EffectStateEndpoints(
 object WallpaperBehaviorPolicy {
     const val TRANSITIONS_ENABLED_KEY = "effect_transitions_enabled"
     const val ALWAYS_APPLIED_TARGET_KEY = "always_applied_target"
+    const val WAKE_ENABLED_KEY = "wake_transition_enabled"
+    const val WAKE_STYLE_KEY = "wake_transition_style"
+    const val WAKE_DURATION_KEY = "wake_transition_ms"
 
     fun resolveSurface(
         isHomeEngine: Boolean,
@@ -103,6 +107,21 @@ object WallpaperBehaviorPreferences {
                     WallpaperBehaviorPolicy.ALWAYS_APPLIED_TARGET_KEY,
                     AlwaysAppliedTarget.BOTH.storedValue
                 )
+            ),
+            wakeTransition = WakeTransitionSettings(
+                enabled = preferences.readBoolean(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY, false),
+                style = WakeTransitionStyle.fromStoredValue(
+                    preferences.readStringSafely(
+                        WallpaperBehaviorPolicy.WAKE_STYLE_KEY,
+                        WakeTransitionStyle.ZOOM.storedValue
+                    )
+                ),
+                durationMs = WakeTransitionSettings.sanitizeDuration(
+                    preferences.readInt(
+                        WallpaperBehaviorPolicy.WAKE_DURATION_KEY,
+                        WakeTransitionSettings.DEFAULT_DURATION_MS
+                    )
+                )
             )
         )
     }
@@ -117,6 +136,12 @@ object WallpaperBehaviorPreferences {
                 WallpaperBehaviorPolicy.ALWAYS_APPLIED_TARGET_KEY,
                 settings.alwaysAppliedTarget.storedValue
             )
+            putBoolean(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY, settings.wakeTransition.enabled)
+            putString(WallpaperBehaviorPolicy.WAKE_STYLE_KEY, settings.wakeTransition.style.storedValue)
+            putInt(
+                WallpaperBehaviorPolicy.WAKE_DURATION_KEY,
+                WakeTransitionSettings.sanitizeDuration(settings.wakeTransition.durationMs)
+            )
         }
     }
 
@@ -124,12 +149,24 @@ object WallpaperBehaviorPreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             remove(WallpaperBehaviorPolicy.TRANSITIONS_ENABLED_KEY)
             remove(WallpaperBehaviorPolicy.ALWAYS_APPLIED_TARGET_KEY)
+            remove(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY)
+            remove(WallpaperBehaviorPolicy.WAKE_STYLE_KEY)
+            remove(WallpaperBehaviorPolicy.WAKE_DURATION_KEY)
         }
     }
 
     private fun SharedPreferences.readBoolean(key: String, fallback: Boolean): Boolean {
         return try {
             getBoolean(key, fallback)
+        } catch (failure: ClassCastException) {
+            Log.w(TAG, "Preference '$key' has the wrong type; using $fallback", failure)
+            fallback
+        }
+    }
+
+    private fun SharedPreferences.readInt(key: String, fallback: Int): Int {
+        return try {
+            getInt(key, fallback)
         } catch (failure: ClassCastException) {
             Log.w(TAG, "Preference '$key' has the wrong type; using $fallback", failure)
             fallback

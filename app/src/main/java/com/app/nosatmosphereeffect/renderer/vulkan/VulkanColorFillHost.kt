@@ -8,6 +8,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
@@ -529,7 +530,7 @@ internal class VulkanColorFillHost(
                 // existing — the shader must never sample the clear texture.
                 clockDepth = state.clock.depthEnabled && state.hasSubject,
                 clockGlass = state.clock.glassMeta,
-                wallpaperZoom = state.clock.wallpaperZoom
+                wallpaperZoom = WakeTransition.zoom(state.clock.wallpaperZoom)
             )
             true
         } catch (failure: Throwable) {
@@ -553,6 +554,7 @@ internal class VulkanColorFillHost(
         uploadClockDepthMaskOnWorker(handle)
         if (!applyStateOnWorker()) return
         val result = try {
+            VulkanWakeNative.push()
             VulkanNative.nativeRender(handle)
         } catch (failure: Throwable) {
             Log.e(TAG, "Unable to render the Vulkan Color Fill frame", failure)
