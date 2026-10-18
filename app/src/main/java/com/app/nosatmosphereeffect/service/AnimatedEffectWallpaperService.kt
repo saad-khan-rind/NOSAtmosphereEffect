@@ -1,5 +1,7 @@
 package com.app.nosatmosphereeffect.service
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.KeyguardManager
 import android.app.WallpaperManager
@@ -12,6 +14,7 @@ import android.os.PowerManager
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.animation.LinearInterpolator
+import android.view.animation.PathInterpolator
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.ClockPreferences
 import com.app.nosatmosphereeffect.helper.ClockScreen
@@ -19,6 +22,8 @@ import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.PlaylistRotationController
+import com.app.nosatmosphereeffect.helper.WakeTransition
+import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPolicy
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
@@ -136,6 +141,8 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         private val logTag = this@AnimatedEffectWallpaperService::class.java.simpleName
         private var renderer: R? = null
         private var animator: ValueAnimator? = null
+        /** The screen went off since the wallpaper was last on it: the next showing is a wake. */
+        private var sleptWhileHidden = false
         private var timing = EffectTiming(
             pollIntervalMs = defaultPollIntervalMs(),
             lockDelayMs = defaultLockDelayMs(),
@@ -224,6 +231,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             onEngineVisibilityChanged(renderer, visible)
             if (!visible) events.onHidden()
+            if (!visible && !isDeviceInteractive()) sleptWhileHidden = true
             if (!behavior.transitionsEnabled) {
                 animator?.cancel()
                 animator = null
@@ -238,6 +246,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                 events.setLocked(locked)
                 renderer?.let { applyFixedState(it, locked) }
                 requestRender()
+                playWakeTransitionIfWoken()
                 return
             }
 
@@ -262,6 +271,44 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             }
 
             events.onVisible(keyguardLocked = isKeyguardLocked())
+            playWakeTransitionIfWoken()
+        }
+
+        /**
+         * The lock screen arriving as the screen turns on: a quick, subtle
+         * zoom, colour fill from the centre or blur to sharp (WakeTransition).
+         * Runs on the engine's [animator], so an unlock started meanwhile
+         * takes over from it as it would from any other animation.
+         */
+        private fun playWakeTransitionIfWoken() {
+            val woke = sleptWhileHidden
+            sleptWhileHidden = false
+            val wake = behavior.wakeTransition
+            if (!woke || isPreview || !wake.enabled || !isKeyguardLocked()) return
+            animator?.cancel()
+            // Held at the start until the screen has finished revealing the
+            // lock screen (some skins fade in from the always-on display after
+            // the wallpaper is already visible), so the motion is seen.
+            WakeTransition.show(wake.style, 1f)
+            requestRender()
+            animator = ValueAnimator.ofFloat(1f, 0f).apply {
+                val zoom = wake.style == WakeTransitionStyle.ZOOM
+                startDelay = if (zoom) ZOOM_HOLD_MS else WAKE_HOLD_MS
+                duration = wake.durationMs.toLong()
+                interpolator = if (zoom) ZOOM_EASING else WAKE_EASING
+                addUpdateListener { animation ->
+                    WakeTransition.show(wake.style, animation.animatedValue as Float)
+                    requestRender()
+                }
+                // Cancelled by an unlock or a lock-state snap: never leave it half-played.
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        WakeTransition.clear()
+                        requestRender()
+                    }
+                })
+                start()
+            }
         }
 
         override fun onWallpaperFlagsChanged(which: Int) {
@@ -623,6 +670,18 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         const val DEFAULT_LOCK_DELAY_MS = 800L
         const val SAMSUNG_POLL_INTERVAL_MS = 30_000L
         const val SAMSUNG_LOCK_DELAY_MS = 0L
+        /** Material's emphasized decelerate: quick off the mark, settling softly. */
+        val WAKE_EASING = PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
+        /**
+         * Covers the skins' own fade in from the always-on display: on a
+         * Nothing Phone (1) it ends ~420 ms after the wallpaper is visible.
+         * The start state (zoomed, grey or blurred) is what shows meanwhile.
+         */
+        const val WAKE_HOLD_MS = 320L
+        /** The zoom is motion, not a reveal: it may start under the fade's last part. */
+        const val ZOOM_HOLD_MS = 160L
+        /** Ease in and out, so the zoom neither jolts off nor stops dead. */
+        val ZOOM_EASING = PathInterpolator(0.4f, 0f, 0.2f, 1f)
     }
 }
 

@@ -20,6 +20,7 @@ import com.app.nosatmosphereeffect.helper.ClockTextureProvider
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.SubjectMaskDiagnostics
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
 import java.io.File
@@ -817,7 +818,7 @@ class AtmosphereRenderer(
         // The Adaptive face's arrival zoom on the photo; see GlesClockOverlay.
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uWallpaperZoom"),
-            if (ready) clockTexture.wallpaperZoom else 1f
+            WakeTransition.zoom(if (ready) clockTexture.wallpaperZoom else 1f)
         )
         if (!ready) {
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)

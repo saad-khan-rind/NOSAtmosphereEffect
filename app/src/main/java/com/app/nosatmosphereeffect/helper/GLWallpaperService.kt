@@ -512,7 +512,7 @@ abstract class GLWallpaperService : WallpaperService() {
             WallpaperGLSurfaceView(context)
         }.apply {
             attachWallpaperHolder(wallpaperHolder)
-            setRenderer(renderer)
+            setRenderer(WakePostRenderer(context, renderer))
             renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         }
         private val scrollRenderer = renderer as? WallpaperScrollRenderer

@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
 import com.app.nosatmosphereeffect.renderer.SinglePassLook
@@ -245,7 +246,7 @@ private class HalftoneBridge(
             clockUploaded = safe.clock.faceUploaded,
             clockDepth = safe.clock.depthEnabled,
             clockGlass = safe.clock.glassMeta,
-            wallpaperZoom = safe.clock.wallpaperZoom
+            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom)
         )
     }
 

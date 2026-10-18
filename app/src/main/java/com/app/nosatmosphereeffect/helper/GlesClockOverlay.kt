@@ -185,7 +185,7 @@ class GlesClockOverlay(
         // wallpaper magnified.
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uWallpaperZoom"),
-            if (ready) provider.wallpaperZoom else 1f
+            WakeTransition.zoom(if (ready) provider.wallpaperZoom else 1f)
         )
         if (!ready) {
             GLES30.glUniform1f(

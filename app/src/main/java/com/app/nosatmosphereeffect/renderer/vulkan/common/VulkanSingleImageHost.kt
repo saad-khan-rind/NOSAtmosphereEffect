@@ -11,6 +11,7 @@ import android.view.SurfaceHolder
 import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanApiVersion
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanWakeNative
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.CountDownLatch
@@ -455,6 +456,7 @@ internal abstract class VulkanSingleImageHost<State : Any>(
         if (!applyStateOnWorker()) return
 
         val result = runCatching {
+            VulkanWakeNative.push()
             bridge.render(handle)
         }.getOrDefault(RENDER_FATAL)
         if (!isCurrentGeneration(generation)) {
