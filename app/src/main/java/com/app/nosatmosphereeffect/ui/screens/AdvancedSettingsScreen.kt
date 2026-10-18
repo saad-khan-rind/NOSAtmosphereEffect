@@ -532,7 +532,50 @@ private fun EffectSettings(
     noiseStrength: String,
     onNoiseStrengthChange: (String) -> Unit
 ) {
+    val playServicesModel = subjectModelDelivery == SubjectModelDelivery.GOOGLE_PLAY_SERVICES
+    // Null while the first check runs, so nothing claims a download is needed before we know.
+    val modelRequiredText = if (
+        subjectModelReady || subjectModelState.phase == SubjectModelPhase.CHECKING
+    ) null else stringResource(R.string.model_required)
+    val needsSubjectModel = config.showGlass || config.showAtmosphereGlassToggle ||
+        config.showHalftone || config.showNeon ||
+        (config.showClockToggle && !config.isPlaylistMode)
     SettingsScroll {
+        // One place for the model, above everything that needs it, rather than
+        // inside whichever setting happens to be expanded.
+        AnimatedVisibility(visible = playServicesModel && needsSubjectModel && !subjectModelReady) {
+            SettingsGroup(stringResource(R.string.model_group)) {
+                Text(
+                    subjectModelStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = GroupTextInset
+                )
+                Spacer(Modifier.height(10.dp))
+                AtmoOutlinedButton(
+                    text = subjectModelButtonText,
+                    onClick = onDownloadSubjectModel,
+                    enabled = !subjectModelWorking &&
+                        subjectModelState.phase != SubjectModelPhase.BROKEN,
+                    accent = true,
+                    icon = if (!subjectModelWorking) painterResource(R.drawable.ic_download) else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (subjectModelWorking) {
+                    Spacer(Modifier.height(10.dp))
+                    val percent = subjectModelState.progressPercent
+                    if (percent != null) {
+                        LinearProgressIndicator(
+                            progress = { percent / 100f },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+        }
+
         if (
             config.showGlass ||
             (config.showAtmosphereGlassToggle && transitionsEnabled)
@@ -626,11 +669,7 @@ private fun EffectSettings(
                                 stringResource(R.string.common_waiting_model),
                             subjectModelDelivery = subjectModelDelivery,
                             subjectModelReady = subjectModelReady,
-                            subjectModelWorking = subjectModelWorking,
-                            subjectModelButtonText = subjectModelButtonText,
-                            subjectModelStatusText = subjectModelStatusText,
-                            subjectModelState = subjectModelState,
-                            onDownloadSubjectModel = onDownloadSubjectModel
+                            modelRequiredText = modelRequiredText
                         )
                     }
                 }
@@ -717,7 +756,10 @@ private fun EffectSettings(
                         title = stringResource(if (adaptiveStyle) R.string.clock_adapt else R.string.clock_depth),
                         checked = clockDepthEnabled,
                         onCheckedChange = onClockDepthEnabledChange,
-                        subtitle = if (adaptiveStyle) {
+                        enabled = subjectModelReady || clockDepthEnabled,
+                        subtitle = if (modelRequiredText != null) {
+                            modelRequiredText
+                        } else if (adaptiveStyle) {
                             if (clockDepthEnabled) {
                                 stringResource(R.string.clock_adapt_on)
                             } else {
@@ -764,11 +806,7 @@ private fun EffectSettings(
                     waitingText = stringResource(R.string.common_waiting_model),
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
-                    subjectModelWorking = subjectModelWorking,
-                    subjectModelButtonText = subjectModelButtonText,
-                    subjectModelStatusText = subjectModelStatusText,
-                    subjectModelState = subjectModelState,
-                    onDownloadSubjectModel = onDownloadSubjectModel
+                    modelRequiredText = modelRequiredText
                 )
             }
         }
@@ -804,11 +842,7 @@ private fun EffectSettings(
                     waitingText = stringResource(R.string.canvas_waiting),
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
-                    subjectModelWorking = subjectModelWorking,
-                    subjectModelButtonText = subjectModelButtonText,
-                    subjectModelStatusText = subjectModelStatusText,
-                    subjectModelState = subjectModelState,
-                    onDownloadSubjectModel = onDownloadSubjectModel
+                    modelRequiredText = modelRequiredText
                 )
                 Spacer(Modifier.height(18.dp))
                 LabeledSlider(
@@ -903,11 +937,8 @@ private fun SubjectIsolationSetting(
     waitingText: String,
     subjectModelDelivery: SubjectModelDelivery,
     subjectModelReady: Boolean,
-    subjectModelWorking: Boolean,
-    subjectModelButtonText: String,
-    subjectModelStatusText: String,
-    subjectModelState: SubjectModelState,
-    onDownloadSubjectModel: () -> Unit,
+    /** Set while the model is missing: the switch greys out and points at the model card. */
+    modelRequiredText: String?,
     /** Set when something else needs this on: shown on and greyed out, with this reason. */
     forcedOnReason: String? = null
 ) {
@@ -917,6 +948,8 @@ private fun SubjectIsolationSetting(
         onCheckedChange = onCheckedChange,
         enabled = forcedOnReason == null && (subjectModelReady || checked),
         subtitle = when {
+            // Raw `checked`: a switch only forced on still points at the missing model.
+            !checked && modelRequiredText != null -> modelRequiredText
             forcedOnReason != null -> forcedOnReason
             !checked -> inactiveText
             subjectModelDelivery == SubjectModelDelivery.BUNDLED_FOSS ->
@@ -925,41 +958,6 @@ private fun SubjectIsolationSetting(
                 stringResource(R.string.model_uses_installed, activeDescription)
             else -> waitingText
         }
-    )
-    if (subjectModelDelivery == SubjectModelDelivery.GOOGLE_PLAY_SERVICES) {
-        Spacer(Modifier.height(10.dp))
-        AtmoOutlinedButton(
-            text = subjectModelButtonText,
-            onClick = onDownloadSubjectModel,
-            enabled = !subjectModelWorking && !subjectModelReady &&
-                subjectModelState.phase != SubjectModelPhase.BROKEN,
-            accent = true,
-            icon = if (!subjectModelWorking && !subjectModelReady) {
-                painterResource(R.drawable.ic_download)
-            } else {
-                null
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-        if (subjectModelWorking) {
-            Spacer(Modifier.height(10.dp))
-            val percent = subjectModelState.progressPercent
-            if (percent != null) {
-                LinearProgressIndicator(
-                    progress = { percent / 100f },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    Text(
-        subjectModelStatusText,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = GroupTextInset
     )
 }
 
