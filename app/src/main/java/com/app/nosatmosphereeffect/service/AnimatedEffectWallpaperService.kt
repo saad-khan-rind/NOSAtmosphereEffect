@@ -327,7 +327,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         private fun showWake(wake: WakeTransitionSettings, remaining: Float) {
             val from = wakeEffectFrom
             if (from == null) {
-                WakeTransition.show(wake.style, remaining)
+                WakeTransition.show(wake.style, remaining, wake.zoomPercent)
             } else {
                 renderer?.let { setEffectProgress(it, wakeEffectTo + (from - wakeEffectTo) * remaining) }
             }

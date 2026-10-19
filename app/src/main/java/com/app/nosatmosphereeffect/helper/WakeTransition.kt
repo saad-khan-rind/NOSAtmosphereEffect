@@ -20,14 +20,21 @@ enum class WakeTransitionStyle(val storedValue: String) {
 data class WakeTransitionSettings(
     val enabled: Boolean = false,
     val style: WakeTransitionStyle = WakeTransitionStyle.ZOOM,
-    val durationMs: Int = DEFAULT_DURATION_MS
+    val durationMs: Int = DEFAULT_DURATION_MS,
+    /** How far in a zoom starts, in percent. */
+    val zoomPercent: Int = DEFAULT_ZOOM_PERCENT
 ) {
     companion object {
         const val MIN_DURATION_MS = 50
         const val MAX_DURATION_MS = 1000
         const val DEFAULT_DURATION_MS = 250
+        const val MIN_ZOOM_PERCENT = 1
+        const val MAX_ZOOM_PERCENT = 35
+        const val DEFAULT_ZOOM_PERCENT = 20
 
         fun sanitizeDuration(ms: Int): Int = ms.coerceIn(MIN_DURATION_MS, MAX_DURATION_MS)
+
+        fun sanitizeZoom(percent: Int): Int = percent.coerceIn(MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT)
     }
 }
 
@@ -38,8 +45,6 @@ data class WakeTransitionSettings(
  * on OpenGL ES, the native engine on Vulkan).
  */
 object WakeTransition {
-    /** Where a zoom starts: enough to read as motion, little enough to stay subtle. */
-    const val START_ZOOM = 1.05f
     const val MODE_NONE = 0
     const val MODE_COLOR_FILL = 1
     const val MODE_BLUR = 2
@@ -59,11 +64,15 @@ object WakeTransition {
      */
     @Volatile var fillFromCentre = false
 
-    /** [remaining] runs from 1 when the wake starts to 0 when it ends. */
-    fun show(style: WakeTransitionStyle, remaining: Float) {
+    /** [remaining] runs from 1 when the wake starts to 0 when it ends; a zoom starts [zoomPercent] in. */
+    fun show(
+        style: WakeTransitionStyle,
+        remaining: Float,
+        zoomPercent: Int = WakeTransitionSettings.DEFAULT_ZOOM_PERCENT
+    ) {
         val left = remaining.coerceIn(0f, 1f)
         when (style) {
-            WakeTransitionStyle.ZOOM -> zoom = 1f + (START_ZOOM - 1f) * left
+            WakeTransitionStyle.ZOOM -> zoom = 1f + WakeTransitionSettings.sanitizeZoom(zoomPercent) / 100f * left
             WakeTransitionStyle.COLOR_FILL -> post(MODE_COLOR_FILL, left)
             WakeTransitionStyle.BLUR -> post(MODE_BLUR, left)
         }

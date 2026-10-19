@@ -56,6 +56,7 @@ object WallpaperBehaviorPolicy {
     const val WAKE_ENABLED_KEY = "wake_transition_enabled"
     const val WAKE_STYLE_KEY = "wake_transition_style"
     const val WAKE_DURATION_KEY = "wake_transition_ms"
+    const val WAKE_ZOOM_KEY = "wake_transition_zoom_percent"
     const val SWITCH_DELAY_KEY = "playlist_switch_delay_ms"
 
     fun resolveSurface(
@@ -134,6 +135,12 @@ object WallpaperBehaviorPreferences {
                         WallpaperBehaviorPolicy.WAKE_DURATION_KEY,
                         WakeTransitionSettings.DEFAULT_DURATION_MS
                     )
+                ),
+                zoomPercent = WakeTransitionSettings.sanitizeZoom(
+                    preferences.readInt(
+                        WallpaperBehaviorPolicy.WAKE_ZOOM_KEY,
+                        WakeTransitionSettings.DEFAULT_ZOOM_PERCENT
+                    )
                 )
             ),
             switchDelayMs = WallpaperBehaviorSettings.sanitizeSwitchDelay(
@@ -159,6 +166,10 @@ object WallpaperBehaviorPreferences {
                 WakeTransitionSettings.sanitizeDuration(settings.wakeTransition.durationMs)
             )
             putInt(
+                WallpaperBehaviorPolicy.WAKE_ZOOM_KEY,
+                WakeTransitionSettings.sanitizeZoom(settings.wakeTransition.zoomPercent)
+            )
+            putInt(
                 WallpaperBehaviorPolicy.SWITCH_DELAY_KEY,
                 WallpaperBehaviorSettings.sanitizeSwitchDelay(settings.switchDelayMs)
             )
@@ -172,6 +183,7 @@ object WallpaperBehaviorPreferences {
             remove(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY)
             remove(WallpaperBehaviorPolicy.WAKE_STYLE_KEY)
             remove(WallpaperBehaviorPolicy.WAKE_DURATION_KEY)
+            remove(WallpaperBehaviorPolicy.WAKE_ZOOM_KEY)
             remove(WallpaperBehaviorPolicy.SWITCH_DELAY_KEY)
         }
     }

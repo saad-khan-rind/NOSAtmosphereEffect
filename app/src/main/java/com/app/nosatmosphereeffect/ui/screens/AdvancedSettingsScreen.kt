@@ -1062,8 +1062,26 @@ private fun TimingSettings(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = GroupTextInset
                     )
-                    Spacer(Modifier.height(12.dp))
                     val resources = LocalResources.current
+                    AnimatedVisibility(visible = wakeTransition.style == WakeTransitionStyle.ZOOM) {
+                        LabeledSlider(
+                            label = stringResource(R.string.wake_zoom_level),
+                            value = wakeTransition.zoomPercent.toFloat(),
+                            onValueChange = {
+                                onWakeTransitionChange(
+                                    wakeTransition.copy(
+                                        zoomPercent = WakeTransitionSettings.sanitizeZoom(it.roundToInt())
+                                    )
+                                )
+                            },
+                            valueRange = WakeTransitionSettings.MIN_ZOOM_PERCENT.toFloat()..
+                                WakeTransitionSettings.MAX_ZOOM_PERCENT.toFloat(),
+                            step = 1f,
+                            valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) },
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
                     LabeledSlider(
                         label = stringResource(R.string.wake_length),
                         value = wakeTransition.durationMs.toFloat(),

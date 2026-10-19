@@ -54,6 +54,9 @@ class WallpaperBehaviorPolicyTest {
         assertEquals(50, WakeTransitionSettings.sanitizeDuration(0))
         assertEquals(300, WakeTransitionSettings.sanitizeDuration(300))
         assertEquals(1000, WakeTransitionSettings.sanitizeDuration(5_000))
+        assertEquals(20, WakeTransitionSettings().zoomPercent)
+        assertEquals(1, WakeTransitionSettings.sanitizeZoom(0))
+        assertEquals(35, WakeTransitionSettings.sanitizeZoom(90))
     }
 
     @Test
@@ -67,8 +70,10 @@ class WallpaperBehaviorPolicyTest {
     @Test
     fun `wake zoom never stacks on the adaptive clock's own zoom`() {
         WakeTransition.show(WakeTransitionStyle.ZOOM, 1f)
-        assertEquals(WakeTransition.START_ZOOM, WakeTransition.zoom(1f))
-        assertEquals(1.1f, WakeTransition.zoom(1.1f))
+        assertEquals(1.2f, WakeTransition.zoom(1f))
+        WakeTransition.show(WakeTransitionStyle.ZOOM, 1f, zoomPercent = 35)
+        assertEquals(1.35f, WakeTransition.zoom(1f))
+        assertEquals(1.4f, WakeTransition.zoom(1.4f))
         WakeTransition.clear()
         assertEquals(1f, WakeTransition.zoom(1f))
     }
