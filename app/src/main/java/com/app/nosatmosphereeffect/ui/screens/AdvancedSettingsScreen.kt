@@ -61,6 +61,7 @@ import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
 import com.app.nosatmosphereeffect.helper.SubjectModelDelivery
 import com.app.nosatmosphereeffect.helper.SubjectModelPhase
 import com.app.nosatmosphereeffect.helper.SubjectModelState
+import com.app.nosatmosphereeffect.helper.WakeShakeDirection
 import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
 import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
@@ -1034,19 +1035,21 @@ private fun TimingSettings(
             AnimatedVisibility(visible = wakeTransition.enabled) {
                 Column {
                     Spacer(Modifier.height(12.dp))
-                    AtmoSegmentedControl(
+                    AtmoDropdownField(
+                        label = stringResource(R.string.wake_style),
                         options = listOf(
                             stringResource(R.string.wake_zoom),
                             stringResource(R.string.wake_color_fill),
-                            stringResource(R.string.wake_blur)
+                            stringResource(R.string.wake_blur),
+                            stringResource(R.string.wake_stretch),
+                            stringResource(R.string.wake_shake)
                         ),
                         selectedIndex = wakeTransition.style.ordinal,
                         onSelected = { index ->
                             onWakeTransitionChange(
                                 wakeTransition.copy(style = WakeTransitionStyle.entries[index])
                             )
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                        }
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -1055,6 +1058,8 @@ private fun TimingSettings(
                                 WakeTransitionStyle.ZOOM -> R.string.wake_zoom_hint
                                 WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill_hint
                                 WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
+                                WakeTransitionStyle.STRETCH -> R.string.wake_stretch_hint
+                                WakeTransitionStyle.SHAKE -> R.string.wake_shake_hint
                             },
                             stringResource(R.string.effect_colorfill_title)
                         ),
@@ -1080,6 +1085,85 @@ private fun TimingSettings(
                             valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) },
                             modifier = Modifier.padding(top = 12.dp)
                         )
+                    }
+                    AnimatedVisibility(visible = wakeTransition.style == WakeTransitionStyle.STRETCH) {
+                        Column(Modifier.padding(top = 12.dp)) {
+                            AtmoSegmentedControl(
+                                options = listOf(
+                                    stringResource(R.string.wake_stretch_outward),
+                                    stringResource(R.string.wake_stretch_inward)
+                                ),
+                                selectedIndex = if (wakeTransition.stretchInward) 1 else 0,
+                                onSelected = { index ->
+                                    onWakeTransitionChange(wakeTransition.copy(stretchInward = index == 1))
+                                }
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            LabeledSlider(
+                                label = stringResource(R.string.wake_strength),
+                                value = wakeTransition.stretchPercent.toFloat(),
+                                onValueChange = {
+                                    onWakeTransitionChange(
+                                        wakeTransition.copy(
+                                            stretchPercent = WakeTransitionSettings.sanitizeStretch(it.roundToInt())
+                                        )
+                                    )
+                                },
+                                valueRange = WakeTransitionSettings.MIN_STRETCH_PERCENT.toFloat()..
+                                    WakeTransitionSettings.MAX_STRETCH_PERCENT.toFloat(),
+                                step = 1f,
+                                valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
+                            )
+                        }
+                    }
+                    AnimatedVisibility(visible = wakeTransition.style == WakeTransitionStyle.SHAKE) {
+                        Column(Modifier.padding(top = 12.dp)) {
+                            AtmoSegmentedControl(
+                                options = listOf(
+                                    stringResource(R.string.wake_shake_sideways),
+                                    stringResource(R.string.wake_shake_vertical),
+                                    stringResource(R.string.wake_shake_twist)
+                                ),
+                                selectedIndex = wakeTransition.shakeDirection.ordinal,
+                                onSelected = { index ->
+                                    onWakeTransitionChange(
+                                        wakeTransition.copy(shakeDirection = WakeShakeDirection.entries[index])
+                                    )
+                                }
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            LabeledSlider(
+                                label = stringResource(R.string.wake_strength),
+                                value = wakeTransition.shakePercent.toFloat(),
+                                onValueChange = {
+                                    onWakeTransitionChange(
+                                        wakeTransition.copy(
+                                            shakePercent = WakeTransitionSettings.sanitizeShake(it.roundToInt())
+                                        )
+                                    )
+                                },
+                                valueRange = WakeTransitionSettings.MIN_SHAKE_PERCENT.toFloat()..
+                                    WakeTransitionSettings.MAX_SHAKE_PERCENT.toFloat(),
+                                step = 1f,
+                                valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            LabeledSlider(
+                                label = stringResource(R.string.wake_shake_count),
+                                value = wakeTransition.shakeCount.toFloat(),
+                                onValueChange = {
+                                    onWakeTransitionChange(
+                                        wakeTransition.copy(
+                                            shakeCount = WakeTransitionSettings.sanitizeShakeCount(it.roundToInt())
+                                        )
+                                    )
+                                },
+                                valueRange = WakeTransitionSettings.MIN_SHAKE_COUNT.toFloat()..
+                                    WakeTransitionSettings.MAX_SHAKE_COUNT.toFloat(),
+                                step = 1f,
+                                valueText = { it.roundToInt().toString() }
+                            )
+                        }
                     }
                     Spacer(Modifier.height(12.dp))
                     LabeledSlider(

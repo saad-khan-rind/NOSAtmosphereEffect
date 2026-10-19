@@ -30,6 +30,11 @@ constexpr uint64_t kGpuWaitTimeoutNs = 5'000'000'000ULL;
 // each frame. Process-wide, like the Kotlin side: one wake plays at a time.
 std::atomic<int> gWakeMode{0};
 std::atomic<float> gWakeAmount{0.0F};
+// Stretch, then the shake's x, y and turn (see WakeTransition).
+std::atomic<float> gWakeStretch{0.0F};
+std::atomic<float> gWakeShakeX{0.0F};
+std::atomic<float> gWakeShakeY{0.0F};
+std::atomic<float> gWakeShakeAngle{0.0F};
 }
 
 namespace {
@@ -2473,10 +2478,14 @@ private:
             commandBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, wakePipelineLayout_,
             0, 1, &wakeDescriptorSet_, 0, nullptr
         );
-        const float params[4] = {
+        const float params[8] = {
             static_cast<float>(mode),
             std::min(amount, 1.0F),
             surfaceAspectRatio(),
+            gWakeStretch.load(std::memory_order_relaxed),
+            gWakeShakeX.load(std::memory_order_relaxed),
+            gWakeShakeY.load(std::memory_order_relaxed),
+            gWakeShakeAngle.load(std::memory_order_relaxed),
             0.0F
         };
         vkCmdPushConstants(
@@ -2544,7 +2553,7 @@ private:
             return false;
         }
 
-        VkPushConstantRange pushRange{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 4};
+        VkPushConstantRange pushRange{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 8};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         pipelineLayoutInfo.setLayoutCount = 1;
         pipelineLayoutInfo.pSetLayouts = &wakeDescriptorSetLayout_;
@@ -2890,9 +2899,14 @@ void destroyOnePass(JNIEnv* env, OnePassHandle handle) {
     delete engine;
 }
 
-void setWake(int mode, float amount) {
+void setWake(int mode, float amount, float stretch, float shakeX, float shakeY, float shakeAngle) {
+    const auto finite = [](float value) { return std::isfinite(value) ? value : 0.0F; };
+    gWakeStretch.store(finite(stretch), std::memory_order_relaxed);
+    gWakeShakeX.store(finite(shakeX), std::memory_order_relaxed);
+    gWakeShakeY.store(finite(shakeY), std::memory_order_relaxed);
+    gWakeShakeAngle.store(finite(shakeAngle), std::memory_order_relaxed);
     gWakeMode.store(mode, std::memory_order_relaxed);
-    gWakeAmount.store(std::isfinite(amount) ? amount : 0.0F, std::memory_order_relaxed);
+    gWakeAmount.store(finite(amount), std::memory_order_relaxed);
 }
 
 std::string drainDiagnostics() {
@@ -2914,7 +2928,18 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanWakeNative_nativeSetWake(
     JNIEnv*,
     jobject,
     jint mode,
-    jfloat amount
+    jfloat amount,
+    jfloat stretch,
+    jfloat shakeX,
+    jfloat shakeY,
+    jfloat shakeAngle
 ) {
-    atmo::vulkan::setWake(static_cast<int>(mode), static_cast<float>(amount));
+    atmo::vulkan::setWake(
+        static_cast<int>(mode),
+        static_cast<float>(amount),
+        static_cast<float>(stretch),
+        static_cast<float>(shakeX),
+        static_cast<float>(shakeY),
+        static_cast<float>(shakeAngle)
+    );
 }
