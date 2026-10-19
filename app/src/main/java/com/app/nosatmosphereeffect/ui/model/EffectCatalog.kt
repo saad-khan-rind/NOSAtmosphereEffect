@@ -4,12 +4,16 @@ import androidx.annotation.StringRes
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
 
-/** [title], [transition] and [description] are string resources, so they follow the phone's language. */
+/**
+ * [title], [transition] and [description] are string resources, so they follow the phone's language.
+ * [transition] may name the effect as %1$s, filled with the untranslated [name].
+ */
 data class EffectItem(
     val id: String,
     @StringRes val title: Int,
     @StringRes val transition: Int,
-    @StringRes val description: Int
+    @StringRes val description: Int,
+    @StringRes val name: Int = title
 )
 
 /** One look in both directions; [reverse] is null when only one direction is offered. */
@@ -97,13 +101,15 @@ object EffectCatalog {
             "HALFTONE",
             R.string.effect_halftone_title,
             R.string.effect_halftone_transition,
-            R.string.effect_halftone_description
+            R.string.effect_halftone_description,
+            R.string.halftone_group
         ),
         EffectItem(
             "HALFTONE_REVERSE",
             R.string.effect_halftone_reverse_title,
             R.string.effect_halftone_reverse_transition,
-            R.string.effect_halftone_reverse_description
+            R.string.effect_halftone_reverse_description,
+            R.string.halftone_group
         ),
         EffectItem(
             "VHS",

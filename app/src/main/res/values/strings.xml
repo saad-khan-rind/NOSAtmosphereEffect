@@ -32,46 +32,46 @@
     <string name="experimental">Experimental</string>
     <string name="manualCroppingWillBeDisabled">(Turns off manual cropping)</string>
 
-    <string name="effect_original_title">Atmosphere</string>
+    <string name="effect_original_title" translatable="false">Atmosphere</string>
     <string name="effect_original_transition">Sharp to blur</string>
     <string name="effect_original_description">Soft color and clouds that drift across your photo.</string>
-    <string name="effect_reverse_title">Atmosphere Reverse</string>
+    <string name="effect_reverse_title" translatable="false">Atmosphere Reverse</string>
     <string name="effect_reverse_transition">Blur to sharp</string>
     <string name="effect_reverse_description">The clouds clear away to show your photo.</string>
-    <string name="effect_glass_title">Glass Effect</string>
+    <string name="effect_glass_title" translatable="false">Glass Effect</string>
     <string name="effect_glass_transition">Right-to-left or fade in</string>
     <string name="effect_glass_description">Ribbed glass over your photo, with a transition you can pick.</string>
-    <string name="effect_glass_reverse_title">Glass Effect Reverse</string>
+    <string name="effect_glass_reverse_title" translatable="false">Glass Effect Reverse</string>
     <string name="effect_glass_reverse_transition">Left-to-right or fade out</string>
     <string name="effect_glass_reverse_description">The ribbed glass clears away, with a transition you can pick.</string>
-    <string name="effect_colorfill_title">Color Fill</string>
+    <string name="effect_colorfill_title" translatable="false">Color Fill</string>
     <string name="effect_colorfill_transition">Monochrome to color</string>
     <string name="effect_colorfill_description">Color spreads out from where your fingerprint is.</string>
-    <string name="effect_colorfill_reverse_title">Color Fill Reverse</string>
+    <string name="effect_colorfill_reverse_title" translatable="false">Color Fill Reverse</string>
     <string name="effect_colorfill_reverse_transition">Color to monochrome</string>
     <string name="effect_colorfill_reverse_description">Color drains back toward your fingerprint.</string>
-    <string name="effect_neon_title">Canvas Sketch</string>
+    <string name="effect_neon_title" translatable="false">Canvas Sketch</string>
     <string name="effect_neon_transition">Sketch to image</string>
     <string name="effect_neon_description">A clean line drawing turns into your photo.</string>
-    <string name="effect_neon_reverse_title">Canvas Sketch Reverse</string>
+    <string name="effect_neon_reverse_title" translatable="false">Canvas Sketch Reverse</string>
     <string name="effect_neon_reverse_transition">Image to sketch</string>
     <string name="effect_neon_reverse_description">Your photo turns into a clean line drawing.</string>
-    <string name="effect_frosted_title">Simple Frosted</string>
+    <string name="effect_frosted_title" translatable="false">Simple Frosted</string>
     <string name="effect_frosted_transition">Sharp to blur</string>
     <string name="effect_frosted_description">A simple, even frosted glass blur.</string>
-    <string name="effect_frosted_reverse_title">Simple Frosted Reverse</string>
+    <string name="effect_frosted_reverse_title" translatable="false">Simple Frosted Reverse</string>
     <string name="effect_frosted_reverse_transition">Blur to sharp</string>
     <string name="effect_frosted_reverse_description">Thick frost melts away into a clear photo.</string>
-    <string name="effect_halftone_title">Halftone Print</string>
-    <string name="effect_halftone_transition">Sharp to halftone</string>
+    <string name="effect_halftone_title" translatable="false">Halftone Print</string>
+    <string name="effect_halftone_transition">Sharp to %1$s</string>
     <string name="effect_halftone_description">Your photo turns into a pattern of printed dots.</string>
-    <string name="effect_halftone_reverse_title">Halftone Print Reverse</string>
-    <string name="effect_halftone_reverse_transition">Halftone to sharp</string>
+    <string name="effect_halftone_reverse_title" translatable="false">Halftone Print Reverse</string>
+    <string name="effect_halftone_reverse_transition">%1$s to sharp</string>
     <string name="effect_halftone_reverse_description">Printed dots grow back into your full photo.</string>
-    <string name="effect_vhs_title">VHS Tape</string>
+    <string name="effect_vhs_title" translatable="false">VHS Tape</string>
     <string name="effect_vhs_transition">Tape to sharp</string>
     <string name="effect_vhs_description">Your photo plays like a worn videotape, then the tracking settles into a clean picture.</string>
-    <string name="effect_vhs_reverse_title">VHS Tape Reverse</string>
+    <string name="effect_vhs_reverse_title" translatable="false">VHS Tape Reverse</string>
     <string name="effect_vhs_reverse_transition">Sharp to tape</string>
     <string name="effect_vhs_reverse_description">Your photo rolls into the soft, noisy look of an old videotape.</string>
     <string name="effects_continue_with">Continue with %1$s</string>
@@ -186,7 +186,7 @@
     <string name="wake_color_fill">Colour fill</string>
     <string name="wake_blur">Blur</string>
     <string name="wake_zoom_hint">Your photo settles from a slight zoom. The clock stays put, so a clock with depth shows the subject easing into place in front of it.</string>
-    <string name="wake_color_fill_hint">Colour spreads out from the centre of the screen. On a black and white lock screen, like Colour Fill\'s, it starts in colour and turns black and white.</string>
+    <string name="wake_color_fill_hint">Colour spreads out from the centre of the screen. On a black and white lock screen, as with %1$s, it starts in colour and turns black and white.</string>
     <string name="wake_blur_hint">The lock screen sharpens out of a light blur.</string>
     <string name="wake_length">Length</string>
     <string name="wake_length_ms">%1$d ms</string>
@@ -209,10 +209,10 @@
     <string name="info_delay_title">Lock delay</string>
     <string name="info_delay_message">Only raise this if you can see the wallpaper reset before the screen goes off. On Samsung use 0 ms, otherwise 500 to 800 ms if you need it.</string>
     <string name="common_about">About %1$s</string>
-    <string name="glass_group">Glass effect</string>
-    <string name="glass_add">Add glass effect</string>
-    <string name="glass_on_sharp">The sharp side of Atmosphere gets the glass look.</string>
-    <string name="glass_off_sharp">The sharp side of Atmosphere shows your original photo.</string>
+    <string name="glass_group" translatable="false">Glass Effect</string>
+    <string name="glass_add">Add %1$s</string>
+    <string name="glass_on_sharp">The sharp side of %1$s gets the glass look.</string>
+    <string name="glass_off_sharp">The sharp side of %1$s shows your original photo.</string>
     <string name="glass_lines">Number of lines</string>
     <string name="common_line_thickness">Line thickness</string>
     <string name="glass_transition_style">Transition style</string>
@@ -238,21 +238,21 @@
     <string name="clock_adapt_off">Off, so the digits run full length and ignore the subject.</string>
     <string name="clock_depth_hint">Puts the subject in front of the clock, so it looks like the clock is behind them. Works best with a clear subject.</string>
     <string name="clock_choose_style">Choose style, position &amp; size</string>
-    <string name="halftone_group">Halftone</string>
+    <string name="halftone_group" translatable="false">Halftone</string>
     <string name="halftone_dot_size">Dot size</string>
     <string name="halftone_bw">Black and white</string>
-    <string name="halftone_inactive">Prints the whole wallpaper in halftone.</string>
+    <string name="halftone_inactive">Prints the whole wallpaper in %1$s.</string>
     <string name="halftone_active">Keeps the subject sharp and prints only the background.</string>
     <string name="origin_group">Color origin</string>
     <string name="origin_horizontal">Horizontal position</string>
     <string name="origin_vertical">Vertical position</string>
-    <string name="canvas_group">Canvas Sketch</string>
+    <string name="canvas_group" translatable="false">Canvas Sketch</string>
     <string name="canvas_segmentation">Subject segmentation</string>
     <string name="canvas_inactive">Sketches the whole wallpaper.</string>
     <string name="canvas_active">The sketch is built around the subject\'s outline.</string>
     <string name="canvas_waiting">Sketches the whole wallpaper until the model is ready.</string>
     <string name="canvas_detail">Sketch detail</string>
-    <string name="atmos_color_group">Atmosphere color</string>
+    <string name="atmos_color_group">%1$s color</string>
     <string name="atmos_saturation">Saturation</string>
     <string name="atmos_contrast">Contrast</string>
     <string name="grain_group">Film grain</string>
@@ -437,7 +437,7 @@
     <string name="help_subtitle">Works best on its own</string>
     <string name="help_intro">This looks best when you can hide your phone\'s own lock screen clock. If you can\'t, you\'ll see two clocks on the lock screen.</string>
     <string name="help_your_device">Your device</string>
-    <string name="help_device_line">%1$s · %2$s</string>
+    <string name="help_device_line" translatable="false">%1$s · %2$s</string>
     <string name="help_on_brand">On %1$s</string>
     <string name="help_on_your_device">On your device</string>
     <string name="help_search_hint">Have a quick search online to see if your phone lets you hide its lock screen clock.</string>
@@ -502,7 +502,7 @@
     <string name="playlist_empty_hint_light">Tap Add to pick photos for the light playlist.</string>
     <string name="playlist_empty_hint_dark">Tap Add to pick photos for the dark playlist.</string>
     <string name="playlist_page_of">%1$d of %2$d</string>
-    <string name="glass_add_subtitle">Keeps the Atmosphere animation and ends on ribbed glass.</string>
+    <string name="glass_add_subtitle">Keeps the %1$s animation and ends on ribbed glass.</string>
     <string name="playlist_add">Add</string>
     <string name="playlist_follow_hint">Follow a folder and its new photos get added for you</string>
     <string name="playlist_following_hint">New photos in these folders get added when you open the app</string>
@@ -673,18 +673,18 @@
     <string name="saved_default_name">Playlist</string>
     <string name="saved_default_name_dated">Playlist · %1$s</string>
     <string name="folders_unnamed">Unnamed folder</string>
-    <string name="service_atmosphere">Atmosphere</string>
-    <string name="service_atmosphere_reverse">Atmosphere (Reverse)</string>
-    <string name="service_glass">Glass Effect</string>
-    <string name="service_glass_reverse">Glass Effect (Reverse)</string>
-    <string name="service_color_fill">Color Fill Effect</string>
-    <string name="service_color_fill_reverse">Color Fill (Reverse) Effect</string>
-    <string name="service_canvas">Canvas Sketch</string>
-    <string name="service_canvas_reverse">Canvas Sketch (Reverse)</string>
-    <string name="service_frosted">Frosted</string>
-    <string name="service_frosted_reverse">Frosted (Reverse)</string>
-    <string name="service_halftone">Halftone Print Effect</string>
-    <string name="service_halftone_reverse">Halftone Print (Reverse) Effect</string>
-    <string name="service_vhs">VHS Tape</string>
-    <string name="service_vhs_reverse">VHS Tape (Reverse)</string>
+    <string name="service_atmosphere" translatable="false">Atmosphere</string>
+    <string name="service_atmosphere_reverse" translatable="false">Atmosphere (Reverse)</string>
+    <string name="service_glass" translatable="false">Glass Effect</string>
+    <string name="service_glass_reverse" translatable="false">Glass Effect (Reverse)</string>
+    <string name="service_color_fill" translatable="false">Color Fill Effect</string>
+    <string name="service_color_fill_reverse" translatable="false">Color Fill (Reverse) Effect</string>
+    <string name="service_canvas" translatable="false">Canvas Sketch</string>
+    <string name="service_canvas_reverse" translatable="false">Canvas Sketch (Reverse)</string>
+    <string name="service_frosted" translatable="false">Frosted</string>
+    <string name="service_frosted_reverse" translatable="false">Frosted (Reverse)</string>
+    <string name="service_halftone" translatable="false">Halftone Print Effect</string>
+    <string name="service_halftone_reverse" translatable="false">Halftone Print (Reverse) Effect</string>
+    <string name="service_vhs" translatable="false">VHS Tape</string>
+    <string name="service_vhs_reverse" translatable="false">VHS Tape (Reverse)</string>
 </resources>

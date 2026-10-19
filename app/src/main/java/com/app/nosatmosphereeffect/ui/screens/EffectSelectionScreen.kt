@@ -311,7 +311,7 @@ private fun SelectedEffectDetails(
                     modifier = Modifier.padding(start = 4.dp)
                 )
                 AtmoSegmentedControl(
-                    options = listOfNotNull(family.forward, family.reverse).map { stringResource(it.transition) },
+                    options = listOfNotNull(family.forward, family.reverse).map { stringResource(it.transition, stringResource(it.name)) },
                     selectedIndex = if (reversed) 1 else 0,
                     onSelected = { onDirection(it == 1) }
                 )
@@ -422,14 +422,14 @@ private fun FamilyTile(
                 overflow = TextOverflow.Ellipsis
             )
             AnimatedContent(
-                targetState = shown.transition,
+                targetState = shown,
                 transitionSpec = {
                     (fadeIn() + slideInVertically { it }) togetherWith (fadeOut() + slideOutVertically { -it })
                 },
                 label = "familyTileTransition"
-            ) { transition ->
+            ) { item ->
                 Text(
-                    stringResource(transition),
+                    stringResource(item.transition, stringResource(item.name)),
                     style = MaterialTheme.typography.bodySmall,
                     color = content.copy(alpha = 0.74f),
                     maxLines = 2,
