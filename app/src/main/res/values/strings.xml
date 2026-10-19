@@ -437,7 +437,7 @@
     <string name="help_subtitle">Works best on its own</string>
     <string name="help_intro">This looks best when you can hide your phone\'s own lock screen clock. If you can\'t, you\'ll see two clocks on the lock screen.</string>
     <string name="help_your_device">Your device</string>
-    <string name="help_device_line">%1$s · %2$s</string>
+    <string name="help_device_line" translatable="false">%1$s · %2$s</string>
     <string name="help_on_brand">On %1$s</string>
     <string name="help_on_your_device">On your device</string>
     <string name="help_search_hint">Have a quick search online to see if your phone lets you hide its lock screen clock.</string>

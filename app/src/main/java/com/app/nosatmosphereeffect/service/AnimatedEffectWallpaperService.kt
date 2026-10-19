@@ -400,12 +400,15 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         }
 
         /**
-         * A playlist switches on screen off, after the switch delay (Timing),
-         * so locking and unlocking straight away doesn't change the image.
+         * An Immediate playlist switches on screen off, after the switch delay
+         * (Timing), so locking and unlocking straight away doesn't change the
+         * image. Timed intervals ignore the delay.
          */
         private fun scheduleRotation() {
             rotationHandler.removeCallbacks(pendingRotation)
-            val delayMs = behavior.switchDelayMs
+            val immediate = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
+                .getLong("rotation_interval_minutes", 0L) <= 0L
+            val delayMs = if (immediate) behavior.switchDelayMs else 0
             if (delayMs <= 0) {
                 rotateWallpaper()
             } else {

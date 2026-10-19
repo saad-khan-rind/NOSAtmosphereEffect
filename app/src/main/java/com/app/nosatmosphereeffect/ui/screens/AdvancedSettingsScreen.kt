@@ -457,7 +457,7 @@ fun AdvancedSettingsScreen(
                         onAlwaysAppliedTargetChange = { alwaysAppliedTarget = it },
                         wakeTransition = wakeTransition,
                         onWakeTransitionChange = { wakeTransition = it },
-                        showSwitchDelay = config.isPlaylistMode,
+                        showSwitchDelay = config.isPlaylistMode && rotationIndex == 0, // Immediate
                         switchDelay = switchDelay,
                         onSwitchDelayChange = { switchDelay = it.filterDigits() },
                         onPollInfo = { infoDialog = InfoDialog.Poll },
