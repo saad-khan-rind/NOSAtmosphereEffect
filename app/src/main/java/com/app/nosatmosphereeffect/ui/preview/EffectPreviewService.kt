@@ -27,7 +27,6 @@ import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
 import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
-import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderer
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.BlurToSharpRenderer
@@ -302,12 +301,9 @@ class EffectPreviewService(
         requestActiveRender()
     }
 
-    private val wakeFrame = Runnable { requestActiveRender() }
-
     fun resume() {
         if (released.get() || resumed) return
         resumed = true
-        WakeTransition.addFrameListener(wakeFrame)
         when (activeBackend) {
             GraphicsBackend.VULKAN -> vulkanSession?.resume()
             GraphicsBackend.OPENGL_ES -> openGlSurface?.onResume()
@@ -318,7 +314,6 @@ class EffectPreviewService(
     fun pause() {
         if (released.get() || !resumed) return
         resumed = false
-        WakeTransition.removeFrameListener(wakeFrame)
         when (activeBackend) {
             GraphicsBackend.VULKAN -> vulkanSession?.pause()
             GraphicsBackend.OPENGL_ES -> openGlSurface?.onPause()
@@ -327,7 +322,6 @@ class EffectPreviewService(
 
     fun release() {
         if (!released.compareAndSet(false, true)) return
-        WakeTransition.removeFrameListener(wakeFrame)
         val wasResumed = resumed
         resumed = false
         vulkanSession?.close()

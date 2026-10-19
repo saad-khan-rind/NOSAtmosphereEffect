@@ -1,6 +1,5 @@
 package com.app.nosatmosphereeffect.helper
 
-import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.math.max
 
 /** How the lock screen arrives when the screen turns on, from the always-on display or off. */
@@ -65,20 +64,6 @@ object WakeTransition {
      */
     @Volatile var fillFromCentre = false
 
-    /**
-     * Previews showing the lock screen (Pro's clock cover) draw only when
-     * asked: they redraw with every wake frame, so they move with the wallpaper.
-     */
-    private val frameListeners = CopyOnWriteArraySet<Runnable>()
-
-    fun addFrameListener(listener: Runnable) {
-        frameListeners += listener
-    }
-
-    fun removeFrameListener(listener: Runnable) {
-        frameListeners -= listener
-    }
-
     /** [remaining] runs from 1 when the wake starts to 0 when it ends; a zoom starts [zoomPercent] in. */
     fun show(
         style: WakeTransitionStyle,
@@ -91,14 +76,12 @@ object WakeTransition {
             WakeTransitionStyle.COLOR_FILL -> post(MODE_COLOR_FILL, left)
             WakeTransitionStyle.BLUR -> post(MODE_BLUR, left)
         }
-        frameListeners.forEach { it.run() }
     }
 
     fun clear() {
         zoom = 1f
         postAmount = 0f
         postMode = MODE_NONE
-        frameListeners.forEach { it.run() }
     }
 
     private fun post(mode: Int, amount: Float) {
