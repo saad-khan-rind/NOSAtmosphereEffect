@@ -56,7 +56,7 @@ class WallpaperBehaviorPolicyTest {
         assertEquals(1000, WakeTransitionSettings.sanitizeDuration(5_000))
         assertEquals(20, WakeTransitionSettings().zoomPercent)
         assertEquals(1, WakeTransitionSettings.sanitizeZoom(0))
-        assertEquals(80, WakeTransitionSettings.sanitizeZoom(90))
+        assertEquals(150, WakeTransitionSettings.sanitizeZoom(400))
         assertEquals(5, WakeTransitionSettings.sanitizeStretch(0))
         assertEquals(30, WakeTransitionSettings.sanitizeStretch(99))
         assertEquals(1, WakeTransitionSettings.sanitizeShake(0))
