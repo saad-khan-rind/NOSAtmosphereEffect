@@ -49,8 +49,12 @@ internal class ClockGlyphAtlas private constructor(
     private val style: ClockStyle,
     font: ClockFont
 ) {
-    /** Where the digits come from; the date always uses the look's own typeface. */
+    /** Where the digits come from. */
     val source: ClockGlyphSource = ClockGlyphSource.of(style, font)
+
+    /** The date follows the font where it has one, else the look's own typeface. */
+    private val dateTypeface = font.design.dateTypeface() ?: style.typeface()
+    private val dotMatrixDate = font.design.dotMatrixDate
 
     /** One glyph, as a distance field, with where its ink sits inside the tile. */
     class Tile(
@@ -125,7 +129,7 @@ internal class ClockGlyphAtlas private constructor(
     // that produced it.
 
     private fun configurePaint(em: Float) {
-        paint.typeface = style.typeface()
+        paint.typeface = dateTypeface
         paint.textSize = em
         paint.letterSpacing = DATE_TRACKING_EM
         paint.textScaleX = 1f
@@ -165,6 +169,9 @@ internal class ClockGlyphAtlas private constructor(
 
     private fun buildRun(text: String): Tile? {
         if (text.isEmpty()) return null
+        if (dotMatrixDate) {
+            ClockDotFont.glyphs(text.uppercase())?.let { return buildDotRun(it) }
+        }
         // Sized so its strokes carry the same share of the field as the
         // digits' do: the spread is a fraction of the em either way, so the
         // date is lit exactly like the clock rather than being swamped by a
@@ -182,7 +189,11 @@ internal class ClockGlyphAtlas private constructor(
         val baseline = spread + (-metrics.top)
 
         return rasterise(width, height, spread) { canvas ->
-            canvas.drawText(text, spread, baseline, paint)
+            if (dotMatrixDate) {
+                drawDotMatrix(canvas, text, spread, baseline, width, height)
+            } else {
+                canvas.drawText(text, spread, baseline, paint)
+            }
         }?.let { bitmap ->
             Tile(
                 bitmap = bitmap,
@@ -195,6 +206,107 @@ internal class ClockGlyphAtlas private constructor(
                 origin = spread
             )
         }
+    }
+
+    /** The dot face's date in its own hand-drawn dots, laid out like the digits. */
+    private fun buildDotRun(glyphs: List<Array<String>>): Tile? {
+        val pitch = RUN_EM * DOT_PITCH_EM
+        val columns = glyphs.sumOf { it[0].length } + glyphs.size - 1
+        val rows = glyphs.maxOf { it.size }
+        val advance = columns * pitch
+        val spread = SPREAD_EM * RUN_EM
+        val width = ceil(advance + spread * 2f).toInt().coerceAtLeast(1)
+        val height = ceil(rows * pitch + spread * 2f).toInt().coerceAtLeast(1)
+        val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        return rasterise(width, height, spread) { canvas ->
+            var left = spread
+            for (glyph in glyphs) {
+                for ((row, line) in glyph.withIndex()) {
+                    for ((column, cell) in line.withIndex()) {
+                        if (cell != '#') continue
+                        canvas.drawCircle(
+                            left + (column + 0.5f) * pitch,
+                            spread + (row + 0.5f) * pitch,
+                            pitch * DOT_RADIUS,
+                            dot
+                        )
+                    }
+                }
+                left += (glyph[0].length + 1) * pitch
+            }
+        }?.let { bitmap ->
+            Tile(
+                bitmap = bitmap,
+                baseline = spread + ClockDotFont.ROWS * pitch,
+                advance = advance,
+                inkLeft = spread,
+                inkTop = spread,
+                inkRight = spread + advance,
+                inkBottom = spread + rows * pitch,
+                origin = spread
+            )
+        }
+    }
+
+    /**
+     * A dot date in a script the dot font has no letters for: the text
+     * traced on a grid as tall as the digits' (seven rows to a capital), one
+     * dot in every cell it mostly covers.
+     */
+    private fun drawDotMatrix(
+        canvas: Canvas,
+        text: String,
+        x: Float,
+        baseline: Float,
+        width: Int,
+        height: Int
+    ) {
+        val capital = Rect().also { paint.getTextBounds("H", 0, 1, it) }.height()
+        val cell = max(capital / DOT_ROWS.toFloat(), 1f)
+        val mask = try {
+            createBitmap(width, height, Bitmap.Config.ALPHA_8)
+        } catch (_: OutOfMemoryError) {
+            return
+        }
+        val coverage = try {
+            Canvas(mask).drawText(text, x, baseline, paint)
+            readAlpha(mask, width, height)
+        } finally {
+            mask.recycle()
+        }
+        val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        // Rows meet the baseline, so every letter sits on the same grid.
+        var top = baseline - (baseline / cell).toInt() * cell
+        while (top < height) {
+            var left = x - (x / cell).toInt() * cell
+            while (left < width) {
+                if (cellCoverage(coverage, width, height, left, top, cell) >= DOT_THRESHOLD) {
+                    canvas.drawCircle(left + cell / 2f, top + cell / 2f, cell * DOT_RADIUS, dot)
+                }
+                left += cell
+            }
+            top += cell
+        }
+    }
+
+    private fun cellCoverage(
+        coverage: FloatArray,
+        width: Int,
+        height: Int,
+        left: Float,
+        top: Float,
+        cell: Float
+    ): Float {
+        val x0 = left.toInt().coerceAtLeast(0)
+        val y0 = top.toInt().coerceAtLeast(0)
+        val x1 = (left + cell).toInt().coerceAtMost(width)
+        val y1 = (top + cell).toInt().coerceAtMost(height)
+        if (x1 <= x0 || y1 <= y0) return 0f
+        var sum = 0f
+        for (y in y0 until y1) {
+            for (px in x0 until x1) sum += coverage[y * width + px]
+        }
+        return sum / ((x1 - x0) * (y1 - y0))
     }
 
     /**
@@ -359,6 +471,12 @@ internal class ClockGlyphAtlas private constructor(
 
         /** Matches ClockFaceRenderer's date tracking, so the tile measures the same. */
         private const val DATE_TRACKING_EM = 0.02f
+
+        /** The dot date's rows to a capital, as the dot digits are seven tall. */
+        private const val DOT_ROWS = ClockDotFont.ROWS
+        private const val DOT_PITCH_EM = 0.12f
+        private const val DOT_RADIUS = 0.4f
+        private const val DOT_THRESHOLD = 0.55f
 
         /** How much finer the glyph is traced than the tile it is stored in. */
         private const val SUPERSAMPLE = 2

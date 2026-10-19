@@ -239,7 +239,7 @@ internal object ClockDigitGeometry {
 
     private fun dotMatrix(design: DigitDesign, character: Char): GlyphInk {
         val pitch = (design.pen as ClockPen.Dots).pitch
-        val rows = DOT_DIGITS[character - '0']
+        val rows = ClockDotFont.digit(character)
         val dots = ArrayList<InkDot>()
         for ((row, line) in rows.withIndex()) {
             for ((column, cell) in line.withIndex()) {
@@ -260,20 +260,6 @@ internal object ClockDigitGeometry {
     private const val NO_COLON_ADVANCE = 0.06f
     /** The smallest colon dot, as a share of the digit height: a hairline face's own would vanish. */
     private const val MIN_COLON_DOT = 0.045f
-
-    /** A 5 by 7 grid per digit, top row first. */
-    private val DOT_DIGITS = arrayOf(
-        arrayOf(".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
-        arrayOf("..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."),
-        arrayOf(".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"),
-        arrayOf("#####", "...#.", "..#..", "...#.", "....#", "#...#", ".###."),
-        arrayOf("...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."),
-        arrayOf("#####", "#....", "####.", "....#", "....#", "#...#", ".###."),
-        arrayOf("..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."),
-        arrayOf("#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."),
-        arrayOf(".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."),
-        arrayOf(".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##..")
-    )
 }
 
 /** How a digit's strokes are inked. Sizes are in ems. */
