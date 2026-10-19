@@ -57,6 +57,12 @@ class WallpaperBehaviorPolicyTest {
         assertEquals(20, WakeTransitionSettings().zoomPercent)
         assertEquals(1, WakeTransitionSettings.sanitizeZoom(0))
         assertEquals(35, WakeTransitionSettings.sanitizeZoom(90))
+        assertEquals(5, WakeTransitionSettings.sanitizeStretch(0))
+        assertEquals(30, WakeTransitionSettings.sanitizeStretch(99))
+        assertEquals(1, WakeTransitionSettings.sanitizeShake(0))
+        assertEquals(8, WakeTransitionSettings.sanitizeShake(20))
+        assertEquals(1, WakeTransitionSettings.sanitizeShakeCount(0))
+        assertEquals(8, WakeTransitionSettings.sanitizeShakeCount(30))
     }
 
     @Test
@@ -69,9 +75,9 @@ class WallpaperBehaviorPolicyTest {
 
     @Test
     fun `wake zoom never stacks on the adaptive clock's own zoom`() {
-        WakeTransition.show(WakeTransitionStyle.ZOOM, 1f)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.ZOOM), 1f)
         assertEquals(1.2f, WakeTransition.zoom(1f))
-        WakeTransition.show(WakeTransitionStyle.ZOOM, 1f, zoomPercent = 35)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.ZOOM, zoomPercent = 35), 1f)
         assertEquals(1.35f, WakeTransition.zoom(1f))
         assertEquals(1.4f, WakeTransition.zoom(1.4f))
         WakeTransition.clear()
@@ -90,16 +96,60 @@ class WallpaperBehaviorPolicyTest {
 
     @Test
     fun `colour fill and blur go to the post pass and clear fully`() {
-        WakeTransition.show(WakeTransitionStyle.BLUR, 0.5f)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.BLUR), 0.5f)
         assertEquals(WakeTransition.MODE_BLUR, WakeTransition.postMode)
         assertEquals(0.5f, WakeTransition.postAmount)
         assertEquals(1f, WakeTransition.zoom(1f))
-        WakeTransition.show(WakeTransitionStyle.COLOR_FILL, 2f)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.COLOR_FILL), 2f)
         assertEquals(WakeTransition.MODE_COLOR_FILL, WakeTransition.postMode)
         assertEquals(1f, WakeTransition.postAmount)
         WakeTransition.clear()
         assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
         assertEquals(0f, WakeTransition.postAmount)
+    }
+
+    @Test
+    fun `stretch springs back from the chosen side`() {
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.STRETCH, stretchPercent = 30), 1f)
+        assertEquals(WakeTransition.MODE_STRETCH, WakeTransition.postMode)
+        assertEquals(0.3f, WakeTransition.stretch, 1e-6f)
+        WakeTransition.show(
+            WakeTransitionSettings(style = WakeTransitionStyle.STRETCH, stretchInward = true, stretchPercent = 90),
+            0.5f
+        )
+        assertEquals(-0.3f, WakeTransition.stretch, 1e-6f)
+        assertEquals(0.5f, WakeTransition.postAmount)
+        WakeTransition.clear()
+        assertEquals(0f, WakeTransition.stretch)
+    }
+
+    @Test
+    fun `shake starts and ends still, moves only its own way and stays within its strength`() {
+        WakeShakeDirection.entries.forEach {
+            assertEquals(it, WakeShakeDirection.fromStoredValue(it.storedValue))
+        }
+        assertEquals(WakeShakeDirection.SIDEWAYS, WakeShakeDirection.fromStoredValue("nonsense"))
+        val sideways = WakeTransitionSettings(style = WakeTransitionStyle.SHAKE, shakePercent = 5, shakeCount = 3)
+        WakeTransition.show(sideways, 1f)
+        assertEquals(WakeTransition.MODE_SHAKE, WakeTransition.postMode)
+        assertEquals(0f, WakeTransition.shakeX, 1e-6f)
+        var moved = false
+        for (step in 1 until 100) {
+            WakeTransition.show(sideways, 1f - step / 100f)
+            assertTrue(kotlin.math.abs(WakeTransition.shakeX) <= 0.05f)
+            assertEquals(0f, WakeTransition.shakeY)
+            assertEquals(0f, WakeTransition.shakeAngle)
+            if (kotlin.math.abs(WakeTransition.shakeX) > 0.01f) moved = true
+        }
+        assertTrue(moved)
+        WakeTransition.show(sideways, 0f)
+        assertEquals(0f, WakeTransition.shakeX, 1e-6f)
+        WakeTransition.show(sideways.copy(shakeDirection = WakeShakeDirection.TWIST), 0.9f)
+        assertEquals(0f, WakeTransition.shakeX)
+        assertTrue(WakeTransition.shakeAngle != 0f)
+        WakeTransition.clear()
+        assertEquals(0f, WakeTransition.shakeAngle)
+        assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
     }
 
     @Test

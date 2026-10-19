@@ -327,7 +327,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         private fun showWake(wake: WakeTransitionSettings, remaining: Float) {
             val from = wakeEffectFrom
             if (from == null) {
-                WakeTransition.show(wake.style, remaining, wake.zoomPercent)
+                WakeTransition.show(wake, remaining)
             } else {
                 renderer?.let { setEffectProgress(it, wakeEffectTo + (from - wakeEffectTo) * remaining) }
             }
@@ -356,7 +356,11 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                 val hold = if (zoom) ZOOM_HOLD_MS else WAKE_HOLD_MS
                 val elapsed = SystemClock.uptimeMillis() - wakeStartMs - hold
                 val t = (elapsed.toFloat() / wake.durationMs).coerceIn(0f, 1f)
-                val eased = (if (zoom) ZOOM_EASING else WAKE_EASING).getInterpolation(t)
+                val eased = when {
+                    zoom -> ZOOM_EASING.getInterpolation(t)
+                    wake.style == WakeTransitionStyle.SHAKE -> t
+                    else -> WAKE_EASING.getInterpolation(t)
+                }
                 showWake(wake, 1f - eased)
                 if (t < 1f) Choreographer.getInstance().postFrameCallback(this) else stopWakeTransition()
             }
