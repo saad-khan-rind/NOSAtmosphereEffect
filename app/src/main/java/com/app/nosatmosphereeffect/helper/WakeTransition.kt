@@ -74,6 +74,22 @@ object WakeTransition {
     }
 
     /**
+     * Whether the lock screen is already black and white, so a colour-fill
+     * wake drawn over the frame would have no colour to bring in: Colour
+     * Fill's monochrome side (progress 1, either direction), or Halftone with
+     * Black and white on, on the side showing its dots. Then the effect
+     * itself plays from its colour side to the lock screen instead.
+     * [lockProgress] is the effect's progress on the lock screen.
+     */
+    fun lockScreenIsMonochrome(effectId: String, lockProgress: Float, halftoneGrayscale: Boolean): Boolean =
+        when (effectId) {
+            "COLORFILL", "COLORFILL_REVERSE" -> lockProgress >= 0.5f
+            "HALFTONE" -> halftoneGrayscale && lockProgress >= 0.5f
+            "HALFTONE_REVERSE" -> halftoneGrayscale && lockProgress < 0.5f
+            else -> false
+        }
+
+    /**
      * The zoom to draw with: the larger of this and [base], the Adaptive
      * clock's arrival zoom, which plays on the same wake. Taking the larger
      * rather than multiplying keeps the two from stacking into a lurch.

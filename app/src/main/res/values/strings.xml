@@ -183,7 +183,7 @@
     <string name="wake_color_fill">Colour fill</string>
     <string name="wake_blur">Blur</string>
     <string name="wake_zoom_hint">Your photo settles from a slight zoom. The clock stays put, so a clock with depth shows the subject easing into place in front of it.</string>
-    <string name="wake_color_fill_hint">Colour spreads out from the centre of the screen.</string>
+    <string name="wake_color_fill_hint">Colour spreads out from the centre of the screen. On a black and white lock screen, like Colour Fill\'s, it starts in colour and turns black and white.</string>
     <string name="wake_blur_hint">The lock screen sharpens out of a light blur.</string>
     <string name="wake_length">Length</string>
     <string name="wake_length_ms">%1$d ms</string>
