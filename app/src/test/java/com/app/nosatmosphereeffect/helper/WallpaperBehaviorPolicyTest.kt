@@ -51,9 +51,17 @@ class WallpaperBehaviorPolicyTest {
         }
 
         assertEquals(250, wake.durationMs)
-        assertEquals(150, WakeTransitionSettings.sanitizeDuration(0))
+        assertEquals(50, WakeTransitionSettings.sanitizeDuration(0))
         assertEquals(300, WakeTransitionSettings.sanitizeDuration(300))
         assertEquals(1000, WakeTransitionSettings.sanitizeDuration(5_000))
+    }
+
+    @Test
+    fun `playlist switch delay is off by default and stays in range`() {
+        assertEquals(0, WallpaperBehaviorSettings().switchDelayMs)
+        assertEquals(0, WallpaperBehaviorSettings.sanitizeSwitchDelay(-100))
+        assertEquals(500, WallpaperBehaviorSettings.sanitizeSwitchDelay(500))
+        assertEquals(3_000, WallpaperBehaviorSettings.sanitizeSwitchDelay(60_000))
     }
 
     @Test

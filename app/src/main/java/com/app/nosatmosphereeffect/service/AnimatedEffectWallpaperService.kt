@@ -8,6 +8,8 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.opengl.GLSurfaceView
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
@@ -167,9 +169,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             onShowLocked = ::showLockedState,
             onResumeHome = ::snapToHomeState,
             onScreenOff = {
-                if (!isPreview) {
-                    rotateWallpaper()
-                }
+                if (!isPreview) scheduleRotation()
             },
             onReload = ::reloadWallpaper,
             onConfigUpdate = ::updateRendererConfig
@@ -220,6 +220,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
 
         override fun onDestroy() {
             stopWakeTransition()
+            rotationHandler.removeCallbacks(pendingRotation)
             activeEngines.remove(this)
             events.close()
             animator?.cancel()
@@ -389,6 +390,27 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                 )
             }
             requestRender()
+        }
+
+        private val rotationHandler = Handler(Looper.getMainLooper())
+
+        /** The screen came back on within the switch delay: the image stays. */
+        private val pendingRotation = Runnable {
+            if (!isDeviceInteractive()) rotateWallpaper()
+        }
+
+        /**
+         * A playlist switches on screen off, after the switch delay (Timing),
+         * so locking and unlocking straight away doesn't change the image.
+         */
+        private fun scheduleRotation() {
+            rotationHandler.removeCallbacks(pendingRotation)
+            val delayMs = behavior.switchDelayMs
+            if (delayMs <= 0) {
+                rotateWallpaper()
+            } else {
+                rotationHandler.postDelayed(pendingRotation, delayMs.toLong())
+            }
         }
 
         fun handleThemeChange(isNightMode: Boolean) {

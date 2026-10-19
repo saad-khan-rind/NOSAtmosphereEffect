@@ -23,7 +23,7 @@ data class WakeTransitionSettings(
     val durationMs: Int = DEFAULT_DURATION_MS
 ) {
     companion object {
-        const val MIN_DURATION_MS = 150
+        const val MIN_DURATION_MS = 50
         const val MAX_DURATION_MS = 1000
         const val DEFAULT_DURATION_MS = 250
 

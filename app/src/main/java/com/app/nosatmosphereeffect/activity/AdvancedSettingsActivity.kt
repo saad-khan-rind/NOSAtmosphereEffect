@@ -143,6 +143,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
             transitionsEnabled = behaviorSettings.transitionsEnabled,
             alwaysAppliedTarget = behaviorSettings.alwaysAppliedTarget,
             wakeTransition = behaviorSettings.wakeTransition,
+            switchDelayMs = behaviorSettings.switchDelayMs,
             dimness = prefs.getFloat("dim_level", defaultDimness),
             blurStrength = prefs.getFloat("frosted_blur_radius", 200f),
             enableNoise = prefs.getBoolean("enable_noise", false),
@@ -271,7 +272,8 @@ class AdvancedSettingsActivity : ComponentActivity() {
             WallpaperBehaviorSettings(
                 transitionsEnabled = result.transitionsEnabled,
                 alwaysAppliedTarget = result.alwaysAppliedTarget,
-                wakeTransition = result.wakeTransition
+                wakeTransition = result.wakeTransition,
+                switchDelayMs = result.switchDelayMs
             )
         )
 

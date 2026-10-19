@@ -63,6 +63,7 @@ import com.app.nosatmosphereeffect.helper.SubjectModelPhase
 import com.app.nosatmosphereeffect.helper.SubjectModelState
 import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
 import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
+import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoDropdownField
@@ -114,6 +115,7 @@ data class AdvancedConfig(
     val transitionsEnabled: Boolean,
     val alwaysAppliedTarget: AlwaysAppliedTarget,
     val wakeTransition: WakeTransitionSettings,
+    val switchDelayMs: Int,
     val dimness: Float,
     val blurStrength: Float,
     val enableNoise: Boolean,
@@ -144,6 +146,7 @@ data class AdvancedResult(
     val transitionsEnabled: Boolean,
     val alwaysAppliedTarget: AlwaysAppliedTarget,
     val wakeTransition: WakeTransitionSettings,
+    val switchDelayMs: Int,
     val dimness: Float,
     val blurStrength: Float,
     val enableNoise: Boolean,
@@ -195,6 +198,7 @@ fun AdvancedSettingsScreen(
     var transitionsEnabled by remember { mutableStateOf(config.transitionsEnabled) }
     var alwaysAppliedTarget by remember { mutableStateOf(config.alwaysAppliedTarget) }
     var wakeTransition by remember { mutableStateOf(config.wakeTransition) }
+    var switchDelay by remember { mutableStateOf(config.switchDelayMs.toString()) }
     var dimness by remember { mutableFloatStateOf(config.dimness) }
     var blurStrength by remember { mutableFloatStateOf(config.blurStrength) }
     var rotationIndex by remember { mutableIntStateOf(config.initialRotationIndex) }
@@ -289,6 +293,7 @@ fun AdvancedSettingsScreen(
         transitionsEnabled = transitionsEnabled,
         alwaysAppliedTarget = alwaysAppliedTarget,
         wakeTransition = wakeTransition,
+        switchDelayMs = WallpaperBehaviorSettings.sanitizeSwitchDelay(switchDelay.toIntOrNull() ?: 0),
         dimness = dimness,
         blurStrength = blurStrength,
         enableNoise = noiseEnabled,
@@ -452,6 +457,9 @@ fun AdvancedSettingsScreen(
                         onAlwaysAppliedTargetChange = { alwaysAppliedTarget = it },
                         wakeTransition = wakeTransition,
                         onWakeTransitionChange = { wakeTransition = it },
+                        showSwitchDelay = config.isPlaylistMode,
+                        switchDelay = switchDelay,
+                        onSwitchDelayChange = { switchDelay = it.filterDigits() },
                         onPollInfo = { infoDialog = InfoDialog.Poll },
                         onDelayInfo = { infoDialog = InfoDialog.Delay }
                     )
@@ -985,6 +993,9 @@ private fun TimingSettings(
     onAlwaysAppliedTargetChange: (AlwaysAppliedTarget) -> Unit,
     wakeTransition: WakeTransitionSettings,
     onWakeTransitionChange: (WakeTransitionSettings) -> Unit,
+    showSwitchDelay: Boolean,
+    switchDelay: String,
+    onSwitchDelayChange: (String) -> Unit,
     onPollInfo: () -> Unit,
     onDelayInfo: () -> Unit
 ) {
@@ -1068,6 +1079,20 @@ private fun TimingSettings(
                         valueText = { resources.getString(R.string.wake_length_ms, it.roundToInt()) }
                     )
                 }
+            }
+        }
+
+        if (showSwitchDelay) {
+            SettingsGroup(stringResource(R.string.timing_playlist_group)) {
+                AtmoNumberField(
+                    label = stringResource(R.string.timing_switch_delay),
+                    value = switchDelay,
+                    onValueChange = onSwitchDelayChange,
+                    helper = stringResource(
+                        R.string.timing_switch_delay_helper,
+                        WallpaperBehaviorSettings.MAX_SWITCH_DELAY_MS
+                    )
+                )
             }
         }
 
