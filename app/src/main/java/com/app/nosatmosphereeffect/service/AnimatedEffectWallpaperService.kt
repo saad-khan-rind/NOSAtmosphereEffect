@@ -308,6 +308,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                 WakeTransition.lockScreenIsMonochrome(effectId, lock, halftoneGrayscale())
             ) 1f - lock else null
             wakeEffectTo = lock
+            WakeTransition.fillFromCentre = wakeEffectFrom != null
             // Held at the start until the screen has finished revealing the
             // lock screen (some skins fade in from the always-on display after
             // the wallpaper is already visible), so the motion is seen.
@@ -369,6 +370,8 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             wakePlaying = null
             Choreographer.getInstance().removeFrameCallback(wakeFrame)
             WakeTransition.clear()
+            WakeTransition.fillFromCentre = false
+            // Reapplied with the origin back to the fill point, at the lock screen look.
             if (wakeEffectFrom != null) renderer?.let { setEffectProgress(it, wakeEffectTo) }
             wakeEffectFrom = null
             requestRender()
