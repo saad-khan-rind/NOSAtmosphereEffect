@@ -24,7 +24,7 @@ data class WakeTransitionSettings(
 ) {
     companion object {
         const val MIN_DURATION_MS = 150
-        const val MAX_DURATION_MS = 500
+        const val MAX_DURATION_MS = 1000
         const val DEFAULT_DURATION_MS = 250
 
         fun sanitizeDuration(ms: Int): Int = ms.coerceIn(MIN_DURATION_MS, MAX_DURATION_MS)

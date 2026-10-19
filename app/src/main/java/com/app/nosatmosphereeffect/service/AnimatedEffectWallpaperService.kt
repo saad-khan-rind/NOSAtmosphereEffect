@@ -1,7 +1,5 @@
 package com.app.nosatmosphereeffect.service
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.KeyguardManager
 import android.app.WallpaperManager
@@ -11,7 +9,9 @@ import android.graphics.Bitmap
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
+import android.view.Choreographer
 import android.view.SurfaceHolder
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
@@ -23,6 +23,7 @@ import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.PlaylistRotationController
 import com.app.nosatmosphereeffect.helper.WakeTransition
+import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
 import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPolicy
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
@@ -217,6 +218,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         }
 
         override fun onDestroy() {
+            stopWakeTransition()
             activeEngines.remove(this)
             events.close()
             animator?.cancel()
@@ -230,7 +232,10 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             onEngineVisibilityChanged(renderer, visible)
-            if (!visible) events.onHidden()
+            if (!visible) {
+                events.onHidden()
+                stopWakeTransition()
+            }
             if (!visible && !isDeviceInteractive()) sleptWhileHidden = true
             if (!behavior.transitionsEnabled) {
                 animator?.cancel()
@@ -277,38 +282,54 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         /**
          * The lock screen arriving as the screen turns on: a quick, subtle
          * zoom, colour fill from the centre or blur to sharp (WakeTransition).
-         * Runs on the engine's [animator], so an unlock started meanwhile
-         * takes over from it as it would from any other animation.
+         *
+         * Timed on its own frame clock rather than the engine's [animator]:
+         * ValueAnimator follows the system's animator duration scale, which
+         * custom ROMs often lower or turn off, and then the wake ran at one
+         * fixed, too-fast speed whatever its Length. It also stays out of
+         * the way of the lock-state snaps that cancel [animator] as the
+         * screen turns on; only an unlock, hiding or shutting down stops it.
          */
         private fun playWakeTransitionIfWoken() {
             val woke = sleptWhileHidden
             sleptWhileHidden = false
             val wake = behavior.wakeTransition
             if (!woke || isPreview || !wake.enabled || !isKeyguardLocked()) return
-            animator?.cancel()
+            stopWakeTransition()
+            wakePlaying = wake
+            wakeStartMs = SystemClock.uptimeMillis()
             // Held at the start until the screen has finished revealing the
             // lock screen (some skins fade in from the always-on display after
             // the wallpaper is already visible), so the motion is seen.
             WakeTransition.show(wake.style, 1f)
             requestRender()
-            animator = ValueAnimator.ofFloat(1f, 0f).apply {
+            Choreographer.getInstance().postFrameCallback(wakeFrame)
+        }
+
+        private var wakePlaying: WakeTransitionSettings? = null
+        private var wakeStartMs = 0L
+
+        private val wakeFrame = object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                val wake = wakePlaying ?: return
                 val zoom = wake.style == WakeTransitionStyle.ZOOM
-                startDelay = if (zoom) ZOOM_HOLD_MS else WAKE_HOLD_MS
-                duration = wake.durationMs.toLong()
-                interpolator = if (zoom) ZOOM_EASING else WAKE_EASING
-                addUpdateListener { animation ->
-                    WakeTransition.show(wake.style, animation.animatedValue as Float)
-                    requestRender()
-                }
-                // Cancelled by an unlock or a lock-state snap: never leave it half-played.
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        WakeTransition.clear()
-                        requestRender()
-                    }
-                })
-                start()
+                val hold = if (zoom) ZOOM_HOLD_MS else WAKE_HOLD_MS
+                val elapsed = SystemClock.uptimeMillis() - wakeStartMs - hold
+                val t = (elapsed.toFloat() / wake.durationMs).coerceIn(0f, 1f)
+                val eased = (if (zoom) ZOOM_EASING else WAKE_EASING).getInterpolation(t)
+                WakeTransition.show(wake.style, 1f - eased)
+                requestRender()
+                if (t < 1f) Choreographer.getInstance().postFrameCallback(this) else stopWakeTransition()
             }
+        }
+
+        /** Never leaves the photo zoomed, grey or blurred. */
+        private fun stopWakeTransition() {
+            if (wakePlaying == null) return
+            wakePlaying = null
+            Choreographer.getInstance().removeFrameCallback(wakeFrame)
+            WakeTransition.clear()
+            requestRender()
         }
 
         override fun onWallpaperFlagsChanged(which: Int) {
@@ -428,6 +449,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         }
 
         private fun playUnlockAnimation() {
+            stopWakeTransition()
             val currentRenderer = renderer
             if (currentRenderer == null) {
                 Log.w(logTag, "Ignoring unlock animation because the renderer is unavailable")
@@ -464,6 +486,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         }
 
         private fun snapToHomeState() {
+            stopWakeTransition()
             // Let an in-progress unlock animation finish rather than jumping.
             if (behavior.transitionsEnabled && animator?.isRunning == true) {
                 requestRender()
