@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.GLWallpaperService
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
@@ -440,7 +441,12 @@ class ColorFillRenderController(
         }
     }
 
-    private fun applyState(snapshot: ColorFillRenderState) {
+    private fun applyState(state: ColorFillRenderState) {
+        val snapshot = if (WakeTransition.fillFromCentre) {
+            state.copy(originX = 0.5f, originY = 0.5f)
+        } else {
+            state
+        }
         val gl: ColorFillRenderer?
         val vk: VulkanColorFillHost?
         synchronized(lock) {

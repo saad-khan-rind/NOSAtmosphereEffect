@@ -52,6 +52,13 @@ object WakeTransition {
     @Volatile var postAmount = 0f
         private set
 
+    /**
+     * Colour Fill is playing the wake itself (a black and white lock screen):
+     * it fills from the middle of the screen, as the wake always does, not
+     * from its own fill point (Fine tuning, or Pro's unlock-method origin).
+     */
+    @Volatile var fillFromCentre = false
+
     /** [remaining] runs from 1 when the wake starts to 0 when it ends. */
     fun show(style: WakeTransitionStyle, remaining: Float) {
         val left = remaining.coerceIn(0f, 1f)
