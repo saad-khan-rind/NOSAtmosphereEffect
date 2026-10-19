@@ -30,8 +30,20 @@ enum class WallpaperSurface {
 data class WallpaperBehaviorSettings(
     val transitionsEnabled: Boolean = true,
     val alwaysAppliedTarget: AlwaysAppliedTarget = AlwaysAppliedTarget.BOTH,
-    val wakeTransition: WakeTransitionSettings = WakeTransitionSettings()
-)
+    val wakeTransition: WakeTransitionSettings = WakeTransitionSettings(),
+    /**
+     * Playlists: how long after the screen turns off the next image waits.
+     * Turned back on within it, nothing switches, so a quick lock and
+     * unlock doesn't change the wallpaper. 0 switches at once.
+     */
+    val switchDelayMs: Int = 0
+) {
+    companion object {
+        const val MAX_SWITCH_DELAY_MS = 3_000
+
+        fun sanitizeSwitchDelay(ms: Int): Int = ms.coerceIn(0, MAX_SWITCH_DELAY_MS)
+    }
+}
 
 data class EffectStateEndpoints(
     val originalProgress: Float,
@@ -44,6 +56,7 @@ object WallpaperBehaviorPolicy {
     const val WAKE_ENABLED_KEY = "wake_transition_enabled"
     const val WAKE_STYLE_KEY = "wake_transition_style"
     const val WAKE_DURATION_KEY = "wake_transition_ms"
+    const val SWITCH_DELAY_KEY = "playlist_switch_delay_ms"
 
     fun resolveSurface(
         isHomeEngine: Boolean,
@@ -122,6 +135,9 @@ object WallpaperBehaviorPreferences {
                         WakeTransitionSettings.DEFAULT_DURATION_MS
                     )
                 )
+            ),
+            switchDelayMs = WallpaperBehaviorSettings.sanitizeSwitchDelay(
+                preferences.readInt(WallpaperBehaviorPolicy.SWITCH_DELAY_KEY, 0)
             )
         )
     }
@@ -142,6 +158,10 @@ object WallpaperBehaviorPreferences {
                 WallpaperBehaviorPolicy.WAKE_DURATION_KEY,
                 WakeTransitionSettings.sanitizeDuration(settings.wakeTransition.durationMs)
             )
+            putInt(
+                WallpaperBehaviorPolicy.SWITCH_DELAY_KEY,
+                WallpaperBehaviorSettings.sanitizeSwitchDelay(settings.switchDelayMs)
+            )
         }
     }
 
@@ -152,6 +172,7 @@ object WallpaperBehaviorPreferences {
             remove(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY)
             remove(WallpaperBehaviorPolicy.WAKE_STYLE_KEY)
             remove(WallpaperBehaviorPolicy.WAKE_DURATION_KEY)
+            remove(WallpaperBehaviorPolicy.SWITCH_DELAY_KEY)
         }
     }
 
