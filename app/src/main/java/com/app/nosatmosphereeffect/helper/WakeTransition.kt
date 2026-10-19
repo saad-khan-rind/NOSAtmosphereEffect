@@ -54,7 +54,7 @@ data class WakeTransitionSettings(
         const val MAX_DURATION_MS = 1000
         const val DEFAULT_DURATION_MS = 250
         const val MIN_ZOOM_PERCENT = 1
-        const val MAX_ZOOM_PERCENT = 35
+        const val MAX_ZOOM_PERCENT = 80
         const val DEFAULT_ZOOM_PERCENT = 20
 
         fun sanitizeDuration(ms: Int): Int = ms.coerceIn(MIN_DURATION_MS, MAX_DURATION_MS)

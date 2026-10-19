@@ -169,10 +169,15 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             onShowLocked = ::showLockedState,
             onResumeHome = ::snapToHomeState,
             onScreenOff = {
+                // Some phones hide the wallpaper before the screen reports itself off.
+                sleptWhileHidden = true
                 if (!isPreview) scheduleRotation()
             },
             onReload = ::reloadWallpaper,
-            onConfigUpdate = ::updateRendererConfig
+            onConfigUpdate = ::updateRendererConfig,
+            // Some phones never hide the wallpaper while the screen is off, so no
+            // visibility change comes to start the wake: the screen turning on does.
+            onScreenOn = { if (isVisible) playWakeTransitionIfWoken() }
         )
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
@@ -236,6 +241,9 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             onEngineVisibilityChanged(renderer, visible)
             if (!visible) {
                 events.onHidden()
+                // Some skins hide the wallpaper for a moment as the lock screen
+                // appears: the wake plays again when it is back.
+                if (wakePlaying != null) sleptWhileHidden = true
                 stopWakeTransition()
             }
             if (!visible && !isDeviceInteractive()) sleptWhileHidden = true
