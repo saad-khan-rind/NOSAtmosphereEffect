@@ -66,6 +66,16 @@ class WallpaperBehaviorPolicyTest {
     }
 
     @Test
+    fun `monochrome lock screens are recognised`() {
+        assertTrue(WakeTransition.lockScreenIsMonochrome("COLORFILL", 1f, halftoneGrayscale = false))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("COLORFILL_REVERSE", 0f, halftoneGrayscale = false))
+        assertTrue(WakeTransition.lockScreenIsMonochrome("HALFTONE_REVERSE", 0f, halftoneGrayscale = true))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("HALFTONE_REVERSE", 0f, halftoneGrayscale = false))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("HALFTONE", 0f, halftoneGrayscale = true))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("ORIGINAL", 0f, halftoneGrayscale = true))
+    }
+
+    @Test
     fun `colour fill and blur go to the post pass and clear fully`() {
         WakeTransition.show(WakeTransitionStyle.BLUR, 0.5f)
         assertEquals(WakeTransition.MODE_BLUR, WakeTransition.postMode)

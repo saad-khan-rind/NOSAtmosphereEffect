@@ -28,6 +28,7 @@ import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPolicy
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
+import com.app.nosatmosphereeffect.helper.WallpaperSurface
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeSession
@@ -298,16 +299,53 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             stopWakeTransition()
             wakePlaying = wake
             wakeStartMs = SystemClock.uptimeMillis()
+            // On a lock screen that is already black and white, colour fill
+            // comes from the effect: it starts in colour and turns to its
+            // lock screen look.
+            val lock = lockScreenProgress()
+            wakeEffectFrom = if (
+                wake.style == WakeTransitionStyle.COLOR_FILL &&
+                WakeTransition.lockScreenIsMonochrome(effectId, lock, halftoneGrayscale())
+            ) 1f - lock else null
+            wakeEffectTo = lock
             // Held at the start until the screen has finished revealing the
             // lock screen (some skins fade in from the always-on display after
             // the wallpaper is already visible), so the motion is seen.
-            WakeTransition.show(wake.style, 1f)
-            requestRender()
+            showWake(wake, 1f)
             Choreographer.getInstance().postFrameCallback(wakeFrame)
         }
 
         private var wakePlaying: WakeTransitionSettings? = null
         private var wakeStartMs = 0L
+        /** The effect's own colour side, when it plays the wake; null when the post pass does. */
+        private var wakeEffectFrom: Float? = null
+        private var wakeEffectTo = 0f
+
+        /** [remaining] runs from 1 at the start to 0 at the end. */
+        private fun showWake(wake: WakeTransitionSettings, remaining: Float) {
+            val from = wakeEffectFrom
+            if (from == null) {
+                WakeTransition.show(wake.style, remaining)
+            } else {
+                renderer?.let { setEffectProgress(it, wakeEffectTo + (from - wakeEffectTo) * remaining) }
+            }
+            requestRender()
+        }
+
+        /** The effect's progress on the lock screen, as Timing's mode sets it. */
+        private fun lockScreenProgress(): Float {
+            if (behavior.transitionsEnabled) return lockedProgress
+            val endpoints = EffectStatePolicy.endpoints(effectId)
+            return if (behavior.alwaysAppliedTarget.showsEffectOn(WallpaperSurface.LOCK)) {
+                endpoints.appliedProgress
+            } else {
+                endpoints.originalProgress
+            }
+        }
+
+        private fun halftoneGrayscale(): Boolean = runCatching {
+            getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE).getBoolean("halftone_grayscale", false)
+        }.getOrDefault(false)
 
         private val wakeFrame = object : Choreographer.FrameCallback {
             override fun doFrame(frameTimeNanos: Long) {
@@ -317,18 +355,22 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                 val elapsed = SystemClock.uptimeMillis() - wakeStartMs - hold
                 val t = (elapsed.toFloat() / wake.durationMs).coerceIn(0f, 1f)
                 val eased = (if (zoom) ZOOM_EASING else WAKE_EASING).getInterpolation(t)
-                WakeTransition.show(wake.style, 1f - eased)
-                requestRender()
+                showWake(wake, 1f - eased)
                 if (t < 1f) Choreographer.getInstance().postFrameCallback(this) else stopWakeTransition()
             }
         }
 
-        /** Never leaves the photo zoomed, grey or blurred. */
+        /**
+         * Never leaves the photo zoomed, grey or blurred, nor the effect part
+         * way to its lock screen look; an unlock then sets its own progress.
+         */
         private fun stopWakeTransition() {
             if (wakePlaying == null) return
             wakePlaying = null
             Choreographer.getInstance().removeFrameCallback(wakeFrame)
             WakeTransition.clear()
+            if (wakeEffectFrom != null) renderer?.let { setEffectProgress(it, wakeEffectTo) }
+            wakeEffectFrom = null
             requestRender()
         }
 
