@@ -599,13 +599,13 @@ private fun EffectSettings(
             SettingsGroup(stringResource(R.string.glass_group)) {
                 if (config.showAtmosphereGlassToggle) {
                     SettingSwitchRow(
-                        title = stringResource(R.string.glass_add),
+                        title = stringResource(R.string.glass_add, stringResource(R.string.glass_group)),
                         checked = atmosphereGlassEnabled,
                         onCheckedChange = onAtmosphereGlassEnabledChange,
                         subtitle = if (atmosphereGlassEnabled) {
-                            stringResource(R.string.glass_on_sharp)
+                            stringResource(R.string.glass_on_sharp, stringResource(R.string.effect_original_title))
                         } else {
-                            stringResource(R.string.glass_off_sharp)
+                            stringResource(R.string.glass_off_sharp, stringResource(R.string.effect_original_title))
                         }
                     )
                 }
@@ -817,7 +817,7 @@ private fun EffectSettings(
                     title = stringResource(R.string.common_background_only),
                     checked = halftoneBackgroundOnly,
                     onCheckedChange = onHalftoneBackgroundOnlyChange,
-                    inactiveText = stringResource(R.string.halftone_inactive),
+                    inactiveText = stringResource(R.string.halftone_inactive, stringResource(R.string.halftone_group)),
                     activeDescription = stringResource(R.string.halftone_active),
                     waitingText = stringResource(R.string.common_waiting_model),
                     subjectModelDelivery = subjectModelDelivery,
@@ -880,7 +880,7 @@ private fun EffectSettings(
         }
 
         if (config.showBlob) {
-            SettingsGroup(stringResource(R.string.atmos_color_group)) {
+            SettingsGroup(stringResource(R.string.atmos_color_group, stringResource(R.string.effect_original_title))) {
                 LabeledSlider(
                     label = stringResource(R.string.atmos_saturation),
                     value = saturation,
@@ -1055,7 +1055,8 @@ private fun TimingSettings(
                                 WakeTransitionStyle.ZOOM -> R.string.wake_zoom_hint
                                 WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill_hint
                                 WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
-                            }
+                            },
+                            stringResource(R.string.effect_colorfill_title)
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
