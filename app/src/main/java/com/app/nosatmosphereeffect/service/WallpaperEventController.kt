@@ -29,7 +29,8 @@ internal class WallpaperEventController(
     private val onResumeHome: () -> Unit,
     private val onScreenOff: () -> Unit,
     private val onReload: () -> Unit,
-    private val onConfigUpdate: () -> Unit
+    private val onConfigUpdate: () -> Unit,
+    private val onScreenOn: () -> Unit = {}
 ) {
     private val handler = Handler(Looper.getMainLooper())
     private var locked = true
@@ -184,6 +185,7 @@ internal class WallpaperEventController(
 
     private fun handleScreenOn() {
         if (closed) return
+        runCallback("play the wake transition", onScreenOn)
         handler.removeCallbacks(unlockChecker)
         if (transitionsEnabled()) {
             val keyguardLocked = isKeyguardLocked()
