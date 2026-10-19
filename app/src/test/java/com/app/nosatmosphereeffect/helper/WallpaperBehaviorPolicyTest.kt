@@ -53,7 +53,7 @@ class WallpaperBehaviorPolicyTest {
         assertEquals(250, wake.durationMs)
         assertEquals(150, WakeTransitionSettings.sanitizeDuration(0))
         assertEquals(300, WakeTransitionSettings.sanitizeDuration(300))
-        assertEquals(500, WakeTransitionSettings.sanitizeDuration(5_000))
+        assertEquals(1000, WakeTransitionSettings.sanitizeDuration(5_000))
     }
 
     @Test
