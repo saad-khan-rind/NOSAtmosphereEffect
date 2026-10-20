@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.service.LiveWallpaperEngines
 
 /**
  * Decides what applying a wallpaper does to the Fine tuning settings.
@@ -87,15 +88,23 @@ internal object FineTuneRetention {
             return WallpaperEffectServices.effectIdForService(homeInfo.component.className)
         }
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return null
-        val lockInfo = try {
-            manager.getWallpaperInfo(WallpaperManager.FLAG_LOCK)
-        } catch (failure: RuntimeException) {
-            Log.w(TAG, "Unable to inspect the Lock screen live wallpaper", failure)
+        val lockInfo = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             null
+        } else {
+            try {
+                manager.getWallpaperInfo(WallpaperManager.FLAG_LOCK)
+            } catch (failure: RuntimeException) {
+                Log.w(TAG, "Unable to inspect the Lock screen live wallpaper", failure)
+                null
+            }
         }
-        if (lockInfo?.packageName != packageName) return null
-        return WallpaperEffectServices.effectIdForService(lockInfo.component.className)
+        if (lockInfo?.packageName == packageName) {
+            return WallpaperEffectServices.effectIdForService(lockInfo.component.className)
+        }
+        // Some skins (MIUI) report no live wallpaper at all while Atmo's draws
+        // it: then Atmo's own running engine says so. Another app's wallpaper,
+        // when one is reported, still wins.
+        return if (homeInfo == null && lockInfo == null) LiveWallpaperEngines.effectId() else null
     }
 
     private const val TAG = "FineTuneRetention"
