@@ -1037,13 +1037,7 @@ private fun TimingSettings(
                     Spacer(Modifier.height(12.dp))
                     AtmoDropdownField(
                         label = stringResource(R.string.wake_style),
-                        options = listOf(
-                            stringResource(R.string.wake_zoom),
-                            stringResource(R.string.wake_color_fill),
-                            stringResource(R.string.wake_blur),
-                            stringResource(R.string.wake_stretch),
-                            stringResource(R.string.wake_shake)
-                        ),
+                        options = WakeTransitionStyle.entries.map { stringResource(wakeStyleName(it)) },
                         selectedIndex = wakeTransition.style.ordinal,
                         onSelected = { index ->
                             onWakeTransitionChange(
@@ -1060,6 +1054,7 @@ private fun TimingSettings(
                                 WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
                                 WakeTransitionStyle.STRETCH -> R.string.wake_stretch_hint
                                 WakeTransitionStyle.SHAKE -> R.string.wake_shake_hint
+                                WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
                             },
                             stringResource(R.string.effect_colorfill_title)
                         ),
@@ -1067,120 +1062,30 @@ private fun TimingSettings(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = GroupTextInset
                     )
-                    val resources = LocalResources.current
-                    AnimatedVisibility(visible = wakeTransition.style == WakeTransitionStyle.ZOOM) {
-                        LabeledSlider(
-                            label = stringResource(R.string.wake_zoom_level),
-                            value = wakeTransition.zoomPercent.toFloat(),
-                            onValueChange = {
-                                onWakeTransitionChange(
-                                    wakeTransition.copy(
-                                        zoomPercent = WakeTransitionSettings.sanitizeZoom(it.roundToInt())
+                    if (wakeTransition.style == WakeTransitionStyle.RANDOM) {
+                        WakeTransitionSettings.RANDOM_POOL.forEach { style ->
+                            Text(
+                                stringResource(wakeStyleName(style)),
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = GroupTextInset.padding(top = 20.dp)
+                            )
+                            WakeStyleControls(
+                                wake = wakeTransition.randomFor(style),
+                                chooseDirection = false,
+                                onChange = {
+                                    onWakeTransitionChange(
+                                        wakeTransition.copy(random = wakeTransition.random + (style to it))
                                     )
-                                )
-                            },
-                            valueRange = WakeTransitionSettings.MIN_ZOOM_PERCENT.toFloat()..
-                                WakeTransitionSettings.MAX_ZOOM_PERCENT.toFloat(),
-                            step = 1f,
-                            valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) },
-                            modifier = Modifier.padding(top = 12.dp)
+                                }
+                            )
+                        }
+                    } else {
+                        WakeStyleControls(
+                            wake = wakeTransition,
+                            chooseDirection = true,
+                            onChange = onWakeTransitionChange
                         )
                     }
-                    AnimatedVisibility(visible = wakeTransition.style == WakeTransitionStyle.STRETCH) {
-                        Column(Modifier.padding(top = 12.dp)) {
-                            AtmoSegmentedControl(
-                                options = listOf(
-                                    stringResource(R.string.wake_stretch_outward),
-                                    stringResource(R.string.wake_stretch_inward)
-                                ),
-                                selectedIndex = if (wakeTransition.stretchInward) 1 else 0,
-                                onSelected = { index ->
-                                    onWakeTransitionChange(wakeTransition.copy(stretchInward = index == 1))
-                                }
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            LabeledSlider(
-                                label = stringResource(R.string.wake_strength),
-                                value = wakeTransition.stretchPercent.toFloat(),
-                                onValueChange = {
-                                    onWakeTransitionChange(
-                                        wakeTransition.copy(
-                                            stretchPercent = WakeTransitionSettings.sanitizeStretch(it.roundToInt())
-                                        )
-                                    )
-                                },
-                                valueRange = WakeTransitionSettings.MIN_STRETCH_PERCENT.toFloat()..
-                                    WakeTransitionSettings.MAX_STRETCH_PERCENT.toFloat(),
-                                step = 1f,
-                                valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
-                            )
-                        }
-                    }
-                    AnimatedVisibility(visible = wakeTransition.style == WakeTransitionStyle.SHAKE) {
-                        Column(Modifier.padding(top = 12.dp)) {
-                            AtmoSegmentedControl(
-                                options = listOf(
-                                    stringResource(R.string.wake_shake_sideways),
-                                    stringResource(R.string.wake_shake_vertical),
-                                    stringResource(R.string.wake_shake_twist)
-                                ),
-                                selectedIndex = wakeTransition.shakeDirection.ordinal,
-                                onSelected = { index ->
-                                    onWakeTransitionChange(
-                                        wakeTransition.copy(shakeDirection = WakeShakeDirection.entries[index])
-                                    )
-                                }
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            LabeledSlider(
-                                label = stringResource(R.string.wake_strength),
-                                value = wakeTransition.shakePercent.toFloat(),
-                                onValueChange = {
-                                    onWakeTransitionChange(
-                                        wakeTransition.copy(
-                                            shakePercent = WakeTransitionSettings.sanitizeShake(it.roundToInt())
-                                        )
-                                    )
-                                },
-                                valueRange = WakeTransitionSettings.MIN_SHAKE_PERCENT.toFloat()..
-                                    WakeTransitionSettings.MAX_SHAKE_PERCENT.toFloat(),
-                                step = 1f,
-                                valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            LabeledSlider(
-                                label = stringResource(R.string.wake_shake_count),
-                                value = wakeTransition.shakeCount.toFloat(),
-                                onValueChange = {
-                                    onWakeTransitionChange(
-                                        wakeTransition.copy(
-                                            shakeCount = WakeTransitionSettings.sanitizeShakeCount(it.roundToInt())
-                                        )
-                                    )
-                                },
-                                valueRange = WakeTransitionSettings.MIN_SHAKE_COUNT.toFloat()..
-                                    WakeTransitionSettings.MAX_SHAKE_COUNT.toFloat(),
-                                step = 1f,
-                                valueText = { it.roundToInt().toString() }
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    LabeledSlider(
-                        label = stringResource(R.string.wake_length),
-                        value = wakeTransition.durationMs.toFloat(),
-                        onValueChange = {
-                            onWakeTransitionChange(
-                                wakeTransition.copy(
-                                    durationMs = WakeTransitionSettings.sanitizeDuration(it.roundToInt())
-                                )
-                            )
-                        },
-                        valueRange = WakeTransitionSettings.MIN_DURATION_MS.toFloat()..
-                            WakeTransitionSettings.MAX_DURATION_MS.toFloat(),
-                        step = 50f,
-                        valueText = { resources.getString(R.string.wake_length_ms, it.roundToInt()) }
-                    )
                 }
             }
         }
@@ -1414,3 +1319,137 @@ private enum class InfoDialog(@StringRes val title: Int, @StringRes val message:
 
 private fun String.filterDigits(): String = filter { it.isDigit() }
 
+/** One style's own settings; Random's styles pick their direction themselves ([chooseDirection] false). */
+@Composable
+private fun WakeStyleControls(
+    wake: WakeTransitionSettings,
+    chooseDirection: Boolean,
+    onChange: (WakeTransitionSettings) -> Unit
+) {
+    Column {
+        val resources = LocalResources.current
+        if (wake.style == WakeTransitionStyle.ZOOM) {
+            LabeledSlider(
+                label = stringResource(R.string.wake_zoom_level),
+                value = wake.zoomPercent.toFloat(),
+                onValueChange = {
+                    onChange(
+                        wake.copy(
+                            zoomPercent = WakeTransitionSettings.sanitizeZoom(it.roundToInt())
+                        )
+                    )
+                },
+                valueRange = WakeTransitionSettings.MIN_ZOOM_PERCENT.toFloat()..
+                    WakeTransitionSettings.MAX_ZOOM_PERCENT.toFloat(),
+                step = 1f,
+                valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) },
+                modifier = Modifier.padding(top = 12.dp)
+            )
+        }
+        if (wake.style == WakeTransitionStyle.STRETCH) {
+            Column(Modifier.padding(top = 12.dp)) {
+                if (chooseDirection) AtmoSegmentedControl(
+                    options = listOf(
+                        stringResource(R.string.wake_stretch_outward),
+                        stringResource(R.string.wake_stretch_inward)
+                    ),
+                    selectedIndex = if (wake.stretchInward) 1 else 0,
+                    onSelected = { index ->
+                        onChange(wake.copy(stretchInward = index == 1))
+                    }
+                )
+                if (chooseDirection) Spacer(Modifier.height(12.dp))
+                LabeledSlider(
+                    label = stringResource(R.string.wake_strength),
+                    value = wake.stretchPercent.toFloat(),
+                    onValueChange = {
+                        onChange(
+                            wake.copy(
+                                stretchPercent = WakeTransitionSettings.sanitizeStretch(it.roundToInt())
+                            )
+                        )
+                    },
+                    valueRange = WakeTransitionSettings.MIN_STRETCH_PERCENT.toFloat()..
+                        WakeTransitionSettings.MAX_STRETCH_PERCENT.toFloat(),
+                    step = 1f,
+                    valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
+                )
+            }
+        }
+        if (wake.style == WakeTransitionStyle.SHAKE) {
+            Column(Modifier.padding(top = 12.dp)) {
+                if (chooseDirection) AtmoSegmentedControl(
+                    options = listOf(
+                        stringResource(R.string.wake_shake_sideways),
+                        stringResource(R.string.wake_shake_vertical),
+                        stringResource(R.string.wake_shake_twist)
+                    ),
+                    selectedIndex = wake.shakeDirection.ordinal,
+                    onSelected = { index ->
+                        onChange(
+                            wake.copy(shakeDirection = WakeShakeDirection.entries[index])
+                        )
+                    }
+                )
+                if (chooseDirection) Spacer(Modifier.height(12.dp))
+                LabeledSlider(
+                    label = stringResource(R.string.wake_strength),
+                    value = wake.shakePercent.toFloat(),
+                    onValueChange = {
+                        onChange(
+                            wake.copy(
+                                shakePercent = WakeTransitionSettings.sanitizeShake(it.roundToInt())
+                            )
+                        )
+                    },
+                    valueRange = WakeTransitionSettings.MIN_SHAKE_PERCENT.toFloat()..
+                        WakeTransitionSettings.MAX_SHAKE_PERCENT.toFloat(),
+                    step = 1f,
+                    valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
+                )
+                Spacer(Modifier.height(12.dp))
+                LabeledSlider(
+                    label = stringResource(R.string.wake_shake_count),
+                    value = wake.shakeCount.toFloat(),
+                    onValueChange = {
+                        onChange(
+                            wake.copy(
+                                shakeCount = WakeTransitionSettings.sanitizeShakeCount(it.roundToInt())
+                            )
+                        )
+                    },
+                    valueRange = WakeTransitionSettings.MIN_SHAKE_COUNT.toFloat()..
+                        WakeTransitionSettings.MAX_SHAKE_COUNT.toFloat(),
+                    step = 1f,
+                    valueText = { it.roundToInt().toString() }
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        LabeledSlider(
+            label = stringResource(R.string.wake_length),
+            value = wake.durationMs.toFloat(),
+            onValueChange = {
+                onChange(
+                    wake.copy(
+                        durationMs = WakeTransitionSettings.sanitizeDuration(it.roundToInt())
+                    )
+                )
+            },
+            valueRange = WakeTransitionSettings.MIN_DURATION_MS.toFloat()..
+                WakeTransitionSettings.MAX_DURATION_MS.toFloat(),
+            step = 50f,
+            valueText = { resources.getString(R.string.wake_length_ms, it.roundToInt()) }
+        )
+    }
+}
+
+@StringRes
+private fun wakeStyleName(style: WakeTransitionStyle): Int = when (style) {
+    WakeTransitionStyle.ZOOM -> R.string.wake_zoom
+    WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill
+    WakeTransitionStyle.BLUR -> R.string.wake_blur
+    WakeTransitionStyle.STRETCH -> R.string.wake_stretch
+    WakeTransitionStyle.SHAKE -> R.string.wake_shake
+    WakeTransitionStyle.RANDOM -> R.string.wake_random
+}

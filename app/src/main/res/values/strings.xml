@@ -191,6 +191,8 @@
     <string name="wake_style">Style</string>
     <string name="wake_stretch">Corner stretch</string>
     <string name="wake_shake">Shake</string>
+    <string name="wake_random">Random</string>
+    <string name="wake_random_hint">Each wake plays a different style, shuffled so all five play before any repeats. Corner stretch and Shake pick their direction at random too. Each style has its own settings here, apart from the ones it uses when chosen on its own.</string>
     <string name="wake_stretch_hint">The corners are pulled out past the edges, or in towards the middle, then spring back into place. The clock moves with the photo.</string>
     <string name="wake_shake_hint">The whole screen jolts, then settles. The clock moves with the photo.</string>
     <string name="wake_stretch_outward">Outward</string>

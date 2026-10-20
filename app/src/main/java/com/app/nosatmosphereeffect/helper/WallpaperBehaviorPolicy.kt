@@ -53,15 +53,13 @@ data class EffectStateEndpoints(
 object WallpaperBehaviorPolicy {
     const val TRANSITIONS_ENABLED_KEY = "effect_transitions_enabled"
     const val ALWAYS_APPLIED_TARGET_KEY = "always_applied_target"
-    const val WAKE_ENABLED_KEY = "wake_transition_enabled"
-    const val WAKE_STYLE_KEY = "wake_transition_style"
-    const val WAKE_DURATION_KEY = "wake_transition_ms"
-    const val WAKE_ZOOM_KEY = "wake_transition_zoom_percent"
-    const val WAKE_STRETCH_INWARD_KEY = "wake_transition_stretch_inward"
-    const val WAKE_STRETCH_KEY = "wake_transition_stretch_percent"
-    const val WAKE_SHAKE_DIRECTION_KEY = "wake_transition_shake_direction"
-    const val WAKE_SHAKE_KEY = "wake_transition_shake_percent"
-    const val WAKE_SHAKE_COUNT_KEY = "wake_transition_shake_count"
+    /** The wake transition's keys are this followed by [WAKE_KEYS]; Random's styles have their own prefix. */
+    const val WAKE_PREFIX = "wake_transition_"
+    fun randomWakePrefix(style: WakeTransitionStyle) = "wake_random_${style.storedValue}_"
+    val WAKE_KEYS = listOf(
+        "enabled", "style", "ms", "zoom_percent", "stretch_inward", "stretch_percent",
+        "shake_direction", "shake_percent", "shake_count"
+    )
     const val SWITCH_DELAY_KEY = "playlist_switch_delay_ms"
 
     fun resolveSurface(
@@ -127,51 +125,10 @@ object WallpaperBehaviorPreferences {
                     AlwaysAppliedTarget.BOTH.storedValue
                 )
             ),
-            wakeTransition = WakeTransitionSettings(
-                enabled = preferences.readBoolean(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY, false),
-                style = WakeTransitionStyle.fromStoredValue(
-                    preferences.readStringSafely(
-                        WallpaperBehaviorPolicy.WAKE_STYLE_KEY,
-                        WakeTransitionStyle.ZOOM.storedValue
-                    )
-                ),
-                durationMs = WakeTransitionSettings.sanitizeDuration(
-                    preferences.readInt(
-                        WallpaperBehaviorPolicy.WAKE_DURATION_KEY,
-                        WakeTransitionSettings.DEFAULT_DURATION_MS
-                    )
-                ),
-                zoomPercent = WakeTransitionSettings.sanitizeZoom(
-                    preferences.readInt(
-                        WallpaperBehaviorPolicy.WAKE_ZOOM_KEY,
-                        WakeTransitionSettings.DEFAULT_ZOOM_PERCENT
-                    )
-                ),
-                stretchInward = preferences.readBoolean(WallpaperBehaviorPolicy.WAKE_STRETCH_INWARD_KEY, false),
-                stretchPercent = WakeTransitionSettings.sanitizeStretch(
-                    preferences.readInt(
-                        WallpaperBehaviorPolicy.WAKE_STRETCH_KEY,
-                        WakeTransitionSettings.DEFAULT_STRETCH_PERCENT
-                    )
-                ),
-                shakeDirection = WakeShakeDirection.fromStoredValue(
-                    preferences.readStringSafely(
-                        WallpaperBehaviorPolicy.WAKE_SHAKE_DIRECTION_KEY,
-                        WakeShakeDirection.SIDEWAYS.storedValue
-                    )
-                ),
-                shakePercent = WakeTransitionSettings.sanitizeShake(
-                    preferences.readInt(
-                        WallpaperBehaviorPolicy.WAKE_SHAKE_KEY,
-                        WakeTransitionSettings.DEFAULT_SHAKE_PERCENT
-                    )
-                ),
-                shakeCount = WakeTransitionSettings.sanitizeShakeCount(
-                    preferences.readInt(
-                        WallpaperBehaviorPolicy.WAKE_SHAKE_COUNT_KEY,
-                        WakeTransitionSettings.DEFAULT_SHAKE_COUNT
-                    )
-                )
+            wakeTransition = preferences.readWake(WallpaperBehaviorPolicy.WAKE_PREFIX).copy(
+                random = WakeTransitionSettings.RANDOM_POOL.associateWith { style ->
+                    preferences.readWake(WallpaperBehaviorPolicy.randomWakePrefix(style)).copy(style = style)
+                }
             ),
             switchDelayMs = WallpaperBehaviorSettings.sanitizeSwitchDelay(
                 preferences.readInt(WallpaperBehaviorPolicy.SWITCH_DELAY_KEY, 0)
@@ -189,33 +146,10 @@ object WallpaperBehaviorPreferences {
                 WallpaperBehaviorPolicy.ALWAYS_APPLIED_TARGET_KEY,
                 settings.alwaysAppliedTarget.storedValue
             )
-            putBoolean(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY, settings.wakeTransition.enabled)
-            putString(WallpaperBehaviorPolicy.WAKE_STYLE_KEY, settings.wakeTransition.style.storedValue)
-            putInt(
-                WallpaperBehaviorPolicy.WAKE_DURATION_KEY,
-                WakeTransitionSettings.sanitizeDuration(settings.wakeTransition.durationMs)
-            )
-            putInt(
-                WallpaperBehaviorPolicy.WAKE_ZOOM_KEY,
-                WakeTransitionSettings.sanitizeZoom(settings.wakeTransition.zoomPercent)
-            )
-            putBoolean(WallpaperBehaviorPolicy.WAKE_STRETCH_INWARD_KEY, settings.wakeTransition.stretchInward)
-            putInt(
-                WallpaperBehaviorPolicy.WAKE_STRETCH_KEY,
-                WakeTransitionSettings.sanitizeStretch(settings.wakeTransition.stretchPercent)
-            )
-            putString(
-                WallpaperBehaviorPolicy.WAKE_SHAKE_DIRECTION_KEY,
-                settings.wakeTransition.shakeDirection.storedValue
-            )
-            putInt(
-                WallpaperBehaviorPolicy.WAKE_SHAKE_KEY,
-                WakeTransitionSettings.sanitizeShake(settings.wakeTransition.shakePercent)
-            )
-            putInt(
-                WallpaperBehaviorPolicy.WAKE_SHAKE_COUNT_KEY,
-                WakeTransitionSettings.sanitizeShakeCount(settings.wakeTransition.shakeCount)
-            )
+            putWake(WallpaperBehaviorPolicy.WAKE_PREFIX, settings.wakeTransition)
+            WakeTransitionSettings.RANDOM_POOL.forEach { style ->
+                putWake(WallpaperBehaviorPolicy.randomWakePrefix(style), settings.wakeTransition.randomFor(style))
+            }
             putInt(
                 WallpaperBehaviorPolicy.SWITCH_DELAY_KEY,
                 WallpaperBehaviorSettings.sanitizeSwitchDelay(settings.switchDelayMs)
@@ -227,17 +161,49 @@ object WallpaperBehaviorPreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             remove(WallpaperBehaviorPolicy.TRANSITIONS_ENABLED_KEY)
             remove(WallpaperBehaviorPolicy.ALWAYS_APPLIED_TARGET_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_ENABLED_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_STYLE_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_DURATION_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_ZOOM_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_STRETCH_INWARD_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_STRETCH_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_SHAKE_DIRECTION_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_SHAKE_KEY)
-            remove(WallpaperBehaviorPolicy.WAKE_SHAKE_COUNT_KEY)
+            val prefixes = listOf(WallpaperBehaviorPolicy.WAKE_PREFIX) +
+                WakeTransitionSettings.RANDOM_POOL.map(WallpaperBehaviorPolicy::randomWakePrefix)
+            prefixes.forEach { prefix -> WallpaperBehaviorPolicy.WAKE_KEYS.forEach { remove(prefix + it) } }
             remove(WallpaperBehaviorPolicy.SWITCH_DELAY_KEY)
         }
+    }
+
+    private fun SharedPreferences.readWake(prefix: String) = WakeTransitionSettings(
+        enabled = readBoolean(prefix + "enabled", false),
+        style = WakeTransitionStyle.fromStoredValue(
+            readStringSafely(prefix + "style", WakeTransitionStyle.ZOOM.storedValue)
+        ),
+        durationMs = WakeTransitionSettings.sanitizeDuration(
+            readInt(prefix + "ms", WakeTransitionSettings.DEFAULT_DURATION_MS)
+        ),
+        zoomPercent = WakeTransitionSettings.sanitizeZoom(
+            readInt(prefix + "zoom_percent", WakeTransitionSettings.DEFAULT_ZOOM_PERCENT)
+        ),
+        stretchInward = readBoolean(prefix + "stretch_inward", false),
+        stretchPercent = WakeTransitionSettings.sanitizeStretch(
+            readInt(prefix + "stretch_percent", WakeTransitionSettings.DEFAULT_STRETCH_PERCENT)
+        ),
+        shakeDirection = WakeShakeDirection.fromStoredValue(
+            readStringSafely(prefix + "shake_direction", WakeShakeDirection.SIDEWAYS.storedValue)
+        ),
+        shakePercent = WakeTransitionSettings.sanitizeShake(
+            readInt(prefix + "shake_percent", WakeTransitionSettings.DEFAULT_SHAKE_PERCENT)
+        ),
+        shakeCount = WakeTransitionSettings.sanitizeShakeCount(
+            readInt(prefix + "shake_count", WakeTransitionSettings.DEFAULT_SHAKE_COUNT)
+        )
+    )
+
+    private fun SharedPreferences.Editor.putWake(prefix: String, wake: WakeTransitionSettings) {
+        putBoolean(prefix + "enabled", wake.enabled)
+        putString(prefix + "style", wake.style.storedValue)
+        putInt(prefix + "ms", WakeTransitionSettings.sanitizeDuration(wake.durationMs))
+        putInt(prefix + "zoom_percent", WakeTransitionSettings.sanitizeZoom(wake.zoomPercent))
+        putBoolean(prefix + "stretch_inward", wake.stretchInward)
+        putInt(prefix + "stretch_percent", WakeTransitionSettings.sanitizeStretch(wake.stretchPercent))
+        putString(prefix + "shake_direction", wake.shakeDirection.storedValue)
+        putInt(prefix + "shake_percent", WakeTransitionSettings.sanitizeShake(wake.shakePercent))
+        putInt(prefix + "shake_count", WakeTransitionSettings.sanitizeShakeCount(wake.shakeCount))
     }
 
     private fun SharedPreferences.readBoolean(key: String, fallback: Boolean): Boolean {

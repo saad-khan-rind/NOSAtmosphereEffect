@@ -15,7 +15,9 @@ enum class WakeTransitionStyle(val storedValue: String) {
     /** The corners are pulled out past the edges, or in towards the middle, and spring back. */
     STRETCH("stretch"),
     /** The whole screen jolts and settles. */
-    SHAKE("shake");
+    SHAKE("shake"),
+    /** A different style each wake, shuffled ([WakeRandom]), each with its own settings. */
+    RANDOM("random");
 
     companion object {
         fun fromStoredValue(value: String?): WakeTransitionStyle =
@@ -47,8 +49,13 @@ data class WakeTransitionSettings(
     /** How far a shake moves, in percent of the screen's height. */
     val shakePercent: Int = DEFAULT_SHAKE_PERCENT,
     /** Back-and-forth swings in one shake. */
-    val shakeCount: Int = DEFAULT_SHAKE_COUNT
+    val shakeCount: Int = DEFAULT_SHAKE_COUNT,
+    /** Random's own settings for each style it picks; missing ones are the defaults. */
+    val random: Map<WakeTransitionStyle, WakeTransitionSettings> = emptyMap()
 ) {
+    fun randomFor(style: WakeTransitionStyle): WakeTransitionSettings =
+        random[style] ?: WakeTransitionSettings(style = style)
+
     companion object {
         const val MIN_DURATION_MS = 50
         const val MAX_DURATION_MS = 1000
@@ -69,6 +76,9 @@ data class WakeTransitionSettings(
         const val MIN_SHAKE_COUNT = 1
         const val MAX_SHAKE_COUNT = 8
         const val DEFAULT_SHAKE_COUNT = 3
+
+        /** The styles Random picks from. */
+        val RANDOM_POOL = WakeTransitionStyle.entries - WakeTransitionStyle.RANDOM
 
         fun sanitizeZoom(percent: Int): Int = percent.coerceIn(MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT)
 
@@ -145,6 +155,8 @@ object WakeTransition {
                 shakeAngle = if (settings.shakeDirection == WakeShakeDirection.TWIST) swing * TWIST_RADIANS else 0f
                 post(MODE_SHAKE, left)
             }
+            // Resolved to one of the others before it plays (WakeRandom).
+            WakeTransitionStyle.RANDOM -> Unit
         }
     }
 
