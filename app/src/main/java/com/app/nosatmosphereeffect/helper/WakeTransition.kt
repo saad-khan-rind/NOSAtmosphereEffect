@@ -20,9 +20,9 @@ enum class WakeTransitionStyle(val storedValue: String) {
     RIPPLE("ripple"),
     /** A burst of broken pixels and split colour that settles into the lock screen. */
     GLITCH("glitch"),
-    /** Strips open in turn from black, like a venetian blind. */
+    /** Strips open in turn over a dimmed copy of the lock screen, like a venetian blind. */
     BLINDS("blinds"),
-    /** The lock screen breathes in from black, swelling just past full brightness. */
+    /** The lock screen breathes in from dim, swelling just past full brightness. */
     BREATHE("breathe"),
     /** A different style each wake, shuffled ([WakeRandom]), each with its own settings. */
     RANDOM("random");

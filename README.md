@@ -156,8 +156,8 @@ Disabling transitions does not disable other live-wallpaper features. Playlists 
 * **Shake:** the whole screen jolts and settles, **Sideways**, **Up and down** or as a **Twist**. **Strength** 1–8% of the screen height and **Shakes** 1–8. Edges are mirrored, so no black shows.
 * **Ripple:** a ripple runs out from the centre, like a stone dropped in water. **Strength** 1–10%.
 * **Glitch:** a burst of torn rows, split colour and broken blocks that settles into the lock screen. **Strength** 10–100%.
-* **Venetian blind:** the lock screen opens through strips, one after another, as **Rows** or **Columns**. **Strips** 2–24.
-* **Breathe:** the lock screen breathes in from black, swelling just past full brightness before it settles. **Swell** 0–30%.
+* **Venetian blind:** the lock screen opens through strips, one after another, over a dimmed copy of itself, as **Rows** or **Columns**. **Strips** 2–24.
+* **Breathe:** the lock screen breathes in from a dimmed frame, swelling just past full brightness before it settles. **Swell** 0–30%.
 * **Random:** a different style on every wake. Random keeps its own copy of every style's settings (starting from the same defaults), so tuning Random's Zoom doesn't change the Zoom you use on its own. Styles are drawn like a playlist shuffle (see [Shuffle](#playlist--rotation)): every style plays once before any repeats, never the same twice in a row, and the end of one round stays away from the start of the next. Corner stretch, Shake and Venetian blind also pick their direction from their own shuffles. The order carries on through setting changes, Reset and restarts.
 
 Zoom moves only the photo, through the same zoom every renderer already uses. Every other style is drawn over the finished frame, clock included, by one post pass shared by every effect on both Vulkan and OpenGL ES.
