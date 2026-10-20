@@ -224,8 +224,8 @@ internal object ClockDigitGeometry {
         val radius = max(penRadius, design.height * MIN_COLON_DOT)
         val x = design.colonWidth / 2f
         val heights = listOf(0.7f, 0.28f)
-        // The line pen's dots are inked like its digits, so they are cut into
-        // the same lines rather than filled; a stroke this short is a round dot.
+        // The line pen's dots are short tubes, cut into the same lines as its
+        // digits; a round dot that small reads as a plain filled one.
         val strokes = if (pen is ClockPen.Lines) {
             heights.map { InkStroke(floatArrayOf(x, -design.height * it - DOT_STROKE, x, -design.height * it + DOT_STROKE), false) }
         } else {
@@ -264,8 +264,8 @@ internal object ClockDigitGeometry {
 
     private const val DEG = (PI / 180.0).toFloat()
     private const val DOT_RADIUS = 0.4f
-    /** Half the length of the stroke a line-pen colon dot is drawn as. */
-    private const val DOT_STROKE = 0.001f
+    /** Half the length of the tube a line-pen colon dot is drawn as, in ems. */
+    private const val DOT_STROKE = 0.06f
     private const val NO_COLON_ADVANCE = 0.06f
     /** The smallest colon dot, as a share of the digit height: a hairline face's own would vanish. */
     private const val MIN_COLON_DOT = 0.045f
