@@ -467,7 +467,8 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                             queuePlaylistTransition(currentRenderer, bitmap)
                         }
                     },
-                    requestRender = ::requestRender,
+                    // Drawn now even if hidden: the screen wakes on the new image.
+                    requestRender = { rotationHandler.post { renderWhileHidden(HIDDEN_FRAME_MS) } },
                     notifyColorsChanged = ::notifySystemColorsChanged
                 )
             } catch (failure: RuntimeException) {
@@ -801,6 +802,8 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
          * The start state (zoomed, grey or blurred) is what shows meanwhile.
          */
         const val WAKE_HOLD_MS = 320L
+        /** Long enough for a new playlist image to be fitted, uploaded and drawn while hidden. */
+        const val HIDDEN_FRAME_MS = 1_000L
         /** The zoom is motion, not a reveal: it may start under the fade's last part. */
         const val ZOOM_HOLD_MS = 160L
         /** Ease in and out, so the zoom neither jolts off nor stops dead. */
