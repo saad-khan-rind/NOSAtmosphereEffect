@@ -44,8 +44,8 @@ internal class WakePostRenderer(
 
     override fun onDrawFrame(gl: GL10?) {
         inner.onDrawFrame(gl)
-        val mode = WakeTransition.postMode
-        val amount = WakeTransition.postAmount
+        val mode = WakeTransition.drawnMode
+        val amount = WakeTransition.drawnAmount
         if (mode == WakeTransition.MODE_NONE || amount <= 0f || failed || width <= 0 || height <= 0) return
         runCatching { drawWake(mode, amount) }.onFailure {
             failed = true

@@ -242,6 +242,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             onEngineVisibilityChanged(renderer, visible)
+            if (visible) WakeTransition.blackout = false
             if (!visible) {
                 events.onHidden()
                 val wake = wakePlaying
@@ -446,6 +447,30 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             }
         }
 
+        /**
+         * A playlist that switches on every lock does so as the screen goes
+         * off, while the wallpaper is hidden. The new image is drawn then
+         * (renderWhileHidden), but a phone that draws nothing for a hidden
+         * wallpaper would wake on the previous image: drawn black now, while
+         * it still shows, it wakes on black instead. With a switch delay a
+         * quick re-lock keeps the image, so nothing is blacked out.
+         */
+        override fun onGoingToSleep() {
+            if (isPreview || behavior.switchDelayMs > 0) return
+            if (PlaylistModeManager.getMode(applicationContext) == PlaylistModeManager.MODE_SINGLE) return
+            val everyLock = getSharedPreferences("wallpaper_prefs", MODE_PRIVATE)
+                .getLong("rotation_interval_minutes", 0L) <= 0L
+            if (!everyLock) return
+            WakeTransition.blackout = true
+            requestRender()
+        }
+
+        override fun onWakingUp() {
+            if (!WakeTransition.blackout) return
+            WakeTransition.blackout = false
+            requestRender()
+        }
+
         fun handleThemeChange(isNightMode: Boolean) {
             rotateWallpaper(isThemeChange = true, currentNightMode = isNightMode)
         }
@@ -468,7 +493,12 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                         }
                     },
                     // Drawn now even if hidden: the screen wakes on the new image.
-                    requestRender = { rotationHandler.post { renderWhileHidden(HIDDEN_FRAME_MS) } },
+                    requestRender = {
+                        rotationHandler.post {
+                            WakeTransition.blackout = false
+                            renderWhileHidden(HIDDEN_FRAME_MS)
+                        }
+                    },
                     notifyColorsChanged = ::notifySystemColorsChanged
                 )
             } catch (failure: RuntimeException) {

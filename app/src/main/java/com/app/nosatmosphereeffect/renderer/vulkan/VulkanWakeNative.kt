@@ -15,8 +15,8 @@ internal object VulkanWakeNative {
 
     /** Called by each host just before it renders a frame. */
     fun push() = nativeSetWake(
-        WakeTransition.postMode,
-        WakeTransition.postAmount,
+        WakeTransition.drawnMode,
+        WakeTransition.drawnAmount,
         WakeTransition.param,
         WakeTransition.paramX,
         WakeTransition.paramY,

@@ -29,6 +29,7 @@ layout(push_constant) uniform WakeParams {
 //   mode 7: [param] strips open in turn over a dimmed copy of the frame,
 //           down the screen, or across it when [params].x is 1
 //   mode 8: the frame breathes in from dim, swelling [param] past full
+//   mode 9: black (WakeTransition.blackout)
 // amount runs from 1 (start) to 0 (done).
 
 // A bit-mixing hash rather than fract(sin(...)), which collapses into a
@@ -47,6 +48,7 @@ const float WAKE_FLOOR = 0.3;
 
 vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 params) {
     float t = 1.0 - amount;
+    if (mode == 9) return vec3(0.0);
     if (mode == 3) {
         // Each axis pulled by how far along the other it is, so the corners
         // move most and the middle lines not at all. Never folds below 1/3.

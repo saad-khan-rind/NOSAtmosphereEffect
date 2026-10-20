@@ -5,6 +5,7 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.service.wallpaper.WallpaperService
@@ -186,6 +187,27 @@ abstract class GLWallpaperService : WallpaperService() {
             }
             requestRender()
         }
+
+        override fun onCommand(
+            action: String?,
+            x: Int,
+            y: Int,
+            z: Int,
+            extras: Bundle?,
+            resultRequested: Boolean
+        ): Bundle? {
+            when (action) {
+                COMMAND_GOING_TO_SLEEP -> onGoingToSleep()
+                COMMAND_WAKING_UP -> onWakingUp()
+            }
+            return super.onCommand(action, x, y, z, extras, resultRequested)
+        }
+
+        /** The screen started going to sleep, with the wallpaper still on it. */
+        protected open fun onGoingToSleep() = Unit
+
+        /** The screen started waking up. */
+        protected open fun onWakingUp() = Unit
 
         fun requestRender() {
             dispatchToHost("requesting a frame") { it.requestRender() }
@@ -608,6 +630,9 @@ abstract class GLWallpaperService : WallpaperService() {
     }
 
     private companion object {
+        // WallpaperManager's commands to the live wallpaper.
+        const val COMMAND_GOING_TO_SLEEP = "android.wallpaper.goingtosleep"
+        const val COMMAND_WAKING_UP = "android.wallpaper.wakingup"
         const val TAG = "GLWallpaperService"
 
         /** How long a surface size has to hold still before it counts as a posture. */

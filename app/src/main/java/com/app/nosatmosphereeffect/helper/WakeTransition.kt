@@ -150,6 +150,8 @@ object WakeTransition {
     const val MODE_GLITCH = 6
     const val MODE_BLINDS = 7
     const val MODE_BREATHE = 8
+    /** The frame drawn black: see [blackout]. */
+    const val MODE_BLACK = 9
     /** A twist's turn, in radians, per unit of shake (a share of the screen's height). */
     private const val TWIST_RADIANS = 0.6f
 
@@ -181,6 +183,18 @@ object WakeTransition {
      * from its own fill point (Fine tuning, or Pro's unlock-method origin).
      */
     @Volatile var fillFromCentre = false
+
+    /**
+     * The frame is drawn black, over any wake: set as the screen starts going
+     * to sleep when a playlist is about to switch, so a phone that draws
+     * nothing while the wallpaper is hidden wakes on black, not the previous
+     * image. Cleared when the new image is drawn, or when the screen is back.
+     */
+    @Volatile var blackout = false
+
+    /** The post pass's mode and amount this frame, [blackout] included. */
+    val drawnMode: Int get() = if (blackout) MODE_BLACK else postMode
+    val drawnAmount: Float get() = if (blackout) 1f else postAmount
 
     /**
      * [remaining] runs from 1 when the wake starts to 0 when it ends. The
