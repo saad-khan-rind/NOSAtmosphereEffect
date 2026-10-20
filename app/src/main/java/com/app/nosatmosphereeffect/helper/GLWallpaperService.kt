@@ -171,6 +171,22 @@ abstract class GLWallpaperService : WallpaperService() {
             )
         }
 
+        /**
+         * Draws a frame even while the engine is hidden, keeping its renderer
+         * running for [keepMs] so the frame lands. A playlist that switches
+         * as the screen goes off then has its new image on screen before the
+         * screen comes back, instead of the previous one until the first
+         * frame after waking.
+         */
+        fun renderWhileHidden(keepMs: Long) {
+            if (!engineVisible) {
+                pauseHandler.removeCallbacks(pauseRunnable)
+                dispatchToHost("resuming to draw while hidden") { it.onResume() }
+                pauseHandler.postDelayed(pauseRunnable, keepMs)
+            }
+            requestRender()
+        }
+
         fun requestRender() {
             dispatchToHost("requesting a frame") { it.requestRender() }
         }

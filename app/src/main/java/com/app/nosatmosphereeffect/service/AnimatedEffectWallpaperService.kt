@@ -244,10 +244,17 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             onEngineVisibilityChanged(renderer, visible)
             if (!visible) {
                 events.onHidden()
-                // Some skins hide the wallpaper for a moment as the lock screen
-                // appears: the wake plays again when it is back.
-                if (wakePlaying != null) sleptWhileHidden = true
-                stopWakeTransition()
+                val wake = wakePlaying
+                // Some skins hide the wallpaper for a moment with the screen on
+                // (MIUI, as the lock screen appears and later): before the wake
+                // has moved, it plays whole once back; once moving it carries
+                // on, continuing rather than replaying from the start.
+                val beforeMotion = wake != null &&
+                    SystemClock.uptimeMillis() - wakeStartMs < wakeHoldMs(wake)
+                if (wake == null || beforeMotion || !isDeviceInteractive()) {
+                    if (beforeMotion) sleptWhileHidden = true
+                    stopWakeTransition()
+                }
             }
             if (!visible && !isDeviceInteractive()) sleptWhileHidden = true
             if (!behavior.transitionsEnabled) {
@@ -369,8 +376,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             override fun doFrame(frameTimeNanos: Long) {
                 val wake = wakePlaying ?: return
                 val zoom = wake.style == WakeTransitionStyle.ZOOM
-                val hold = if (zoom) ZOOM_HOLD_MS else WAKE_HOLD_MS
-                val elapsed = SystemClock.uptimeMillis() - wakeStartMs - hold
+                val elapsed = SystemClock.uptimeMillis() - wakeStartMs - wakeHoldMs(wake)
                 val t = (elapsed.toFloat() / wake.durationMs).coerceIn(0f, 1f)
                 val eased = when {
                     zoom -> ZOOM_EASING.getInterpolation(t)
@@ -381,6 +387,10 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                 if (t < 1f) Choreographer.getInstance().postFrameCallback(this) else stopWakeTransition()
             }
         }
+
+        /** How long [wake] holds at its start before it moves (see playWakeTransitionIfWoken). */
+        private fun wakeHoldMs(wake: WakeTransitionSettings): Long =
+            if (wake.style == WakeTransitionStyle.ZOOM) ZOOM_HOLD_MS else WAKE_HOLD_MS
 
         /**
          * Never leaves the photo zoomed, grey or blurred, nor the effect part
@@ -457,7 +467,8 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                             queuePlaylistTransition(currentRenderer, bitmap)
                         }
                     },
-                    requestRender = ::requestRender,
+                    // Drawn now even if hidden: the screen wakes on the new image.
+                    requestRender = { rotationHandler.post { renderWhileHidden(HIDDEN_FRAME_MS) } },
                     notifyColorsChanged = ::notifySystemColorsChanged
                 )
             } catch (failure: RuntimeException) {
@@ -791,6 +802,8 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
          * The start state (zoomed, grey or blurred) is what shows meanwhile.
          */
         const val WAKE_HOLD_MS = 320L
+        /** Long enough for a new playlist image to be fitted, uploaded and drawn while hidden. */
+        const val HIDDEN_FRAME_MS = 1_000L
         /** The zoom is motion, not a reveal: it may start under the fade's last part. */
         const val ZOOM_HOLD_MS = 160L
         /** Ease in and out, so the zoom neither jolts off nor stops dead. */
