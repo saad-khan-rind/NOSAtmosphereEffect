@@ -2,56 +2,49 @@ Atmo Engine turns your images into customizable live wallpapers, with optional l
 
 Atmo Engine is an open-source wallpaper studio inspired by the Atmosphere effect in Nothing OS. Choose an image, preview and fine-tune the effect, then apply it through Android's live wallpaper screen.
 
-EFFECTS
-• Atmosphere and Reverse Atmosphere, with optional reeded glass
-• Glass and Reverse Glass
-• Color Fill and Reverse Color Fill
-• Canvas Sketch and Reverse Canvas Sketch
-• Simple Frosted and Reverse Frosted
-• Halftone Print and Reverse Halftone
+EFFECTS (each with a reverse)
+• Atmosphere, with optional reeded glass
+• Glass
+• Color Fill
+• Canvas Sketch
+• Simple Frosted
+• Halftone Print
+• VHS Tape
+• Zoom In and Zoom Out
 
 Previews use the same image, settings, and graphics API as the live wallpaper.
 
 TRANSITIONS OR ALWAYS-APPLIED EFFECTS
-Fine tuning > Timing lets you disable transitions and keep the final effect visible on Home, Lock, or Both. Atmo remains a live wallpaper, so playlists, theme playlists, Fine Tune controls, subject isolation, and supported launcher scrolling continue to work.
+Turn transitions off to keep the effect on Home, Lock, or Both, with the original image on the other screen. Atmo stays a live wallpaper, so playlists, the clock and every setting keep working. Keep Atmo selected for both Home and Lock in Android's wallpaper picker.
 
-Keep Atmo selected for both Home and Lock in Android's wallpaper picker. When transitions are off:
-• Home screen: effect on Home, original image on Lock
-• Lock screen: original image on Home, effect on Lock
-• Both: effect on both screens
+WAKE TRANSITIONS
+An animation as the lock screen arrives from off or from the always-on display: Zoom (up to 150%), Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, or Random. Each style has its own settings and a length of 50–1000 ms. Random shuffles every style, and the direction of Stretch, Shake and Blinds, so each plays before any repeats, with its own copy of every style's settings.
 
-This mode does not install a baked static image.
+WALLPAPER CLOCK
+A Glass, Translucent, or Adaptive clock drawn into the wallpaper, with drawn fonts, colour, date, depth behind the subject, and drag-and-pinch placement. The date follows the clock's font.
 
 WALLPAPER MODES
 • Single Image
-• Playlist with automatic rotation
+• Playlist, from picked images or from folders that stay in sync
 • Theme Playlists with separate Light and Dark collections
+• Saved playlists to switch back to any time
 
-Theme Playlists follow device appearance and rotate within the active collection. Every image keeps its crop, zoom, fit, and scrolling position.
+Playlists shuffle through every image before repeating, never show the same image twice in a row, and keep recent images away from the start of the next round. The order survives setting changes and restarts. A switch delay can stop a quick lock and unlock from changing the image.
 
 FINE TUNING
-Customize animation duration, dimness, Glass rib count, thickness and transition style, blur, grain, Atmosphere contrast and saturation, Halftone detail, Canvas Sketch lines, fingerprint position, image fit, experimental wallpaper scrolling, and playlist timing.
+Animation duration, dimness, glass ribs and transition style, blur, film grain, Atmosphere colour, Halftone dots, Canvas lines, fingerprint position, image fit, wallpaper scrolling, and playlist timing.
 
-Glass and Halftone can apply their effect to the background only. Atmosphere can optionally use the same reeded-glass treatment on its clear state, including line and background-only controls.
+Canvas Sketch, Glass, and Halftone share on-device subject isolation: Canvas can anchor its drawing to the subject, and Background only keeps the subject clear for Glass and Halftone.
 
 MATERIAL 3 INTERFACE
-Material Expressive styling can follow the system palette or use fixed colors. Choose System, Light, or Dark appearance, with an optional pitch-black background. Controls include meaning-aware motion and haptics.
+Material Expressive styling can follow the system palette or use fixed colors, with System, Light, or Dark appearance and an optional pitch-black background.
 
 VULKAN OR OPENGL ES
-Fine tuning > Display offers:
-• Automatic (recommended): Vulkan when compatible, with safe OpenGL ES fallback
-• Vulkan: requests Vulkan while retaining compatibility checks and fallback
-• OpenGL ES: skips Vulkan and always uses OpenGL ES
-
-The choice applies immediately to previews and the active wallpaper. Atmo negotiates the highest Vulkan version supported by the Android loader and GPU driver, from Vulkan 1.4 through 1.1. It does not use Shizuku or change the system driver.
-
-If Vulkan setup, texture upload, or presentation fails, only that effect falls back to its equivalent OpenGL ES renderer. A status at the bottom of the main screen shows the API that genuinely rendered the live wallpaper and the negotiated Vulkan version when active.
+Automatic (recommended), Vulkan, or OpenGL ES, applied at once to previews and the wallpaper. Atmo negotiates Vulkan 1.4 down to 1.1. If Vulkan fails, only that effect falls back to OpenGL ES. The main screen shows the API that really rendered the wallpaper.
 
 OFFLINE-FIRST PRIVACY
-Images, crops, sketches, palettes, and playlists stay on-device. Atmo requests neither Internet nor network-state permission and contains no developer-operated advertising or analytics.
+Images, crops, sketches, palettes, and playlists stay on-device. Atmo requests neither Internet nor network-state permission and contains no advertising or analytics. The F-Droid build bundles an open-source subject model, so it needs no download.
 
-Canvas Sketch, Glass, and Halftone share optional on-device subject isolation. Canvas can anchor its drawing to a prominent person, character, animal, or object. Background only keeps that subject clear for Glass and Halftone. The Google Play build uses an optional ML Kit subject model, downloaded through Google Play services only after you tap the download button. Processing is on-device and works offline after installation.
-
-Sync System Colors publishes a locally extracted wallpaper palette through Android's wallpaper API whenever the active image changes. System-wide theme refresh behavior remains controlled by the phone manufacturer.
+Sync System Colors publishes a locally extracted wallpaper palette through Android's wallpaper API. System-wide theme refresh remains up to the phone manufacturer.
 
 Atmo Engine is released under the MIT License.
