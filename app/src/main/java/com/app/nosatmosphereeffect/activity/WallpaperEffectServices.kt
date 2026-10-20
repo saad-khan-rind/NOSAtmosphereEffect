@@ -19,6 +19,8 @@ import com.app.nosatmosphereeffect.service.HalftoneReverseService
 import com.app.nosatmosphereeffect.service.HalftoneService
 import com.app.nosatmosphereeffect.service.VhsReverseService
 import com.app.nosatmosphereeffect.service.VhsService
+import com.app.nosatmosphereeffect.service.ZoomReverseService
+import com.app.nosatmosphereeffect.service.ZoomService
 import com.app.nosatmosphereeffect.service.NeonReverseService
 import com.app.nosatmosphereeffect.service.NeonService
 
@@ -41,7 +43,9 @@ internal object WallpaperEffectServices {
         "HALFTONE" to HalftoneService::class.java,
         "HALFTONE_REVERSE" to HalftoneReverseService::class.java,
         "VHS" to VhsService::class.java,
-        "VHS_REVERSE" to VhsReverseService::class.java
+        "VHS_REVERSE" to VhsReverseService::class.java,
+        "ZOOM" to ZoomService::class.java,
+        "ZOOM_REVERSE" to ZoomReverseService::class.java
     )
 
     private val effectIdByServiceName = serviceByEffectId.entries.associate { (id, service) ->

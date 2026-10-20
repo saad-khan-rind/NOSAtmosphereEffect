@@ -124,7 +124,9 @@ class GlesClockOverlay(
         /** The launcher's page offset; the Adaptive face fits to what is on screen. */
         scrollOffsetX: Float = 0.5f,
         /** The share of the image's width on screen, as the shader is given it. */
-        scrollWindowX: Float = 0f
+        scrollWindowX: Float = 0f,
+        /** The effect's own zoom on the photo (Zoom); 1 for none. */
+        photoZoom: Float = 1f
     ) {
         if (programId == 0) return
 
@@ -185,7 +187,7 @@ class GlesClockOverlay(
         // wallpaper magnified.
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uWallpaperZoom"),
-            WakeTransition.zoom(if (ready) provider.wallpaperZoom else 1f)
+            WakeTransition.zoom(if (ready) provider.wallpaperZoom else 1f) * photoZoom
         )
         if (!ready) {
             GLES30.glUniform1f(

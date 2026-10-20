@@ -8,8 +8,8 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
 /**
- * Wraps any effect's OpenGL ES renderer with the lock screen's colour-fill,
- * blur, stretch and shake wake transitions: while one plays, the finished frame is copied out
+ * Wraps any effect's OpenGL ES renderer with the lock screen's post-pass
+ * wake transitions (everything but Zoom): while one plays, the finished frame is copied out
  * and drawn back through wake.frag. Otherwise it only forwards the calls.
  */
 internal class WakePostRenderer(
@@ -85,12 +85,12 @@ internal class WakePostRenderer(
         GLES30.glUniform1i(GLES30.glGetUniformLocation(program, "uMode"), mode)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(program, "uAmount"), amount.coerceAtMost(1f))
         GLES30.glUniform1f(GLES30.glGetUniformLocation(program, "uAspect"), width.toFloat() / height)
-        GLES30.glUniform1f(GLES30.glGetUniformLocation(program, "uStretch"), WakeTransition.stretch)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(program, "uParam"), WakeTransition.param)
         GLES30.glUniform3f(
-            GLES30.glGetUniformLocation(program, "uShake"),
-            WakeTransition.shakeX,
-            WakeTransition.shakeY,
-            WakeTransition.shakeAngle
+            GLES30.glGetUniformLocation(program, "uParams"),
+            WakeTransition.paramX,
+            WakeTransition.paramY,
+            WakeTransition.paramZ
         )
         // Our own empty vertex array: the effect may have left client-side
         // attribute arrays enabled, which this draw must never read.

@@ -112,15 +112,42 @@ class WallpaperBehaviorPolicyTest {
     fun `stretch springs back from the chosen side`() {
         WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.STRETCH, stretchPercent = 30), 1f)
         assertEquals(WakeTransition.MODE_STRETCH, WakeTransition.postMode)
-        assertEquals(0.3f, WakeTransition.stretch, 1e-6f)
+        assertEquals(0.3f, WakeTransition.param, 1e-6f)
         WakeTransition.show(
             WakeTransitionSettings(style = WakeTransitionStyle.STRETCH, stretchInward = true, stretchPercent = 90),
             0.5f
         )
-        assertEquals(-0.3f, WakeTransition.stretch, 1e-6f)
+        assertEquals(-0.3f, WakeTransition.param, 1e-6f)
         assertEquals(0.5f, WakeTransition.postAmount)
         WakeTransition.clear()
-        assertEquals(0f, WakeTransition.stretch)
+        assertEquals(0f, WakeTransition.param)
+    }
+
+    @Test
+    fun `ripple, glitch, blinds and breathe hand the post pass their own values`() {
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.RIPPLE, ripplePercent = 6), 0.7f)
+        assertEquals(WakeTransition.MODE_RIPPLE, WakeTransition.postMode)
+        assertEquals(0.06f, WakeTransition.param, 1e-6f)
+        assertEquals(0.7f, WakeTransition.postAmount)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.GLITCH, glitchPercent = 500), 1f)
+        assertEquals(WakeTransition.MODE_GLITCH, WakeTransition.postMode)
+        assertEquals(1f, WakeTransition.param, 1e-6f)
+        WakeTransition.show(
+            WakeTransitionSettings(style = WakeTransitionStyle.BLINDS, blindsVertical = true, blindsCount = 1),
+            0.5f
+        )
+        assertEquals(WakeTransition.MODE_BLINDS, WakeTransition.postMode)
+        assertEquals(WakeTransitionSettings.MIN_BLINDS_COUNT.toFloat(), WakeTransition.param)
+        assertEquals(1f, WakeTransition.paramX)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.BREATHE), 0.2f)
+        assertEquals(WakeTransition.MODE_BREATHE, WakeTransition.postMode)
+        assertEquals(0.1f, WakeTransition.param, 1e-6f)
+        assertEquals(0f, WakeTransition.paramX)
+        WakeTransition.clear()
+        assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
+        assertEquals(0f, WakeTransition.param)
+        assertTrue(WakeTransitionStyle.RIPPLE in WakeTransitionSettings.RANDOM_POOL)
+        assertFalse(WakeTransitionStyle.RANDOM in WakeTransitionSettings.RANDOM_POOL)
     }
 
     @Test
@@ -132,23 +159,23 @@ class WallpaperBehaviorPolicyTest {
         val sideways = WakeTransitionSettings(style = WakeTransitionStyle.SHAKE, shakePercent = 5, shakeCount = 3)
         WakeTransition.show(sideways, 1f)
         assertEquals(WakeTransition.MODE_SHAKE, WakeTransition.postMode)
-        assertEquals(0f, WakeTransition.shakeX, 1e-6f)
+        assertEquals(0f, WakeTransition.paramX, 1e-6f)
         var moved = false
         for (step in 1 until 100) {
             WakeTransition.show(sideways, 1f - step / 100f)
-            assertTrue(kotlin.math.abs(WakeTransition.shakeX) <= 0.05f)
-            assertEquals(0f, WakeTransition.shakeY)
-            assertEquals(0f, WakeTransition.shakeAngle)
-            if (kotlin.math.abs(WakeTransition.shakeX) > 0.01f) moved = true
+            assertTrue(kotlin.math.abs(WakeTransition.paramX) <= 0.05f)
+            assertEquals(0f, WakeTransition.paramY)
+            assertEquals(0f, WakeTransition.paramZ)
+            if (kotlin.math.abs(WakeTransition.paramX) > 0.01f) moved = true
         }
         assertTrue(moved)
         WakeTransition.show(sideways, 0f)
-        assertEquals(0f, WakeTransition.shakeX, 1e-6f)
+        assertEquals(0f, WakeTransition.paramX, 1e-6f)
         WakeTransition.show(sideways.copy(shakeDirection = WakeShakeDirection.TWIST), 0.9f)
-        assertEquals(0f, WakeTransition.shakeX)
-        assertTrue(WakeTransition.shakeAngle != 0f)
+        assertEquals(0f, WakeTransition.paramX)
+        assertTrue(WakeTransition.paramZ != 0f)
         WakeTransition.clear()
-        assertEquals(0f, WakeTransition.shakeAngle)
+        assertEquals(0f, WakeTransition.paramZ)
         assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
     }
 
@@ -227,7 +254,9 @@ class WallpaperBehaviorPolicyTest {
             "HALFTONE" to EffectStateEndpoints(0f, 1f),
             "HALFTONE_REVERSE" to EffectStateEndpoints(1f, 0f),
             "VHS" to EffectStateEndpoints(1f, 0f),
-            "VHS_REVERSE" to EffectStateEndpoints(0f, 1f)
+            "VHS_REVERSE" to EffectStateEndpoints(0f, 1f),
+            "ZOOM" to EffectStateEndpoints(0f, 1f),
+            "ZOOM_REVERSE" to EffectStateEndpoints(1f, 0f)
         )
 
         assertEquals(EFFECT_IDS, expectedEndpoints.keys)
@@ -337,7 +366,9 @@ class WallpaperBehaviorPolicyTest {
             "HALFTONE" to false,
             "HALFTONE_REVERSE" to false,
             "VHS" to false,
-            "VHS_REVERSE" to false
+            "VHS_REVERSE" to false,
+            "ZOOM" to false,
+            "ZOOM_REVERSE" to false
         )
         val EFFECT_IDS = TRANSITION_DIRECTIONS.keys
         val VALID_PROGRESS_VALUES = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)

@@ -58,7 +58,8 @@ object WallpaperBehaviorPolicy {
     fun randomWakePrefix(style: WakeTransitionStyle) = "wake_random_${style.storedValue}_"
     val WAKE_KEYS = listOf(
         "enabled", "style", "ms", "zoom_percent", "stretch_inward", "stretch_percent",
-        "shake_direction", "shake_percent", "shake_count"
+        "shake_direction", "shake_percent", "shake_count", "ripple_percent", "glitch_percent",
+        "blinds_vertical", "blinds_count", "breathe_percent"
     )
     const val SWITCH_DELAY_KEY = "playlist_switch_delay_ms"
 
@@ -77,7 +78,7 @@ object WallpaperBehaviorPolicy {
 object EffectStatePolicy {
     fun endpoints(effectId: String?): EffectStateEndpoints = when (effectId) {
         // The effect shows at the start of these, the photo at the end.
-        "HALFTONE_REVERSE", "VHS" -> EffectStateEndpoints(
+        "HALFTONE_REVERSE", "VHS", "ZOOM_REVERSE" -> EffectStateEndpoints(
             originalProgress = 1f,
             appliedProgress = 0f
         )
@@ -191,6 +192,19 @@ object WallpaperBehaviorPreferences {
         ),
         shakeCount = WakeTransitionSettings.sanitizeShakeCount(
             readInt(prefix + "shake_count", WakeTransitionSettings.DEFAULT_SHAKE_COUNT)
+        ),
+        ripplePercent = WakeTransitionSettings.sanitizeRipple(
+            readInt(prefix + "ripple_percent", WakeTransitionSettings.DEFAULT_RIPPLE_PERCENT)
+        ),
+        glitchPercent = WakeTransitionSettings.sanitizeGlitch(
+            readInt(prefix + "glitch_percent", WakeTransitionSettings.DEFAULT_GLITCH_PERCENT)
+        ),
+        blindsVertical = readBoolean(prefix + "blinds_vertical", false),
+        blindsCount = WakeTransitionSettings.sanitizeBlinds(
+            readInt(prefix + "blinds_count", WakeTransitionSettings.DEFAULT_BLINDS_COUNT)
+        ),
+        breathePercent = WakeTransitionSettings.sanitizeBreathe(
+            readInt(prefix + "breathe_percent", WakeTransitionSettings.DEFAULT_BREATHE_PERCENT)
         )
     )
 
@@ -204,6 +218,11 @@ object WallpaperBehaviorPreferences {
         putString(prefix + "shake_direction", wake.shakeDirection.storedValue)
         putInt(prefix + "shake_percent", WakeTransitionSettings.sanitizeShake(wake.shakePercent))
         putInt(prefix + "shake_count", WakeTransitionSettings.sanitizeShakeCount(wake.shakeCount))
+        putInt(prefix + "ripple_percent", WakeTransitionSettings.sanitizeRipple(wake.ripplePercent))
+        putInt(prefix + "glitch_percent", WakeTransitionSettings.sanitizeGlitch(wake.glitchPercent))
+        putBoolean(prefix + "blinds_vertical", wake.blindsVertical)
+        putInt(prefix + "blinds_count", WakeTransitionSettings.sanitizeBlinds(wake.blindsCount))
+        putInt(prefix + "breathe_percent", WakeTransitionSettings.sanitizeBreathe(wake.breathePercent))
     }
 
     private fun SharedPreferences.readBoolean(key: String, fallback: Boolean): Boolean {

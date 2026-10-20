@@ -7,19 +7,19 @@ internal object VulkanWakeNative {
     external fun nativeSetWake(
         mode: Int,
         amount: Float,
-        stretch: Float,
-        shakeX: Float,
-        shakeY: Float,
-        shakeAngle: Float
+        param: Float,
+        paramX: Float,
+        paramY: Float,
+        paramZ: Float
     )
 
     /** Called by each host just before it renders a frame. */
     fun push() = nativeSetWake(
         WakeTransition.postMode,
         WakeTransition.postAmount,
-        WakeTransition.stretch,
-        WakeTransition.shakeX,
-        WakeTransition.shakeY,
-        WakeTransition.shakeAngle
+        WakeTransition.param,
+        WakeTransition.paramX,
+        WakeTransition.paramY,
+        WakeTransition.paramZ
     )
 }
