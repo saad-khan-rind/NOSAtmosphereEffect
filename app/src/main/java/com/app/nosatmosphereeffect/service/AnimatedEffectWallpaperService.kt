@@ -183,6 +183,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
+            if (!isPreview) LiveWallpaperEngines.add(this, effectId)
 
             val createdRenderer = try {
                 createEffectRenderer()
@@ -225,6 +226,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         }
 
         override fun onDestroy() {
+            LiveWallpaperEngines.remove(this)
             stopWakeTransition()
             rotationHandler.removeCallbacks(pendingRotation)
             activeEngines.remove(this)

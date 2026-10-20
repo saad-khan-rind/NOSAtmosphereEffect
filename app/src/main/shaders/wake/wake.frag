@@ -26,9 +26,9 @@ layout(push_constant) uniform WakeParams {
 //           ([params].z, radians), mirrored at its edges
 //   mode 5: a ripple runs out from the centre, [param] deep
 //   mode 6: broken rows and blocks and split colour, [param] strong
-//   mode 7: [param] strips open in turn from black, down the screen, or
-//           across it when [params].x is 1
-//   mode 8: the frame breathes in from black, swelling [param] past full
+//   mode 7: [param] strips open in turn over a dimmed copy of the frame,
+//           down the screen, or across it when [params].x is 1
+//   mode 8: the frame breathes in from dim, swelling [param] past full
 // amount runs from 1 (start) to 0 (done).
 
 // A bit-mixing hash rather than fract(sin(...)), which collapses into a
@@ -40,6 +40,10 @@ float hash(vec2 p) {
     h ^= h >> 13u;
     return float(h & 0xFFFFu) / 65535.0;
 }
+
+// Where Venetian blind and Breathe start: the frame dimmed, never black, so
+// the wake never opens on a black screen.
+const float WAKE_FLOOR = 0.3;
 
 vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 params) {
     float t = 1.0 - amount;
@@ -94,11 +98,13 @@ vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 param
         float edge = abs(fract(along) - 0.5) * 2.0;
         float open = smoothstep(0.0, 1.0, clamp((t - strip / count * 0.5) * 2.0, 0.0, 1.0));
         float soft = max(fwidth(edge), 1e-3);
-        return color * smoothstep(edge - soft, edge + soft, open * (1.0 + soft));
+        float shown = smoothstep(edge - soft, edge + soft, open * (1.0 + soft));
+        // Behind the strips, the frame dimmed rather than black, lightening as they open.
+        return color * mix(WAKE_FLOOR + (1.0 - WAKE_FLOOR) * 0.5 * t, 1.0, shown);
     }
     if (mode == 8) {
-        // In from black, a gentle swell past full brightness, then settled.
-        float rise = smoothstep(0.0, 0.7, t);
+        // Up from dim, a gentle swell past full brightness, then settled.
+        float rise = mix(WAKE_FLOOR, 1.0, smoothstep(0.0, 0.7, t));
         float swell = param * sin(3.14159265 * clamp((t - 0.3) / 0.7, 0.0, 1.0));
         return color * (rise + swell);
     }

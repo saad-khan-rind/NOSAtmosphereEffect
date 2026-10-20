@@ -215,7 +215,7 @@
     <string name="wake_ripple_hint">A ripple runs out from the centre of the screen, like a stone dropped in water. The clock moves with the photo.</string>
     <string name="wake_glitch_hint">A burst of broken pixels and split colour that settles into the lock screen.</string>
     <string name="wake_blinds_hint">The lock screen opens through strips, one after another, like a venetian blind.</string>
-    <string name="wake_breathe_hint">The lock screen breathes in from black, swelling just past full brightness before it settles.</string>
+    <string name="wake_breathe_hint">The lock screen breathes in from dim, swelling just past full brightness before it settles.</string>
     <string name="wake_blinds_rows">Rows</string>
     <string name="wake_blinds_columns">Columns</string>
     <string name="wake_blinds_count">Strips</string>
