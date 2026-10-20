@@ -223,12 +223,19 @@ internal object ClockDigitGeometry {
         }
         val radius = max(penRadius, design.height * MIN_COLON_DOT)
         val x = design.colonWidth / 2f
-        val dots = listOf(
-            InkDot(x, -design.height * 0.7f, radius, design.squareDots),
-            InkDot(x, -design.height * 0.28f, radius, design.squareDots)
-        )
+        val heights = listOf(0.7f, 0.28f)
+        // The line pen's dots are inked like its digits, so they are cut into
+        // the same lines rather than filled; a stroke this short is a round dot.
+        val strokes = if (pen is ClockPen.Lines) {
+            heights.map { InkStroke(floatArrayOf(x, -design.height * it - DOT_STROKE, x, -design.height * it + DOT_STROKE), false) }
+        } else {
+            emptyList()
+        }
+        val dots = if (pen is ClockPen.Lines) emptyList() else heights.map {
+            InkDot(x, -design.height * it, radius, design.squareDots)
+        }
         return GlyphInk(
-            strokes = emptyList(),
+            strokes = strokes,
             dots = dots,
             pen = pen,
             skew = -tan(design.italicDegrees * DEG),
@@ -257,6 +264,8 @@ internal object ClockDigitGeometry {
 
     private const val DEG = (PI / 180.0).toFloat()
     private const val DOT_RADIUS = 0.4f
+    /** Half the length of the stroke a line-pen colon dot is drawn as. */
+    private const val DOT_STROKE = 0.001f
     private const val NO_COLON_ADVANCE = 0.06f
     /** The smallest colon dot, as a share of the digit height: a hairline face's own would vanish. */
     private const val MIN_COLON_DOT = 0.045f

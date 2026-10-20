@@ -29,6 +29,13 @@ class ClockDigitGeometryTest {
     }
 
     @Test
+    fun `the line pen's colon is cut into lines like its digits`() {
+        val ink = ClockDigitGeometry.glyph(ClockDesign.NEON.digits!!, ':', showColon = true)!!
+        assertTrue(ink.dots.isEmpty())
+        assertEquals(2, ink.strokes.size)
+    }
+
+    @Test
     fun `a hidden colon draws nothing and takes almost no room`() {
         drawnDesigns().forEach { (name, design) ->
             val ink = ClockDigitGeometry.glyph(design, ':', showColon = false)!!
