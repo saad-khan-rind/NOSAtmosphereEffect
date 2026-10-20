@@ -372,7 +372,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
                 val t = (elapsed.toFloat() / wake.durationMs).coerceIn(0f, 1f)
                 val eased = when {
                     zoom -> ZOOM_EASING.getInterpolation(t)
-                    wake.style == WakeTransitionStyle.SHAKE -> t
+                    wake.style in WakeTransitionSettings.EVEN_PACED -> t
                     else -> WAKE_EASING.getInterpolation(t)
                 }
                 showWake(wake, 1f - eased)

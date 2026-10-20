@@ -67,12 +67,13 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val isFrosted = activeEffect.contains("FROSTED")
         val isGlass = activeEffect.contains("GLASS")
         val isVhs = activeEffect.contains("VHS")
+        val isZoom = activeEffect.contains("ZOOM")
         val isAtmosphere = AtmosphereGlassPolicy.supportsEffect(activeEffect)
         // Every effect composites the clock now, on both backends, so this is
         // no longer an Atmosphere-only question.
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
-        // VHS draws its own tape grain, so the film-grain switch would do nothing there.
-        val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass && !isVhs
+        // VHS draws its own tape grain and Zoom has none, so the film-grain switch would do nothing there.
+        val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass && !isVhs && !isZoom
         val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
         // Every clock effect needs the subject for the clock's depth, Colour Fill and Frosted included.
         val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere ||
@@ -133,6 +134,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
             clockOffersScreenChoice = ClockScreenPolicy.offersChoice(activeEffect),
             clockScreenId = resolvedClockScreen.id,
             showNoiseSwitch = showNoiseSwitch,
+            showDimness = !isZoom,
             showBlob = showBlob,
             isPlaylistMode = isPlaylistMode,
             rotationOptions = rotationOptions,

@@ -571,8 +571,8 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
-            // VHS shares Halftone's renderer and state; it has no background-only mode.
-            "VHS", "VHS_REVERSE" -> EffectPreviewRenderState.Halftone(
+            // VHS and Zoom share Halftone's renderer and state; neither has a background-only mode.
+            "VHS", "VHS_REVERSE", "ZOOM", "ZOOM_REVERSE" -> EffectPreviewRenderState.Halftone(
                 HalftoneRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
                     clock = previewClockState(

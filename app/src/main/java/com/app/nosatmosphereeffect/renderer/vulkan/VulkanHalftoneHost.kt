@@ -246,7 +246,8 @@ private class HalftoneBridge(
             clockUploaded = safe.clock.faceUploaded,
             clockDepth = safe.clock.depthEnabled,
             clockGlass = safe.clock.glassMeta,
-            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom)
+            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom) *
+                look.photoZoom(effectFirst, safe.progress)
         )
     }
 

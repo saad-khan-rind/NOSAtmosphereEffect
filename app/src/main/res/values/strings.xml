@@ -74,6 +74,12 @@
     <string name="effect_vhs_reverse_title" translatable="false">VHS Tape Reverse</string>
     <string name="effect_vhs_reverse_transition">Sharp to tape</string>
     <string name="effect_vhs_reverse_description">Your photo rolls into the soft, noisy look of an old videotape.</string>
+    <string name="effect_zoom_title" translatable="false">Zoom In</string>
+    <string name="effect_zoom_transition">Photo to zoomed in</string>
+    <string name="effect_zoom_description">Your photo zooms in as you unlock. The clock stays where it is.</string>
+    <string name="effect_zoom_reverse_title" translatable="false">Zoom Out</string>
+    <string name="effect_zoom_reverse_transition">Zoomed in to photo</string>
+    <string name="effect_zoom_reverse_description">The lock screen starts zoomed in, and your photo settles back out as you unlock.</string>
     <string name="effects_continue_with">Continue with %1$s</string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>
@@ -192,7 +198,7 @@
     <string name="wake_stretch">Corner stretch</string>
     <string name="wake_shake">Shake</string>
     <string name="wake_random">Random</string>
-    <string name="wake_random_hint">Each wake plays a different style, shuffled so all five play before any repeats. Corner stretch and Shake pick their direction at random too. Each style has its own settings here, apart from the ones it uses when chosen on its own.</string>
+    <string name="wake_random_hint">Each wake plays a different style, shuffled so every style plays before any repeats. Corner stretch, Shake and Venetian blind pick their direction at random too. Each style has its own settings here, apart from the ones it uses when chosen on its own.</string>
     <string name="wake_stretch_hint">The corners are pulled out past the edges, or in towards the middle, then spring back into place. The clock moves with the photo.</string>
     <string name="wake_shake_hint">The whole screen jolts, then settles. The clock moves with the photo.</string>
     <string name="wake_stretch_outward">Outward</string>
@@ -202,6 +208,18 @@
     <string name="wake_shake_twist">Twist</string>
     <string name="wake_strength">Strength</string>
     <string name="wake_shake_count">Shakes</string>
+    <string name="wake_ripple">Ripple</string>
+    <string name="wake_glitch">Glitch</string>
+    <string name="wake_blinds">Venetian blind</string>
+    <string name="wake_breathe">Breathe</string>
+    <string name="wake_ripple_hint">A ripple runs out from the centre of the screen, like a stone dropped in water. The clock moves with the photo.</string>
+    <string name="wake_glitch_hint">A burst of broken pixels and split colour that settles into the lock screen.</string>
+    <string name="wake_blinds_hint">The lock screen opens through strips, one after another, like a venetian blind.</string>
+    <string name="wake_breathe_hint">The lock screen breathes in from black, swelling just past full brightness before it settles.</string>
+    <string name="wake_blinds_rows">Rows</string>
+    <string name="wake_blinds_columns">Columns</string>
+    <string name="wake_blinds_count">Strips</string>
+    <string name="wake_breathe_swell">Swell</string>
     <string name="wake_zoom_level">Zoom level</string>
     <string name="wake_zoom_percent">%1$d%%</string>
     <string name="wake_length">Length</string>
@@ -703,4 +721,6 @@
     <string name="service_halftone_reverse" translatable="false">Halftone Print (Reverse) Effect</string>
     <string name="service_vhs" translatable="false">VHS Tape</string>
     <string name="service_vhs_reverse" translatable="false">VHS Tape (Reverse)</string>
+    <string name="service_zoom" translatable="false">Zoom In</string>
+    <string name="service_zoom_reverse" translatable="false">Zoom Out</string>
 </resources>

@@ -49,4 +49,19 @@ class SinglePassLookTest {
             )
         }
     }
+
+    @Test
+    fun `zoom zooms the photo in one way or the other and nothing else zooms`() {
+        // Zoom in: the photo as it is on the lock screen, zoomed in at home.
+        assertFalse(SinglePassLook.ZOOM.effectFirst(reverse = false))
+        assertEquals(1f, SinglePassLook.ZOOM.photoZoom(effectFirst = false, progress = 0f))
+        assertEquals(1.25f, SinglePassLook.ZOOM.photoZoom(effectFirst = false, progress = 1f))
+        assertEquals(1.25f, SinglePassLook.ZOOM.photoZoom(effectFirst = true, progress = 0f))
+        assertEquals(1f, SinglePassLook.ZOOM.photoZoom(effectFirst = true, progress = 2f))
+        assertEquals(SinglePassLook.ZOOM, SinglePassLook.of("ZOOM_REVERSE"))
+        assertEquals("shaders/zoom/zoom.frag", SinglePassLook.ZOOM.fragmentShader(reverse = true))
+        listOf(SinglePassLook.HALFTONE, SinglePassLook.VHS).forEach {
+            assertEquals(1f, it.photoZoom(effectFirst = true, progress = 0.3f))
+        }
+    }
 }

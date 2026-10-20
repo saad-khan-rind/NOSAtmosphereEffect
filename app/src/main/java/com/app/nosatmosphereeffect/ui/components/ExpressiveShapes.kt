@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.FormatColorFill
 import androidx.compose.material.icons.rounded.Grain
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.ViewWeek
+import androidx.compose.material.icons.rounded.ZoomIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -178,6 +179,7 @@ fun effectFamilyIcon(effectId: String): ImageVector = when (EffectCatalog.family
     "FROSTED" -> Icons.Rounded.AcUnit
     "HALFTONE" -> Icons.Rounded.Grain
     "VHS" -> Icons.Rounded.Videocam
+    "ZOOM" -> Icons.Rounded.ZoomIn
     else -> Icons.Rounded.Cloud
 }
 

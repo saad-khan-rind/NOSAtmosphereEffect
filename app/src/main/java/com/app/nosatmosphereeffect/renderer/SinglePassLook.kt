@@ -23,7 +23,9 @@ enum class SinglePassLook(
     /** The fragment shader the native bridge loads; see vulkan_halftone_jni.cpp. */
     val nativeShader: Int,
     /** Whether the forward variant shows the effect at the lock screen and clears to the photo. */
-    private val forwardEffectFirst: Boolean
+    private val forwardEffectFirst: Boolean,
+    /** How far the photo zooms at full effect (Zoom's whole effect); 0 for none. */
+    private val zoomRange: Float = 0f
 ) {
     HALFTONE(
         forwardId = "HALFTONE",
@@ -50,12 +52,38 @@ enum class SinglePassLook(
         nativeShader = 1,
         // VHS's forward variant starts on tape and clears to the photo.
         forwardEffectFirst = true
+    ),
+    ZOOM(
+        forwardId = "ZOOM",
+        reverseId = "ZOOM_REVERSE",
+        directory = "zoom",
+        label = "Zoom",
+        // One shader both ways: the zoom itself is the renderer's (photoZoom).
+        forwardShader = "zoom.frag",
+        reverseShader = "zoom.frag",
+        hasBackgroundOnly = false,
+        defaultDurationMs = 500L,
+        nativeShader = 2,
+        // Zoom in: the photo as it is on the lock screen, zoomed in at home.
+        forwardEffectFirst = false,
+        zoomRange = 0.25f
     );
 
     fun effectId(reverse: Boolean): String = if (reverse) reverseId else forwardId
 
     /** Whether this variant shows the effect at the lock screen: what the Vulkan shaders call reverse. */
     fun effectFirst(reverse: Boolean): Boolean = forwardEffectFirst != reverse
+
+    /**
+     * The photo's zoom at renderer [progress], for the variant that shows its
+     * effect first if [effectFirst]: 1 for the looks that don't zoom. Fed to
+     * the vertex shader's wallpaper zoom, so the clock stays put.
+     */
+    fun photoZoom(effectFirst: Boolean, progress: Float): Float {
+        if (zoomRange == 0f) return 1f
+        val p = progress.coerceIn(0f, 1f)
+        return 1f + zoomRange * (if (effectFirst) 1f - p else p)
+    }
 
     fun fragmentShader(reverse: Boolean): String =
         "shaders/$directory/${if (reverse) reverseShader else forwardShader}"

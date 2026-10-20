@@ -30,11 +30,11 @@ constexpr uint64_t kGpuWaitTimeoutNs = 5'000'000'000ULL;
 // each frame. Process-wide, like the Kotlin side: one wake plays at a time.
 std::atomic<int> gWakeMode{0};
 std::atomic<float> gWakeAmount{0.0F};
-// Stretch, then the shake's x, y and turn (see WakeTransition).
-std::atomic<float> gWakeStretch{0.0F};
-std::atomic<float> gWakeShakeX{0.0F};
-std::atomic<float> gWakeShakeY{0.0F};
-std::atomic<float> gWakeShakeAngle{0.0F};
+// The style's own values (WakeTransition.param, paramX..paramZ).
+std::atomic<float> gWakeParam{0.0F};
+std::atomic<float> gWakeParamX{0.0F};
+std::atomic<float> gWakeParamY{0.0F};
+std::atomic<float> gWakeParamZ{0.0F};
 }
 
 namespace {
@@ -2482,10 +2482,10 @@ private:
             static_cast<float>(mode),
             std::min(amount, 1.0F),
             surfaceAspectRatio(),
-            gWakeStretch.load(std::memory_order_relaxed),
-            gWakeShakeX.load(std::memory_order_relaxed),
-            gWakeShakeY.load(std::memory_order_relaxed),
-            gWakeShakeAngle.load(std::memory_order_relaxed),
+            gWakeParam.load(std::memory_order_relaxed),
+            gWakeParamX.load(std::memory_order_relaxed),
+            gWakeParamY.load(std::memory_order_relaxed),
+            gWakeParamZ.load(std::memory_order_relaxed),
             0.0F
         };
         vkCmdPushConstants(
@@ -2899,12 +2899,12 @@ void destroyOnePass(JNIEnv* env, OnePassHandle handle) {
     delete engine;
 }
 
-void setWake(int mode, float amount, float stretch, float shakeX, float shakeY, float shakeAngle) {
+void setWake(int mode, float amount, float param, float paramX, float paramY, float paramZ) {
     const auto finite = [](float value) { return std::isfinite(value) ? value : 0.0F; };
-    gWakeStretch.store(finite(stretch), std::memory_order_relaxed);
-    gWakeShakeX.store(finite(shakeX), std::memory_order_relaxed);
-    gWakeShakeY.store(finite(shakeY), std::memory_order_relaxed);
-    gWakeShakeAngle.store(finite(shakeAngle), std::memory_order_relaxed);
+    gWakeParam.store(finite(param), std::memory_order_relaxed);
+    gWakeParamX.store(finite(paramX), std::memory_order_relaxed);
+    gWakeParamY.store(finite(paramY), std::memory_order_relaxed);
+    gWakeParamZ.store(finite(paramZ), std::memory_order_relaxed);
     gWakeMode.store(mode, std::memory_order_relaxed);
     gWakeAmount.store(finite(amount), std::memory_order_relaxed);
 }
@@ -2929,17 +2929,17 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanWakeNative_nativeSetWake(
     jobject,
     jint mode,
     jfloat amount,
-    jfloat stretch,
-    jfloat shakeX,
-    jfloat shakeY,
-    jfloat shakeAngle
+    jfloat param,
+    jfloat paramX,
+    jfloat paramY,
+    jfloat paramZ
 ) {
     atmo::vulkan::setWake(
         static_cast<int>(mode),
         static_cast<float>(amount),
-        static_cast<float>(stretch),
-        static_cast<float>(shakeX),
-        static_cast<float>(shakeY),
-        static_cast<float>(shakeAngle)
+        static_cast<float>(param),
+        static_cast<float>(paramX),
+        static_cast<float>(paramY),
+        static_cast<float>(paramZ)
     );
 }

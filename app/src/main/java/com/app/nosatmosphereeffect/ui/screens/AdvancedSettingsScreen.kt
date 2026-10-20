@@ -106,6 +106,8 @@ data class AdvancedConfig(
     val clockScreenId: String,
     val glassReverse: Boolean,
     val showNoiseSwitch: Boolean,
+    /** Zoom has no dimness: it shows the photo as it is, only zoomed. */
+    val showDimness: Boolean,
     val showBlob: Boolean,
     val isPlaylistMode: Boolean,
     val rotationOptions: List<String>,
@@ -1054,6 +1056,10 @@ private fun TimingSettings(
                                 WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
                                 WakeTransitionStyle.STRETCH -> R.string.wake_stretch_hint
                                 WakeTransitionStyle.SHAKE -> R.string.wake_shake_hint
+                                WakeTransitionStyle.RIPPLE -> R.string.wake_ripple_hint
+                                WakeTransitionStyle.GLITCH -> R.string.wake_glitch_hint
+                                WakeTransitionStyle.BLINDS -> R.string.wake_blinds_hint
+                                WakeTransitionStyle.BREATHE -> R.string.wake_breathe_hint
                                 WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
                             },
                             stringResource(R.string.effect_colorfill_title)
@@ -1194,24 +1200,26 @@ private fun DisplaySettings(
     }
 
     SettingsScroll {
-        SettingsGroup(stringResource(R.string.display_appearance_group)) {
-            LabeledSlider(
-                label = stringResource(R.string.display_dimness),
-                value = dimness,
-                onValueChange = onDimnessChange,
-                valueRange = 0f..0.8f,
-                step = 0.05f,
-                valueText = { "${(it * 100).toInt()}%" }
-            )
-            if (config.showFrosted) {
-                Spacer(Modifier.height(12.dp))
+        if (config.showDimness) {
+            SettingsGroup(stringResource(R.string.display_appearance_group)) {
                 LabeledSlider(
-                    label = stringResource(R.string.display_blur),
-                    value = blurStrength,
-                    onValueChange = onBlurStrengthChange,
-                    valueRange = 0f..400f,
-                    step = 10f
+                    label = stringResource(R.string.display_dimness),
+                    value = dimness,
+                    onValueChange = onDimnessChange,
+                    valueRange = 0f..0.8f,
+                    step = 0.05f,
+                    valueText = { "${(it * 100).toInt()}%" }
                 )
+                if (config.showFrosted) {
+                    Spacer(Modifier.height(12.dp))
+                    LabeledSlider(
+                        label = stringResource(R.string.display_blur),
+                        value = blurStrength,
+                        onValueChange = onBlurStrengthChange,
+                        valueRange = 0f..400f,
+                        step = 10f
+                    )
+                }
             }
         }
         SettingsGroup(stringResource(R.string.renderer_preference_group)) {
@@ -1425,6 +1433,39 @@ private fun WakeStyleControls(
                 )
             }
         }
+        val percent = { value: Float -> resources.getString(R.string.wake_zoom_percent, value.roundToInt()) }
+        when (wake.style) {
+            WakeTransitionStyle.RIPPLE -> WakeSlider(
+                R.string.wake_strength, wake.ripplePercent,
+                WakeTransitionSettings.MIN_RIPPLE_PERCENT..WakeTransitionSettings.MAX_RIPPLE_PERCENT, percent
+            ) { onChange(wake.copy(ripplePercent = it)) }
+            WakeTransitionStyle.GLITCH -> WakeSlider(
+                R.string.wake_strength, wake.glitchPercent,
+                WakeTransitionSettings.MIN_GLITCH_PERCENT..WakeTransitionSettings.MAX_GLITCH_PERCENT, percent
+            ) { onChange(wake.copy(glitchPercent = it)) }
+            WakeTransitionStyle.BLINDS -> Column(Modifier.padding(top = 12.dp)) {
+                if (chooseDirection) {
+                    AtmoSegmentedControl(
+                        options = listOf(
+                            stringResource(R.string.wake_blinds_rows),
+                            stringResource(R.string.wake_blinds_columns)
+                        ),
+                        selectedIndex = if (wake.blindsVertical) 1 else 0,
+                        onSelected = { onChange(wake.copy(blindsVertical = it == 1)) }
+                    )
+                }
+                WakeSlider(
+                    R.string.wake_blinds_count, wake.blindsCount,
+                    WakeTransitionSettings.MIN_BLINDS_COUNT..WakeTransitionSettings.MAX_BLINDS_COUNT,
+                    { it.roundToInt().toString() }
+                ) { onChange(wake.copy(blindsCount = it)) }
+            }
+            WakeTransitionStyle.BREATHE -> WakeSlider(
+                R.string.wake_breathe_swell, wake.breathePercent,
+                WakeTransitionSettings.MIN_BREATHE_PERCENT..WakeTransitionSettings.MAX_BREATHE_PERCENT, percent
+            ) { onChange(wake.copy(breathePercent = it)) }
+            else -> Unit
+        }
         Spacer(Modifier.height(12.dp))
         LabeledSlider(
             label = stringResource(R.string.wake_length),
@@ -1444,6 +1485,26 @@ private fun WakeStyleControls(
     }
 }
 
+/** A whole-number wake setting on a slider, in [range]. */
+@Composable
+private fun WakeSlider(
+    @StringRes label: Int,
+    value: Int,
+    range: IntRange,
+    valueText: (Float) -> String,
+    onChange: (Int) -> Unit
+) {
+    LabeledSlider(
+        label = stringResource(label),
+        value = value.toFloat(),
+        onValueChange = { onChange(it.roundToInt().coerceIn(range)) },
+        valueRange = range.first.toFloat()..range.last.toFloat(),
+        step = 1f,
+        valueText = valueText,
+        modifier = Modifier.padding(top = 12.dp)
+    )
+}
+
 @StringRes
 private fun wakeStyleName(style: WakeTransitionStyle): Int = when (style) {
     WakeTransitionStyle.ZOOM -> R.string.wake_zoom
@@ -1451,5 +1512,9 @@ private fun wakeStyleName(style: WakeTransitionStyle): Int = when (style) {
     WakeTransitionStyle.BLUR -> R.string.wake_blur
     WakeTransitionStyle.STRETCH -> R.string.wake_stretch
     WakeTransitionStyle.SHAKE -> R.string.wake_shake
+    WakeTransitionStyle.RIPPLE -> R.string.wake_ripple
+    WakeTransitionStyle.GLITCH -> R.string.wake_glitch
+    WakeTransitionStyle.BLINDS -> R.string.wake_blinds
+    WakeTransitionStyle.BREATHE -> R.string.wake_breathe
     WakeTransitionStyle.RANDOM -> R.string.wake_random
 }
