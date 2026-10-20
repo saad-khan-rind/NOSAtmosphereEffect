@@ -24,6 +24,7 @@ import com.app.nosatmosphereeffect.helper.GLWallpaperService
 import com.app.nosatmosphereeffect.helper.EffectStatePolicy
 import com.app.nosatmosphereeffect.helper.PlaylistModeManager
 import com.app.nosatmosphereeffect.helper.PlaylistRotationController
+import com.app.nosatmosphereeffect.helper.WakeRandom
 import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
 import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
@@ -303,8 +304,13 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         private fun playWakeTransitionIfWoken() {
             val woke = sleptWhileHidden
             sleptWhileHidden = false
-            val wake = behavior.wakeTransition
-            if (!woke || isPreview || !wake.enabled || !isKeyguardLocked()) return
+            val configured = behavior.wakeTransition
+            if (!woke || isPreview || !configured.enabled || !isKeyguardLocked()) return
+            val wake = if (configured.style == WakeTransitionStyle.RANDOM) {
+                WakeRandom.next(applicationContext, configured)
+            } else {
+                configured
+            }
             stopWakeTransition()
             wakePlaying = wake
             wakeStartMs = SystemClock.uptimeMillis()
