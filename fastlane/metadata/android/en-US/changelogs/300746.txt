@@ -1,0 +1,4 @@
+• New wake transitions: Twirl, Fabric wave and Bubble surge
+• Corner stretch reaches further in towards the middle of the screen
+• Random keeps things simple: turn on Customize each style to tune every style
+• Translations protect numbers and placeholders, so every language gets the update

@@ -59,8 +59,10 @@ object WallpaperBehaviorPolicy {
     val WAKE_KEYS = listOf(
         "enabled", "style", "ms", "zoom_percent", "stretch_inward", "stretch_percent",
         "shake_direction", "shake_percent", "shake_count", "ripple_percent", "glitch_percent",
-        "blinds_vertical", "blinds_count", "breathe_percent"
+        "blinds_vertical", "blinds_count", "breathe_percent", "twirl_percent", "fabric_vertical",
+        "fabric_percent", "bubbles_percent"
     )
+    const val RANDOM_CUSTOMIZED_KEY = "wake_random_customized"
     const val SWITCH_DELAY_KEY = "playlist_switch_delay_ms"
 
     fun resolveSurface(
@@ -129,7 +131,8 @@ object WallpaperBehaviorPreferences {
             wakeTransition = preferences.readWake(WallpaperBehaviorPolicy.WAKE_PREFIX).copy(
                 random = WakeTransitionSettings.RANDOM_POOL.associateWith { style ->
                     preferences.readWake(WallpaperBehaviorPolicy.randomWakePrefix(style)).copy(style = style)
-                }
+                },
+                randomCustomized = preferences.readBoolean(WallpaperBehaviorPolicy.RANDOM_CUSTOMIZED_KEY, false)
             ),
             switchDelayMs = WallpaperBehaviorSettings.sanitizeSwitchDelay(
                 preferences.readInt(WallpaperBehaviorPolicy.SWITCH_DELAY_KEY, 0)
@@ -149,8 +152,9 @@ object WallpaperBehaviorPreferences {
             )
             putWake(WallpaperBehaviorPolicy.WAKE_PREFIX, settings.wakeTransition)
             WakeTransitionSettings.RANDOM_POOL.forEach { style ->
-                putWake(WallpaperBehaviorPolicy.randomWakePrefix(style), settings.wakeTransition.randomFor(style))
+                putWake(WallpaperBehaviorPolicy.randomWakePrefix(style), settings.wakeTransition.randomSettingsFor(style))
             }
+            putBoolean(WallpaperBehaviorPolicy.RANDOM_CUSTOMIZED_KEY, settings.wakeTransition.randomCustomized)
             putInt(
                 WallpaperBehaviorPolicy.SWITCH_DELAY_KEY,
                 WallpaperBehaviorSettings.sanitizeSwitchDelay(settings.switchDelayMs)
@@ -165,6 +169,7 @@ object WallpaperBehaviorPreferences {
             val prefixes = listOf(WallpaperBehaviorPolicy.WAKE_PREFIX) +
                 WakeTransitionSettings.RANDOM_POOL.map(WallpaperBehaviorPolicy::randomWakePrefix)
             prefixes.forEach { prefix -> WallpaperBehaviorPolicy.WAKE_KEYS.forEach { remove(prefix + it) } }
+            remove(WallpaperBehaviorPolicy.RANDOM_CUSTOMIZED_KEY)
             remove(WallpaperBehaviorPolicy.SWITCH_DELAY_KEY)
         }
     }
@@ -203,6 +208,16 @@ object WallpaperBehaviorPreferences {
         blindsCount = WakeTransitionSettings.sanitizeBlinds(
             readInt(prefix + "blinds_count", WakeTransitionSettings.DEFAULT_BLINDS_COUNT)
         ),
+        twirlPercent = WakeTransitionSettings.sanitizeTwirl(
+            readInt(prefix + "twirl_percent", WakeTransitionSettings.DEFAULT_TWIRL_PERCENT)
+        ),
+        fabricVertical = readBoolean(prefix + "fabric_vertical", false),
+        fabricPercent = WakeTransitionSettings.sanitizeFabric(
+            readInt(prefix + "fabric_percent", WakeTransitionSettings.DEFAULT_FABRIC_PERCENT)
+        ),
+        bubblesPercent = WakeTransitionSettings.sanitizeBubbles(
+            readInt(prefix + "bubbles_percent", WakeTransitionSettings.DEFAULT_BUBBLES_PERCENT)
+        ),
         breathePercent = WakeTransitionSettings.sanitizeBreathe(
             readInt(prefix + "breathe_percent", WakeTransitionSettings.DEFAULT_BREATHE_PERCENT)
         )
@@ -223,6 +238,10 @@ object WallpaperBehaviorPreferences {
         putBoolean(prefix + "blinds_vertical", wake.blindsVertical)
         putInt(prefix + "blinds_count", WakeTransitionSettings.sanitizeBlinds(wake.blindsCount))
         putInt(prefix + "breathe_percent", WakeTransitionSettings.sanitizeBreathe(wake.breathePercent))
+        putInt(prefix + "twirl_percent", WakeTransitionSettings.sanitizeTwirl(wake.twirlPercent))
+        putBoolean(prefix + "fabric_vertical", wake.fabricVertical)
+        putInt(prefix + "fabric_percent", WakeTransitionSettings.sanitizeFabric(wake.fabricPercent))
+        putInt(prefix + "bubbles_percent", WakeTransitionSettings.sanitizeBubbles(wake.bubblesPercent))
     }
 
     private fun SharedPreferences.readBoolean(key: String, fallback: Boolean): Boolean {

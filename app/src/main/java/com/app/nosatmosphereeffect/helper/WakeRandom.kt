@@ -6,8 +6,8 @@ import androidx.core.content.edit
 import kotlin.random.Random
 
 /**
- * Random's pick for the next wake: a style, and for Stretch, Shake and
- * Blinds a direction, each drawn like a playlist shuffle (PlaylistRotationPolicy):
+ * Random's pick for the next wake: a style, and for Stretch, Shake, Blinds
+ * and Fabric a direction, each drawn like a playlist shuffle (PlaylistRotationPolicy):
  * everything once, in random order, before any repeats, never the same twice
  * in a row, and the end of one round kept out of the start of the next.
  */
@@ -29,6 +29,8 @@ internal object WakeRandom {
             )
             WakeTransitionStyle.BLINDS ->
                 chosen.copy(blindsVertical = prefs.draw(BLINDS_KEY, listOf(ROWS, COLUMNS)) == COLUMNS)
+            WakeTransitionStyle.FABRIC ->
+                chosen.copy(fabricVertical = prefs.draw(FABRIC_KEY, listOf(SIDES, ENDS)) == ENDS)
             else -> chosen
         }
     }
@@ -69,7 +71,10 @@ internal object WakeRandom {
     private const val STRETCH_KEY = "wake_shuffle_stretch"
     private const val SHAKE_KEY = "wake_shuffle_shake"
     private const val BLINDS_KEY = "wake_shuffle_blinds"
+    private const val FABRIC_KEY = "wake_shuffle_fabric"
     private const val ROWS = "rows"
+    private const val SIDES = "sides"
+    private const val ENDS = "ends"
     private const val COLUMNS = "columns"
     private const val QUEUE = "_queue"
     private const val PLAYED = "_played"

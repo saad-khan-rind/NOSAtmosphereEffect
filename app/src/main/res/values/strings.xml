@@ -198,7 +198,10 @@
     <string name="wake_stretch">Corner stretch</string>
     <string name="wake_shake">Shake</string>
     <string name="wake_random">Random</string>
-    <string name="wake_random_hint">Each wake plays a different style, shuffled so every style plays before any repeats. Corner stretch, Shake and Venetian blind pick their direction at random too. Each style has its own settings here, apart from the ones it uses when chosen on its own.</string>
+    <string name="wake_random_hint">Each wake plays a different style, shuffled so every style plays before any repeats. Corner stretch, Shake, Venetian blind and Fabric wave pick their direction at random too.</string>
+    <string name="wake_random_customize">Customize each style</string>
+    <string name="wake_random_customize_on">Each style plays with its own settings below, apart from the ones it uses when chosen on its own.</string>
+    <string name="wake_random_customize_off">Every style plays with its default settings.</string>
     <string name="wake_stretch_hint">The corners are pulled out past the edges, or in towards the middle, then spring back into place. The clock moves with the photo.</string>
     <string name="wake_shake_hint">The whole screen jolts, then settles. The clock moves with the photo.</string>
     <string name="wake_stretch_outward">Outward</string>
@@ -220,6 +223,16 @@
     <string name="wake_blinds_columns">Columns</string>
     <string name="wake_blinds_count">Strips</string>
     <string name="wake_breathe_swell">Swell</string>
+    <string name="wake_twirl">Twirl</string>
+    <string name="wake_fabric">Fabric wave</string>
+    <string name="wake_bubbles">Bubble surge</string>
+    <string name="wake_twirl_hint">The photo starts twisted into a swirl from the centre, with the edges held in place, and unwinds flat.</string>
+    <string name="wake_fabric_hint">Like a cloth snapped from two opposite edges: a wave runs in from both, crosses the middle and settles.</string>
+    <string name="wake_bubbles_hint">A rush of tiny fizzing bubbles surges up from the bottom of the screen, bending the photo as it passes, and then is gone.</string>
+    <string name="wake_twirl_twist">Twist</string>
+    <string name="wake_fabric_sides">Left and right</string>
+    <string name="wake_fabric_ends">Top and bottom</string>
+    <string name="wake_fabric_depth">Depth</string>
     <string name="wake_zoom_level">Zoom level</string>
     <string name="wake_zoom_percent" translatable="false">%1$d%%</string>
     <string name="wake_length">Length</string>
