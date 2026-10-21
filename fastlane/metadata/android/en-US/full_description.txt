@@ -18,7 +18,7 @@ TRANSITIONS OR ALWAYS-APPLIED EFFECTS
 Turn transitions off to keep the effect on Home, Lock, or Both, with the original image on the other screen. Atmo stays a live wallpaper, so playlists, the clock and every setting keep working. Keep Atmo selected for both Home and Lock in Android's wallpaper picker.
 
 WAKE TRANSITIONS
-An animation as the lock screen arrives from off or from the always-on display: Zoom (up to 150%), Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, or Random. Each style has its own settings and a length of 50–1000 ms. Random shuffles every style, and the direction of Stretch, Shake and Blinds, so each plays before any repeats, with its own copy of every style's settings.
+An animation as the lock screen arrives from off or from the always-on display: Zoom (up to 150%), Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, Twirl, Fabric wave, Bubble surge, or Random. Each style has its own settings and a length of 50–1000 ms. Random shuffles every style, and the direction of Stretch, Shake, Blinds and Fabric wave, so each plays before any repeats, on each style's defaults or, with Customize each style on, with its own copy of every style's settings.
 
 WALLPAPER CLOCK
 A Glass, Translucent, or Adaptive clock drawn into the wallpaper, with drawn fonts, colour, date, depth behind the subject, and drag-and-pinch placement. The date follows the clock's font.
