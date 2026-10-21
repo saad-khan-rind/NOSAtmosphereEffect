@@ -31,7 +31,9 @@ class EffectCatalogTest {
                 "HALFTONE",
                 "HALFTONE_REVERSE",
                 "VHS",
-                "VHS_REVERSE"
+                "VHS_REVERSE",
+                "ZOOM",
+                "ZOOM_REVERSE"
             ),
             EffectCatalog.items.map(EffectItem::id)
         )
@@ -62,7 +64,7 @@ class EffectCatalogTest {
         val families = EffectCatalog.families()
 
         assertEquals(
-            listOf("ATMOSPHERE", "GLASS", "COLORFILL", "CANVAS", "FROSTED", "HALFTONE", "VHS"),
+            listOf("ATMOSPHERE", "GLASS", "COLORFILL", "CANVAS", "FROSTED", "HALFTONE", "VHS", "ZOOM"),
             families.map(EffectFamily::key)
         )
         families.forEach { family ->
@@ -133,7 +135,8 @@ class EffectCatalogTest {
             "HALFTONE",
             "COLORFILL_REVERSE",
             "NEON_REVERSE",
-            "VHS_REVERSE"
+            "VHS_REVERSE",
+            "ZOOM"
         )
 
         EffectCatalog.items.forEach { effect ->

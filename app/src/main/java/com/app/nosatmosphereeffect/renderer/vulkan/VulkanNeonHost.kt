@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.NeonRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
@@ -455,7 +456,7 @@ private class NeonBridge(
             // existing — the shader must never sample the clear texture.
             clockDepth = safe.clock.depthEnabled && safe.hasSubject,
             clockGlass = safe.clock.glassMeta,
-            wallpaperZoom = safe.clock.wallpaperZoom
+            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom)
         )
     }
 

@@ -393,7 +393,8 @@ class HalftoneRenderer(
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,
-            subjectMaskAvailable = maskReady
+            subjectMaskAvailable = maskReady,
+            photoZoom = look.photoZoom(look.effectFirst(isReverse), blurStrength)
         )
 
         val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")

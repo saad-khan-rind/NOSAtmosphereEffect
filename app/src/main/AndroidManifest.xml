@@ -270,6 +270,34 @@
                 android:resource="@xml/wallpaper" />
         </service>
 
+        <service
+            android:name=".service.ZoomService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_zoom"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
+        <service
+            android:name=".service.ZoomReverseService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_zoom_reverse"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
     </application>
 
 </manifest>

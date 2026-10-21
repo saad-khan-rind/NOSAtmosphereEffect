@@ -61,6 +61,10 @@ import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
 import com.app.nosatmosphereeffect.helper.SubjectModelDelivery
 import com.app.nosatmosphereeffect.helper.SubjectModelPhase
 import com.app.nosatmosphereeffect.helper.SubjectModelState
+import com.app.nosatmosphereeffect.helper.WakeShakeDirection
+import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
+import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
+import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoDropdownField
@@ -102,6 +106,8 @@ data class AdvancedConfig(
     val clockScreenId: String,
     val glassReverse: Boolean,
     val showNoiseSwitch: Boolean,
+    /** Zoom has no dimness: it shows the photo as it is, only zoomed. */
+    val showDimness: Boolean,
     val showBlob: Boolean,
     val isPlaylistMode: Boolean,
     val rotationOptions: List<String>,
@@ -111,6 +117,8 @@ data class AdvancedConfig(
     val duration: String,
     val transitionsEnabled: Boolean,
     val alwaysAppliedTarget: AlwaysAppliedTarget,
+    val wakeTransition: WakeTransitionSettings,
+    val switchDelayMs: Int,
     val dimness: Float,
     val blurStrength: Float,
     val enableNoise: Boolean,
@@ -140,6 +148,8 @@ data class AdvancedResult(
     val duration: String,
     val transitionsEnabled: Boolean,
     val alwaysAppliedTarget: AlwaysAppliedTarget,
+    val wakeTransition: WakeTransitionSettings,
+    val switchDelayMs: Int,
     val dimness: Float,
     val blurStrength: Float,
     val enableNoise: Boolean,
@@ -190,6 +200,8 @@ fun AdvancedSettingsScreen(
     var duration by remember { mutableStateOf(config.duration) }
     var transitionsEnabled by remember { mutableStateOf(config.transitionsEnabled) }
     var alwaysAppliedTarget by remember { mutableStateOf(config.alwaysAppliedTarget) }
+    var wakeTransition by remember { mutableStateOf(config.wakeTransition) }
+    var switchDelay by remember { mutableStateOf(config.switchDelayMs.toString()) }
     var dimness by remember { mutableFloatStateOf(config.dimness) }
     var blurStrength by remember { mutableFloatStateOf(config.blurStrength) }
     var rotationIndex by remember { mutableIntStateOf(config.initialRotationIndex) }
@@ -283,6 +295,8 @@ fun AdvancedSettingsScreen(
         duration = duration,
         transitionsEnabled = transitionsEnabled,
         alwaysAppliedTarget = alwaysAppliedTarget,
+        wakeTransition = wakeTransition,
+        switchDelayMs = WallpaperBehaviorSettings.sanitizeSwitchDelay(switchDelay.toIntOrNull() ?: 0),
         dimness = dimness,
         blurStrength = blurStrength,
         enableNoise = noiseEnabled,
@@ -444,6 +458,11 @@ fun AdvancedSettingsScreen(
                         onTransitionsEnabledChange = { transitionsEnabled = it },
                         alwaysAppliedTarget = alwaysAppliedTarget,
                         onAlwaysAppliedTargetChange = { alwaysAppliedTarget = it },
+                        wakeTransition = wakeTransition,
+                        onWakeTransitionChange = { wakeTransition = it },
+                        showSwitchDelay = config.isPlaylistMode && rotationIndex == 0, // Immediate
+                        switchDelay = switchDelay,
+                        onSwitchDelayChange = { switchDelay = it.filterDigits() },
                         onPollInfo = { infoDialog = InfoDialog.Poll },
                         onDelayInfo = { infoDialog = InfoDialog.Delay }
                     )
@@ -532,7 +551,50 @@ private fun EffectSettings(
     noiseStrength: String,
     onNoiseStrengthChange: (String) -> Unit
 ) {
+    val playServicesModel = subjectModelDelivery == SubjectModelDelivery.GOOGLE_PLAY_SERVICES
+    // Null while the first check runs, so nothing claims a download is needed before we know.
+    val modelRequiredText = if (
+        subjectModelReady || subjectModelState.phase == SubjectModelPhase.CHECKING
+    ) null else stringResource(R.string.model_required)
+    val needsSubjectModel = config.showGlass || config.showAtmosphereGlassToggle ||
+        config.showHalftone || config.showNeon ||
+        (config.showClockToggle && !config.isPlaylistMode)
     SettingsScroll {
+        // One place for the model, above everything that needs it, rather than
+        // inside whichever setting happens to be expanded.
+        AnimatedVisibility(visible = playServicesModel && needsSubjectModel && !subjectModelReady) {
+            SettingsGroup(stringResource(R.string.model_group)) {
+                Text(
+                    subjectModelStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = GroupTextInset
+                )
+                Spacer(Modifier.height(10.dp))
+                AtmoOutlinedButton(
+                    text = subjectModelButtonText,
+                    onClick = onDownloadSubjectModel,
+                    enabled = !subjectModelWorking &&
+                        subjectModelState.phase != SubjectModelPhase.BROKEN,
+                    accent = true,
+                    icon = if (!subjectModelWorking) painterResource(R.drawable.ic_download) else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (subjectModelWorking) {
+                    Spacer(Modifier.height(10.dp))
+                    val percent = subjectModelState.progressPercent
+                    if (percent != null) {
+                        LinearProgressIndicator(
+                            progress = { percent / 100f },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+        }
+
         if (
             config.showGlass ||
             (config.showAtmosphereGlassToggle && transitionsEnabled)
@@ -540,13 +602,13 @@ private fun EffectSettings(
             SettingsGroup(stringResource(R.string.glass_group)) {
                 if (config.showAtmosphereGlassToggle) {
                     SettingSwitchRow(
-                        title = stringResource(R.string.glass_add),
+                        title = stringResource(R.string.glass_add, stringResource(R.string.glass_group)),
                         checked = atmosphereGlassEnabled,
                         onCheckedChange = onAtmosphereGlassEnabledChange,
                         subtitle = if (atmosphereGlassEnabled) {
-                            stringResource(R.string.glass_on_sharp)
+                            stringResource(R.string.glass_on_sharp, stringResource(R.string.effect_original_title))
                         } else {
-                            stringResource(R.string.glass_off_sharp)
+                            stringResource(R.string.glass_off_sharp, stringResource(R.string.effect_original_title))
                         }
                     )
                 }
@@ -626,11 +688,7 @@ private fun EffectSettings(
                                 stringResource(R.string.common_waiting_model),
                             subjectModelDelivery = subjectModelDelivery,
                             subjectModelReady = subjectModelReady,
-                            subjectModelWorking = subjectModelWorking,
-                            subjectModelButtonText = subjectModelButtonText,
-                            subjectModelStatusText = subjectModelStatusText,
-                            subjectModelState = subjectModelState,
-                            onDownloadSubjectModel = onDownloadSubjectModel
+                            modelRequiredText = modelRequiredText
                         )
                     }
                 }
@@ -717,7 +775,10 @@ private fun EffectSettings(
                         title = stringResource(if (adaptiveStyle) R.string.clock_adapt else R.string.clock_depth),
                         checked = clockDepthEnabled,
                         onCheckedChange = onClockDepthEnabledChange,
-                        subtitle = if (adaptiveStyle) {
+                        enabled = subjectModelReady || clockDepthEnabled,
+                        subtitle = if (modelRequiredText != null) {
+                            modelRequiredText
+                        } else if (adaptiveStyle) {
                             if (clockDepthEnabled) {
                                 stringResource(R.string.clock_adapt_on)
                             } else {
@@ -759,16 +820,12 @@ private fun EffectSettings(
                     title = stringResource(R.string.common_background_only),
                     checked = halftoneBackgroundOnly,
                     onCheckedChange = onHalftoneBackgroundOnlyChange,
-                    inactiveText = stringResource(R.string.halftone_inactive),
+                    inactiveText = stringResource(R.string.halftone_inactive, stringResource(R.string.halftone_group)),
                     activeDescription = stringResource(R.string.halftone_active),
                     waitingText = stringResource(R.string.common_waiting_model),
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
-                    subjectModelWorking = subjectModelWorking,
-                    subjectModelButtonText = subjectModelButtonText,
-                    subjectModelStatusText = subjectModelStatusText,
-                    subjectModelState = subjectModelState,
-                    onDownloadSubjectModel = onDownloadSubjectModel
+                    modelRequiredText = modelRequiredText
                 )
             }
         }
@@ -804,11 +861,7 @@ private fun EffectSettings(
                     waitingText = stringResource(R.string.canvas_waiting),
                     subjectModelDelivery = subjectModelDelivery,
                     subjectModelReady = subjectModelReady,
-                    subjectModelWorking = subjectModelWorking,
-                    subjectModelButtonText = subjectModelButtonText,
-                    subjectModelStatusText = subjectModelStatusText,
-                    subjectModelState = subjectModelState,
-                    onDownloadSubjectModel = onDownloadSubjectModel
+                    modelRequiredText = modelRequiredText
                 )
                 Spacer(Modifier.height(18.dp))
                 LabeledSlider(
@@ -830,7 +883,7 @@ private fun EffectSettings(
         }
 
         if (config.showBlob) {
-            SettingsGroup(stringResource(R.string.atmos_color_group)) {
+            SettingsGroup(stringResource(R.string.atmos_color_group, stringResource(R.string.effect_original_title))) {
                 LabeledSlider(
                     label = stringResource(R.string.atmos_saturation),
                     value = saturation,
@@ -903,11 +956,8 @@ private fun SubjectIsolationSetting(
     waitingText: String,
     subjectModelDelivery: SubjectModelDelivery,
     subjectModelReady: Boolean,
-    subjectModelWorking: Boolean,
-    subjectModelButtonText: String,
-    subjectModelStatusText: String,
-    subjectModelState: SubjectModelState,
-    onDownloadSubjectModel: () -> Unit,
+    /** Set while the model is missing: the switch greys out and points at the model card. */
+    modelRequiredText: String?,
     /** Set when something else needs this on: shown on and greyed out, with this reason. */
     forcedOnReason: String? = null
 ) {
@@ -917,6 +967,8 @@ private fun SubjectIsolationSetting(
         onCheckedChange = onCheckedChange,
         enabled = forcedOnReason == null && (subjectModelReady || checked),
         subtitle = when {
+            // Raw `checked`: a switch only forced on still points at the missing model.
+            !checked && modelRequiredText != null -> modelRequiredText
             forcedOnReason != null -> forcedOnReason
             !checked -> inactiveText
             subjectModelDelivery == SubjectModelDelivery.BUNDLED_FOSS ->
@@ -925,41 +977,6 @@ private fun SubjectIsolationSetting(
                 stringResource(R.string.model_uses_installed, activeDescription)
             else -> waitingText
         }
-    )
-    if (subjectModelDelivery == SubjectModelDelivery.GOOGLE_PLAY_SERVICES) {
-        Spacer(Modifier.height(10.dp))
-        AtmoOutlinedButton(
-            text = subjectModelButtonText,
-            onClick = onDownloadSubjectModel,
-            enabled = !subjectModelWorking && !subjectModelReady &&
-                subjectModelState.phase != SubjectModelPhase.BROKEN,
-            accent = true,
-            icon = if (!subjectModelWorking && !subjectModelReady) {
-                painterResource(R.drawable.ic_download)
-            } else {
-                null
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-        if (subjectModelWorking) {
-            Spacer(Modifier.height(10.dp))
-            val percent = subjectModelState.progressPercent
-            if (percent != null) {
-                LinearProgressIndicator(
-                    progress = { percent / 100f },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    Text(
-        subjectModelStatusText,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = GroupTextInset
     )
 }
 
@@ -977,6 +994,11 @@ private fun TimingSettings(
     onTransitionsEnabledChange: (Boolean) -> Unit,
     alwaysAppliedTarget: AlwaysAppliedTarget,
     onAlwaysAppliedTargetChange: (AlwaysAppliedTarget) -> Unit,
+    wakeTransition: WakeTransitionSettings,
+    onWakeTransitionChange: (WakeTransitionSettings) -> Unit,
+    showSwitchDelay: Boolean,
+    switchDelay: String,
+    onSwitchDelayChange: (String) -> Unit,
     onPollInfo: () -> Unit,
     onDelayInfo: () -> Unit
 ) {
@@ -1001,6 +1023,91 @@ private fun TimingSettings(
                     stringResource(R.string.timing_animate_off)
                 }
             )
+        }
+
+        SettingsGroup(stringResource(R.string.wake_group)) {
+            SettingSwitchRow(
+                title = stringResource(R.string.wake_animate),
+                checked = wakeTransition.enabled,
+                onCheckedChange = { onWakeTransitionChange(wakeTransition.copy(enabled = it)) },
+                subtitle = stringResource(
+                    if (wakeTransition.enabled) R.string.wake_animate_on else R.string.wake_animate_off
+                )
+            )
+            AnimatedVisibility(visible = wakeTransition.enabled) {
+                Column {
+                    Spacer(Modifier.height(12.dp))
+                    AtmoDropdownField(
+                        label = stringResource(R.string.wake_style),
+                        options = WakeTransitionStyle.entries.map { stringResource(wakeStyleName(it)) },
+                        selectedIndex = wakeTransition.style.ordinal,
+                        onSelected = { index ->
+                            onWakeTransitionChange(
+                                wakeTransition.copy(style = WakeTransitionStyle.entries[index])
+                            )
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(
+                            when (wakeTransition.style) {
+                                WakeTransitionStyle.ZOOM -> R.string.wake_zoom_hint
+                                WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill_hint
+                                WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
+                                WakeTransitionStyle.STRETCH -> R.string.wake_stretch_hint
+                                WakeTransitionStyle.SHAKE -> R.string.wake_shake_hint
+                                WakeTransitionStyle.RIPPLE -> R.string.wake_ripple_hint
+                                WakeTransitionStyle.GLITCH -> R.string.wake_glitch_hint
+                                WakeTransitionStyle.BLINDS -> R.string.wake_blinds_hint
+                                WakeTransitionStyle.BREATHE -> R.string.wake_breathe_hint
+                                WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
+                            },
+                            stringResource(R.string.effect_colorfill_title)
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = GroupTextInset
+                    )
+                    if (wakeTransition.style == WakeTransitionStyle.RANDOM) {
+                        WakeTransitionSettings.RANDOM_POOL.forEach { style ->
+                            Text(
+                                stringResource(wakeStyleName(style)),
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = GroupTextInset.padding(top = 20.dp)
+                            )
+                            WakeStyleControls(
+                                wake = wakeTransition.randomFor(style),
+                                chooseDirection = false,
+                                onChange = {
+                                    onWakeTransitionChange(
+                                        wakeTransition.copy(random = wakeTransition.random + (style to it))
+                                    )
+                                }
+                            )
+                        }
+                    } else {
+                        WakeStyleControls(
+                            wake = wakeTransition,
+                            chooseDirection = true,
+                            onChange = onWakeTransitionChange
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showSwitchDelay) {
+            SettingsGroup(stringResource(R.string.timing_playlist_group)) {
+                AtmoNumberField(
+                    label = stringResource(R.string.timing_switch_delay),
+                    value = switchDelay,
+                    onValueChange = onSwitchDelayChange,
+                    helper = stringResource(
+                        R.string.timing_switch_delay_helper,
+                        WallpaperBehaviorSettings.MAX_SWITCH_DELAY_MS
+                    )
+                )
+            }
         }
 
         AnimatedVisibility(visible = transitionsEnabled) {
@@ -1093,24 +1200,26 @@ private fun DisplaySettings(
     }
 
     SettingsScroll {
-        SettingsGroup(stringResource(R.string.display_appearance_group)) {
-            LabeledSlider(
-                label = stringResource(R.string.display_dimness),
-                value = dimness,
-                onValueChange = onDimnessChange,
-                valueRange = 0f..0.8f,
-                step = 0.05f,
-                valueText = { "${(it * 100).toInt()}%" }
-            )
-            if (config.showFrosted) {
-                Spacer(Modifier.height(12.dp))
+        if (config.showDimness) {
+            SettingsGroup(stringResource(R.string.display_appearance_group)) {
                 LabeledSlider(
-                    label = stringResource(R.string.display_blur),
-                    value = blurStrength,
-                    onValueChange = onBlurStrengthChange,
-                    valueRange = 0f..400f,
-                    step = 10f
+                    label = stringResource(R.string.display_dimness),
+                    value = dimness,
+                    onValueChange = onDimnessChange,
+                    valueRange = 0f..0.8f,
+                    step = 0.05f,
+                    valueText = { "${(it * 100).toInt()}%" }
                 )
+                if (config.showFrosted) {
+                    Spacer(Modifier.height(12.dp))
+                    LabeledSlider(
+                        label = stringResource(R.string.display_blur),
+                        value = blurStrength,
+                        onValueChange = onBlurStrengthChange,
+                        valueRange = 0f..400f,
+                        step = 10f
+                    )
+                }
             }
         }
         SettingsGroup(stringResource(R.string.renderer_preference_group)) {
@@ -1218,3 +1327,194 @@ private enum class InfoDialog(@StringRes val title: Int, @StringRes val message:
 
 private fun String.filterDigits(): String = filter { it.isDigit() }
 
+/** One style's own settings; Random's styles pick their direction themselves ([chooseDirection] false). */
+@Composable
+private fun WakeStyleControls(
+    wake: WakeTransitionSettings,
+    chooseDirection: Boolean,
+    onChange: (WakeTransitionSettings) -> Unit
+) {
+    Column {
+        val resources = LocalResources.current
+        if (wake.style == WakeTransitionStyle.ZOOM) {
+            LabeledSlider(
+                label = stringResource(R.string.wake_zoom_level),
+                value = wake.zoomPercent.toFloat(),
+                onValueChange = {
+                    onChange(
+                        wake.copy(
+                            zoomPercent = WakeTransitionSettings.sanitizeZoom(it.roundToInt())
+                        )
+                    )
+                },
+                valueRange = WakeTransitionSettings.MIN_ZOOM_PERCENT.toFloat()..
+                    WakeTransitionSettings.MAX_ZOOM_PERCENT.toFloat(),
+                step = 1f,
+                valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) },
+                modifier = Modifier.padding(top = 12.dp)
+            )
+        }
+        if (wake.style == WakeTransitionStyle.STRETCH) {
+            Column(Modifier.padding(top = 12.dp)) {
+                if (chooseDirection) AtmoSegmentedControl(
+                    options = listOf(
+                        stringResource(R.string.wake_stretch_outward),
+                        stringResource(R.string.wake_stretch_inward)
+                    ),
+                    selectedIndex = if (wake.stretchInward) 1 else 0,
+                    onSelected = { index ->
+                        onChange(wake.copy(stretchInward = index == 1))
+                    }
+                )
+                if (chooseDirection) Spacer(Modifier.height(12.dp))
+                LabeledSlider(
+                    label = stringResource(R.string.wake_strength),
+                    value = wake.stretchPercent.toFloat(),
+                    onValueChange = {
+                        onChange(
+                            wake.copy(
+                                stretchPercent = WakeTransitionSettings.sanitizeStretch(it.roundToInt())
+                            )
+                        )
+                    },
+                    valueRange = WakeTransitionSettings.MIN_STRETCH_PERCENT.toFloat()..
+                        WakeTransitionSettings.MAX_STRETCH_PERCENT.toFloat(),
+                    step = 1f,
+                    valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
+                )
+            }
+        }
+        if (wake.style == WakeTransitionStyle.SHAKE) {
+            Column(Modifier.padding(top = 12.dp)) {
+                if (chooseDirection) AtmoSegmentedControl(
+                    options = listOf(
+                        stringResource(R.string.wake_shake_sideways),
+                        stringResource(R.string.wake_shake_vertical),
+                        stringResource(R.string.wake_shake_twist)
+                    ),
+                    selectedIndex = wake.shakeDirection.ordinal,
+                    onSelected = { index ->
+                        onChange(
+                            wake.copy(shakeDirection = WakeShakeDirection.entries[index])
+                        )
+                    }
+                )
+                if (chooseDirection) Spacer(Modifier.height(12.dp))
+                LabeledSlider(
+                    label = stringResource(R.string.wake_strength),
+                    value = wake.shakePercent.toFloat(),
+                    onValueChange = {
+                        onChange(
+                            wake.copy(
+                                shakePercent = WakeTransitionSettings.sanitizeShake(it.roundToInt())
+                            )
+                        )
+                    },
+                    valueRange = WakeTransitionSettings.MIN_SHAKE_PERCENT.toFloat()..
+                        WakeTransitionSettings.MAX_SHAKE_PERCENT.toFloat(),
+                    step = 1f,
+                    valueText = { resources.getString(R.string.wake_zoom_percent, it.roundToInt()) }
+                )
+                Spacer(Modifier.height(12.dp))
+                LabeledSlider(
+                    label = stringResource(R.string.wake_shake_count),
+                    value = wake.shakeCount.toFloat(),
+                    onValueChange = {
+                        onChange(
+                            wake.copy(
+                                shakeCount = WakeTransitionSettings.sanitizeShakeCount(it.roundToInt())
+                            )
+                        )
+                    },
+                    valueRange = WakeTransitionSettings.MIN_SHAKE_COUNT.toFloat()..
+                        WakeTransitionSettings.MAX_SHAKE_COUNT.toFloat(),
+                    step = 1f,
+                    valueText = { it.roundToInt().toString() }
+                )
+            }
+        }
+        val percent = { value: Float -> resources.getString(R.string.wake_zoom_percent, value.roundToInt()) }
+        when (wake.style) {
+            WakeTransitionStyle.RIPPLE -> WakeSlider(
+                R.string.wake_strength, wake.ripplePercent,
+                WakeTransitionSettings.MIN_RIPPLE_PERCENT..WakeTransitionSettings.MAX_RIPPLE_PERCENT, percent
+            ) { onChange(wake.copy(ripplePercent = it)) }
+            WakeTransitionStyle.GLITCH -> WakeSlider(
+                R.string.wake_strength, wake.glitchPercent,
+                WakeTransitionSettings.MIN_GLITCH_PERCENT..WakeTransitionSettings.MAX_GLITCH_PERCENT, percent
+            ) { onChange(wake.copy(glitchPercent = it)) }
+            WakeTransitionStyle.BLINDS -> Column(Modifier.padding(top = 12.dp)) {
+                if (chooseDirection) {
+                    AtmoSegmentedControl(
+                        options = listOf(
+                            stringResource(R.string.wake_blinds_rows),
+                            stringResource(R.string.wake_blinds_columns)
+                        ),
+                        selectedIndex = if (wake.blindsVertical) 1 else 0,
+                        onSelected = { onChange(wake.copy(blindsVertical = it == 1)) }
+                    )
+                }
+                WakeSlider(
+                    R.string.wake_blinds_count, wake.blindsCount,
+                    WakeTransitionSettings.MIN_BLINDS_COUNT..WakeTransitionSettings.MAX_BLINDS_COUNT,
+                    { it.roundToInt().toString() }
+                ) { onChange(wake.copy(blindsCount = it)) }
+            }
+            WakeTransitionStyle.BREATHE -> WakeSlider(
+                R.string.wake_breathe_swell, wake.breathePercent,
+                WakeTransitionSettings.MIN_BREATHE_PERCENT..WakeTransitionSettings.MAX_BREATHE_PERCENT, percent
+            ) { onChange(wake.copy(breathePercent = it)) }
+            else -> Unit
+        }
+        Spacer(Modifier.height(12.dp))
+        LabeledSlider(
+            label = stringResource(R.string.wake_length),
+            value = wake.durationMs.toFloat(),
+            onValueChange = {
+                onChange(
+                    wake.copy(
+                        durationMs = WakeTransitionSettings.sanitizeDuration(it.roundToInt())
+                    )
+                )
+            },
+            valueRange = WakeTransitionSettings.MIN_DURATION_MS.toFloat()..
+                WakeTransitionSettings.MAX_DURATION_MS.toFloat(),
+            step = 50f,
+            valueText = { resources.getString(R.string.wake_length_ms, it.roundToInt()) }
+        )
+    }
+}
+
+/** A whole-number wake setting on a slider, in [range]. */
+@Composable
+private fun WakeSlider(
+    @StringRes label: Int,
+    value: Int,
+    range: IntRange,
+    valueText: (Float) -> String,
+    onChange: (Int) -> Unit
+) {
+    LabeledSlider(
+        label = stringResource(label),
+        value = value.toFloat(),
+        onValueChange = { onChange(it.roundToInt().coerceIn(range)) },
+        valueRange = range.first.toFloat()..range.last.toFloat(),
+        step = 1f,
+        valueText = valueText,
+        modifier = Modifier.padding(top = 12.dp)
+    )
+}
+
+@StringRes
+private fun wakeStyleName(style: WakeTransitionStyle): Int = when (style) {
+    WakeTransitionStyle.ZOOM -> R.string.wake_zoom
+    WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill
+    WakeTransitionStyle.BLUR -> R.string.wake_blur
+    WakeTransitionStyle.STRETCH -> R.string.wake_stretch
+    WakeTransitionStyle.SHAKE -> R.string.wake_shake
+    WakeTransitionStyle.RIPPLE -> R.string.wake_ripple
+    WakeTransitionStyle.GLITCH -> R.string.wake_glitch
+    WakeTransitionStyle.BLINDS -> R.string.wake_blinds
+    WakeTransitionStyle.BREATHE -> R.string.wake_breathe
+    WakeTransitionStyle.RANDOM -> R.string.wake_random
+}

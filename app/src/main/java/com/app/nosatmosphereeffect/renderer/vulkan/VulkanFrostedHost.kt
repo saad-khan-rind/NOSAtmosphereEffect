@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
@@ -263,7 +264,7 @@ private object FrostedBridge :
             // existing — the shader must never sample the clear texture.
             clockDepth = safe.clock.depthEnabled && safe.hasSubject,
             clockGlass = safe.clock.glassMeta,
-            wallpaperZoom = safe.clock.wallpaperZoom
+            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom)
         )
     }
 

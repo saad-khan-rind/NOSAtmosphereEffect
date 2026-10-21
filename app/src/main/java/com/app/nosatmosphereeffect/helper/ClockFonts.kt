@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.helper
 
+import android.graphics.Typeface
 import androidx.annotation.StringRes
 import com.app.nosatmosphereeffect.R
 
@@ -226,6 +227,38 @@ internal enum class ClockDesign(
         )
     ),
     HANZI("hanzi", R.string.clock_variant_regular, null);
+
+    /** The dot face draws its date as a dot matrix too. */
+    val dotMatrixDate: Boolean get() = digits?.pen is ClockPen.Dots
+
+    /**
+     * The date's typeface. The digits are drawn from strokes and have no
+     * letters, so the date takes the system family closest to them. Null
+     * keeps the look's own typeface.
+     */
+    fun dateTypeface(): Typeface? {
+        val (family, weight) = when (this) {
+            DEFAULT, HANZI -> return null
+            TOWER_TALL, TOWER_SHORT -> "sans-serif-condensed" to 500
+            HEAVY, CHUNKY -> "sans-serif" to 900
+            NARROW -> "sans-serif-condensed" to 700
+            GEOMETRIC_REGULAR, SOFT, NEON -> "sans-serif" to 300
+            GEOMETRIC_BOLD, DOTS -> "sans-serif" to 700
+            BUBBLE -> "casual" to 700
+            TECHNO, WIREFRAME -> "monospace" to 400
+            BLOCK -> "monospace" to 700
+            BRUSH -> "cursive" to 400
+            DIDONE_LIGHT, SERIF_REGULAR -> "serif" to 400
+            SERIF_BOLD -> "serif" to 700
+            DIDONE_HEAVY, POSTER -> "serif" to 900
+        }
+        val italic = (digits?.italicDegrees ?: 0f) > 0f && this != BRUSH
+        return try {
+            Typeface.create(Typeface.create(family, Typeface.NORMAL), weight, italic)
+        } catch (_: RuntimeException) {
+            null
+        }
+    }
 
     companion object {
         fun fromId(id: String?): ClockDesign = entries.firstOrNull { it.id == id } ?: DEFAULT

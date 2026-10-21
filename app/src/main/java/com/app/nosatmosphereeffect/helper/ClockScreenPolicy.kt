@@ -104,6 +104,8 @@ object ClockScreenPolicy {
      * | HALFTONE_REVERSE   | halftone dots   | photo           | BOTH  |
      * | VHS                | videotape       | photo           | BOTH  |
      * | VHS_REVERSE        | photo           | videotape       | BOTH  |
+     * | ZOOM               | photo           | zoomed in       | BOTH  |
+     * | ZOOM_REVERSE       | zoomed in       | photo           | BOTH  |
      *
      * "Sharp" here means "a clock stays legible and depth composites
      * correctly", not "the unmodified photo". Sketch and Halftone restyle the
@@ -118,7 +120,8 @@ object ClockScreenPolicy {
         "COLORFILL", "COLORFILL_REVERSE",
         "NEON", "NEON_REVERSE",
         "HALFTONE", "HALFTONE_REVERSE",
-        "VHS", "VHS_REVERSE" -> ClockSharpSide.BOTH
+        "VHS", "VHS_REVERSE",
+        "ZOOM", "ZOOM_REVERSE" -> ClockSharpSide.BOTH
         "REVERSE",
         "GLASS_REVERSE",
         "FROSTED_REVERSE" -> ClockSharpSide.HOME

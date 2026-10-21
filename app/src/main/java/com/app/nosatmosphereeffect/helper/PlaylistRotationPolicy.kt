@@ -1,5 +1,7 @@
 package com.app.nosatmosphereeffect.helper
 
+import kotlin.random.Random
+
 internal enum class RotationSkipReason {
     SINGLE_MODE,
     NON_THEME_EVENT,
@@ -8,6 +10,8 @@ internal enum class RotationSkipReason {
     ONLY_PLAYLIST_ITEM,
     INTERVAL_NOT_ELAPSED
 }
+
+internal data class ShuffleQueue(val queue: List<String>, val played: List<String>)
 
 internal data class RotationDecision(
     val shouldRotate: Boolean,
@@ -74,9 +78,50 @@ internal object PlaylistRotationPolicy {
         return RotationDecision(shouldRotate = true, themeChanged = themeChanged)
     }
 
-    fun eligibleNames(names: List<String>, lastUsedName: String?): List<String> {
-        if (names.isEmpty() || lastUsedName == null) return names
-        return names.filterNot { it == lastUsedName }.ifEmpty { names }
+    /**
+     * The playlist's shuffle queue, ready to take the next image from the
+     * front: every image once, in random order, before any repeats.
+     *
+     * [queue] is what is left of this round and [played] what it has shown,
+     * oldest first. Images no longer in [available] drop out; images new to
+     * the playlist join this round at random places; an empty queue starts a
+     * new round, a fresh Fisher-Yates shuffle in which the last quarter of
+     * the round before stays out of the new round's first quarter, so no
+     * image comes back soon after it was shown. The image just shown
+     * ([lastUsedName]) is never next, unless it is the only one.
+     */
+    fun shuffleQueue(
+        queue: List<String>,
+        played: List<String>,
+        available: List<String>,
+        lastUsedName: String?,
+        random: Random = Random.Default
+    ): ShuffleQueue {
+        val present = available.toSet()
+        val remaining = queue.filter { it in present }.distinct().toMutableList()
+        val known = remaining.toSet() + played
+        available.distinct().filterNot { it in known }.forEach { name ->
+            remaining.add(random.nextInt(remaining.size + 1), name)
+        }
+        val newRound = remaining.isEmpty()
+        if (newRound) remaining.addAll(newRound(available.distinct(), played, lastUsedName, random))
+        if (remaining.size > 1 && remaining.first() == lastUsedName) {
+            remaining.add(remaining.removeAt(0))
+        }
+        return ShuffleQueue(remaining, if (newRound) emptyList() else played.filter { it in present }.distinct())
+    }
+
+    private fun newRound(
+        images: List<String>,
+        previous: List<String>,
+        lastUsedName: String?,
+        random: Random
+    ): List<String> {
+        val gap = images.size / 4
+        val recent = (previous.takeLast(gap) + listOfNotNull(lastUsedName)).toSet()
+        val (recentImages, others) = images.shuffled(random).partition { it in recent }
+        val opening = others.take(gap)
+        return opening + (others.drop(opening.size) + recentImages).shuffled(random)
     }
 
     private fun intervalElapsed(

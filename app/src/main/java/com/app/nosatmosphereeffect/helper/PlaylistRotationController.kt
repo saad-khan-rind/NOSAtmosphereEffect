@@ -16,6 +16,11 @@ import java.util.concurrent.Executors
 object PlaylistRotationController {
     private const val TAG = "PlaylistRotation"
     private const val MAX_ATTEMPTS = 3
+    /** The shuffle queue's leftovers and shown images, beside each playlist's last-image key. */
+    private const val QUEUE_SUFFIX = "_shuffle_queue"
+    private const val PLAYED_SUFFIX = "_shuffle_played"
+    /** File names never contain a line break. */
+    private const val NAME_SEPARATOR = "\n"
     private val rotationExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "wallpaper-playlist-rotation")
     }
@@ -96,20 +101,30 @@ object PlaylistRotationController {
 
         val lastKey = PlaylistModeManager.lastImagePreferenceKey(mode, isNightMode)
         val lastUsedName = prefs.getString(lastKey, null)
-        val eligibleNames = PlaylistRotationPolicy.eligibleNames(
-            playlistFiles.map(File::getName),
-            lastUsedName
-        ).toSet()
+        val queueKey = lastKey + QUEUE_SUFFIX
+        val playedKey = lastKey + PLAYED_SUFFIX
+        val shuffle = PlaylistRotationPolicy.shuffleQueue(
+            queue = prefs.readNames(queueKey),
+            played = prefs.readNames(playedKey),
+            available = playlistFiles.map(File::getName),
+            lastUsedName = lastUsedName
+        )
+        val filesByName = playlistFiles.associateBy(File::getName)
         // A folder image may be unreadable right now (storage removed, access
-        // lost, a cloud file offline): then try a few others before giving up.
-        val selected = playlistFiles.filter { it.name in eligibleNames }
-            .shuffled()
-            .take(MAX_ATTEMPTS)
-            .firstOrNull { candidate -> stageAndPromote(context, candidate, isNightMode, queueTransition) }
-            ?: return
+        // lost, a cloud file offline): then try the next few, and the ones
+        // that failed wait at the end of the round for another try.
+        val attempted = mutableListOf<String>()
+        val selected = shuffle.queue.take(MAX_ATTEMPTS).firstNotNullOfOrNull { name ->
+            attempted += name
+            filesByName[name]?.takeIf { stageAndPromote(context, it, isNightMode, queueTransition) }
+        } ?: return
+        val failed = attempted - selected.name
+        val queue = shuffle.queue.drop(attempted.size) + failed
 
         val editor = prefs.edit()
             .putString(lastKey, selected.name)
+            .putString(queueKey, queue.joinToString(NAME_SEPARATOR))
+            .putString(playedKey, (shuffle.played + selected.name).joinToString(NAME_SEPARATOR))
             .putLong("last_rotation_timestamp", nowMillis)
         if (mode == PlaylistModeManager.MODE_THEME) {
             editor.putInt(PlaylistModeManager.KEY_ACTIVE_THEME, if (isNightMode) 1 else 0)
@@ -192,4 +207,10 @@ object PlaylistRotationController {
             false
         }
     }
+
+    private fun android.content.SharedPreferences.readNames(key: String): List<String> =
+        runCatching { getString(key, null) }.getOrNull()
+            ?.split(NAME_SEPARATOR)
+            ?.filter(String::isNotEmpty)
+            .orEmpty()
 }

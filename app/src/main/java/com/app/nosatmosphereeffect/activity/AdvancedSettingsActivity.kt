@@ -67,15 +67,17 @@ class AdvancedSettingsActivity : ComponentActivity() {
         val isFrosted = activeEffect.contains("FROSTED")
         val isGlass = activeEffect.contains("GLASS")
         val isVhs = activeEffect.contains("VHS")
+        val isZoom = activeEffect.contains("ZOOM")
         val isAtmosphere = AtmosphereGlassPolicy.supportsEffect(activeEffect)
         // Every effect composites the clock now, on both backends, so this is
         // no longer an Atmosphere-only question.
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
-        // VHS draws its own tape grain, so the film-grain switch would do nothing there.
-        val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass && !isVhs
+        // VHS draws its own tape grain and Zoom has none, so the film-grain switch would do nothing there.
+        val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass && !isVhs && !isZoom
         val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
-        // VHS needs the subject only for the clock's depth.
-        val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere || isVhs
+        // Every clock effect needs the subject for the clock's depth, Colour Fill and Frosted included.
+        val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere ||
+            AtmosphereClockPolicy.supportsDepth(activeEffect)
 
         val defaultDuration = EffectCatalog.recommendedDurationMillis(activeEffect)
         val defaultDimness = EffectCatalog.defaultDimness(activeEffect)
@@ -132,6 +134,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
             clockOffersScreenChoice = ClockScreenPolicy.offersChoice(activeEffect),
             clockScreenId = resolvedClockScreen.id,
             showNoiseSwitch = showNoiseSwitch,
+            showDimness = !isZoom,
             showBlob = showBlob,
             isPlaylistMode = isPlaylistMode,
             rotationOptions = rotationOptions,
@@ -141,6 +144,8 @@ class AdvancedSettingsActivity : ComponentActivity() {
             duration = if (savedDuration != -1L) savedDuration.toString() else defaultDuration.toString(),
             transitionsEnabled = behaviorSettings.transitionsEnabled,
             alwaysAppliedTarget = behaviorSettings.alwaysAppliedTarget,
+            wakeTransition = behaviorSettings.wakeTransition,
+            switchDelayMs = behaviorSettings.switchDelayMs,
             dimness = prefs.getFloat("dim_level", defaultDimness),
             blurStrength = prefs.getFloat("frosted_blur_radius", 200f),
             enableNoise = prefs.getBoolean("enable_noise", false),
@@ -268,7 +273,9 @@ class AdvancedSettingsActivity : ComponentActivity() {
             this,
             WallpaperBehaviorSettings(
                 transitionsEnabled = result.transitionsEnabled,
-                alwaysAppliedTarget = result.alwaysAppliedTarget
+                alwaysAppliedTarget = result.alwaysAppliedTarget,
+                wakeTransition = result.wakeTransition,
+                switchDelayMs = result.switchDelayMs
             )
         )
 

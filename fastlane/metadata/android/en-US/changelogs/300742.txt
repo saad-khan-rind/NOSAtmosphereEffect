@@ -1,0 +1,6 @@
+• Wake transitions: Zoom (up to 150%), Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe and Random, each adjustable, 50–1000 ms
+• New effect: Zoom In / Zoom Out
+• Playlists shuffle through every image before repeating, with a gap between rounds
+• Playlist switch delay for quick lock and unlock
+• Clock date follows the clock font; Dot matrix date and Neon colon
+• Effect names stay untranslated

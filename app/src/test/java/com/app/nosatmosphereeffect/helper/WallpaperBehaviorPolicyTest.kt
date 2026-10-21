@@ -38,6 +38,148 @@ class WallpaperBehaviorPolicyTest {
     }
 
     @Test
+    fun `wake transition is off by default and its stored values are safe`() {
+        val wake = WallpaperBehaviorSettings().wakeTransition
+        assertFalse(wake.enabled)
+        assertEquals(WakeTransitionStyle.ZOOM, wake.style)
+
+        WakeTransitionStyle.entries.forEach {
+            assertEquals(it, WakeTransitionStyle.fromStoredValue(it.storedValue))
+        }
+        listOf(null, "", "ZOOM", "fade").forEach {
+            assertEquals(WakeTransitionStyle.ZOOM, WakeTransitionStyle.fromStoredValue(it))
+        }
+
+        assertEquals(250, wake.durationMs)
+        assertEquals(50, WakeTransitionSettings.sanitizeDuration(0))
+        assertEquals(300, WakeTransitionSettings.sanitizeDuration(300))
+        assertEquals(1000, WakeTransitionSettings.sanitizeDuration(5_000))
+        assertEquals(20, WakeTransitionSettings().zoomPercent)
+        assertEquals(1, WakeTransitionSettings.sanitizeZoom(0))
+        assertEquals(150, WakeTransitionSettings.sanitizeZoom(400))
+        assertEquals(5, WakeTransitionSettings.sanitizeStretch(0))
+        assertEquals(30, WakeTransitionSettings.sanitizeStretch(99))
+        assertEquals(1, WakeTransitionSettings.sanitizeShake(0))
+        assertEquals(8, WakeTransitionSettings.sanitizeShake(20))
+        assertEquals(1, WakeTransitionSettings.sanitizeShakeCount(0))
+        assertEquals(8, WakeTransitionSettings.sanitizeShakeCount(30))
+    }
+
+    @Test
+    fun `playlist switch delay is off by default and stays in range`() {
+        assertEquals(0, WallpaperBehaviorSettings().switchDelayMs)
+        assertEquals(0, WallpaperBehaviorSettings.sanitizeSwitchDelay(-100))
+        assertEquals(500, WallpaperBehaviorSettings.sanitizeSwitchDelay(500))
+        assertEquals(3_000, WallpaperBehaviorSettings.sanitizeSwitchDelay(60_000))
+    }
+
+    @Test
+    fun `wake zoom never stacks on the adaptive clock's own zoom`() {
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.ZOOM), 1f)
+        assertEquals(1.2f, WakeTransition.zoom(1f))
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.ZOOM, zoomPercent = 35), 1f)
+        assertEquals(1.35f, WakeTransition.zoom(1f))
+        assertEquals(1.4f, WakeTransition.zoom(1.4f))
+        WakeTransition.clear()
+        assertEquals(1f, WakeTransition.zoom(1f))
+    }
+
+    @Test
+    fun `monochrome lock screens are recognised`() {
+        assertTrue(WakeTransition.lockScreenIsMonochrome("COLORFILL", 1f, halftoneGrayscale = false))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("COLORFILL_REVERSE", 0f, halftoneGrayscale = false))
+        assertTrue(WakeTransition.lockScreenIsMonochrome("HALFTONE_REVERSE", 0f, halftoneGrayscale = true))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("HALFTONE_REVERSE", 0f, halftoneGrayscale = false))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("HALFTONE", 0f, halftoneGrayscale = true))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("ORIGINAL", 0f, halftoneGrayscale = true))
+    }
+
+    @Test
+    fun `colour fill and blur go to the post pass and clear fully`() {
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.BLUR), 0.5f)
+        assertEquals(WakeTransition.MODE_BLUR, WakeTransition.postMode)
+        assertEquals(0.5f, WakeTransition.postAmount)
+        assertEquals(1f, WakeTransition.zoom(1f))
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.COLOR_FILL), 2f)
+        assertEquals(WakeTransition.MODE_COLOR_FILL, WakeTransition.postMode)
+        assertEquals(1f, WakeTransition.postAmount)
+        WakeTransition.clear()
+        assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
+        assertEquals(0f, WakeTransition.postAmount)
+    }
+
+    @Test
+    fun `stretch springs back from the chosen side`() {
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.STRETCH, stretchPercent = 30), 1f)
+        assertEquals(WakeTransition.MODE_STRETCH, WakeTransition.postMode)
+        assertEquals(0.3f, WakeTransition.param, 1e-6f)
+        WakeTransition.show(
+            WakeTransitionSettings(style = WakeTransitionStyle.STRETCH, stretchInward = true, stretchPercent = 90),
+            0.5f
+        )
+        assertEquals(-0.3f, WakeTransition.param, 1e-6f)
+        assertEquals(0.5f, WakeTransition.postAmount)
+        WakeTransition.clear()
+        assertEquals(0f, WakeTransition.param)
+    }
+
+    @Test
+    fun `ripple, glitch, blinds and breathe hand the post pass their own values`() {
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.RIPPLE, ripplePercent = 6), 0.7f)
+        assertEquals(WakeTransition.MODE_RIPPLE, WakeTransition.postMode)
+        assertEquals(0.06f, WakeTransition.param, 1e-6f)
+        assertEquals(0.7f, WakeTransition.postAmount)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.GLITCH, glitchPercent = 500), 1f)
+        assertEquals(WakeTransition.MODE_GLITCH, WakeTransition.postMode)
+        assertEquals(1f, WakeTransition.param, 1e-6f)
+        WakeTransition.show(
+            WakeTransitionSettings(style = WakeTransitionStyle.BLINDS, blindsVertical = true, blindsCount = 1),
+            0.5f
+        )
+        assertEquals(WakeTransition.MODE_BLINDS, WakeTransition.postMode)
+        assertEquals(WakeTransitionSettings.MIN_BLINDS_COUNT.toFloat(), WakeTransition.param)
+        assertEquals(1f, WakeTransition.paramX)
+        WakeTransition.show(WakeTransitionSettings(style = WakeTransitionStyle.BREATHE), 0.2f)
+        assertEquals(WakeTransition.MODE_BREATHE, WakeTransition.postMode)
+        assertEquals(0.1f, WakeTransition.param, 1e-6f)
+        assertEquals(0f, WakeTransition.paramX)
+        WakeTransition.clear()
+        assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
+        assertEquals(0f, WakeTransition.param)
+        assertTrue(WakeTransitionStyle.RIPPLE in WakeTransitionSettings.RANDOM_POOL)
+        assertFalse(WakeTransitionStyle.RANDOM in WakeTransitionSettings.RANDOM_POOL)
+    }
+
+    @Test
+    fun `shake starts and ends still, moves only its own way and stays within its strength`() {
+        WakeShakeDirection.entries.forEach {
+            assertEquals(it, WakeShakeDirection.fromStoredValue(it.storedValue))
+        }
+        assertEquals(WakeShakeDirection.SIDEWAYS, WakeShakeDirection.fromStoredValue("nonsense"))
+        val sideways = WakeTransitionSettings(style = WakeTransitionStyle.SHAKE, shakePercent = 5, shakeCount = 3)
+        WakeTransition.show(sideways, 1f)
+        assertEquals(WakeTransition.MODE_SHAKE, WakeTransition.postMode)
+        assertEquals(0f, WakeTransition.paramX, 1e-6f)
+        var moved = false
+        for (step in 1 until 100) {
+            WakeTransition.show(sideways, 1f - step / 100f)
+            assertTrue(kotlin.math.abs(WakeTransition.paramX) <= 0.05f)
+            assertEquals(0f, WakeTransition.paramY)
+            assertEquals(0f, WakeTransition.paramZ)
+            if (kotlin.math.abs(WakeTransition.paramX) > 0.01f) moved = true
+        }
+        assertTrue(moved)
+        WakeTransition.show(sideways, 0f)
+        assertEquals(0f, WakeTransition.paramX, 1e-6f)
+        WakeTransition.show(sideways.copy(shakeDirection = WakeShakeDirection.TWIST), 0.9f)
+        assertEquals(0f, WakeTransition.paramX)
+        assertTrue(WakeTransition.paramZ != 0f)
+        WakeTransition.clear()
+        assertEquals(0f, WakeTransition.paramZ)
+        assertEquals(WakeTransition.MODE_NONE, WakeTransition.postMode)
+    }
+
+    @Test
     fun `always applied targets select the expected surfaces`() {
         assertTrue(AlwaysAppliedTarget.HOME.showsEffectOn(WallpaperSurface.HOME))
         assertFalse(AlwaysAppliedTarget.HOME.showsEffectOn(WallpaperSurface.LOCK))
@@ -112,7 +254,9 @@ class WallpaperBehaviorPolicyTest {
             "HALFTONE" to EffectStateEndpoints(0f, 1f),
             "HALFTONE_REVERSE" to EffectStateEndpoints(1f, 0f),
             "VHS" to EffectStateEndpoints(1f, 0f),
-            "VHS_REVERSE" to EffectStateEndpoints(0f, 1f)
+            "VHS_REVERSE" to EffectStateEndpoints(0f, 1f),
+            "ZOOM" to EffectStateEndpoints(0f, 1f),
+            "ZOOM_REVERSE" to EffectStateEndpoints(1f, 0f)
         )
 
         assertEquals(EFFECT_IDS, expectedEndpoints.keys)
@@ -222,7 +366,9 @@ class WallpaperBehaviorPolicyTest {
             "HALFTONE" to false,
             "HALFTONE_REVERSE" to false,
             "VHS" to false,
-            "VHS_REVERSE" to false
+            "VHS_REVERSE" to false,
+            "ZOOM" to false,
+            "ZOOM_REVERSE" to false
         )
         val EFFECT_IDS = TRANSITION_DIRECTIONS.keys
         val VALID_PROGRESS_VALUES = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)

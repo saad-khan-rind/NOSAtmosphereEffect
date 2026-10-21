@@ -51,6 +51,8 @@ Open the app and choose your desired atmosphere style from the selection screen:
 * **Halftone Print (Reverse):** Retro aesthetic. CMYK dots seamlessly expand into continuous color when unlocked.
 * **VHS Tape:** Worn videotape playback (soft colour smear, scanlines, grain and a faded grade) that settles into a clean picture when unlocked, with a tracking roll mid-transition.
 * **VHS Tape (Reverse):** The clean wallpaper rolls into the old videotape look.
+* **Zoom In:** The plain photo zooms in as you unlock. The clock stays where it is.
+* **Zoom Out:** The lock screen starts zoomed in and the photo settles back out as you unlock. Zoom has no dimness or grain: it is the photo itself, only zoomed.
 
 #### Atmosphere with Glass
 
@@ -60,7 +62,7 @@ For Atmosphere or Atmosphere Reverse, enable **Add glass effect** while setting 
 
 Canvas Sketch, Glass Effect, Atmosphere with Glass, and Halftone Print share the same on-device subject model. Canvas Sketch can use **Subject segmentation** to anchor its sketch to a prominent person, character, animal, or object. Glass and Halftone provide **Background only**, which keeps the detected foreground subject clear while applying the selected effect behind it. Model delivery depends on the app distribution:
 
-* **Google Play build:** Uses the higher-quality ML Kit subject model supplied by Google Play services. The model is not downloaded automatically by Atmo Engine. Fine Tuning shows its real installed status and provides an explicit **Download subject model** button. After installation, segmentation runs on-device and works offline.
+* **Google Play build:** Uses the higher-quality ML Kit subject model supplied by Google Play services. The model is not downloaded automatically by Atmo Engine. Fine Tuning has a **Subject model** group at the top that shows its real installed status and provides an explicit **Download subject model** button. After installation, segmentation runs on-device and works offline.
 * **F-Droid build:** Includes the open-source [U2NetP model](https://github.com/xuebinqin/U-2-Net) and a source-built FOSS LiteRT runtime in the APK. It is ready immediately, requires no download, and does not depend on ML Kit or Google Play services.
 
 1. Open **Fine Tuning** for Canvas Sketch, Glass Effect, or Halftone Print.
@@ -89,6 +91,7 @@ A stacked glass face puts the hours above the minutes, which goes much larger on
 * **Opacity:** how strongly the clock shows.
 * **Frost:** (Translucent faces) how diffuse the glass is, from clear — the wallpaper sharp through the digits — through etched to nearly milk-white. The Glass faces have no frost: they are clear except at their bevel, so frosting one would fog an edge and nothing else.
 * **Weight:** (Adaptive faces) the stroke from thin to bold. The digits are drawn from centre lines rather than a font, so every weight is exact.
+* **Font:** (every face but Adaptive) Classic, or one of the drawn fonts: Tower, Heavy, Narrow, Geometric, Soft, Chunky, Bubble, Techno, Block, Wireframe, Dot matrix, Neon lines, Brush, Didone, Serif, Poster, or Chinese numerals. The digits are drawn from strokes, so they have no letters of their own: the date uses the phone's built-in typeface closest to each font (condensed, monospace, serif, casual and so on), and **Dot matrix** writes the date in its own hand-drawn 5×7 dots, in capitals, like its digits. **Neon lines** draws its colon as two short tubes cut into the same three lines as its digits.
 * **Hour format:** System, 12-hour, or 24-hour. The clock shows hours and minutes only.
 * **Show date:** adds the day and date in the clock's own style. When switched on it is sized to match the clock and placed above it (below, if there is no room). It then has its own box, placed and sized exactly like the clock: drag or pinch whichever box you are touching, or pick **Clock** or **Date** at the top to be explicit. **Adjust** has shortcuts to centre either one, reset its size, or put the date back above the clock.
 * **Animate digit changes:** digits slide as the time changes.
@@ -97,7 +100,7 @@ The glass digits are stored as distance fields rather than as pictures of glyphs
 
 Back in Advanced Settings:
 
-* **Show on:** Lock screen, Home screen, or Both — offered for effects that keep the photo sharp on both screens (Color Fill, Canvas Sketch, Halftone, and their reverses). Effects that blur or refract one side place the clock on the side that stays clear.
+* **Show on:** Lock screen, Home screen, or Both — offered for effects that keep the photo sharp on both screens (Color Fill, Canvas Sketch, Halftone, VHS Tape, Zoom, and their reverses). Effects that blur or refract one side place the clock on the side that stays clear.
 * **Depth effect:** draws the photo's subject back over the clock, so the clock sits behind them, using the same on-device subject model as subject isolation (see above). It does not apply to the Adaptive faces, which fit around the subject and always stay in front. They use the same model to find where the subject is.
 
 ### 2\. Select Image & Playlist Mode
@@ -142,6 +145,23 @@ These choices do not install a static wallpaper and do not move Atmo to only one
 
 Disabling transitions does not disable other live-wallpaper features. Playlists and theme playlists continue rotating, Fine Tune controls remain available, **Background only** subject isolation continues working, and wallpaper scrolling remains active where the launcher supports it.
 
+#### Wake Transitions (Screen On)
+
+**Fine tuning → Timing → When the screen turns on** adds an animation as the lock screen arrives, whether the phone wakes from off or from the always-on display. It is separate from the unlock transition and works with transitions on or off. Every style has its own settings, and **Length** (50–1000 ms, default 250 ms) applies to all of them. The wake is timed on the display's own frames rather than Android's animation scale, so it plays at the length you set even on ROMs that lower or turn off animations. It starts when the screen turns on, so it still plays on phones that keep the wallpaper visible while the screen is off.
+
+* **Zoom:** the photo settles from a zoom. **Zoom level** 1–150% (default 20%). Only the photo moves; the clock stays put, so a clock with depth shows the subject easing into place in front of it.
+* **Colour fill:** colour spreads out from the centre of the screen. On a lock screen that is already black and white (Color Fill's monochrome side, or Halftone with Black and white on), it plays the other way: it starts in colour and turns black and white.
+* **Blur:** the lock screen sharpens out of a light blur.
+* **Corner stretch:** the corners are pulled **Outward** past the edges or **Inward** towards the middle, then spring back. **Strength** 5–30%.
+* **Shake:** the whole screen jolts and settles, **Sideways**, **Up and down** or as a **Twist**. **Strength** 1–8% of the screen height and **Shakes** 1–8. Edges are mirrored, so no black shows.
+* **Ripple:** a ripple runs out from the centre, like a stone dropped in water. **Strength** 1–10%.
+* **Glitch:** a burst of torn rows, split colour and broken blocks that settles into the lock screen. **Strength** 10–100%.
+* **Venetian blind:** the lock screen opens through strips, one after another, over a dimmed copy of itself, as **Rows** or **Columns**. **Strips** 2–24.
+* **Breathe:** the lock screen breathes in from a dimmed frame, swelling just past full brightness before it settles. **Swell** 0–30%.
+* **Random:** a different style on every wake. Random keeps its own copy of every style's settings (starting from the same defaults), so tuning Random's Zoom doesn't change the Zoom you use on its own. Styles are drawn like a playlist shuffle (see [Shuffle](#playlist--rotation)): every style plays once before any repeats, never the same twice in a row, and the end of one round stays away from the start of the next. Corner stretch, Shake and Venetian blind also pick their direction from their own shuffles. The order carries on through setting changes, Reset and restarts.
+
+Zoom moves only the photo, through the same zoom every renderer already uses. Every other style is drawn over the finished frame, clock included, by one post pass shared by every effect on both Vulkan and OpenGL ES.
+
 ## Interface and Previews
 
 Atmo Engine uses Jetpack Compose and Material 3 throughout the setup flow. Material Expressive styling follows the device's system color palette when enabled, while the appearance panel also supports fixed colors, System/Light/Dark modes, and an optional pitch-black dark background.
@@ -167,7 +187,7 @@ Take full control of the animation and look. You can now tweak the following set
 Fine tuning is kept when you change only the image or playlist under the same effect, including the clock's style and settings. Applying a different effect starts fresh from that effect's defaults.
 
 ### Visual Adjustments
-* **Dimness Level:** Adjust the darkening overlay to ensure your home screen icons remain readable against bright wallpapers.
+* **Dimness Level:** Adjust the darkening overlay to ensure your home screen icons remain readable against bright wallpapers. (Not for Zoom, which shows the photo as it is.)
 * **Blob Saturation:** (Atmosphere & Atmosphere Reverse Effects Only) Adjusts the color intensity of the drifting atmospheric clouds. Increase to make the colors vibrant and punchy, or decrease to zero for a muted, grayscale cloud effect.
 * **Blob Contrast:** (Atmosphere & Atmosphere Reverse Effects Only) Adjusts the harshness of the atmospheric clouds. Higher values create distinct, separated color pools, while lower values blend the colors softly and smoothly together.
 * **Add Glass Effect:** (Atmosphere & Atmosphere Reverse Only) Available while setting or editing an image and in Fine Tune. Uses a customizable reeded-glass image for the clear side of the Atmosphere transition. The always-applied mode keeps the fully atmospheric effect state on the selected screen or screens, while any screen assigned the original remains genuinely unchanged.
@@ -188,6 +208,7 @@ Fine tuning is kept when you change only the image or playlist under the same ef
 ### Animation & Behavior
 * **Animate Transitions:** Turn lock-to-home animation on, or keep the effect fully applied on the selected screen or screens and the original image on any other screen, with no unlock transition.
 * **Animation Duration:** Control the total transition duration while transitions are enabled.
+* **When the Screen Turns On:** An animation as the lock screen arrives: Zoom, Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, or Random. See [Wake Transitions](#wake-transitions-screen-on).
 * **Lock Delay (Anti-Flicker):** While transitions are enabled, adds a configurable pause before the wallpaper resets when you lock the phone. This prevents the visual glitch where the wallpaper "snaps" back to its initial state before the screen turns fully black.
 * **Unlock Check Interval:** While transitions are enabled, adjusts how frequently the app detects unlock events. Tuning this eliminates "delayed start" issues, ensuring the animation begins immediately when you wake your device.
 * **Sync System Colors:** Publishes a locally extracted wallpaper palette to Android whenever a single wallpaper or playlist image changes. Whether the wider system theme refreshes is ultimately controlled by the device manufacturer.
@@ -200,6 +221,13 @@ Fine tuning is kept when you change only the image or playlist under the same ef
     * **Theme Playlists:** A system Light/Dark change immediately switches collections. The selected interval continues to control rotation inside whichever collection is active.
     * **Smart Rotation:** To prevent lag or visual glitches, the wallpaper only rotates when the screen is OFF.
     * *Example:* If you set "15 Minutes", the app checks the time whenever you lock your phone. If 15 minutes have passed since the last change, it swaps the wallpaper in the background so it's ready the next time you unlock.
+* **Shuffle:** Every playlist (standard, folder, and each collection of theme playlists) plays every image once, in random order, before any repeats. It is a shuffle bag (Fisher-Yates) rather than a random pick each time, so nothing repeats early and nothing is starved:
+    * The image just shown is never next, so the same image never shows twice in a row.
+    * When a round ends, the last quarter of it is kept out of the first quarter of the next round, so an image never comes back soon after it was shown.
+    * Images added to a playlist (or a watched folder) join the current round at random places; removed ones drop out. Neither restarts the round.
+    * An image that can't be read right now (an unmounted card, an offline cloud file) waits at the end of the round for another try.
+    * The order is saved, so it carries on through setting changes, Fine tuning's Reset, restarts and updates. It only starts over when a new or edited playlist is applied.
+* **Switch Delay:** (Rotation set to Every lock) How long the next image waits after the screen turns off, 0–3000 ms. Turn the screen back on within it and the wallpaper stays as it is, so a quick lock and unlock doesn't switch it. 0, the default, switches at once.
 
 ### Palette Diagnostics
 
@@ -229,19 +257,19 @@ This project is built using Kotlin, C++17, the Android NDK, and Gradle. The proj
 
 Atmo Engine keeps one shared codebase and combines two flavor dimensions:
 
-All artifacts in the table below use version name **7.3.5**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
+All artifacts in the table below use version name **7.4.2**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
 
 | Flavor | Minimum Android | Target SDK | Version code | Intended release |
 | --- | ---: |-----------:|-------------:| --- |
-| `v33Play` | Android 13 / API 33 |     API 33 |     `300735` | ML Kit APK |
-| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300735` | FOSS APK for F-Droid |
-| `v35Play` | Android 15 / API 35 |     API 36 |     `400735` | Google Play ML Kit AAB |
-| `v36Play` | Android 16 / API 36 |     API 36 |     `500735` | ML Kit APK |
-| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500735` | FOSS APK |
+| `v33Play` | Android 13 / API 33 |     API 33 |     `300742` | ML Kit APK |
+| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300742` | FOSS APK for F-Droid |
+| `v35Play` | Android 15 / API 35 |     API 36 |     `400742` | Google Play ML Kit AAB |
+| `v36Play` | Android 16 / API 36 |     API 36 |     `500742` | ML Kit APK |
+| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500742` | FOSS APK |
 
 The `play` source set contains only the ML Kit implementation and explicit model-download controller. The `fdroid` source set contains only [U2NetP](https://github.com/xuebinqin/U-2-Net), its model files, and the source-built FOSS LiteRT runtime. UI, effects, playlists, palette behavior, and settings remain shared in `main`. No build requests photo access: folder playlists use the system folder picker. Model and runtime provenance is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Betas are built from `develop` and each is published as its own pre-release, titled `Beta <build> (<version>)` and tagged `beta-<build>`. Their APKs are named `<version>-beta.<build>` and use a version code one below that version's stable code, so the stable release always installs over them. A beta tag points at an empty commit dated 2000-01-01 rather than at the app's source: F-Droid builds the highest version it finds in the 5 newest tags (ordered by commit date), so it never picks up a beta, and beta tags never crowd a stable tag out of those 5. Only stable releases from `master` get a version tag (`v<version>`). After a stable release, raise the version on `develop` before the next beta, so its betas install over the new stable.
+Betas are built from `develop` and each is published as its own pre-release, titled `Beta <build> (<version>)` and tagged `beta-<build>(<version>)`, for example `beta-108(7.3.7)`. Their APKs are named `<version>-beta.<build>` and use a version code one below that version's stable code, so the stable release always installs over them. A beta tag points at an empty commit dated 2000-01-01 rather than at the app's source: F-Droid builds the highest version it finds in the 5 newest tags (ordered by commit date), so it never picks up a beta, and beta tags never crowd a stable tag out of those 5. Only stable releases from `master` get a version tag (`v<version>`). After a stable release, raise the version on `develop` before the next beta, so its betas install over the new stable.
 
 Stable and beta release workflows produce exactly five artifacts: Android 16+ ML Kit and FOSS APKs, Android 13+ ML Kit and FOSS APKs, and an Android 15+ ML Kit AAB for Google Play. None may declare `READ_MEDIA_IMAGES`; CI fails if any does. CI installs the pinned NDK and inspects every archive before signing: the Vulkan library for all four ABIs and every effect's SPIR-V pair must be present, ML Kit artifacts must not contain the [U2NetP model](https://github.com/xuebinqin/U-2-Net) or LiteRT native runtime, both FOSS APKs must contain them, and each ML Kit APK must remain smaller than its matching FOSS APK and below 10 MiB.
 

@@ -659,7 +659,7 @@ private fun ActiveWallpaperPanel(
             )
             Text(
                 if (wallpaperBehavior.transitionsEnabled) {
-                    stringResource(effect.transition)
+                    stringResource(effect.transition, stringResource(effect.name))
                 } else {
                     when (wallpaperBehavior.alwaysAppliedTarget) {
                         AlwaysAppliedTarget.HOME ->

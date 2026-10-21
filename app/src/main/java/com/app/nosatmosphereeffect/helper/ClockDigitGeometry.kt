@@ -223,12 +223,19 @@ internal object ClockDigitGeometry {
         }
         val radius = max(penRadius, design.height * MIN_COLON_DOT)
         val x = design.colonWidth / 2f
-        val dots = listOf(
-            InkDot(x, -design.height * 0.7f, radius, design.squareDots),
-            InkDot(x, -design.height * 0.28f, radius, design.squareDots)
-        )
+        val heights = listOf(0.7f, 0.28f)
+        // The line pen's dots are short tubes, cut into the same lines as its
+        // digits; a round dot that small reads as a plain filled one.
+        val strokes = if (pen is ClockPen.Lines) {
+            heights.map { InkStroke(floatArrayOf(x, -design.height * it - DOT_STROKE, x, -design.height * it + DOT_STROKE), false) }
+        } else {
+            emptyList()
+        }
+        val dots = if (pen is ClockPen.Lines) emptyList() else heights.map {
+            InkDot(x, -design.height * it, radius, design.squareDots)
+        }
         return GlyphInk(
-            strokes = emptyList(),
+            strokes = strokes,
             dots = dots,
             pen = pen,
             skew = -tan(design.italicDegrees * DEG),
@@ -239,7 +246,7 @@ internal object ClockDigitGeometry {
 
     private fun dotMatrix(design: DigitDesign, character: Char): GlyphInk {
         val pitch = (design.pen as ClockPen.Dots).pitch
-        val rows = DOT_DIGITS[character - '0']
+        val rows = ClockDotFont.digit(character)
         val dots = ArrayList<InkDot>()
         for ((row, line) in rows.withIndex()) {
             for ((column, cell) in line.withIndex()) {
@@ -257,23 +264,11 @@ internal object ClockDigitGeometry {
 
     private const val DEG = (PI / 180.0).toFloat()
     private const val DOT_RADIUS = 0.4f
+    /** Half the length of the tube a line-pen colon dot is drawn as, in ems. */
+    private const val DOT_STROKE = 0.06f
     private const val NO_COLON_ADVANCE = 0.06f
     /** The smallest colon dot, as a share of the digit height: a hairline face's own would vanish. */
     private const val MIN_COLON_DOT = 0.045f
-
-    /** A 5 by 7 grid per digit, top row first. */
-    private val DOT_DIGITS = arrayOf(
-        arrayOf(".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
-        arrayOf("..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."),
-        arrayOf(".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"),
-        arrayOf("#####", "...#.", "..#..", "...#.", "....#", "#...#", ".###."),
-        arrayOf("...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."),
-        arrayOf("#####", "#....", "####.", "....#", "....#", "#...#", ".###."),
-        arrayOf("..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."),
-        arrayOf("#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."),
-        arrayOf(".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."),
-        arrayOf(".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##..")
-    )
 }
 
 /** How a digit's strokes are inked. Sizes are in ems. */

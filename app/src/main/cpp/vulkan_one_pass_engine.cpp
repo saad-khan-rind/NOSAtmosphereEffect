@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -24,6 +25,16 @@ namespace atmo::vulkan {
 namespace {
 // The longest any wait on the GPU may take before it counts as a hung driver.
 constexpr uint64_t kGpuWaitTimeoutNs = 5'000'000'000ULL;
+
+// The lock screen's wake transition, set from Kotlin (WakeTransition) before
+// each frame. Process-wide, like the Kotlin side: one wake plays at a time.
+std::atomic<int> gWakeMode{0};
+std::atomic<float> gWakeAmount{0.0F};
+// The style's own values (WakeTransition.param, paramX..paramZ).
+std::atomic<float> gWakeParam{0.0F};
+std::atomic<float> gWakeParamX{0.0F};
+std::atomic<float> gWakeParamY{0.0F};
+std::atomic<float> gWakeParamZ{0.0F};
 }
 
 namespace {
@@ -412,6 +423,8 @@ public:
             for (VkFramebuffer framebuffer : framebuffers_) {
                 vkDestroyFramebuffer(device_, framebuffer, nullptr);
             }
+            destroyWakeCopy();
+            destroyWakePipeline();
             if (pipeline_ != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device_, pipeline_, nullptr);
             }
@@ -786,6 +799,7 @@ private:
                 }
             }
             framebuffers_.clear();
+            destroyWakeCopy();
             for (VkImageView imageView : swapchainImageViews_) {
                 if (imageView != VK_NULL_HANDLE) {
                     vkDestroyImageView(device_, imageView, nullptr);
@@ -1222,6 +1236,12 @@ private:
         swapchainInfo.imageExtent = extent_;
         swapchainInfo.imageArrayLayers = 1;
         swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        // The wake transition copies the finished frame out to re-draw it.
+        wakeSupported_ =
+            (capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+        if (wakeSupported_) {
+            swapchainInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        }
         swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         // Always prefer an identity preTransform over blindly forwarding
         // capabilities.currentTransform. Nothing downstream in this engine
@@ -2364,7 +2384,358 @@ private:
         }
         vkCmdDraw(commandBuffer_, 3, 1, 0, 0);
         vkCmdEndRenderPass(commandBuffer_);
+        recordWakeCommands(imageIndex);
         return vkEndCommandBuffer(commandBuffer_) == VK_SUCCESS;
+    }
+
+    // ---- The wake transition ------------------------------------------
+    //
+    // While it plays, the frame the effect just drew is copied out of the
+    // swapchain image and drawn back over itself through wake.frag. Built the
+    // first time a wake plays and skipped entirely otherwise, so an engine
+    // that never wakes pays nothing. Any failure just leaves the frame as the
+    // effect drew it.
+
+    void recordWakeCommands(uint32_t imageIndex) {
+        const int mode = gWakeMode.load(std::memory_order_relaxed);
+        const float amount = gWakeAmount.load(std::memory_order_relaxed);
+        if (mode == 0 || !(amount > 0.0F) || !wakeSupported_ || wakeFailed_) return;
+        if (!ensureWakePipeline() || !ensureWakeCopy()) {
+            wakeFailed_ = true;
+            logError(label_ + " wake transition unavailable; drawing without it");
+            return;
+        }
+        const VkImage frame = swapchainImages_[imageIndex];
+        const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+        std::array<VkImageMemoryBarrier, 2> toCopy{};
+        toCopy[0] = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        toCopy[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        toCopy[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        toCopy[0].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        toCopy[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        toCopy[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toCopy[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        toCopy[0].image = frame;
+        toCopy[0].subresourceRange = range;
+        toCopy[1] = toCopy[0];
+        toCopy[1].srcAccessMask = 0;
+        toCopy[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        toCopy[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        toCopy[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        toCopy[1].image = wakeCopy_.image;
+        vkCmdPipelineBarrier(
+            commandBuffer_,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr,
+            static_cast<uint32_t>(toCopy.size()), toCopy.data()
+        );
+
+        VkImageCopy region{};
+        region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        region.dstSubresource = region.srcSubresource;
+        region.extent = {extent_.width, extent_.height, 1};
+        vkCmdCopyImage(
+            commandBuffer_,
+            frame, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            wakeCopy_.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &region
+        );
+
+        std::array<VkImageMemoryBarrier, 2> toDraw = toCopy;
+        toDraw[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        toDraw[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        toDraw[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        toDraw[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        toDraw[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        toDraw[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        toDraw[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        toDraw[1].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        vkCmdPipelineBarrier(
+            commandBuffer_,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr,
+            static_cast<uint32_t>(toDraw.size()), toDraw.data()
+        );
+
+        VkRenderPassBeginInfo passInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+        passInfo.renderPass = wakeRenderPass_;
+        passInfo.framebuffer = framebuffers_[imageIndex];
+        passInfo.renderArea.extent = extent_;
+        vkCmdBeginRenderPass(commandBuffer_, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(commandBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, wakePipeline_);
+        VkViewport viewport{};
+        viewport.width = static_cast<float>(extent_.width);
+        viewport.height = static_cast<float>(extent_.height);
+        viewport.maxDepth = 1.0F;
+        vkCmdSetViewport(commandBuffer_, 0, 1, &viewport);
+        const VkRect2D scissor{{0, 0}, extent_};
+        vkCmdSetScissor(commandBuffer_, 0, 1, &scissor);
+        vkCmdBindDescriptorSets(
+            commandBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, wakePipelineLayout_,
+            0, 1, &wakeDescriptorSet_, 0, nullptr
+        );
+        const float params[8] = {
+            static_cast<float>(mode),
+            std::min(amount, 1.0F),
+            surfaceAspectRatio(),
+            gWakeParam.load(std::memory_order_relaxed),
+            gWakeParamX.load(std::memory_order_relaxed),
+            gWakeParamY.load(std::memory_order_relaxed),
+            gWakeParamZ.load(std::memory_order_relaxed),
+            0.0F
+        };
+        vkCmdPushConstants(
+            commandBuffer_, wakePipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT,
+            0, sizeof(params), params
+        );
+        vkCmdDraw(commandBuffer_, 3, 1, 0, 0);
+        vkCmdEndRenderPass(commandBuffer_);
+    }
+
+    bool ensureWakePipeline() {
+        if (wakePipeline_ != VK_NULL_HANDLE) return true;
+
+        // Same attachment as renderPass_, so the swapchain framebuffers serve
+        // both; it keeps what the effect drew and hands it on to present.
+        VkAttachmentDescription attachment{};
+        attachment.format = swapchainFormat_;
+        attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        VkAttachmentReference colorReference{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        VkSubpassDescription subpass{};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &colorReference;
+        VkRenderPassCreateInfo passInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+        passInfo.attachmentCount = 1;
+        passInfo.pAttachments = &attachment;
+        passInfo.subpassCount = 1;
+        passInfo.pSubpasses = &subpass;
+        if (vkCreateRenderPass(device_, &passInfo, nullptr, &wakeRenderPass_) != VK_SUCCESS) {
+            return false;
+        }
+
+        VkDescriptorSetLayoutBinding binding{};
+        binding.binding = 0;
+        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        binding.descriptorCount = 1;
+        binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        VkDescriptorSetLayoutCreateInfo layoutInfo{
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO
+        };
+        layoutInfo.bindingCount = 1;
+        layoutInfo.pBindings = &binding;
+        if (vkCreateDescriptorSetLayout(device_, &layoutInfo, nullptr, &wakeDescriptorSetLayout_) != VK_SUCCESS) {
+            return false;
+        }
+        VkDescriptorPoolSize poolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1};
+        VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        poolInfo.maxSets = 1;
+        poolInfo.poolSizeCount = 1;
+        poolInfo.pPoolSizes = &poolSize;
+        if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &wakeDescriptorPool_) != VK_SUCCESS) {
+            return false;
+        }
+        VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        allocInfo.descriptorPool = wakeDescriptorPool_;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &wakeDescriptorSetLayout_;
+        if (vkAllocateDescriptorSets(device_, &allocInfo, &wakeDescriptorSet_) != VK_SUCCESS) {
+            return false;
+        }
+
+        VkPushConstantRange pushRange{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float) * 8};
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &wakeDescriptorSetLayout_;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushRange;
+        if (vkCreatePipelineLayout(device_, &pipelineLayoutInfo, nullptr, &wakePipelineLayout_) != VK_SUCCESS) {
+            return false;
+        }
+
+        const VkShaderModule vertexModule =
+            createShaderModule(readShaderAsset("shaders/vulkan/wake/wake.vert.spv"));
+        const VkShaderModule fragmentModule =
+            createShaderModule(readShaderAsset("shaders/vulkan/wake/wake.frag.spv"));
+        bool built = false;
+        if (vertexModule != VK_NULL_HANDLE && fragmentModule != VK_NULL_HANDLE) {
+            const std::array<VkPipelineShaderStageCreateInfo, 2> stages{{
+                {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0,
+                    VK_SHADER_STAGE_VERTEX_BIT, vertexModule, "main", nullptr},
+                {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0,
+                    VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule, "main", nullptr}
+            }};
+            VkPipelineVertexInputStateCreateInfo vertexInput{
+                VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
+            };
+            VkPipelineInputAssemblyStateCreateInfo inputAssembly{
+                VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO
+            };
+            inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            VkPipelineViewportStateCreateInfo viewportState{
+                VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO
+            };
+            viewportState.viewportCount = 1;
+            viewportState.scissorCount = 1;
+            const std::array<VkDynamicState, 2> dynamicStates{
+                VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR
+            };
+            VkPipelineDynamicStateCreateInfo dynamicState{
+                VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO
+            };
+            dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+            dynamicState.pDynamicStates = dynamicStates.data();
+            VkPipelineRasterizationStateCreateInfo rasterizer{
+                VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO
+            };
+            rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+            rasterizer.cullMode = VK_CULL_MODE_NONE;
+            rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+            rasterizer.lineWidth = 1.0F;
+            VkPipelineMultisampleStateCreateInfo multisampling{
+                VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO
+            };
+            multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+            VkPipelineColorBlendAttachmentState blendAttachment{};
+            blendAttachment.colorWriteMask =
+                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+            VkPipelineColorBlendStateCreateInfo blending{
+                VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO
+            };
+            blending.attachmentCount = 1;
+            blending.pAttachments = &blendAttachment;
+            VkGraphicsPipelineCreateInfo pipelineInfo{
+                VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO
+            };
+            pipelineInfo.stageCount = static_cast<uint32_t>(stages.size());
+            pipelineInfo.pStages = stages.data();
+            pipelineInfo.pVertexInputState = &vertexInput;
+            pipelineInfo.pInputAssemblyState = &inputAssembly;
+            pipelineInfo.pViewportState = &viewportState;
+            pipelineInfo.pRasterizationState = &rasterizer;
+            pipelineInfo.pMultisampleState = &multisampling;
+            pipelineInfo.pColorBlendState = &blending;
+            pipelineInfo.pDynamicState = &dynamicState;
+            pipelineInfo.layout = wakePipelineLayout_;
+            pipelineInfo.renderPass = wakeRenderPass_;
+            built = vkCreateGraphicsPipelines(
+                device_, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &wakePipeline_
+            ) == VK_SUCCESS;
+        }
+        if (vertexModule != VK_NULL_HANDLE) vkDestroyShaderModule(device_, vertexModule, nullptr);
+        if (fragmentModule != VK_NULL_HANDLE) vkDestroyShaderModule(device_, fragmentModule, nullptr);
+        return built;
+    }
+
+    /** The image the frame is copied into: the swapchain's own size and format. */
+    bool ensureWakeCopy() {
+        if (wakeCopy_.image != VK_NULL_HANDLE &&
+            wakeCopy_.width == extent_.width &&
+            wakeCopy_.height == extent_.height) {
+            return true;
+        }
+        destroyWakeCopy();
+        VkFormatProperties properties{};
+        vkGetPhysicalDeviceFormatProperties(physicalDevice_, swapchainFormat_, &properties);
+        if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) == 0) {
+            return false;
+        }
+        VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.format = swapchainFormat_;
+        imageInfo.extent = {extent_.width, extent_.height, 1};
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        if (vkCreateImage(device_, &imageInfo, nullptr, &wakeCopy_.image) != VK_SUCCESS) {
+            return false;
+        }
+        wakeCopy_.width = extent_.width;
+        wakeCopy_.height = extent_.height;
+        VkMemoryRequirements requirements{};
+        vkGetImageMemoryRequirements(device_, wakeCopy_.image, &requirements);
+        const auto memoryType = findMemoryType(
+            requirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        );
+        if (!memoryType.has_value()) return false;
+        VkMemoryAllocateInfo allocation{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        allocation.allocationSize = requirements.size;
+        allocation.memoryTypeIndex = *memoryType;
+        if (vkAllocateMemory(device_, &allocation, nullptr, &wakeCopy_.memory) != VK_SUCCESS ||
+            vkBindImageMemory(device_, wakeCopy_.image, wakeCopy_.memory, 0) != VK_SUCCESS) {
+            return false;
+        }
+        VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        viewInfo.image = wakeCopy_.image;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = swapchainFormat_;
+        viewInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        if (vkCreateImageView(device_, &viewInfo, nullptr, &wakeCopy_.view) != VK_SUCCESS) {
+            return false;
+        }
+        VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        if (vkCreateSampler(device_, &samplerInfo, nullptr, &wakeCopy_.sampler) != VK_SUCCESS) {
+            return false;
+        }
+        VkDescriptorImageInfo imageDescriptor{
+            wakeCopy_.sampler, wakeCopy_.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+        VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        write.dstSet = wakeDescriptorSet_;
+        write.dstBinding = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo = &imageDescriptor;
+        vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
+        return true;
+    }
+
+    void destroyWakeCopy() {
+        if (device_ != VK_NULL_HANDLE) destroyTexture(wakeCopy_);
+        wakeCopy_ = {};
+    }
+
+    void destroyWakePipeline() {
+        if (device_ == VK_NULL_HANDLE) return;
+        if (wakePipeline_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, wakePipeline_, nullptr);
+        if (wakePipelineLayout_ != VK_NULL_HANDLE) {
+            vkDestroyPipelineLayout(device_, wakePipelineLayout_, nullptr);
+        }
+        if (wakeDescriptorPool_ != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(device_, wakeDescriptorPool_, nullptr);
+        }
+        if (wakeDescriptorSetLayout_ != VK_NULL_HANDLE) {
+            vkDestroyDescriptorSetLayout(device_, wakeDescriptorSetLayout_, nullptr);
+        }
+        if (wakeRenderPass_ != VK_NULL_HANDLE) vkDestroyRenderPass(device_, wakeRenderPass_, nullptr);
+        wakePipeline_ = VK_NULL_HANDLE;
+        wakePipelineLayout_ = VK_NULL_HANDLE;
+        wakeDescriptorPool_ = VK_NULL_HANDLE;
+        wakeDescriptorSet_ = VK_NULL_HANDLE;
+        wakeDescriptorSetLayout_ = VK_NULL_HANDLE;
+        wakeRenderPass_ = VK_NULL_HANDLE;
+        wakeFailed_ = false;
     }
 
     AAssetManager* assets_ = nullptr;
@@ -2410,6 +2781,15 @@ private:
     VkBuffer uniformBuffer_ = VK_NULL_HANDLE;
     VkDeviceMemory uniformMemory_ = VK_NULL_HANDLE;
     std::vector<TextureResource> textures_;
+    bool wakeSupported_ = false;
+    bool wakeFailed_ = false;
+    TextureResource wakeCopy_{};
+    VkRenderPass wakeRenderPass_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout wakeDescriptorSetLayout_ = VK_NULL_HANDLE;
+    VkDescriptorPool wakeDescriptorPool_ = VK_NULL_HANDLE;
+    VkDescriptorSet wakeDescriptorSet_ = VK_NULL_HANDLE;
+    VkPipelineLayout wakePipelineLayout_ = VK_NULL_HANDLE;
+    VkPipeline wakePipeline_ = VK_NULL_HANDLE;
 };
 
 OnePassEngineImpl* engineFromHandle(OnePassHandle handle) {
@@ -2519,6 +2899,16 @@ void destroyOnePass(JNIEnv* env, OnePassHandle handle) {
     delete engine;
 }
 
+void setWake(int mode, float amount, float param, float paramX, float paramY, float paramZ) {
+    const auto finite = [](float value) { return std::isfinite(value) ? value : 0.0F; };
+    gWakeParam.store(finite(param), std::memory_order_relaxed);
+    gWakeParamX.store(finite(paramX), std::memory_order_relaxed);
+    gWakeParamY.store(finite(paramY), std::memory_order_relaxed);
+    gWakeParamZ.store(finite(paramZ), std::memory_order_relaxed);
+    gWakeMode.store(mode, std::memory_order_relaxed);
+    gWakeAmount.store(finite(amount), std::memory_order_relaxed);
+}
+
 std::string drainDiagnostics() {
     std::lock_guard<std::mutex> guard(diagnosticsMutex());
     std::deque<std::string>& buffer = diagnosticsBuffer();
@@ -2532,3 +2922,24 @@ std::string drainDiagnostics() {
 }
 
 }  // namespace atmo::vulkan
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanWakeNative_nativeSetWake(
+    JNIEnv*,
+    jobject,
+    jint mode,
+    jfloat amount,
+    jfloat param,
+    jfloat paramX,
+    jfloat paramY,
+    jfloat paramZ
+) {
+    atmo::vulkan::setWake(
+        static_cast<int>(mode),
+        static_cast<float>(amount),
+        static_cast<float>(param),
+        static_cast<float>(paramX),
+        static_cast<float>(paramY),
+        static_cast<float>(paramZ)
+    );
+}

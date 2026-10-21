@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.view.Surface
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 
@@ -159,7 +160,7 @@ internal class VulkanAtmosphereBridge(
             blobPositions = safe.blobs.positions,
             blobSizes = safe.blobs.sizes,
             blobCount = safe.blobs.count,
-            wallpaperZoom = if (safe.clockEnabled) safe.clockWallpaperZoom else 1f
+            wallpaperZoom = WakeTransition.zoom(if (safe.clockEnabled) safe.clockWallpaperZoom else 1f)
         )) {
             "The native Vulkan Atmosphere state could not be updated"
         }

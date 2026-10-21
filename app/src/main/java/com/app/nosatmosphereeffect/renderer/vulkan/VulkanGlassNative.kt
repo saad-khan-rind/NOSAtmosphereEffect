@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.view.Surface
+import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.renderer.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 
@@ -126,7 +127,7 @@ internal object VulkanGlassBridge : VulkanSingleImageBridge<GlassRenderState> {
             clockUploaded = safe.clock.faceUploaded,
             clockDepth = safe.clock.depthEnabled,
             clockGlass = safe.clock.glassMeta,
-            wallpaperZoom = safe.clock.wallpaperZoom
+            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom)
         )) {
             "The native Vulkan Glass state could not be updated"
         }
