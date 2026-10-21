@@ -80,6 +80,7 @@ import com.app.nosatmosphereeffect.ui.components.AtmoTopBar
 import com.app.nosatmosphereeffect.ui.components.LabeledSlider
 import com.app.nosatmosphereeffect.ui.components.LockScreenClockHelpSheet
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
+import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 data class AdvancedConfig(
@@ -261,7 +262,8 @@ fun AdvancedSettingsScreen(
         SubjectModelPhase.CHECKING -> stringResource(R.string.model_checking)
         SubjectModelPhase.NOT_DOWNLOADED -> stringResource(R.string.model_download)
         SubjectModelPhase.DOWNLOADING -> subjectModelState.progressPercent?.let {
-            stringResource(R.string.model_downloading_percent, it)
+            // Written for the phone's language (۴۵٪ in Persian), so no percent sign sits in the translation.
+            stringResource(R.string.model_downloading_percent, NumberFormat.getPercentInstance().format(it / 100.0))
         } ?: stringResource(R.string.model_downloading)
         SubjectModelPhase.INSTALLING -> stringResource(R.string.model_installing)
         SubjectModelPhase.PAUSED -> stringResource(R.string.model_download_paused)

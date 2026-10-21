@@ -178,7 +178,7 @@
     <string name="model_downloaded">Subject model downloaded</string>
     <string name="model_retry_download">Retry model download</string>
     <string name="model_paused">Google\'s model is paused</string>
-    <string name="model_downloading_percent">Downloading <xliff:g id="arg1">%1$d%%</xliff:g></string>
+    <string name="model_downloading_percent">Downloading <xliff:g id="percent" example="45%">%1$s</xliff:g></string>
     <string name="model_downloading">Downloading model</string>
     <string name="model_group">Subject model</string>
     <string name="timing_playlist_group">Playlist</string>
@@ -694,7 +694,7 @@
     <string name="subject_model_missing">Google\'s subject model isn\'t on this phone yet. You can download it in Fine tuning, with the Download subject model button.</string>
     <string name="subject_no_result">The model didn\'t send back a result</string>
     <string name="subject_unexpected_result">The model sent back something unexpected</string>
-    <string name="subject_too_large">The subject fills too much of the photo (<xliff:g id="arg1">%1$d%%</xliff:g>). Try one with more background showing.</string>
+    <string name="subject_too_large">The subject fills too much of the photo (<xliff:g id="percent" example="80%">%1$s</xliff:g>). Try one with more background showing.</string>
     <string name="subject_not_found">Couldn\'t find a clear subject in this photo</string>
     <string name="subject_unclear">Found something, but not clearly enough to use</string>
     <string name="subject_too_small">The subject is too small or thin to use</string>
