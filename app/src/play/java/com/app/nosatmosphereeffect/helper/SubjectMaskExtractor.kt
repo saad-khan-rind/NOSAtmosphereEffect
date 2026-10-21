@@ -9,6 +9,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import java.io.Closeable
+import java.text.NumberFormat
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import kotlin.math.max
@@ -275,7 +276,7 @@ class SubjectMaskExtractor(
                                         foregroundFraction > MAX_FOREGROUND_FRACTION ->
                                             SubjectMaskDiagnostics.recordRejection(
                                                 R.string.subject_too_large,
-                                                (foregroundFraction * 100).roundToInt()
+                                                NumberFormat.getPercentInstance().format(foregroundFraction.toDouble())
                                             )
                                         foregroundFraction < MIN_FOREGROUND_FRACTION ->
                                             SubjectMaskDiagnostics.recordRejection(R.string.subject_not_found)
