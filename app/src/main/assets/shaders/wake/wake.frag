@@ -14,6 +14,9 @@ uniform float uParam;
 uniform vec3 uParams;
 
 #define SAMPLE(uv) texture(uFrame, clamp(uv, 0.0, 1.0)).rgb
+// Up the screen: GLES's frame runs bottom to top.
+#define UP(y) (y)
+const float UP_SIGN = 1.0;
 
 // The lock screen's wake transition, drawn over the finished frame (every
 // effect, clock included) while it runs. The Vulkan copy in
@@ -31,6 +34,10 @@ uniform vec3 uParams;
 //           down the screen, or across it when [params].x is 1
 //   mode 8: the frame breathes in from dim, swelling [param] past full
 //   mode 9: black (WakeTransition.blackout)
+//   mode 10: twisted from the centre by [param] radians, unwinding
+//   mode 11: a wave [param] deep snapped in from two opposite edges, left
+//            and right, or top and bottom when [params].x is 1
+//   mode 12: a surge of small bubbles rising from the bottom, [param] strong
 // amount runs from 1 (start) to 0 (done).
 
 // A bit-mixing hash rather than fract(sin(...)), which collapses into a
@@ -52,9 +59,11 @@ vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 param
     if (mode == 9) return vec3(0.0);
     if (mode == 3) {
         // Each axis pulled by how far along the other it is, so the corners
-        // move most and the middle lines not at all. Never folds below 1/3.
+        // move most and the middle lines not at all.
         vec2 n = uv * 2.0 - 1.0;
-        vec2 from = n * (1.0 - param * amount * n.yx * n.yx) * 0.5 + 0.5;
+        // Weighted by the other axis itself, not its square, so the pull
+        // reaches well in towards the middle, not just the outer corners.
+        vec2 from = n * (1.0 - param * amount * abs(n.yx)) * 0.5 + 0.5;
         if (any(lessThan(from, vec2(0.0))) || any(greaterThan(from, vec2(1.0)))) return vec3(0.0);
         return SAMPLE(from);
     }
@@ -91,6 +100,60 @@ vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 param
         vec3 color = vec3(SAMPLE(p + vec2(split, 0.0)).r, SAMPLE(p).g, SAMPLE(p - vec2(split, 0.0)).b);
         vec3 noise = vec3(hash(cell + vec2(seed, 5.0)), hash(cell + vec2(seed, 9.0)), hash(cell + vec2(seed, 13.0)));
         return mix(color, noise, broken * 0.7);
+    }
+    if (mode == 10) {
+        // Twisted about the centre, most in the middle and not at all at the
+        // corners, unwinding as it settles. Mirrored at the edges: never black.
+        vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+        float reach = length(vec2(aspect, 1.0) * 0.5);
+        float f = 1.0 - clamp(length(p) / reach, 0.0, 1.0);
+        float angle = param * amount * f * f;
+        float c = cos(angle);
+        float s = sin(angle);
+        vec2 from = vec2(c * p.x - s * p.y, s * p.x + c * p.y) / vec2(aspect, 1.0) + 0.5;
+        return SAMPLE(abs(mod(from + 1.0, 2.0) - 1.0));
+    }
+    if (mode == 11) {
+        // A cloth snapped from two opposite edges: a wave runs in from each,
+        // the two cross in the middle and die away. The picture rolls with it
+        // and its slopes are shaded, so it reads as a surface, not a slide.
+        float along = params.x > 0.5 ? uv.y : uv.x;
+        float e = min(along, 1.0 - along);
+        float x = (e - t * 0.75) / 0.16;
+        float envelope = exp(-x * x) * amount;
+        float phase = x * 4.712389;
+        float height = sin(phase) * envelope;
+        float slope = cos(phase) * envelope;
+        float inwards = along < 0.5 ? 1.0 : -1.0;
+        vec2 axis = params.x > 0.5 ? vec2(0.0, inwards) : vec2(inwards, 0.0);
+        vec2 from = uv - axis * height * param;
+        vec3 cloth = SAMPLE(abs(mod(from + 1.0, 2.0) - 1.0));
+        return cloth * (1.0 + slope * 0.35 * min(param / 0.05, 2.0));
+    }
+    if (mode == 12) {
+        // A fizzing surge of small bubbles rising from the bottom to the top,
+        // each bending the picture behind it like a lens, with a bright rim.
+        float cells = 34.0;
+        vec2 g = vec2(uv.x * aspect, UP(uv.y)) * cells;
+        float rise = t * cells * 1.1;
+        g.y -= rise;
+        vec2 id = floor(g);
+        vec2 f = fract(g) - 0.5;
+        // Where the surge is, bottom to top, with a lighter fizz trailing it.
+        float cellUp = (id.y + 0.5 + rise) / cells;
+        float band = 1.7 * t - 0.45;
+        float density = (1.0 - smoothstep(0.0, 0.3, abs(cellUp - band))) * 0.85 +
+            0.12 * amount * step(cellUp, band);
+        float present = step(1.0 - density, hash(id));
+        vec2 centre = (vec2(hash(id + 3.0), hash(id + 7.0)) - 0.5) * 0.3;
+        float r = mix(0.18, 0.42, hash(id + 13.0));
+        vec2 d = f - centre;
+        float dist = length(d);
+        float inside = present * (1.0 - smoothstep(r - 0.04, r, dist));
+        vec2 bend = d / max(r, 1e-3) * (1.0 - dist / r) * inside * param * 0.02;
+        vec2 from = uv - vec2(bend.x / aspect, bend.y * UP_SIGN);
+        float rim = inside * smoothstep(r * 0.6, r, dist);
+        return SAMPLE(from) + rim * 0.35 * param;
     }
     vec3 color = SAMPLE(uv);
     if (mode == 7) {

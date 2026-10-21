@@ -1062,6 +1062,9 @@ private fun TimingSettings(
                                 WakeTransitionStyle.GLITCH -> R.string.wake_glitch_hint
                                 WakeTransitionStyle.BLINDS -> R.string.wake_blinds_hint
                                 WakeTransitionStyle.BREATHE -> R.string.wake_breathe_hint
+                                WakeTransitionStyle.TWIRL -> R.string.wake_twirl_hint
+                                WakeTransitionStyle.FABRIC -> R.string.wake_fabric_hint
+                                WakeTransitionStyle.BUBBLES -> R.string.wake_bubbles_hint
                                 WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
                             },
                             stringResource(R.string.effect_colorfill_title)
@@ -1071,21 +1074,38 @@ private fun TimingSettings(
                         modifier = GroupTextInset
                     )
                     if (wakeTransition.style == WakeTransitionStyle.RANDOM) {
-                        WakeTransitionSettings.RANDOM_POOL.forEach { style ->
-                            Text(
-                                stringResource(wakeStyleName(style)),
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = GroupTextInset.padding(top = 20.dp)
-                            )
-                            WakeStyleControls(
-                                wake = wakeTransition.randomFor(style),
-                                chooseDirection = false,
-                                onChange = {
-                                    onWakeTransitionChange(
-                                        wakeTransition.copy(random = wakeTransition.random + (style to it))
-                                    )
+                        // Off by default: Random stays simple, every style on its defaults.
+                        SettingSwitchRow(
+                            title = stringResource(R.string.wake_random_customize),
+                            checked = wakeTransition.randomCustomized,
+                            onCheckedChange = { onWakeTransitionChange(wakeTransition.copy(randomCustomized = it)) },
+                            subtitle = stringResource(
+                                if (wakeTransition.randomCustomized) {
+                                    R.string.wake_random_customize_on
+                                } else {
+                                    R.string.wake_random_customize_off
                                 }
                             )
+                        )
+                        AnimatedVisibility(visible = wakeTransition.randomCustomized) {
+                            Column {
+                                WakeTransitionSettings.RANDOM_POOL.forEach { style ->
+                                    Text(
+                                        stringResource(wakeStyleName(style)),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = GroupTextInset.padding(top = 20.dp)
+                                    )
+                                    WakeStyleControls(
+                                        wake = wakeTransition.randomSettingsFor(style),
+                                        chooseDirection = false,
+                                        onChange = {
+                                            onWakeTransitionChange(
+                                                wakeTransition.copy(random = wakeTransition.random + (style to it))
+                                            )
+                                        }
+                                    )
+                                }
+                            }
                         }
                     } else {
                         WakeStyleControls(
@@ -1466,6 +1486,30 @@ private fun WakeStyleControls(
                 R.string.wake_breathe_swell, wake.breathePercent,
                 WakeTransitionSettings.MIN_BREATHE_PERCENT..WakeTransitionSettings.MAX_BREATHE_PERCENT, percent
             ) { onChange(wake.copy(breathePercent = it)) }
+            WakeTransitionStyle.TWIRL -> WakeSlider(
+                R.string.wake_twirl_twist, wake.twirlPercent,
+                WakeTransitionSettings.MIN_TWIRL_PERCENT..WakeTransitionSettings.MAX_TWIRL_PERCENT, percent
+            ) { onChange(wake.copy(twirlPercent = it)) }
+            WakeTransitionStyle.FABRIC -> Column(Modifier.padding(top = 12.dp)) {
+                if (chooseDirection) {
+                    AtmoSegmentedControl(
+                        options = listOf(
+                            stringResource(R.string.wake_fabric_sides),
+                            stringResource(R.string.wake_fabric_ends)
+                        ),
+                        selectedIndex = if (wake.fabricVertical) 1 else 0,
+                        onSelected = { onChange(wake.copy(fabricVertical = it == 1)) }
+                    )
+                }
+                WakeSlider(
+                    R.string.wake_fabric_depth, wake.fabricPercent,
+                    WakeTransitionSettings.MIN_FABRIC_PERCENT..WakeTransitionSettings.MAX_FABRIC_PERCENT, percent
+                ) { onChange(wake.copy(fabricPercent = it)) }
+            }
+            WakeTransitionStyle.BUBBLES -> WakeSlider(
+                R.string.wake_strength, wake.bubblesPercent,
+                WakeTransitionSettings.MIN_BUBBLES_PERCENT..WakeTransitionSettings.MAX_BUBBLES_PERCENT, percent
+            ) { onChange(wake.copy(bubblesPercent = it)) }
             else -> Unit
         }
         Spacer(Modifier.height(12.dp))
@@ -1518,5 +1562,8 @@ private fun wakeStyleName(style: WakeTransitionStyle): Int = when (style) {
     WakeTransitionStyle.GLITCH -> R.string.wake_glitch
     WakeTransitionStyle.BLINDS -> R.string.wake_blinds
     WakeTransitionStyle.BREATHE -> R.string.wake_breathe
+    WakeTransitionStyle.TWIRL -> R.string.wake_twirl
+    WakeTransitionStyle.FABRIC -> R.string.wake_fabric
+    WakeTransitionStyle.BUBBLES -> R.string.wake_bubbles
     WakeTransitionStyle.RANDOM -> R.string.wake_random
 }

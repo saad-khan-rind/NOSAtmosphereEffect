@@ -24,6 +24,12 @@ enum class WakeTransitionStyle(val storedValue: String) {
     BLINDS("blinds"),
     /** The lock screen breathes in from dim, swelling just past full brightness. */
     BREATHE("breathe"),
+    /** The photo starts twisted into a vortex from the centre and unwinds flat. */
+    TWIRL("twirl"),
+    /** A wave snaps in from two opposite edges, like a cloth shaken, and settles. */
+    FABRIC("fabric"),
+    /** A surge of small fizzing bubbles rises from the bottom, bending the photo as it passes. */
+    BUBBLES("bubbles"),
     /** A different style each wake, shuffled ([WakeRandom]), each with its own settings. */
     RANDOM("random");
 
@@ -66,10 +72,26 @@ data class WakeTransitionSettings(
     val blindsCount: Int = DEFAULT_BLINDS_COUNT,
     /** How far past full brightness the breath swells, in percent. */
     val breathePercent: Int = DEFAULT_BREATHE_PERCENT,
+    /** How far the twirl starts twisted, in percent of a turn and a half. */
+    val twirlPercent: Int = DEFAULT_TWIRL_PERCENT,
+    /** The wave comes in from the top and bottom edges rather than the left and right. */
+    val fabricVertical: Boolean = false,
+    /** How deep the wave is, in percent of the screen. */
+    val fabricPercent: Int = DEFAULT_FABRIC_PERCENT,
+    val bubblesPercent: Int = DEFAULT_BUBBLES_PERCENT,
+    /**
+     * Random plays each style with the settings set for it under Random;
+     * off, with every style's defaults, and those settings stay hidden.
+     */
+    val randomCustomized: Boolean = false,
     /** Random's own settings for each style it picks; missing ones are the defaults. */
     val random: Map<WakeTransitionStyle, WakeTransitionSettings> = emptyMap()
 ) {
     fun randomFor(style: WakeTransitionStyle): WakeTransitionSettings =
+        random[style]?.takeIf { randomCustomized } ?: WakeTransitionSettings(style = style)
+
+    /** The settings set for [style] under Random, used or not. */
+    fun randomSettingsFor(style: WakeTransitionStyle): WakeTransitionSettings =
         random[style] ?: WakeTransitionSettings(style = style)
 
     companion object {
@@ -85,7 +107,7 @@ data class WakeTransitionSettings(
         const val MIN_STRETCH_PERCENT = 5
         /** Past a third the outward stretch would fold over itself. */
         const val MAX_STRETCH_PERCENT = 30
-        const val DEFAULT_STRETCH_PERCENT = 15
+        const val DEFAULT_STRETCH_PERCENT = 20
         const val MIN_SHAKE_PERCENT = 1
         const val MAX_SHAKE_PERCENT = 8
         const val DEFAULT_SHAKE_PERCENT = 3
@@ -104,6 +126,15 @@ data class WakeTransitionSettings(
         const val MIN_BREATHE_PERCENT = 0
         const val MAX_BREATHE_PERCENT = 30
         const val DEFAULT_BREATHE_PERCENT = 10
+        const val MIN_TWIRL_PERCENT = 10
+        const val MAX_TWIRL_PERCENT = 100
+        const val DEFAULT_TWIRL_PERCENT = 60
+        const val MIN_FABRIC_PERCENT = 1
+        const val MAX_FABRIC_PERCENT = 12
+        const val DEFAULT_FABRIC_PERCENT = 6
+        const val MIN_BUBBLES_PERCENT = 10
+        const val MAX_BUBBLES_PERCENT = 100
+        const val DEFAULT_BUBBLES_PERCENT = 70
 
         /** The styles Random picks from. */
         val RANDOM_POOL = WakeTransitionStyle.entries - WakeTransitionStyle.RANDOM
@@ -124,12 +155,20 @@ data class WakeTransitionSettings(
 
         fun sanitizeBreathe(percent: Int): Int = percent.coerceIn(MIN_BREATHE_PERCENT, MAX_BREATHE_PERCENT)
 
+        fun sanitizeTwirl(percent: Int): Int = percent.coerceIn(MIN_TWIRL_PERCENT, MAX_TWIRL_PERCENT)
+
+        fun sanitizeFabric(percent: Int): Int = percent.coerceIn(MIN_FABRIC_PERCENT, MAX_FABRIC_PERCENT)
+
+        fun sanitizeBubbles(percent: Int): Int = percent.coerceIn(MIN_BUBBLES_PERCENT, MAX_BUBBLES_PERCENT)
+
         /** Styles that move in time, not just towards rest, and so take the wake's time unshaped. */
         val EVEN_PACED = setOf(
             WakeTransitionStyle.SHAKE,
             WakeTransitionStyle.RIPPLE,
             WakeTransitionStyle.GLITCH,
-            WakeTransitionStyle.BREATHE
+            WakeTransitionStyle.BREATHE,
+            WakeTransitionStyle.FABRIC,
+            WakeTransitionStyle.BUBBLES
         )
     }
 }
@@ -152,6 +191,11 @@ object WakeTransition {
     const val MODE_BREATHE = 8
     /** The frame drawn black: see [blackout]. */
     const val MODE_BLACK = 9
+    const val MODE_TWIRL = 10
+    const val MODE_FABRIC = 11
+    const val MODE_BUBBLES = 12
+    /** The twirl's greatest twist, in radians, at 100%: a turn and a half. */
+    private const val MAX_TWIRL_RADIANS = 3f * PI.toFloat()
     /** A twist's turn, in radians, per unit of shake (a share of the screen's height). */
     private const val TWIST_RADIANS = 0.6f
 
@@ -165,8 +209,9 @@ object WakeTransition {
     /**
      * The post pass style's own values, as wake.frag reads them: Stretch's
      * reach (negative inwards), Ripple's depth, Glitch's strength, Blinds'
-     * strip count, Breathe's swell; [paramX] to [paramZ] are Shake's offset
-     * and turn, and [paramX] whether Blinds open across.
+     * strip count, Breathe's swell, Twirl's twist, Fabric's depth, Bubbles'
+     * strength; [paramX] to [paramZ] are Shake's offset and turn, and
+     * [paramX] whether Blinds open across and Fabric comes from top and bottom.
      */
     @Volatile var param = 0f
         private set
@@ -236,6 +281,19 @@ object WakeTransition {
             )
             WakeTransitionStyle.BREATHE ->
                 post(MODE_BREATHE, left, param = WakeTransitionSettings.sanitizeBreathe(settings.breathePercent) / 100f)
+            WakeTransitionStyle.TWIRL -> post(
+                MODE_TWIRL,
+                left,
+                param = WakeTransitionSettings.sanitizeTwirl(settings.twirlPercent) / 100f * MAX_TWIRL_RADIANS
+            )
+            WakeTransitionStyle.FABRIC -> post(
+                MODE_FABRIC,
+                left,
+                param = WakeTransitionSettings.sanitizeFabric(settings.fabricPercent) / 100f,
+                x = if (settings.fabricVertical) 1f else 0f
+            )
+            WakeTransitionStyle.BUBBLES ->
+                post(MODE_BUBBLES, left, param = WakeTransitionSettings.sanitizeBubbles(settings.bubblesPercent) / 100f)
             // Resolved to one of the others before it plays (WakeRandom).
             WakeTransitionStyle.RANDOM -> Unit
         }

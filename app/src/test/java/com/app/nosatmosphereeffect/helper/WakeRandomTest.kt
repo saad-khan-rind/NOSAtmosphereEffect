@@ -50,6 +50,10 @@ class WakeRandomTest {
             assertEquals(WakeTransitionSettings(style = style), wake.randomFor(style))
         }
         val zoom = WakeTransitionSettings(style = WakeTransitionStyle.ZOOM, zoomPercent = 80)
-        assertEquals(80, wake.copy(random = mapOf(WakeTransitionStyle.ZOOM to zoom)).randomFor(WakeTransitionStyle.ZOOM).zoomPercent)
+        val set = wake.copy(random = mapOf(WakeTransitionStyle.ZOOM to zoom))
+        // Kept, but played only with Customize each style on.
+        assertEquals(80, set.randomSettingsFor(WakeTransitionStyle.ZOOM).zoomPercent)
+        assertEquals(WakeTransitionSettings.DEFAULT_ZOOM_PERCENT, set.randomFor(WakeTransitionStyle.ZOOM).zoomPercent)
+        assertEquals(80, set.copy(randomCustomized = true).randomFor(WakeTransitionStyle.ZOOM).zoomPercent)
     }
 }
