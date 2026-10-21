@@ -221,7 +221,7 @@
     <string name="wake_blinds_count">Strips</string>
     <string name="wake_breathe_swell">Swell</string>
     <string name="wake_zoom_level">Zoom level</string>
-    <string name="wake_zoom_percent">%1$d%%</string>
+    <string name="wake_zoom_percent" translatable="false">%1$d%%</string>
     <string name="wake_length">Length</string>
     <string name="wake_length_ms">%1$d ms</string>
     <string name="model_required">Needs the subject model. Download it under Subject model at the top.</string>
