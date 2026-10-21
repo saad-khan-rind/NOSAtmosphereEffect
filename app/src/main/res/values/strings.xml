@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" translatable="false">Atmo Engine</string>
     <string name="share_target_label">Set with Atmo Engine</string>
 
@@ -15,9 +15,9 @@
 
     <string name="renderer_status_label">Renderer</string>
     <string name="renderer_vulkan_active">Vulkan active</string>
-    <string name="renderer_vulkan_version">Version %1$s</string>
+    <string name="renderer_vulkan_version">Version <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="renderer_opengl_active">OpenGL ES active</string>
-    <string name="renderer_vulkan_fallback_reason">Vulkan fallback: %1$s</string>
+    <string name="renderer_vulkan_fallback_reason">Vulkan fallback: <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="renderer_current_wallpaper_renderer">Current wallpaper renderer</string>
     <string name="renderer_backend_vulkan" translatable="false">Vulkan</string>
     <string name="renderer_backend_opengl" translatable="false">OpenGL ES</string>
@@ -63,10 +63,10 @@
     <string name="effect_frosted_reverse_transition">Blur to sharp</string>
     <string name="effect_frosted_reverse_description">Thick frost melts away into a clear photo.</string>
     <string name="effect_halftone_title" translatable="false">Halftone Print</string>
-    <string name="effect_halftone_transition">Sharp to %1$s</string>
+    <string name="effect_halftone_transition">Sharp to <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="effect_halftone_description">Your photo turns into a pattern of printed dots.</string>
     <string name="effect_halftone_reverse_title" translatable="false">Halftone Print Reverse</string>
-    <string name="effect_halftone_reverse_transition">%1$s to sharp</string>
+    <string name="effect_halftone_reverse_transition"><xliff:g id="arg1">%1$s</xliff:g> to sharp</string>
     <string name="effect_halftone_reverse_description">Printed dots grow back into your full photo.</string>
     <string name="effect_vhs_title" translatable="false">VHS Tape</string>
     <string name="effect_vhs_transition">Tape to sharp</string>
@@ -80,7 +80,7 @@
     <string name="effect_zoom_reverse_title" translatable="false">Zoom Out</string>
     <string name="effect_zoom_reverse_transition">Zoomed in to photo</string>
     <string name="effect_zoom_reverse_description">The lock screen starts zoomed in, and your photo settles back out as you unlock.</string>
-    <string name="effects_continue_with">Continue with %1$s</string>
+    <string name="effects_continue_with">Continue with <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>
     <string name="effects_two_directions">Both directions</string>
@@ -102,9 +102,9 @@
     <string name="samsung_status_single_title">Single image required</string>
     <string name="samsung_status_single_message">This doesn\'t work with playlists yet.</string>
     <string name="samsung_status_direction_title">Change the transition direction</string>
-    <string name="samsung_status_direction_message">%1$s doesn\'t start from your original photo.</string>
+    <string name="samsung_status_direction_message"><xliff:g id="arg1">%1$s</xliff:g> doesn\'t start from your original photo.</string>
     <string name="samsung_status_ready_title">You\'re all set</string>
-    <string name="samsung_status_ready_message">%1$s starts from your original photo and uses one image.</string>
+    <string name="samsung_status_ready_message"><xliff:g id="arg1">%1$s</xliff:g> starts from your original photo and uses one image.</string>
     <string name="samsung_title">Adaptive clock</string>
     <string name="samsung_subtitle">Samsung lock screen setup</string>
     <string name="samsung_intro">Keep Samsung\'s Adaptive clock on your lock screen and let Atmo Engine animate the home screen.</string>
@@ -162,8 +162,8 @@
     <string name="apply_next_transitions">Next, pick Home screen and Lock screen on the system screen.</string>
     <string name="apply_next_always">Next, pick Home screen and Lock screen. Atmo runs on both, and Fine tune decides which one shows the effect.</string>
     <string name="common_continue">Continue</string>
-    <string name="preview_effect_always_applied">%1$s always-applied preview</string>
-    <string name="preview_effect_transition">%1$s transition preview</string>
+    <string name="preview_effect_always_applied"><xliff:g id="arg1">%1$s</xliff:g> always-applied preview</string>
+    <string name="preview_effect_transition"><xliff:g id="arg1">%1$s</xliff:g> transition preview</string>
     <string name="common_home_screen">Home screen</string>
     <string name="common_lock_screen">Lock screen</string>
     <string name="common_more_info">More info</string>
@@ -178,12 +178,12 @@
     <string name="model_downloaded">Subject model downloaded</string>
     <string name="model_retry_download">Retry model download</string>
     <string name="model_paused">Google\'s model is paused</string>
-    <string name="model_downloading_percent">Downloading %1$d%%</string>
+    <string name="model_downloading_percent">Downloading <xliff:g id="arg1">%1$d%%</xliff:g></string>
     <string name="model_downloading">Downloading model</string>
     <string name="model_group">Subject model</string>
     <string name="timing_playlist_group">Playlist</string>
     <string name="timing_switch_delay">Switch delay (ms)</string>
-    <string name="timing_switch_delay_helper">Screen back on within this time keeps the same image, so a quick lock and unlock doesn\'t switch it. 0 switches at once. Max %1$d.</string>
+    <string name="timing_switch_delay_helper">Screen back on within this time keeps the same image, so a quick lock and unlock doesn\'t switch it. 0 switches at once. Max <xliff:g id="arg1">%1$d</xliff:g>.</string>
     <string name="wake_group">When the screen turns on</string>
     <string name="wake_animate">Animate the lock screen</string>
     <string name="wake_animate_on">The lock screen eases in as the screen wakes, from the always-on display or from off.</string>
@@ -192,7 +192,7 @@
     <string name="wake_color_fill">Colour fill</string>
     <string name="wake_blur">Blur</string>
     <string name="wake_zoom_hint">Your photo settles from a zoom. The clock stays put, so a clock with depth shows the subject easing into place in front of it.</string>
-    <string name="wake_color_fill_hint">Colour spreads out from the centre of the screen. On a black and white lock screen, as with %1$s, it starts in colour and turns black and white.</string>
+    <string name="wake_color_fill_hint">Colour spreads out from the centre of the screen. On a black and white lock screen, as with <xliff:g id="arg1">%1$s</xliff:g>, it starts in colour and turns black and white.</string>
     <string name="wake_blur_hint">The lock screen sharpens out of a light blur.</string>
     <string name="wake_style">Style</string>
     <string name="wake_stretch">Corner stretch</string>
@@ -223,7 +223,7 @@
     <string name="wake_zoom_level">Zoom level</string>
     <string name="wake_zoom_percent" translatable="false">%1$d%%</string>
     <string name="wake_length">Length</string>
-    <string name="wake_length_ms">%1$d ms</string>
+    <string name="wake_length_ms"><xliff:g id="arg1">%1$d</xliff:g> ms</string>
     <string name="model_required">Needs the subject model. Download it under Subject model at the top.</string>
     <string name="model_status_bundled">Built into the app. Open source, runs on your phone and works offline.</string>
     <string name="model_status_checking">Checking with Google Play services. Nothing is downloaded yet.</string>
@@ -242,11 +242,11 @@
     <string name="info_poll_message">Lower numbers make the wallpaper react faster when you unlock, but it checks more often, which uses a bit more battery. On Samsung phones use 30000 ms. If the animation starts late, try 50 ms.</string>
     <string name="info_delay_title">Lock delay</string>
     <string name="info_delay_message">Only raise this if you can see the wallpaper reset before the screen goes off. On Samsung use 0 ms, otherwise 500 to 800 ms if you need it.</string>
-    <string name="common_about">About %1$s</string>
+    <string name="common_about">About <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="glass_group" translatable="false">Glass Effect</string>
-    <string name="glass_add">Add %1$s</string>
-    <string name="glass_on_sharp">The sharp side of %1$s gets the glass look.</string>
-    <string name="glass_off_sharp">The sharp side of %1$s shows your original photo.</string>
+    <string name="glass_add">Add <xliff:g id="arg1">%1$s</xliff:g></string>
+    <string name="glass_on_sharp">The sharp side of <xliff:g id="arg1">%1$s</xliff:g> gets the glass look.</string>
+    <string name="glass_off_sharp">The sharp side of <xliff:g id="arg1">%1$s</xliff:g> shows your original photo.</string>
     <string name="glass_lines">Number of lines</string>
     <string name="common_line_thickness">Line thickness</string>
     <string name="glass_transition_style">Transition style</string>
@@ -275,7 +275,7 @@
     <string name="halftone_group" translatable="false">Halftone</string>
     <string name="halftone_dot_size">Dot size</string>
     <string name="halftone_bw">Black and white</string>
-    <string name="halftone_inactive">Prints the whole wallpaper in %1$s.</string>
+    <string name="halftone_inactive">Prints the whole wallpaper in <xliff:g id="arg1">%1$s</xliff:g>.</string>
     <string name="halftone_active">Keeps the subject sharp and prints only the background.</string>
     <string name="origin_group">Color origin</string>
     <string name="origin_horizontal">Horizontal position</string>
@@ -286,7 +286,7 @@
     <string name="canvas_active">The sketch is built around the subject\'s outline.</string>
     <string name="canvas_waiting">Sketches the whole wallpaper until the model is ready.</string>
     <string name="canvas_detail">Sketch detail</string>
-    <string name="atmos_color_group">%1$s color</string>
+    <string name="atmos_color_group"><xliff:g id="arg1">%1$s</xliff:g> color</string>
     <string name="atmos_saturation">Saturation</string>
     <string name="atmos_contrast">Contrast</string>
     <string name="grain_group">Film grain</string>
@@ -294,8 +294,8 @@
     <string name="grain_hint">A light film texture over the blurred wallpaper.</string>
     <string name="grain_size">Grain size</string>
     <string name="grain_strength">Grain strength</string>
-    <string name="model_uses_bundled">Uses the model built into the app. %1$s</string>
-    <string name="model_uses_installed">Uses the model on your phone. %1$s</string>
+    <string name="model_uses_bundled">Uses the model built into the app. <xliff:g id="arg1">%1$s</xliff:g></string>
+    <string name="model_uses_installed">Uses the model on your phone. <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="timing_always_home">The effect stays on your home screen. The lock screen shows the original photo.</string>
     <string name="timing_always_lock">The effect stays on your lock screen. The home screen shows the original photo.</string>
     <string name="timing_always_both">The effect stays on both screens.</string>
@@ -310,9 +310,9 @@
     <string name="timing_delay_helper">Standard: 800 | Samsung: 0</string>
     <string name="timing_animation_group">Animation</string>
     <string name="timing_duration">Duration (ms)</string>
-    <string name="timing_duration_helper">Recommended for %1$s: %2$d ms</string>
+    <string name="timing_duration_helper">Recommended for <xliff:g id="arg1">%1$s</xliff:g>: <xliff:g id="arg2">%2$d</xliff:g> ms</string>
     <string name="timing_keep_group">Keep effect applied on</string>
-    <string name="timing_still_live">%1$s It\'s still a live wallpaper.</string>
+    <string name="timing_still_live"><xliff:g id="arg1">%1$s</xliff:g> It\'s still a live wallpaper.</string>
     <string name="display_appearance_group">Wallpaper appearance</string>
     <string name="display_dimness">Dimness</string>
     <string name="display_blur">Blur strength</string>
@@ -322,12 +322,12 @@
     <string name="rotation_every_lock">Every lock (instant)</string>
     <string name="settings_saved">Settings saved</string>
     <plurals name="rotation_minutes">
-        <item quantity="one">%1$d minute</item>
-        <item quantity="other">%1$d minutes</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> minute</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> minutes</item>
     </plurals>
     <plurals name="rotation_hours">
-        <item quantity="one">%1$d hour</item>
-        <item quantity="other">%1$d hours</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> hour</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> hours</item>
     </plurals>
     <string name="clock_style_liquid_glass">Glass</string>
     <string name="clock_style_liquid_glass_description">Glass digits in one row</string>
@@ -425,8 +425,8 @@
     <string name="clock_reset">Reset clock</string>
     <string name="common_try_again">Try again</string>
     <string name="clock_detection_off">Subject detection kept crashing, so it\'s turned off for now. Tap Try again to give it another go.</string>
-    <string name="clock_cant_fit">The digits can\'t fit around the subject yet. %1$s</string>
-    <string name="clock_no_depth">No depth effect yet. %1$s</string>
+    <string name="clock_cant_fit">The digits can\'t fit around the subject yet. <xliff:g id="arg1">%1$s</xliff:g></string>
+    <string name="clock_no_depth">No depth effect yet. <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="clock_brightness">Brightness</string>
     <string name="guide_pixel_summary">Pixel phones have no setting to hide the lock screen clock. You can make it smaller so it covers less of the wallpaper clock.</string>
     <string name="guide_pixel_step1">Touch and hold an empty spot on the home screen, then tap Wallpaper &amp; style.</string>
@@ -472,7 +472,7 @@
     <string name="help_intro">This looks best when you can hide your phone\'s own lock screen clock. If you can\'t, you\'ll see two clocks on the lock screen.</string>
     <string name="help_your_device">Your device</string>
     <string name="help_device_line" translatable="false">%1$s · %2$s</string>
-    <string name="help_on_brand">On %1$s</string>
+    <string name="help_on_brand">On <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="help_on_your_device">On your device</string>
     <string name="help_search_hint">Have a quick search online to see if your phone lets you hide its lock screen clock.</string>
     <string name="help_search_button">Search the web for your device</string>
@@ -482,7 +482,7 @@
     <string name="playlist_apply_title">Apply wallpaper</string>
     <string name="playlist_apply_message">On the next screen, tap:\n\nSet wallpaper › Home screen and Lock screen.\n\nThat way the lock screen effect works properly.</string>
     <string name="playlist_set_wallpaper">Set wallpaper</string>
-    <string name="playlist_processing">Processing %1$d of %2$d images…</string>
+    <string name="playlist_processing">Processing <xliff:g id="arg1">%1$d</xliff:g> of <xliff:g id="arg2">%2$d</xliff:g> images…</string>
     <string name="playlist_getting_ready">Getting your playlist ready…</string>
     <string name="playlist_error_storage">Couldn\'t save the playlist. Check you have some free space and try again.</string>
     <string name="playlist_error_permission">Atmo Engine can\'t open one of the images anymore. Try adding it again.</string>
@@ -496,16 +496,16 @@
     <string name="playlist_crops_not_restored">Some of your crops couldn\'t be restored.</string>
     <string name="playlist_empty">The playlist is empty</string>
     <plurals name="playlist_images_added">
-        <item quantity="one">%1$d image added</item>
-        <item quantity="other">%1$d images added</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> image added</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> images added</item>
     </plurals>
     <plurals name="playlist_deleted_removed">
-        <item quantity="one">%1$d deleted image removed</item>
-        <item quantity="other">%1$d deleted images removed</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> deleted image removed</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> deleted images removed</item>
     </plurals>
     <plurals name="playlist_folder_images_added">
-        <item quantity="one">%1$d image added from folders</item>
-        <item quantity="other">%1$d images added from folders</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> image added from folders</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> images added from folders</item>
     </plurals>
     <string name="theme_playlists_title">Theme playlists</string>
     <string name="theme_tab_light">Light</string>
@@ -520,12 +520,12 @@
     <string name="theme_error_unexpected">Couldn\'t get the playlists ready. Please try again.</string>
     <string name="theme_ready">Theme playlists are ready</string>
     <plurals name="theme_light_images_added">
-        <item quantity="one">%1$d light image added</item>
-        <item quantity="other">%1$d light images added</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> light image added</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> light images added</item>
     </plurals>
     <plurals name="theme_dark_images_added">
-        <item quantity="one">%1$d dark image added</item>
-        <item quantity="other">%1$d dark images added</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> dark image added</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> dark images added</item>
     </plurals>
     <string name="playlist_apply">Apply playlist</string>
     <string name="playlist_rename">Rename playlist</string>
@@ -535,12 +535,12 @@
     <string name="playlist_empty_hint">Tap Add to pick photos for this playlist.</string>
     <string name="playlist_empty_hint_light">Tap Add to pick photos for the light playlist.</string>
     <string name="playlist_empty_hint_dark">Tap Add to pick photos for the dark playlist.</string>
-    <string name="playlist_page_of">%1$d of %2$d</string>
-    <string name="glass_add_subtitle">Keeps the %1$s animation and ends on ribbed glass.</string>
+    <string name="playlist_page_of"><xliff:g id="arg1">%1$d</xliff:g> of <xliff:g id="arg2">%2$d</xliff:g></string>
+    <string name="glass_add_subtitle">Keeps the <xliff:g id="arg1">%1$s</xliff:g> animation and ends on ribbed glass.</string>
     <string name="playlist_add">Add</string>
     <string name="playlist_follow_hint">Follow a folder and its new photos get added for you</string>
     <string name="playlist_following_hint">New photos in these folders get added when you open the app</string>
-    <string name="playlist_stop_following">Stop following %1$s</string>
+    <string name="playlist_stop_following">Stop following <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="playlist_follow_folder">Follow folder</string>
     <string name="playlist_folders">Folders</string>
     <string name="playlist_edited">Edited</string>
@@ -560,23 +560,23 @@
     <string name="saved_title">Saved playlists</string>
     <string name="saved_empty">Every playlist you apply is saved here, so you can go back to it after using a single image for a while.</string>
     <string name="saved_delete_title">Delete playlist?</string>
-    <string name="saved_delete_active">\"%1$s\" is your wallpaper right now. It\'ll keep playing, but once you switch to something else it won\'t be saved here.</string>
+    <string name="saved_delete_active">\"<xliff:g id="arg1">%1$s</xliff:g>\" is your wallpaper right now. It\'ll keep playing, but once you switch to something else it won\'t be saved here.</string>
     <string name="common_delete">Delete</string>
     <string name="saved_current">Current wallpaper</string>
     <string name="common_more_options">More options</string>
     <string name="common_rename">Rename</string>
     <string name="saved_name_title">Playlist name</string>
     <plurals name="saved_delete_message">
-        <item quantity="one">This removes \"%1$s\" and its %2$d image.</item>
-        <item quantity="other">This removes \"%1$s\" and its %2$d images.</item>
+        <item quantity="one">This removes \"<xliff:g id="arg1">%1$s</xliff:g>\" and its <xliff:g id="arg2">%2$d</xliff:g> image.</item>
+        <item quantity="other">This removes \"<xliff:g id="arg1">%1$s</xliff:g>\" and its <xliff:g id="arg2">%2$d</xliff:g> images.</item>
     </plurals>
     <plurals name="common_image_count">
-        <item quantity="one">%1$d image</item>
-        <item quantity="other">%1$d images</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> image</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> images</item>
     </plurals>
     <plurals name="saved_watches_folders">
-        <item quantity="one">watches %1$d folder</item>
-        <item quantity="other">watches %1$d folders</item>
+        <item quantity="one">watches <xliff:g id="arg1">%1$d</xliff:g> folder</item>
+        <item quantity="other">watches <xliff:g id="arg1">%1$d</xliff:g> folders</item>
     </plurals>
     <string name="folders_unreadable">Couldn\'t open that folder. Pick a folder on your phone\'s storage.</string>
     <string name="folders_unavailable">This phone has no folder picker, so folder playlists aren\'t available.</string>
@@ -599,18 +599,18 @@
     <string name="crop_error_save_prepare">Couldn\'t get the cropped image ready. Please try again.</string>
     <string name="effects_change_title">Change effect</string>
     <string name="effects_choose_title">Choose effect</string>
-    <string name="folders_updated">Folders updated. %1$s</string>
+    <string name="folders_updated">Folders updated. <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="status_live">Your wallpaper is live. You can tweak it below.</string>
     <plurals name="folders_added">
-        <item quantity="one">%1$d new image added.</item>
-        <item quantity="other">%1$d new images added.</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> new image added.</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> new images added.</item>
     </plurals>
     <plurals name="folders_removed">
-        <item quantity="one">%1$d deleted image removed.</item>
-        <item quantity="other">%1$d deleted images removed.</item>
+        <item quantity="one"><xliff:g id="arg1">%1$d</xliff:g> deleted image removed.</item>
+        <item quantity="other"><xliff:g id="arg1">%1$d</xliff:g> deleted images removed.</item>
     </plurals>
     <string name="palette_title">Palette diagnostics</string>
-    <string name="palette_pipeline">%1$s color pipeline</string>
+    <string name="palette_pipeline"><xliff:g id="arg1">%1$s</xliff:g> color pipeline</string>
     <string name="palette_reading">Reading current values</string>
     <string name="palette_comparison">Wallpaper and system comparison</string>
     <string name="palette_sync_on">Sync on</string>
@@ -619,38 +619,38 @@
     <string name="palette_api_colors">Wallpaper API colors</string>
     <string name="palette_system">System color palette</string>
     <string name="palette_theme_state">System theme state</string>
-    <string name="palette_source">Source: %1$s</string>
-    <string name="palette_seed">Seed: %1$s</string>
+    <string name="palette_source">Source: <xliff:g id="arg1">%1$s</xliff:g></string>
+    <string name="palette_seed">Seed: <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="palette_unknown">unknown</string>
     <string name="palette_unavailable">unavailable</string>
     <string name="palette_applying">Applying palette…</string>
     <string name="palette_force_apply">Force apply palette</string>
     <string name="palette_sync_needed">Turn on Sync system colors on the main screen to run this test.</string>
     <string name="palette_not_available">N/A</string>
-    <string name="palette_force_requested">Atmo asked the active wallpaper to refresh its colors on %1$s</string>
-    <string name="palette_force_request_failed">Atmo couldn\'t ask the wallpaper to refresh its colors on %1$s</string>
+    <string name="palette_force_requested">Atmo asked the active wallpaper to refresh its colors on <xliff:g id="arg1">%1$s</xliff:g></string>
+    <string name="palette_force_request_failed">Atmo couldn\'t ask the wallpaper to refresh its colors on <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="palette_decode_failed">Couldn\'t decode the wallpaper image</string>
     <string name="palette_extraction_failed">Color extraction failed</string>
     <string name="palette_api_read_failed">Couldn\'t read the wallpaper API colors</string>
     <string name="palette_system_read_failed">Couldn\'t read the system palette</string>
     <string name="palette_theme_read_failed">Couldn\'t read the system theme state</string>
     <string name="palette_no_errors">App errors: none</string>
-    <string name="palette_no_errors_detail">Color extraction and Android\'s wallpaper color callback both finished on %1$s.</string>
+    <string name="palette_no_errors_detail">Color extraction and Android\'s wallpaper color callback both finished on <xliff:g id="arg1">%1$s</xliff:g>.</string>
     <string name="palette_api_empty">The wallpaper API has no colors</string>
     <string name="palette_api_empty_detail">Android hasn\'t stored a palette from the active wallpaper yet.</string>
     <string name="palette_api_accepted">Android accepted Atmo\'s palette</string>
     <string name="palette_api_accepted_detail">WallpaperManager returns the same three colors as Atmo\'s extractor.</string>
     <string name="palette_api_differs">The wallpaper API colors differ</string>
     <string name="palette_api_differs_detail">The active wallpaper and Android don\'t agree on the published colors right now.</string>
-    <string name="palette_system_differs">The system palette differs on %1$s</string>
-    <string name="palette_system_differs_detail">Android accepted Atmo\'s wallpaper colors, but the accent colors on %1$s still use another palette.</string>
+    <string name="palette_system_differs">The system palette differs on <xliff:g id="arg1">%1$s</xliff:g></string>
+    <string name="palette_system_differs_detail">Android accepted Atmo\'s wallpaper colors, but the accent colors on <xliff:g id="arg1">%1$s</xliff:g> still use another palette.</string>
     <string name="palette_seed_unavailable">an unavailable seed</string>
-    <string name="palette_preset_source">The color source on %1$s is a preset</string>
-    <string name="palette_preset_source_detail">%1$s reports %2$s as its fixed theme seed instead of using the live wallpaper.</string>
-    <string name="palette_force_unchanged">Force result: %1$s stayed the same</string>
-    <string name="palette_force_unchanged_detail">The wallpaper published its colors, but the system theme on %1$s didn\'t update.</string>
+    <string name="palette_preset_source">The color source on <xliff:g id="arg1">%1$s</xliff:g> is a preset</string>
+    <string name="palette_preset_source_detail"><xliff:g id="arg1">%1$s</xliff:g> reports <xliff:g id="arg2">%2$s</xliff:g> as its fixed theme seed instead of using the live wallpaper.</string>
+    <string name="palette_force_unchanged">Force result: <xliff:g id="arg1">%1$s</xliff:g> stayed the same</string>
+    <string name="palette_force_unchanged_detail">The wallpaper published its colors, but the system theme on <xliff:g id="arg1">%1$s</xliff:g> didn\'t update.</string>
     <string name="palette_force_changed">Force result: the system palette changed</string>
-    <string name="palette_force_changed_detail">The accent colors on %1$s changed after Atmo published the colors.</string>
+    <string name="palette_force_changed_detail">The accent colors on <xliff:g id="arg1">%1$s</xliff:g> changed after Atmo published the colors.</string>
     <string name="palette_stage_waiting">Waiting for the wallpaper</string>
     <string name="palette_stage_queued">Wallpaper refresh queued</string>
     <string name="palette_stage_extracting">The wallpaper is extracting colors</string>
@@ -660,13 +660,13 @@
     <string name="palette_stage_extraction_failed">Wallpaper color extraction failed</string>
     <string name="palette_stage_publish_failed">The wallpaper color callback failed</string>
     <string name="palette_stage_force_failed">The force palette request failed</string>
-    <string name="palette_stage_other">Wallpaper status: %1$s</string>
+    <string name="palette_stage_other">Wallpaper status: <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="palette_device">Device</string>
-    <string name="palette_trace_queued">%1$s queued a palette refresh</string>
+    <string name="palette_trace_queued"><xliff:g id="arg1">%1$s</xliff:g> queued a palette refresh</string>
     <string name="palette_trace_disabled">System color sync is off</string>
     <string name="palette_trace_missing">The active wallpaper file is missing or can\'t be read</string>
-    <string name="palette_trace_extracting">%1$s is extracting colors</string>
-    <string name="palette_trace_published">%1$s finished notifyColorsChanged()</string>
+    <string name="palette_trace_extracting"><xliff:g id="arg1">%1$s</xliff:g> is extracting colors</string>
+    <string name="palette_trace_published"><xliff:g id="arg1">%1$s</xliff:g> finished notifyColorsChanged()</string>
     <string name="palette_trace_rejected">Android rejected the wallpaper color callback</string>
     <string name="palette_trace_failed">The wallpaper couldn\'t publish its colors</string>
     <string name="palette_trace_unknown_failure">Unknown extraction failure</string>
@@ -681,20 +681,20 @@
     <string name="grain_strength_medium">Medium</string>
     <string name="grain_strength_strong">Strong</string>
     <string name="grain_strength_heavy">Heavy</string>
-    <string name="subject_failure">Something went wrong (%1$s, %2$s)</string>
-    <string name="subject_failure_detail">Something went wrong (%1$s, %2$s: %3$s)</string>
+    <string name="subject_failure">Something went wrong (<xliff:g id="arg1">%1$s</xliff:g>, <xliff:g id="arg2">%2$s</xliff:g>)</string>
+    <string name="subject_failure_detail">Something went wrong (<xliff:g id="arg1">%1$s</xliff:g>, <xliff:g id="arg2">%2$s</xliff:g>: <xliff:g id="arg3">%3$s</xliff:g>)</string>
     <string name="subject_model_paused">Google\'s subject detection crashed the app on this phone, so it\'s paused. It\'s a problem with a recent Google Play services update, not your photo. Tap Try again to give it another go, or it\'ll try again by itself once Play services updates.</string>
     <string name="subject_turned_off">Subject detection kept crashing the app, so it\'s turned off. You can turn it back on from the clock screen.</string>
     <string name="subject_skipping">Subject detection crashed the app last time, so it\'s skipping this go. It\'ll try again shortly.</string>
     <plurals name="subject_crashed_streak">
-        <item quantity="one">Subject detection crashed the app %1$d time in a row, so it\'s turned off. You can turn it back on from the clock screen.</item>
-        <item quantity="other">Subject detection crashed the app %1$d times in a row, so it\'s turned off. You can turn it back on from the clock screen.</item>
+        <item quantity="one">Subject detection crashed the app <xliff:g id="arg1">%1$d</xliff:g> time in a row, so it\'s turned off. You can turn it back on from the clock screen.</item>
+        <item quantity="other">Subject detection crashed the app <xliff:g id="arg1">%1$d</xliff:g> times in a row, so it\'s turned off. You can turn it back on from the clock screen.</item>
     </plurals>
     <string name="subject_unusable_answer">Google\'s subject model gave an unusable answer for this photo (it marked the whole image as subject). That\'s the model, not your photo. Tap Try again, or try another photo.</string>
     <string name="subject_model_missing">Google\'s subject model isn\'t on this phone yet. You can download it in Fine tuning, with the Download subject model button.</string>
     <string name="subject_no_result">The model didn\'t send back a result</string>
     <string name="subject_unexpected_result">The model sent back something unexpected</string>
-    <string name="subject_too_large">The subject fills too much of the photo (%1$d%%). Try one with more background showing.</string>
+    <string name="subject_too_large">The subject fills too much of the photo (<xliff:g id="arg1">%1$d%%</xliff:g>). Try one with more background showing.</string>
     <string name="subject_not_found">Couldn\'t find a clear subject in this photo</string>
     <string name="subject_unclear">Found something, but not clearly enough to use</string>
     <string name="subject_too_small">The subject is too small or thin to use</string>
@@ -705,7 +705,7 @@
     <string name="vulkan_reason_no_renderer">This effect doesn\'t have a Vulkan renderer</string>
     <string name="vulkan_reason_driver_crash">Your phone\'s graphics driver crashed the wallpaper on Vulkan</string>
     <string name="saved_default_name">Playlist</string>
-    <string name="saved_default_name_dated">Playlist · %1$s</string>
+    <string name="saved_default_name_dated">Playlist · <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="folders_unnamed">Unnamed folder</string>
     <string name="service_atmosphere" translatable="false">Atmosphere</string>
     <string name="service_atmosphere_reverse" translatable="false">Atmosphere (Reverse)</string>
