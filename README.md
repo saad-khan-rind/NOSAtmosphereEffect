@@ -152,13 +152,16 @@ Disabling transitions does not disable other live-wallpaper features. Playlists 
 * **Zoom:** the photo settles from a zoom. **Zoom level** 1–150% (default 20%). Only the photo moves; the clock stays put, so a clock with depth shows the subject easing into place in front of it.
 * **Colour fill:** colour spreads out from the centre of the screen. On a lock screen that is already black and white (Color Fill's monochrome side, or Halftone with Black and white on), it plays the other way: it starts in colour and turns black and white.
 * **Blur:** the lock screen sharpens out of a light blur.
-* **Corner stretch:** the corners are pulled **Outward** past the edges or **Inward** towards the middle, then spring back. **Strength** 5–30%.
+* **Corner stretch:** the corners are pulled **Outward** past the edges or **Inward** towards the middle, reaching well in towards the centre, then spring back. **Strength** 5–30% (default 20%).
 * **Shake:** the whole screen jolts and settles, **Sideways**, **Up and down** or as a **Twist**. **Strength** 1–8% of the screen height and **Shakes** 1–8. Edges are mirrored, so no black shows.
 * **Ripple:** a ripple runs out from the centre, like a stone dropped in water. **Strength** 1–10%.
 * **Glitch:** a burst of torn rows, split colour and broken blocks that settles into the lock screen. **Strength** 10–100%.
 * **Venetian blind:** the lock screen opens through strips, one after another, over a dimmed copy of itself, as **Rows** or **Columns**. **Strips** 2–24.
 * **Breathe:** the lock screen breathes in from a dimmed frame, swelling just past full brightness before it settles. **Swell** 0–30%.
-* **Random:** a different style on every wake. Random keeps its own copy of every style's settings (starting from the same defaults), so tuning Random's Zoom doesn't change the Zoom you use on its own. Styles are drawn like a playlist shuffle (see [Shuffle](#playlist--rotation)): every style plays once before any repeats, never the same twice in a row, and the end of one round stays away from the start of the next. Corner stretch, Shake and Venetian blind also pick their direction from their own shuffles. The order carries on through setting changes, Reset and restarts.
+* **Twirl:** the photo starts twisted into a swirl from the centre, with the edges held in place, and unwinds flat. **Twist** 10–100% (100% is a turn and a half).
+* **Fabric wave:** like a cloth snapped from two opposite edges, **Left and right** or **Top and bottom**: a wave runs in from both, crosses the middle and settles, its slopes shaded. **Depth** 1–12%.
+* **Bubble surge:** a rush of tiny fizzing bubbles surges up from the bottom of the screen, each bending the photo like a lens, then is gone. **Strength** 10–100%.
+* **Random:** a different style on every wake. By default every style plays on its own defaults; turn on **Customize each style** to tune each one for Random. Random keeps its own copy of every style's settings, so tuning Random's Zoom doesn't change the Zoom you use on its own, and they are kept while Customize each style is off. Styles are drawn like a playlist shuffle (see [Shuffle](#playlist--rotation)): every style plays once before any repeats, never the same twice in a row, and the end of one round stays away from the start of the next. Corner stretch, Shake, Venetian blind and Fabric wave also pick their direction from their own shuffles. The order carries on through setting changes, Reset and restarts.
 
 Zoom moves only the photo, through the same zoom every renderer already uses. Every other style is drawn over the finished frame, clock included, by one post pass shared by every effect on both Vulkan and OpenGL ES.
 
@@ -208,7 +211,7 @@ Fine tuning is kept when you change only the image or playlist under the same ef
 ### Animation & Behavior
 * **Animate Transitions:** Turn lock-to-home animation on, or keep the effect fully applied on the selected screen or screens and the original image on any other screen, with no unlock transition.
 * **Animation Duration:** Control the total transition duration while transitions are enabled.
-* **When the Screen Turns On:** An animation as the lock screen arrives: Zoom, Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, or Random. See [Wake Transitions](#wake-transitions-screen-on).
+* **When the Screen Turns On:** An animation as the lock screen arrives: Zoom, Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, Twirl, Fabric wave, Bubble surge, or Random. See [Wake Transitions](#wake-transitions-screen-on).
 * **Lock Delay (Anti-Flicker):** While transitions are enabled, adds a configurable pause before the wallpaper resets when you lock the phone. This prevents the visual glitch where the wallpaper "snaps" back to its initial state before the screen turns fully black.
 * **Unlock Check Interval:** While transitions are enabled, adjusts how frequently the app detects unlock events. Tuning this eliminates "delayed start" issues, ensuring the animation begins immediately when you wake your device.
 * **Sync System Colors:** Publishes a locally extracted wallpaper palette to Android whenever a single wallpaper or playlist image changes. Whether the wider system theme refreshes is ultimately controlled by the device manufacturer.
@@ -257,15 +260,15 @@ This project is built using Kotlin, C++17, the Android NDK, and Gradle. The proj
 
 Atmo Engine keeps one shared codebase and combines two flavor dimensions:
 
-All artifacts in the table below use version name **7.4.2**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
+All artifacts in the table below use version name **7.4.6**. The version code carries the API tier in its leading digit and the version name in the rest, so every flavor of one release shares a name while Play still sees a higher code for the build with the higher minimum.
 
 | Flavor | Minimum Android | Target SDK | Version code | Intended release |
 | --- | ---: |-----------:|-------------:| --- |
-| `v33Play` | Android 13 / API 33 |     API 33 |     `300742` | ML Kit APK |
-| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300742` | FOSS APK for F-Droid |
-| `v35Play` | Android 15 / API 35 |     API 36 |     `400742` | Google Play ML Kit AAB |
-| `v36Play` | Android 16 / API 36 |     API 36 |     `500742` | ML Kit APK |
-| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500742` | FOSS APK |
+| `v33Play` | Android 13 / API 33 |     API 33 |     `300746` | ML Kit APK |
+| `v33Fdroid` | Android 13 / API 33 |     API 33 |     `300746` | FOSS APK for F-Droid |
+| `v35Play` | Android 15 / API 35 |     API 36 |     `400746` | Google Play ML Kit AAB |
+| `v36Play` | Android 16 / API 36 |     API 36 |     `500746` | ML Kit APK |
+| `v36Fdroid` | Android 16 / API 36 |     API 36 |     `500746` | FOSS APK |
 
 The `play` source set contains only the ML Kit implementation and explicit model-download controller. The `fdroid` source set contains only [U2NetP](https://github.com/xuebinqin/U-2-Net), its model files, and the source-built FOSS LiteRT runtime. UI, effects, playlists, palette behavior, and settings remain shared in `main`. No build requests photo access: folder playlists use the system folder picker. Model and runtime provenance is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
