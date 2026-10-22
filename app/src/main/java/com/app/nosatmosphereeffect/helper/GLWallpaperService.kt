@@ -199,6 +199,7 @@ abstract class GLWallpaperService : WallpaperService() {
             when (action) {
                 COMMAND_GOING_TO_SLEEP -> onGoingToSleep()
                 COMMAND_WAKING_UP -> onWakingUp()
+                COMMAND_KEYGUARD_GOING_AWAY -> onKeyguardGoingAway()
             }
             return super.onCommand(action, x, y, z, extras, resultRequested)
         }
@@ -208,6 +209,13 @@ abstract class GLWallpaperService : WallpaperService() {
 
         /** The screen started waking up. */
         protected open fun onWakingUp() = Unit
+
+        /**
+         * The lock screen started going away, as its exit animation begins:
+         * about a third of a second before isKeyguardLocked or USER_PRESENT
+         * report the unlock. Android 14 and 15 only; see the constant.
+         */
+        protected open fun onKeyguardGoingAway() = Unit
 
         fun requestRender() {
             dispatchToHost("requesting a frame") { it.requestRender() }
@@ -633,6 +641,10 @@ abstract class GLWallpaperService : WallpaperService() {
         // WallpaperManager's commands to the live wallpaper.
         const val COMMAND_GOING_TO_SLEEP = "android.wallpaper.goingtosleep"
         const val COMMAND_WAKING_UP = "android.wallpaper.wakingup"
+        // Hidden in WallpaperManager. Not sent before Android 14, and from
+        // Android 16 only to wallpapers holding a permission apps can't get;
+        // without it the keyguard poll and USER_PRESENT catch the unlock.
+        const val COMMAND_KEYGUARD_GOING_AWAY = "android.wallpaper.keyguardgoingaway"
         const val TAG = "GLWallpaperService"
 
         /** How long a surface size has to hold still before it counts as a posture. */

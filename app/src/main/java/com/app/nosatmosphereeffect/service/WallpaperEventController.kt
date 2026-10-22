@@ -65,6 +65,16 @@ internal class WallpaperEventController(
         }
     }
 
+    // System UI can call off a dismissal it has announced (a swipe let go
+    // part way, on some lock screens) and says nothing when it does. If the
+    // keyguard is still up well after the announcement, it came back.
+    private val confirmKeyguardGone = Runnable {
+        if (closed || locked || !isKeyguardLocked()) return@Runnable
+        locked = true
+        runCallback("show the lock-screen state", onShowLocked)
+        startUnlockPolling()
+    }
+
     // Polls the keyguard while it is up, because USER_PRESENT can arrive late.
     // It must never outlive the lock screen it is watching: on Motorola and
     // Oppo the wallpaper can report itself visible after SCREEN_OFF has run —
@@ -170,6 +180,7 @@ internal class WallpaperEventController(
         handler.removeCallbacks(unlockChecker)
         handler.removeCallbacks(prepareForLock)
         handler.removeCallbacks(confirmLocked)
+        handler.removeCallbacks(confirmKeyguardGone)
         lockVisualDeferred = false
     }
 
@@ -179,6 +190,7 @@ internal class WallpaperEventController(
         handler.removeCallbacks(unlockChecker)
         handler.removeCallbacks(prepareForLock)
         handler.removeCallbacks(confirmLocked)
+        handler.removeCallbacks(confirmKeyguardGone)
         unregisterSystemReceiver()
         unregisterAppReceiver()
     }
@@ -213,6 +225,7 @@ internal class WallpaperEventController(
         handler.removeCallbacks(unlockChecker)
         handler.removeCallbacks(prepareForLock)
         handler.removeCallbacks(confirmLocked)
+        handler.removeCallbacks(confirmKeyguardGone)
         lockVisualDeferred = false
         lastUnlockUptimeMs = NEVER_UNLOCKED
         locked = true
@@ -224,9 +237,25 @@ internal class WallpaperEventController(
         runCallback("rotate the wallpaper playlist", onScreenOff)
     }
 
+    /**
+     * The lock screen started going away. isKeyguardLocked stays true until
+     * it has gone, so the poll and USER_PRESENT see the same unlock 0.3s later,
+     * most of the way into the lock screen's exit. Starting the unlock animation now keeps
+     * pace with it. Whichever comes first plays it
+     */
+    fun keyguardGoingAway() {
+        if (closed || !transitionsEnabled()) return
+        handler.removeCallbacks(prepareForLock)
+        if (locked) completeUnlock()
+        handler.removeCallbacks(confirmKeyguardGone)
+        handler.postDelayed(confirmKeyguardGone, KEYGUARD_GONE_CONFIRM_DELAY_MS)
+    }
+
     private fun handleUserPresent() {
         if (closed) return
         handler.removeCallbacks(prepareForLock)
+        // The keyguard really is gone: nothing left to confirm.
+        handler.removeCallbacks(confirmKeyguardGone)
         if (!locked) return
         completeUnlock()
     }
@@ -334,6 +363,7 @@ internal class WallpaperEventController(
         const val NEVER_UNLOCKED = Long.MIN_VALUE / 2
         const val UNLOCK_SETTLE_MS = 1_500L
         const val LOCK_CONFIRM_DELAY_MS = 400L
+        const val KEYGUARD_GONE_CONFIRM_DELAY_MS = 1_000L
         const val ACTION_RELOAD_WALLPAPER = "com.app.nosatmosphereeffect.RELOAD_WALLPAPER"
         const val ACTION_UPDATE_CONFIG = "com.app.nosatmosphereeffect.UPDATE_CONFIG"
     }
