@@ -471,6 +471,10 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             requestRender()
         }
 
+        override fun onKeyguardGoingAway() {
+            events.keyguardGoingAway()
+        }
+
         fun handleThemeChange(isNightMode: Boolean) {
             rotateWallpaper(isThemeChange = true, currentNightMode = isNightMode)
         }
