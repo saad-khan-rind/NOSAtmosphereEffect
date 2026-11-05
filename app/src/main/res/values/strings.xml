@@ -717,6 +717,8 @@
     <string name="vulkan_reason_query_failed">Couldn\'t check this phone for Vulkan</string>
     <string name="vulkan_reason_no_11">This phone doesn\'t offer Vulkan 1.1</string>
     <string name="vulkan_reason_no_runtime">No compatible Vulkan driver was found</string>
+    <string name="renderer_vulkan_blocked_hint">Vulkan was turned off after it failed earlier, so your wallpaper is using OpenGL ES. You can give it another try: if it fails again, Atmo simply goes back to OpenGL ES.</string>
+    <string name="renderer_try_vulkan_again">Try Vulkan again</string>
     <string name="vulkan_reason_blocked">Vulkan was turned off after the graphics driver failed earlier</string>
     <string name="vulkan_reason_no_renderer">This effect doesn\'t have a Vulkan renderer</string>
     <string name="vulkan_reason_driver_crash">Your phone\'s graphics driver crashed the wallpaper on Vulkan</string>

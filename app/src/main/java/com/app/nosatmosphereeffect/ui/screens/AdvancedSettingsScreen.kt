@@ -66,6 +66,7 @@ import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
 import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
 import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoDropdownField
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
@@ -1259,6 +1260,27 @@ private fun DisplaySettings(
                 },
                 helper = rendererHelper
             )
+            // Vulkan was turned off after it failed: a way back, other than a new wallpaper or an update.
+            val context = LocalContext.current
+            var vulkanBlocked by remember { mutableStateOf(VulkanSupport.hasRecordedFailures(context)) }
+            if (vulkanBlocked && rendererPreference != GraphicsBackendPreference.OPENGL_ES) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.renderer_vulkan_blocked_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = GroupTextInset
+                )
+                Spacer(Modifier.height(8.dp))
+                AtmoOutlinedButton(
+                    text = stringResource(R.string.renderer_try_vulkan_again),
+                    onClick = {
+                        VulkanSupport.retryVulkan(context)
+                        vulkanBlocked = false
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
         SettingsGroup(stringResource(R.string.common_home_screen)) {
             SettingSwitchRow(
