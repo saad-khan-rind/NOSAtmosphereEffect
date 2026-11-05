@@ -468,7 +468,10 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         override fun onWakingUp() {
             if (!WakeTransition.blackout) return
             WakeTransition.blackout = false
-            requestRender()
+            // Drawn now, before the wallpaper is shown again: a plain request
+            // waits for that (drawing is paused while hidden), and the black
+            // frame stayed up for about half a second on a quick off and on.
+            renderWhileHidden(HIDDEN_FRAME_MS)
         }
 
         override fun onKeyguardGoingAway() {
