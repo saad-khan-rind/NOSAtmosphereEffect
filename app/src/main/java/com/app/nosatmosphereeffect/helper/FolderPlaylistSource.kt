@@ -257,6 +257,11 @@ internal object FolderPlaylistSource {
             val name = PlaylistModeManager.entryFile(playlistDir, shifted)?.name ?: "wallpaper_$shifted.jpg"
             editor.putString(key, name)
         }
+        PlaylistRotationController.followRenames(prefs, editor, key) { names ->
+            PlaylistRotationPolicy.afterRenumbering(names, removedIndices) { index ->
+                PlaylistModeManager.entryFile(playlistDir, index)?.name
+            }
+        }
         editor.commit()
     }
 
@@ -264,8 +269,11 @@ internal object FolderPlaylistSource {
     private fun followRename(context: Context, renamed: Map<String, String>) {
         val prefs = context.getSharedPreferences(WALLPAPER_PREFS, Context.MODE_PRIVATE)
         val key = PlaylistModeManager.lastImagePreferenceKey(PlaylistModeManager.MODE_STANDARD, false)
-        val newName = prefs.getString(key, null)?.let(renamed::get) ?: return
-        prefs.edit().putString(key, newName).commit()
+        val editor = prefs.edit()
+        prefs.getString(key, null)?.let(renamed::get)?.let { editor.putString(key, it) }
+        // The shuffle's queue and shown images too, or the renamed ones played again.
+        PlaylistRotationController.followRenames(prefs, editor, key) { names -> names.map { renamed[it] ?: it } }
+        editor.commit()
     }
 
     /** True when the displayed image was deleted and must be replaced. */

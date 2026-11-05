@@ -111,6 +111,18 @@ internal object PlaylistRotationPolicy {
         return ShuffleQueue(remaining, if (newRound) emptyList() else played.filter { it in present }.distinct())
     }
 
+    /**
+     * The shuffle's [names] after the playlist's entries at [removedIndices]
+     * are taken out and the rest renumbered (folder sync): removed ones drop
+     * out, the rest take their new names ([nameAt] an index). Without this the
+     * shuffle's names pointed at other images, and some came back mid-round.
+     */
+    fun afterRenumbering(names: List<String>, removedIndices: Set<Int>, nameAt: (Int) -> String?): List<String> =
+        names.mapNotNull { name ->
+            val index = PlaylistFilePolicy.index(name) ?: return@mapNotNull name
+            if (index in removedIndices) null else nameAt(index - removedIndices.count { it < index })
+        }
+
     private fun newRound(
         images: List<String>,
         previous: List<String>,
