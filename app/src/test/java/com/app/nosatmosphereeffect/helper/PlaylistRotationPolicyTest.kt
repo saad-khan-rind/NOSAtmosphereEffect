@@ -421,4 +421,14 @@ class PlaylistRotationPolicyTest {
         const val NOW = 10_000_000L
         const val SEEDS = 20
     }
+
+    @Test
+    fun `renumbering keeps the shuffle on the same images`() {
+        // wallpaper_2 removed: 3 and 4 become 2 and 3; the removed one leaves the shuffle.
+        val names = listOf("wallpaper_4.jpg", "wallpaper_2.jpg", "wallpaper_0.jpg", "wallpaper_3.ref")
+        val renamed = PlaylistRotationPolicy.afterRenumbering(names, setOf(2)) { index ->
+            if (index == 2) "wallpaper_2.ref" else "wallpaper_$index.jpg"
+        }
+        assertEquals(listOf("wallpaper_3.jpg", "wallpaper_0.jpg", "wallpaper_2.ref"), renamed)
+    }
 }

@@ -34,9 +34,10 @@ const float UP_SIGN = -1.0;
 //   mode 8: the frame breathes in from dim, swelling [param] past full
 //   mode 9: black (WakeTransition.blackout)
 //   mode 10: twisted from the centre by [param] radians, unwinding
-//   mode 11: a wave [param] deep snapped in from two opposite edges, left
-//            and right, or top and bottom when [params].x is 1
+//   mode 11: a wave [param] deep running from the centre line out to two
+//            opposite edges, left and right, or top and bottom when [params].x is 1
 //   mode 12: a surge of small bubbles rising from the bottom, [param] strong
+//   mode 13: the picture grown from a card [param] of its size, over a blur
 // amount runs from 1 (start) to 0 (done).
 
 // A bit-mixing hash rather than fract(sin(...)), which collapses into a
@@ -52,6 +53,27 @@ float hash(vec2 p) {
 // Where Venetian blind and Breathe start: the frame dimmed, never black, so
 // the wake never opens on a black screen.
 const float WAKE_FLOOR = 0.3;
+
+// One layer of Bubble surge's bubbles, in cells [cells] to a screen height:
+// the bend each bubble gives the picture (xy, before strength) and its rim (z).
+vec3 bubbles(vec2 uv, float aspect, float t, float amount, float band, float cells, float seed) {
+    vec2 g = vec2(uv.x * aspect, UP(uv.y)) * cells;
+    float rise = t * cells * 0.55;
+    g.y -= rise;
+    vec2 id = floor(g);
+    vec2 f = fract(g) - 0.5;
+    float cellUp = (id.y + 0.5 + rise) / cells;
+    float density = (1.0 - smoothstep(0.0, 0.42, abs(cellUp - band))) * 0.97 +
+        0.35 * amount * step(cellUp, band);
+    float present = step(1.0 - density, hash(id + seed));
+    vec2 centre = (vec2(hash(id + seed + 3.0), hash(id + seed + 7.0)) - 0.5) * 0.3;
+    float r = mix(0.2, 0.44, hash(id + seed + 13.0));
+    vec2 d = f - centre;
+    float dist = length(d);
+    float inside = present * (1.0 - smoothstep(r - 0.04, r, dist));
+    vec2 bend = d / max(r, 1e-3) * (1.0 - dist / r) * inside * 0.02;
+    return vec3(bend, inside * smoothstep(r * 0.6, r, dist));
+}
 
 vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 params) {
     float t = 1.0 - amount;
@@ -113,46 +135,58 @@ vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 param
         return SAMPLE(abs(mod(from + 1.0, 2.0) - 1.0));
     }
     if (mode == 11) {
-        // A cloth snapped from two opposite edges: a wave runs in from each,
-        // the two cross in the middle and die away. The picture rolls with it
-        // and its slopes are shaded, so it reads as a surface, not a slide.
+        // A cloth snapped by its two opposite edges: a wave starts on the
+        // centre line and runs out to both edges, dying away as it goes. The
+        // picture rolls with it and its slopes are shaded, so it reads as a
+        // surface, not a slide.
         float along = params.x > 0.5 ? uv.y : uv.x;
-        float e = min(along, 1.0 - along);
+        float e = abs(along - 0.5);
         float x = (e - t * 0.75) / 0.16;
         float envelope = exp(-x * x) * amount;
         float phase = x * 4.712389;
         float height = sin(phase) * envelope;
         float slope = cos(phase) * envelope;
-        float inwards = along < 0.5 ? 1.0 : -1.0;
-        vec2 axis = params.x > 0.5 ? vec2(0.0, inwards) : vec2(inwards, 0.0);
+        float outwards = along < 0.5 ? -1.0 : 1.0;
+        vec2 axis = params.x > 0.5 ? vec2(0.0, outwards) : vec2(outwards, 0.0);
         vec2 from = uv - axis * height * param;
         vec3 cloth = SAMPLE(abs(mod(from + 1.0, 2.0) - 1.0));
         return cloth * (1.0 + slope * 0.35 * min(param / 0.05, 2.0));
     }
     if (mode == 12) {
-        // A fizzing surge of small bubbles rising from the bottom to the top,
-        // each bending the picture behind it like a lens, with a bright rim.
-        float cells = 34.0;
-        vec2 g = vec2(uv.x * aspect, UP(uv.y)) * cells;
-        float rise = t * cells * 1.1;
-        g.y -= rise;
-        vec2 id = floor(g);
-        vec2 f = fract(g) - 0.5;
-        // Where the surge is, bottom to top, with a lighter fizz trailing it.
-        float cellUp = (id.y + 0.5 + rise) / cells;
-        float band = 1.7 * t - 0.45;
-        float density = (1.0 - smoothstep(0.0, 0.3, abs(cellUp - band))) * 0.85 +
-            0.12 * amount * step(cellUp, band);
-        float present = step(1.0 - density, hash(id));
-        vec2 centre = (vec2(hash(id + 3.0), hash(id + 7.0)) - 0.5) * 0.3;
-        float r = mix(0.18, 0.42, hash(id + 13.0));
-        vec2 d = f - centre;
-        float dist = length(d);
-        float inside = present * (1.0 - smoothstep(r - 0.04, r, dist));
-        vec2 bend = d / max(r, 1e-3) * (1.0 - dist / r) * inside * param * 0.02;
-        vec2 from = uv - vec2(bend.x / aspect, bend.y * UP_SIGN);
-        float rim = inside * smoothstep(r * 0.6, r, dist);
-        return SAMPLE(from) + rim * 0.35 * param;
+        // A dense, fizzing surge of small bubbles rising from the bottom to
+        // the top: two layers of different sizes, each bubble bending the
+        // picture behind it like a lens, with a bright rim. The surge stays
+        // on screen for nearly the whole wake, a lighter fizz trailing it.
+        float band = 1.45 * t - 0.2;
+        vec3 fine = bubbles(uv, aspect, t, amount, band, 46.0, 0.0);
+        vec3 coarse = bubbles(uv, aspect, t, amount, band, 26.0, 50.0);
+        vec2 bend = fine.xy + coarse.xy;
+        vec2 from = uv - vec2(bend.x / aspect, bend.y * UP_SIGN) * param;
+        return SAMPLE(from) + (fine.z + coarse.z) * 0.35 * param;
+    }
+    if (mode == 13) {
+        // The picture grows out of a small card in the middle of the screen,
+        // with a slight bounce at the end ([param] is its size this frame),
+        // over a heavily blurred copy of itself, never black.
+        float size = max(param, 1e-3);
+        vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+        vec2 halfSize = vec2(aspect, 1.0) * 0.5 * size;
+        float corner = 0.05 * size;
+        vec2 q = abs(p) - halfSize + corner;
+        float outside = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - corner;
+        float card = 1.0 - smoothstep(-0.002, 0.002, outside);
+        vec3 inner = SAMPLE((uv - 0.5) / size + 0.5);
+        if (card >= 1.0) return inner;
+        vec3 backdrop = vec3(0.0);
+        float total = 0.0;
+        for (int i = 0; i < 32; i++) {
+            float r = sqrt((float(i) + 0.5) / 32.0);
+            float a = float(i) * 2.39996;
+            backdrop += SAMPLE(uv + vec2(cos(a), sin(a) * aspect) * r * 0.09);
+            total += 1.0;
+        }
+        backdrop = backdrop / total * 0.7;
+        return mix(backdrop, inner, card);
     }
     vec3 color = SAMPLE(uv);
     if (mode == 7) {

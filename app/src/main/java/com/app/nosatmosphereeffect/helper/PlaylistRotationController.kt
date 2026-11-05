@@ -137,6 +137,22 @@ object PlaylistRotationController {
         notifyColorsChanged()
     }
 
+    /**
+     * Keeps the shuffle following its images when their files are renamed
+     * ([transform] maps its names to the new ones): its queue and the images
+     * already shown are kept by file name, beside [lastKey].
+     */
+    fun followRenames(
+        prefs: android.content.SharedPreferences,
+        editor: android.content.SharedPreferences.Editor,
+        lastKey: String,
+        transform: (List<String>) -> List<String>
+    ) {
+        for (key in listOf(lastKey + QUEUE_SUFFIX, lastKey + PLAYED_SUFFIX)) {
+            editor.putString(key, transform(prefs.readNames(key)).joinToString(NAME_SEPARATOR))
+        }
+    }
+
     private fun stageAndPromote(
         context: Context,
         selected: File,

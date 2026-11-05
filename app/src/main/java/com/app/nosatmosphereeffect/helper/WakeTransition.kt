@@ -30,6 +30,8 @@ enum class WakeTransitionStyle(val storedValue: String) {
     FABRIC("fabric"),
     /** A surge of small fizzing bubbles rises from the bottom, bending the photo as it passes. */
     BUBBLES("bubbles"),
+    /** The lock screen grows out of a small card in the middle, over a blur of itself, with a slight bounce. */
+    SCALE("scale"),
     /** A different style each wake, shuffled ([WakeRandom]), each with its own settings. */
     RANDOM("random");
 
@@ -79,6 +81,8 @@ data class WakeTransitionSettings(
     /** How deep the wave is, in percent of the screen. */
     val fabricPercent: Int = DEFAULT_FABRIC_PERCENT,
     val bubblesPercent: Int = DEFAULT_BUBBLES_PERCENT,
+    /** How big the card Scale up starts from, in percent of the screen. */
+    val scalePercent: Int = DEFAULT_SCALE_PERCENT,
     /**
      * Random plays each style with the settings set for it under Random;
      * off, with every style's defaults, and those settings stay hidden.
@@ -135,6 +139,9 @@ data class WakeTransitionSettings(
         const val MIN_BUBBLES_PERCENT = 10
         const val MAX_BUBBLES_PERCENT = 100
         const val DEFAULT_BUBBLES_PERCENT = 70
+        const val MIN_SCALE_PERCENT = 5
+        const val MAX_SCALE_PERCENT = 60
+        const val DEFAULT_SCALE_PERCENT = 15
 
         /** The styles Random picks from. */
         val RANDOM_POOL = WakeTransitionStyle.entries - WakeTransitionStyle.RANDOM
@@ -161,6 +168,8 @@ data class WakeTransitionSettings(
 
         fun sanitizeBubbles(percent: Int): Int = percent.coerceIn(MIN_BUBBLES_PERCENT, MAX_BUBBLES_PERCENT)
 
+        fun sanitizeScale(percent: Int): Int = percent.coerceIn(MIN_SCALE_PERCENT, MAX_SCALE_PERCENT)
+
         /** Styles that move in time, not just towards rest, and so take the wake's time unshaped. */
         val EVEN_PACED = setOf(
             WakeTransitionStyle.SHAKE,
@@ -168,7 +177,8 @@ data class WakeTransitionSettings(
             WakeTransitionStyle.GLITCH,
             WakeTransitionStyle.BREATHE,
             WakeTransitionStyle.FABRIC,
-            WakeTransitionStyle.BUBBLES
+            WakeTransitionStyle.BUBBLES,
+            WakeTransitionStyle.SCALE
         )
     }
 }
@@ -194,6 +204,9 @@ object WakeTransition {
     const val MODE_TWIRL = 10
     const val MODE_FABRIC = 11
     const val MODE_BUBBLES = 12
+    const val MODE_SCALE = 13
+    /** How far Scale up's card overshoots before it settles (an ease-out-back). */
+    private const val SCALE_BOUNCE = 1.4f
     /** The twirl's greatest twist, in radians, at 100%: a turn and a half. */
     private const val MAX_TWIRL_RADIANS = 3f * PI.toFloat()
     /** A twist's turn, in radians, per unit of shake (a share of the screen's height). */
@@ -210,7 +223,7 @@ object WakeTransition {
      * The post pass style's own values, as wake.frag reads them: Stretch's
      * reach (negative inwards), Ripple's depth, Glitch's strength, Blinds'
      * strip count, Breathe's swell, Twirl's twist, Fabric's depth, Bubbles'
-     * strength; [paramX] to [paramZ] are Shake's offset and turn, and
+     * strength, Scale up's size this frame; [paramX] to [paramZ] are Shake's offset and turn, and
      * [paramX] whether Blinds open across and Fabric comes from top and bottom.
      */
     @Volatile var param = 0f
@@ -294,6 +307,14 @@ object WakeTransition {
             )
             WakeTransitionStyle.BUBBLES ->
                 post(MODE_BUBBLES, left, param = WakeTransitionSettings.sanitizeBubbles(settings.bubblesPercent) / 100f)
+            WakeTransitionStyle.SCALE -> {
+                // Grows past full size a touch, then settles: exactly full size at the end.
+                val start = WakeTransitionSettings.sanitizeScale(settings.scalePercent) / 100f
+                // Ease-out-back on the progress so far (1 - left), written in (progress - 1).
+                val p = -left
+                val grown = 1f + (SCALE_BOUNCE + 1f) * p * p * p + SCALE_BOUNCE * p * p
+                post(MODE_SCALE, left, param = start + (1f - start) * grown)
+            }
             // Resolved to one of the others before it plays (WakeRandom).
             WakeTransitionStyle.RANDOM -> Unit
         }

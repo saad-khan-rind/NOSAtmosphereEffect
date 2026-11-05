@@ -159,8 +159,9 @@ Disabling transitions does not disable other live-wallpaper features. Playlists 
 * **Venetian blind:** the lock screen opens through strips, one after another, over a dimmed copy of itself, as **Rows** or **Columns**. **Strips** 2–24.
 * **Breathe:** the lock screen breathes in from a dimmed frame, swelling just past full brightness before it settles. **Swell** 0–30%.
 * **Twirl:** the photo starts twisted into a swirl from the centre, with the edges held in place, and unwinds flat. **Twist** 10–100% (100% is a turn and a half).
-* **Fabric wave:** like a cloth snapped from two opposite edges, **Left and right** or **Top and bottom**: a wave runs in from both, crosses the middle and settles, its slopes shaded. **Depth** 1–12%.
-* **Bubble surge:** a rush of tiny fizzing bubbles surges up from the bottom of the screen, each bending the photo like a lens, then is gone. **Strength** 10–100%.
+* **Fabric wave:** like a cloth snapped by two opposite edges, **Left and right** or **Top and bottom**: a wave starts in the middle, runs out to both edges and settles, its slopes shaded. **Depth** 1–12%.
+* **Bubble surge:** a dense rush of tiny fizzing bubbles, in two sizes, surges up from the bottom of the screen, each bending the photo like a lens, then is gone. **Strength** 10–100%.
+* **Scale up:** the lock screen grows out of a small card in the middle of the screen until it fills it, with a slight bounce, over a soft blur of itself (never black). **Start size** 5–60%.
 * **Random:** a different style on every wake. By default every style plays on its own defaults; turn on **Customize each style** to tune each one for Random. Random keeps its own copy of every style's settings, so tuning Random's Zoom doesn't change the Zoom you use on its own, and they are kept while Customize each style is off. Styles are drawn like a playlist shuffle (see [Shuffle](#playlist--rotation)): every style plays once before any repeats, never the same twice in a row, and the end of one round stays away from the start of the next. Corner stretch, Shake, Venetian blind and Fabric wave also pick their direction from their own shuffles. The order carries on through setting changes, Reset and restarts.
 
 Zoom moves only the photo, through the same zoom every renderer already uses. Every other style is drawn over the finished frame, clock included, by one post pass shared by every effect on both Vulkan and OpenGL ES.
@@ -211,7 +212,7 @@ Fine tuning is kept when you change only the image or playlist under the same ef
 ### Animation & Behavior
 * **Animate Transitions:** Turn lock-to-home animation on, or keep the effect fully applied on the selected screen or screens and the original image on any other screen, with no unlock transition.
 * **Animation Duration:** Control the total transition duration while transitions are enabled.
-* **When the Screen Turns On:** An animation as the lock screen arrives: Zoom, Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, Twirl, Fabric wave, Bubble surge, or Random. See [Wake Transitions](#wake-transitions-screen-on).
+* **When the Screen Turns On:** An animation as the lock screen arrives: Zoom, Colour fill, Blur, Corner stretch, Shake, Ripple, Glitch, Venetian blind, Breathe, Twirl, Fabric wave, Bubble surge, Scale up, or Random. See [Wake Transitions](#wake-transitions-screen-on).
 * **Lock Delay (Anti-Flicker):** While transitions are enabled, adds a configurable pause before the wallpaper resets when you lock the phone. This prevents the visual glitch where the wallpaper "snaps" back to its initial state before the screen turns fully black.
 * **Unlock Check Interval:** While transitions are enabled, adjusts how frequently the app detects unlock events. Tuning this eliminates "delayed start" issues, ensuring the animation begins immediately when you wake your device.
 * **Sync System Colors:** Publishes a locally extracted wallpaper palette to Android whenever a single wallpaper or playlist image changes. Whether the wider system theme refreshes is ultimately controlled by the device manufacturer.
