@@ -133,9 +133,13 @@ internal class AdaptiveClockFace {
      * height and moves out to its fit. Applied on the next [step], once
      * the fit is known.
      */
-    fun beginEntry(uptimeMs: Long) {
+    fun beginEntry(uptimeMs: Long, zoomWallpaper: Boolean = true) {
         pendingEntryUptimeMs = uptimeMs
+        pendingEntryZooms = zoomWallpaper
     }
+
+    /** Whether the pending entry also zooms the wallpaper (see [beginEntry]). */
+    private var pendingEntryZooms = true
 
     /**
      * True when a frame is due for the face's own reasons: the scene or the
@@ -180,7 +184,10 @@ internal class AdaptiveClockFace {
                 }
                 glideStartUptimeMs = entry
                 colorStartUptimeMs = entry
-                zoomStartUptimeMs = entry
+                // The photo zooms only when the screen woke onto the clock:
+                // arriving through an unlock transition, which has moved the
+                // wallpaper itself, a zoom after it played it twice.
+                zoomStartUptimeMs = if (pendingEntryZooms) entry else NO_ENTRY
             }
         }
         if (!animate) {

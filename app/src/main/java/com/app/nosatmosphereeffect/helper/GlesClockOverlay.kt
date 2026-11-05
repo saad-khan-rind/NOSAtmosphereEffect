@@ -43,6 +43,8 @@ class GlesClockOverlay(
     @Volatile private var appliedState: ClockOverlayState = ClockOverlayState()
     @Volatile private var pendingFormatRefresh = false
     @Volatile private var pendingEntry = false
+    /** The pending entry waited through frames with the clock unseen: it arrives with a transition. */
+    @Volatile private var entryWaited = false
 
     /** The most recently supplied settings, whether or not GL has seen them. */
     val state: ClockOverlayState
@@ -81,6 +83,7 @@ class GlesClockOverlay(
      */
     fun beginEntry() {
         pendingEntry = true
+        entryWaited = false
         if (state.enabled) onAnimationFrameRequested?.invoke()
     }
 
@@ -162,7 +165,11 @@ class GlesClockOverlay(
         // was simply already there when the transition brought it back.
         if (pendingEntry && opacity > 0f) {
             pendingEntry = false
-            provider.beginEntry()
+            // Brought in by the unlock transition: the digits arrive, but the
+            // wallpaper isn't zoomed again after the transition moved it.
+            provider.beginEntry(zoomWallpaper = !entryWaited)
+        } else if (pendingEntry) {
+            entryWaited = true
         }
 
         val safeAspect = if (screenAspect.isFinite() && screenAspect > 0f) {

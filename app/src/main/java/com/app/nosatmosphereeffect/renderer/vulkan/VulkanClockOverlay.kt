@@ -40,6 +40,8 @@ internal class VulkanClockOverlay(
     @Volatile private var pendingState: ClockOverlayState? = ClockOverlayState()
     @Volatile private var appliedState: ClockOverlayState = ClockOverlayState()
     @Volatile private var pendingEntry = false
+    /** The pending entry waited through frames with the clock unseen: it arrives with a transition. */
+    @Volatile private var entryWaited = false
     @Volatile private var pendingFormatRefresh = false
 
     /** The most recent settings, whether or not the worker has seen them. */
@@ -97,6 +99,7 @@ internal class VulkanClockOverlay(
     /** Plays the entry animation once the clock would actually be on screen. */
     fun beginEntry() {
         pendingEntry = true
+        entryWaited = false
     }
 
     /**
@@ -165,7 +168,10 @@ internal class VulkanClockOverlay(
         // behind a zero opacity.
         if (pendingEntry && effectiveOpacity > 0f) {
             pendingEntry = false
-            uploader.beginEntry()
+            // See GlesClockOverlay.draw: no wallpaper zoom after a transition.
+            uploader.beginEntry(zoomWallpaper = !entryWaited)
+        } else if (pendingEntry) {
+            entryWaited = true
         }
 
         // Nothing is drawn at zero opacity, so there is nothing to redraw —

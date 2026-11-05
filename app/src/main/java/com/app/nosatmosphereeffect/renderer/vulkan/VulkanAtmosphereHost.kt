@@ -54,6 +54,8 @@ internal class VulkanAtmosphereHost(
      * that thread.
      */
     @Volatile private var pendingClockEntry = false
+    /** The pending entry waited with the clock unseen; see GlesClockOverlay.draw. */
+    @Volatile private var clockEntryWaited = false
 
     /**
      * Whether a real subject mask is bound to the mask binding right now.
@@ -221,6 +223,7 @@ internal class VulkanAtmosphereHost(
      */
     fun beginClockEntry() {
         pendingClockEntry = true
+        clockEntryWaited = false
         // A clock that is off costs nothing: no frame for it, ever.
         if (currentEffectState().clockEnabled) requestRender()
     }
@@ -286,7 +289,10 @@ internal class VulkanAtmosphereHost(
         // guard in AtmosphereRenderer.drawClockOverlay.
         if (pendingClockEntry && currentEffectState().effectiveClockOpacity() > 0f) {
             pendingClockEntry = false
-            clockTexture.beginEntry()
+            // See GlesClockOverlay.draw: no wallpaper zoom after a transition.
+            clockTexture.beginEntry(zoomWallpaper = !clockEntryWaited)
+        } else if (pendingClockEntry) {
+            clockEntryWaited = true
         }
         clockTexture.scrollOffsetX = wallpaperScrollOffsetX
         clockTexture.scrollWindowX = wallpaperScrollWindowX
