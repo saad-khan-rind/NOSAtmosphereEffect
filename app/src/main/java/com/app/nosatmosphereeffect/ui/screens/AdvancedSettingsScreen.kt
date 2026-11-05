@@ -1065,6 +1065,7 @@ private fun TimingSettings(
                                 WakeTransitionStyle.TWIRL -> R.string.wake_twirl_hint
                                 WakeTransitionStyle.FABRIC -> R.string.wake_fabric_hint
                                 WakeTransitionStyle.BUBBLES -> R.string.wake_bubbles_hint
+                                WakeTransitionStyle.SCALE -> R.string.wake_scale_hint
                                 WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
                             },
                             stringResource(R.string.effect_colorfill_title)
@@ -1510,6 +1511,10 @@ private fun WakeStyleControls(
                 R.string.wake_strength, wake.bubblesPercent,
                 WakeTransitionSettings.MIN_BUBBLES_PERCENT..WakeTransitionSettings.MAX_BUBBLES_PERCENT, percent
             ) { onChange(wake.copy(bubblesPercent = it)) }
+            WakeTransitionStyle.SCALE -> WakeSlider(
+                R.string.wake_scale_start, wake.scalePercent,
+                WakeTransitionSettings.MIN_SCALE_PERCENT..WakeTransitionSettings.MAX_SCALE_PERCENT, percent
+            ) { onChange(wake.copy(scalePercent = it)) }
             else -> Unit
         }
         Spacer(Modifier.height(12.dp))
@@ -1565,5 +1570,6 @@ private fun wakeStyleName(style: WakeTransitionStyle): Int = when (style) {
     WakeTransitionStyle.TWIRL -> R.string.wake_twirl
     WakeTransitionStyle.FABRIC -> R.string.wake_fabric
     WakeTransitionStyle.BUBBLES -> R.string.wake_bubbles
+    WakeTransitionStyle.SCALE -> R.string.wake_scale
     WakeTransitionStyle.RANDOM -> R.string.wake_random
 }

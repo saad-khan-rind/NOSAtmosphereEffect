@@ -60,7 +60,7 @@ object WallpaperBehaviorPolicy {
         "enabled", "style", "ms", "zoom_percent", "stretch_inward", "stretch_percent",
         "shake_direction", "shake_percent", "shake_count", "ripple_percent", "glitch_percent",
         "blinds_vertical", "blinds_count", "breathe_percent", "twirl_percent", "fabric_vertical",
-        "fabric_percent", "bubbles_percent"
+        "fabric_percent", "bubbles_percent", "scale_percent"
     )
     const val RANDOM_CUSTOMIZED_KEY = "wake_random_customized"
     const val SWITCH_DELAY_KEY = "playlist_switch_delay_ms"
@@ -218,6 +218,9 @@ object WallpaperBehaviorPreferences {
         bubblesPercent = WakeTransitionSettings.sanitizeBubbles(
             readInt(prefix + "bubbles_percent", WakeTransitionSettings.DEFAULT_BUBBLES_PERCENT)
         ),
+        scalePercent = WakeTransitionSettings.sanitizeScale(
+            readInt(prefix + "scale_percent", WakeTransitionSettings.DEFAULT_SCALE_PERCENT)
+        ),
         breathePercent = WakeTransitionSettings.sanitizeBreathe(
             readInt(prefix + "breathe_percent", WakeTransitionSettings.DEFAULT_BREATHE_PERCENT)
         )
@@ -242,6 +245,7 @@ object WallpaperBehaviorPreferences {
         putBoolean(prefix + "fabric_vertical", wake.fabricVertical)
         putInt(prefix + "fabric_percent", WakeTransitionSettings.sanitizeFabric(wake.fabricPercent))
         putInt(prefix + "bubbles_percent", WakeTransitionSettings.sanitizeBubbles(wake.bubblesPercent))
+        putInt(prefix + "scale_percent", WakeTransitionSettings.sanitizeScale(wake.scalePercent))
     }
 
     private fun SharedPreferences.readBoolean(key: String, fallback: Boolean): Boolean {

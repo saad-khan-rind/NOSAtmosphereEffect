@@ -227,7 +227,10 @@
     <string name="wake_fabric">Fabric wave</string>
     <string name="wake_bubbles">Bubble surge</string>
     <string name="wake_twirl_hint">The photo starts twisted into a swirl from the centre, with the edges held in place, and unwinds flat.</string>
-    <string name="wake_fabric_hint">Like a cloth snapped from two opposite edges: a wave runs in from both, crosses the middle and settles.</string>
+    <string name="wake_fabric_hint">Like a cloth snapped by two opposite edges: a wave starts in the middle, runs out to both edges and settles.</string>
+    <string name="wake_scale">Scale up</string>
+    <string name="wake_scale_hint">The lock screen grows out of a small card in the middle of the screen until it fills it, with a slight bounce, over a soft blur of itself.</string>
+    <string name="wake_scale_start">Start size</string>
     <string name="wake_bubbles_hint">A rush of tiny fizzing bubbles surges up from the bottom of the screen, bending the photo as it passes, and then is gone.</string>
     <string name="wake_twirl_twist">Twist</string>
     <string name="wake_fabric_sides">Left and right</string>
