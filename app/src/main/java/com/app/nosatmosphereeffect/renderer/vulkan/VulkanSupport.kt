@@ -44,6 +44,15 @@ internal object VulkanSupport {
     ): VulkanBackendChange {
         val requestedPreference = configuredPreference(context)
         if (requestedPreference == appliedPreference) {
+            // On OpenGL ES after a Vulkan failure, with Vulkan still wanted:
+            // once that failure is gone (Fine tuning's Try Vulkan again, a
+            // new wallpaper), Vulkan is tried again.
+            if (activeBackend == GraphicsBackend.OPENGL_ES &&
+                requestedPreference != GraphicsBackendPreference.OPENGL_ES
+            ) {
+                val retry = resolveBackend(context, effectId, requestedPreference)
+                if (retry.backend == GraphicsBackend.VULKAN) return VulkanBackendChange.Swap(retry)
+            }
             return VulkanBackendChange.None
         }
         val resolution = resolveBackend(
@@ -219,6 +228,22 @@ internal object VulkanSupport {
             .onFailure { Log.w(TAG, "Unable to clear the Vulkan failure state", it) }
     }
 
+    /** Whether a Vulkan failure recorded for this build is keeping an effect on OpenGL ES. */
+    fun hasRecordedFailures(context: Context): Boolean =
+        runCatching { VulkanFailureStore.anyBlocked(context) }.getOrDefault(false)
+
+    /**
+     * Fine tuning's Try Vulkan again: forgets the recorded failures and has
+     * the running wallpaper choose its renderer again. A real driver fault
+     * is caught and recorded again, back on OpenGL ES.
+     */
+    fun retryVulkan(context: Context) {
+        clearRecordedFailures(context)
+        context.sendBroadcast(
+            android.content.Intent("com.app.nosatmosphereeffect.UPDATE_CONFIG").setPackage(context.packageName)
+        )
+    }
+
     fun recordFailure(context: Context, effectId: String, reason: String) {
         VulkanFailureStore.record(context, effectId, reason)
     }
@@ -353,7 +378,15 @@ private object VulkanFailureStore {
         return preferences.getString(failureReasonKey(effectId), null)
     }
 
-    /** Drops every recorded failure. Backs the diagnostics screen's retry. */
+    /** Whether any recorded failure belongs to this build, and so still blocks Vulkan. */
+    fun anyBlocked(context: Context): Boolean {
+        val current = failureId(context)
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).all.any { (key, value) ->
+            (key.startsWith(FAILURE_ID_PREFIX) || key == LEGACY_FAILURE_ID_KEY) && value == current
+        }
+    }
+
+    /** Drops every recorded failure. Backs Fine tuning's Try Vulkan again. */
     fun clearAll(context: Context) {
         val preferences =
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
