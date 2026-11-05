@@ -126,7 +126,8 @@ internal class VulkanClockTextureUploader(context: Context) {
     fun isAnimating(): Boolean = face.isAnimating(SystemClock.uptimeMillis())
 
     /** Starts the entry animation; see ClockFaceRenderer.beginEntry. */
-    fun beginEntry() {
+    fun beginEntry(zoomWallpaper: Boolean = true) {
+        face.nextEntryZoomsWallpaper = zoomWallpaper
         face.beginEntry(SystemClock.uptimeMillis())
     }
 

@@ -606,6 +606,13 @@ class ClockFaceRenderer(private val context: Context) {
      * transition in flight: the face is about to be composed from scratch,
      * so there is nothing for the old digits to slide away from.
      */
+    /**
+     * Whether the next [beginEntry] also zooms the wallpaper (the Adaptive
+     * clock): false when the clock arrives through an unlock transition
+     * rather than with the screen waking. Back to true after each entry.
+     */
+    var nextEntryZoomsWallpaper = true
+
     fun beginEntry(uptimeMs: Long) {
         if (!animateEntry) {
             entryStartUptimeMs = NO_TRANSITION
@@ -613,7 +620,8 @@ class ClockFaceRenderer(private val context: Context) {
         }
         entryStartUptimeMs = uptimeMs
         transitionStartUptimeMs = NO_TRANSITION
-        adaptiveFace.beginEntry(uptimeMs)
+        adaptiveFace.beginEntry(uptimeMs, zoomWallpaper = nextEntryZoomsWallpaper)
+        nextEntryZoomsWallpaper = true
         // The displayed time has not necessarily changed, but the pixels
         // have — force the next render rather than letting the key check
         // short-circuit it.

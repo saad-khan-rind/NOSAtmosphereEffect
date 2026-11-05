@@ -80,6 +80,8 @@ class AtmosphereRenderer(
     @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
     @Volatile private var pendingClockFormatRefresh: Boolean = false
     @Volatile private var pendingClockEntry: Boolean = false
+    /** The pending entry waited with the clock unseen; see GlesClockOverlay.draw. */
+    @Volatile private var clockEntryWaited = false
     private var renderFailureLogged = false
     private var renderRetryCount = 0
     private var generationCounter = 0L
@@ -794,7 +796,9 @@ class AtmosphereRenderer(
         // back.
         if (pendingClockEntry && clockEnabled && visibility > 0f && clockOpacity > 0f) {
             pendingClockEntry = false
-            clockTexture.beginEntry()
+            clockTexture.beginEntry(zoomWallpaper = !clockEntryWaited)
+        } else if (pendingClockEntry) {
+            clockEntryWaited = true
         }
         val safeAspect = if (aspectRatio.isFinite() && aspectRatio > 0f) aspectRatio else 1f
         val layout = clockLayout
@@ -908,6 +912,7 @@ class AtmosphereRenderer(
      */
     fun beginClockEntry() {
         pendingClockEntry = true
+        clockEntryWaited = false
         if (clockEnabled) onAnimationFrameRequested?.invoke()
     }
 

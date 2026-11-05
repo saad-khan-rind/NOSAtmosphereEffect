@@ -130,7 +130,8 @@ class ClockTextureProvider(context: Context) {
      * Starts the entry animation. Called when the wallpaper engine becomes
      * visible, so the clock arrives rather than being already there.
      */
-    fun beginEntry() {
+    fun beginEntry(zoomWallpaper: Boolean = true) {
+        face.nextEntryZoomsWallpaper = zoomWallpaper
         face.beginEntry(SystemClock.uptimeMillis())
     }
 
