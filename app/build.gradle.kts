@@ -16,7 +16,7 @@ val localProperties = Properties().apply {
 android {
     namespace = "com.app.nosatmosphereeffect"
     compileSdk = 37
-    ndkVersion = "29.0.14206865"
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "com.saad_khan_rind.atmosphere_effect"
