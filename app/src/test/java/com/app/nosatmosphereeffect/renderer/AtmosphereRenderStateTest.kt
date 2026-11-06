@@ -2,7 +2,7 @@ package com.app.nosatmosphereeffect.renderer
 
 import android.content.Context
 import android.content.ContextWrapper
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

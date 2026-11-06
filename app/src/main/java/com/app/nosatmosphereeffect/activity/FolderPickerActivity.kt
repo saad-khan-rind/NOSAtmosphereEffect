@@ -9,7 +9,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
+import com.app.nosatmosphereeffect.playlist.FolderPlaylistSource
 import com.app.nosatmosphereeffect.storage.WatchedFolder
 
 /**

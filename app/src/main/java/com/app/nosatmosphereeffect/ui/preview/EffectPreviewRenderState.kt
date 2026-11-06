@@ -1,7 +1,7 @@
 package com.app.nosatmosphereeffect.ui.preview
 
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.ClockPalette
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState

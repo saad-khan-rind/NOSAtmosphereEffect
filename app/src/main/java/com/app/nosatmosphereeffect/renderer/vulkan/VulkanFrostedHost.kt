@@ -3,9 +3,9 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.WakeTransition
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.transition.WakeTransition
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost

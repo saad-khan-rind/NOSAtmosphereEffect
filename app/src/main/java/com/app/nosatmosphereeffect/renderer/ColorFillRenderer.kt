@@ -8,11 +8,11 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import androidx.core.graphics.createBitmap
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.GlesClockOverlay
-import com.app.nosatmosphereeffect.helper.GlesSubjectMask
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
-import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.GlesClockOverlay
+import com.app.nosatmosphereeffect.subject.GlesSubjectMask
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder

@@ -3,9 +3,9 @@ package com.app.nosatmosphereeffect.service
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
-import com.app.nosatmosphereeffect.helper.GLWallpaperService
-import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
+import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
+import com.app.nosatmosphereeffect.subject.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderController
 import com.app.nosatmosphereeffect.renderer.FrostedRenderController
 import com.app.nosatmosphereeffect.renderer.FrostedRenderer

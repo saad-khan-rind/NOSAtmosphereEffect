@@ -3,10 +3,10 @@ package com.app.nosatmosphereeffect.renderer
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.GLWallpaperService
-import com.app.nosatmosphereeffect.helper.WakeTransition
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
+import com.app.nosatmosphereeffect.transition.WakeTransition
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference

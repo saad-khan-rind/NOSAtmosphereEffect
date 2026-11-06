@@ -2,7 +2,7 @@ package com.app.nosatmosphereeffect.ui.model
 
 import androidx.annotation.StringRes
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
 
 /**
  * [title], [transition] and [description] are string resources, so they follow the phone's language.

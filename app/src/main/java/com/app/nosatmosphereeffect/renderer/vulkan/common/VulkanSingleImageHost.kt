@@ -8,8 +8,8 @@ import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanApiVersion
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanWakeNative
 import java.util.concurrent.atomic.AtomicBoolean

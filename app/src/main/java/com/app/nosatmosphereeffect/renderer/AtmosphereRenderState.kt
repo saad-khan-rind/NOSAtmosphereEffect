@@ -1,13 +1,13 @@
 package com.app.nosatmosphereeffect.renderer
 
-import com.app.nosatmosphereeffect.helper.ClockFont
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.ClockPalette
-import com.app.nosatmosphereeffect.helper.ClockScreen
-import com.app.nosatmosphereeffect.helper.ClockScreenPolicy
-import com.app.nosatmosphereeffect.helper.ClockStyle
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
+import com.app.nosatmosphereeffect.clock.ClockFont
+import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.ClockPalette
+import com.app.nosatmosphereeffect.clock.ClockScreen
+import com.app.nosatmosphereeffect.clock.ClockScreenPolicy
+import com.app.nosatmosphereeffect.clock.ClockStyle
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 
 data class AtmosphereBlobFrame(
     val colors: FloatArray = FloatArray(MAX_BLOBS * 3),

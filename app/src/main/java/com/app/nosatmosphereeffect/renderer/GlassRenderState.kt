@@ -1,8 +1,8 @@
 package com.app.nosatmosphereeffect.renderer
 
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
-import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
+import com.app.nosatmosphereeffect.effect.GlassTransitionStyle
 
 data class GlassRenderState(
     val progress: Float = 0f,

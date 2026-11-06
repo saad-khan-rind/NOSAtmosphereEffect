@@ -1,6 +1,6 @@
 package com.app.nosatmosphereeffect.renderer
 
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
 
 data class HalftoneRenderState(
     val progress: Float = 0f,

@@ -9,7 +9,7 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewOutlineProvider
 import com.app.nosatmosphereeffect.renderer.SinglePassLook
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanColorFillHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanFrostedHost

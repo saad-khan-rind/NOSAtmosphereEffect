@@ -28,11 +28,11 @@ import com.app.nosatmosphereeffect.activity.PlaylistEditorActivity
 import com.app.nosatmosphereeffect.activity.SavedPlaylistsActivity
 import com.app.nosatmosphereeffect.activity.ThemePlaylistEditorActivity
 import com.app.nosatmosphereeffect.activity.WallpaperEffectServices
-import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
-import com.app.nosatmosphereeffect.helper.PlaylistModeManager
-import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
+import com.app.nosatmosphereeffect.playlist.FolderPlaylistSource
+import com.app.nosatmosphereeffect.playlist.PlaylistModeManager
+import com.app.nosatmosphereeffect.color.SystemColorSyncPreferences
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorPreferences
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatus
 import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary

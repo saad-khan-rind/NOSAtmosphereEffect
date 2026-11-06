@@ -1,7 +1,7 @@
 package com.app.nosatmosphereeffect.renderer
 
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
-import com.app.nosatmosphereeffect.helper.GlassTransitionStyle
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
+import com.app.nosatmosphereeffect.effect.GlassTransitionStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test

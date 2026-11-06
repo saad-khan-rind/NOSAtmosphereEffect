@@ -29,8 +29,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.app.nosatmosphereeffect.helper.ClockBoxHandle
-import com.app.nosatmosphereeffect.helper.ClockBoxRect
+import com.app.nosatmosphereeffect.clock.ClockBoxHandle
+import com.app.nosatmosphereeffect.clock.ClockBoxRect
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt

@@ -47,8 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
+import com.app.nosatmosphereeffect.wallpaper.AlwaysAppliedTarget
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorPreferences
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
 import com.app.nosatmosphereeffect.ui.components.AtmoPrimaryButton

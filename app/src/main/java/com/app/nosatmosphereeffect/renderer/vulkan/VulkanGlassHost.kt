@@ -3,8 +3,8 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 

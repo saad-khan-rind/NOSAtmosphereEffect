@@ -2,9 +2,9 @@ package com.app.nosatmosphereeffect.renderer
 
 import android.content.Context
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.ClockFramePump
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.ClockPalette
+import com.app.nosatmosphereeffect.clock.ClockFramePump
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.ClockPalette
 import java.util.concurrent.Executors
 
 /**

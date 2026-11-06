@@ -3,8 +3,8 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.ClockSceneSink
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.ClockSceneSink
 
 /**
  * The Vulkan half of the wallpaper clock, packaged so an effect host gains the

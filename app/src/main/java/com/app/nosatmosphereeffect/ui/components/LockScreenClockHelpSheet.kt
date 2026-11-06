@@ -40,8 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.DeviceIdentity
-import com.app.nosatmosphereeffect.helper.LockScreenClockGuide
+import com.app.nosatmosphereeffect.clock.DeviceIdentity
+import com.app.nosatmosphereeffect.clock.LockScreenClockGuide
 
 /**
  * Explains that the wallpaper clock is meant to replace the phone's own lock

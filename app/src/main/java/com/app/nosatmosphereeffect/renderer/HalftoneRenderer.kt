@@ -7,11 +7,11 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.GlesClockOverlay
-import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
-import com.app.nosatmosphereeffect.helper.WallpaperScrollRenderer
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.GlesClockOverlay
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
