@@ -4,11 +4,14 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
-import android.opengl.GLUtils
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
-import com.app.nosatmosphereeffect.subject.GlesSubjectMask
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.gles.BlurredTextureSet
+import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
+import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
+import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
+import com.app.nosatmosphereeffect.subject.GlesSubjectMask
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -40,17 +43,8 @@ class FrostedRenderer(
         drawerBlur = if (blurred) 1f else 0f
     }
 
-    private class TextureSet {
-        var sharpId = 0
-        var blurId = 0
-        var width = 0
-        var height = 0
-        fun isValid() = sharpId != 0 && blurId != 0
-        fun reset() { sharpId = 0; blurId = 0; width = 0; height = 0 }
-    }
-
-    private var currentSet = TextureSet()
-    private var nextSet = TextureSet()
+    private var currentSet = BlurredTextureSet()
+    private var nextSet = BlurredTextureSet()
 
     @Volatile private var pendingPlaylistBitmap: Bitmap? = null
 
@@ -93,7 +87,6 @@ class FrostedRenderer(
         // own segmentation finds, in the image it actually draws.
         subjectMask.sceneSink = clockOverlay.sceneSink
     }
-
 
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
@@ -159,10 +152,10 @@ class FrostedRenderer(
             .put(vertices)
         vertexBuffer.position(0)
 
-        val vertexCode = loadShaderFromAssets("shaders/frosted/frosted.vert")
-        val fragmentCode = loadShaderFromAssets("shaders/frosted/frosted.frag")
+        val vertexCode = GlesProgram.readAsset(context, "shaders/frosted/frosted.vert")
+        val fragmentCode = GlesProgram.readAsset(context, "shaders/frosted/frosted.frag")
 
-        programId = createProgram(vertexCode, fragmentCode)
+        programId = GlesProgram.tryLink("Frosted", vertexCode, fragmentCode)
 
         val blurFragCode = """
             #version 300 es
@@ -185,7 +178,7 @@ class FrostedRenderer(
                 fragColor = vec4(result / totalWeight, 1.0);
             }
         """.trimIndent()
-        blurProgramId = createProgram(vertexCode, blurFragCode)
+        blurProgramId = GlesProgram.tryLink("Frosted", vertexCode, blurFragCode)
 
         val fbo = IntArray(1)
         GLES30.glGenFramebuffers(1, fbo, 0)
@@ -205,7 +198,7 @@ class FrostedRenderer(
 
     private fun loadAndApplyTextures() {
         if (currentSet.isValid()) {
-            val ids = intArrayOf(currentSet.sharpId, currentSet.blurId)
+            val ids = intArrayOf(currentSet.photoId, currentSet.blurId)
             GLES30.glDeleteTextures(2, ids, 0)
             currentSet.reset()
         }
@@ -225,16 +218,16 @@ class FrostedRenderer(
         currentSet.width = sharpBitmap.width
         currentSet.height = sharpBitmap.height
 
-        currentSet.sharpId = uploadTexture(sharpBitmap)
+        currentSet.photoId = GlesTexture.uploadUnchecked(sharpBitmap, mipmaps = true)
 
         tempTextureWidth = sharpBitmap.width
         tempTextureHeight = sharpBitmap.height
         tempTextureId = createEmptyTexture(sharpBitmap.width, sharpBitmap.height)
 
         if (blurRadius < 1.0f) {
-            currentSet.blurId = uploadTexture(sharpBitmap)
+            currentSet.blurId = GlesTexture.uploadUnchecked(sharpBitmap, mipmaps = true)
         } else {
-            currentSet.blurId = gpuBlur(currentSet.sharpId, sharpBitmap.width, sharpBitmap.height, blurRadius)
+            currentSet.blurId = gpuBlur(currentSet.photoId, sharpBitmap.width, sharpBitmap.height, blurRadius)
         }
         // Before the recycle: the extractor needs the pixels.
         subjectMask.onImageLoaded(sharpBitmap)
@@ -250,16 +243,16 @@ class FrostedRenderer(
         fittedForHeight = surfaceHeight
 
         // Reuse queued texture IDs; dimensions determine whether storage is reallocated.
-        nextSet.sharpId = uploadTexture(bitmap, nextSet.sharpId, nextSet.width, nextSet.height)
+        nextSet.photoId = GlesTexture.uploadUnchecked(bitmap, existingId = nextSet.photoId, mipmaps = true)
 
         tempTextureId = createEmptyTexture(bitmap.width, bitmap.height, tempTextureId, tempTextureWidth, tempTextureHeight)
         tempTextureWidth = bitmap.width
         tempTextureHeight = bitmap.height
 
         if (blurRadius < 1.0f) {
-            nextSet.blurId = uploadTexture(bitmap, nextSet.blurId, nextSet.width, nextSet.height)
+            nextSet.blurId = GlesTexture.uploadUnchecked(bitmap, existingId = nextSet.blurId, mipmaps = true)
         } else {
-            nextSet.blurId = gpuBlur(nextSet.sharpId, bitmap.width, bitmap.height, blurRadius, nextSet.blurId, nextSet.width, nextSet.height)
+            nextSet.blurId = gpuBlur(nextSet.photoId, bitmap.width, bitmap.height, blurRadius, nextSet.blurId, nextSet.width, nextSet.height)
         }
 
         nextSet.width = bitmap.width
@@ -331,15 +324,13 @@ class FrostedRenderer(
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollOffsetX"), scrollOffsetX)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollWindowX"), currentWindowX)
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.sharpId)
-        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureSharp"), 0)
+        SceneTextures.bindPhoto(currentSet.photoId, 0, GLES30.glGetUniformLocation(programId, "uTextureSharp"))
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,currentSet.blurId )
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureBlur"), 1)
 
-        subjectMask.bind(programId, GLES30.GL_TEXTURE3, 3, "uClockSubjectMask")
+        subjectMask.bind(programId, 3, "uClockSubjectMask")
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
             scrollWindowX = currentWindowX,
@@ -403,40 +394,4 @@ class FrostedRenderer(
         GLES30.glDisableVertexAttribArray(aTexLoc)
     }
 
-    private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int = 0, existingWidth: Int = 0, existingHeight: Int = 0): Int {
-        val textureHandle = if (existingTextureId != 0) intArrayOf(existingTextureId) else { val arr = IntArray(1); GLES30.glGenTextures(1, arr, 0); arr }
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureHandle[0])
-
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR_MIPMAP_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-
-        GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-
-        GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D)
-
-        return textureHandle[0]
-    }
-
-    private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = loadShader(GLES30.GL_VERTEX_SHADER, vertexSource)
-        val fragmentShader = loadShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource)
-        val program = GLES30.glCreateProgram()
-        GLES30.glAttachShader(program, vertexShader)
-        GLES30.glAttachShader(program, fragmentShader)
-        GLES30.glLinkProgram(program)
-        return program
-    }
-
-    private fun loadShader(type: Int, source: String): Int {
-        val shader = GLES30.glCreateShader(type)
-        GLES30.glShaderSource(shader, source)
-        GLES30.glCompileShader(shader)
-        return shader
-    }
-
-    private fun loadShaderFromAssets(path: String): String {
-        return context.assets.open(path).bufferedReader().use { it.readText() }
-    }
 }

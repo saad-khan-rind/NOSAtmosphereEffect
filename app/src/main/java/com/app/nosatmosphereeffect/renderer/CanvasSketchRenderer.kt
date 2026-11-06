@@ -4,11 +4,14 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
-import android.opengl.GLUtils
-import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
+import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
+import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
+import com.app.nosatmosphereeffect.renderer.gles.WallpaperTextureSet
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -78,38 +81,28 @@ class CanvasSketchRenderer(
         scrollOffsetX = xOffset.coerceIn(0f, 1f)
     }
 
-    private class TextureSet {
-        var sharpId = 0
+    /** The photo, its baked sketch lines and the subject mask, each at its own size. */
+    private class CanvasSketchTextureSet : WallpaperTextureSet() {
         var lineId = 0
-        var maskId = 0
-        var width = 0
-        var height = 0
         var lineWidth = 0
         var lineHeight = 0
         var maskWidth = 0
         var maskHeight = 0
-        var generation = 0L
-        var hasSubject = false
 
-        fun isValid() = sharpId != 0 && lineId != 0
+        override fun isValid(): Boolean = super.isValid() && lineId != 0
 
-        fun reset() {
-            sharpId = 0
+        override fun reset() {
+            super.reset()
             lineId = 0
-            maskId = 0
-            width = 0
-            height = 0
             lineWidth = 0
             lineHeight = 0
             maskWidth = 0
             maskHeight = 0
-            generation = 0L
-            hasSubject = false
         }
     }
 
-    private var currentSet = TextureSet()
-    private var nextSet = TextureSet()
+    private var currentSet = CanvasSketchTextureSet()
+    private var nextSet = CanvasSketchTextureSet()
     private var generationCounter = 0L
 
     @Volatile
@@ -227,12 +220,12 @@ class CanvasSketchRenderer(
             .put(vertices)
         vertexBuffer.position(0)
 
-        val screenVertexCode = loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch.vert")
-        val bakeVertexCode = loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_bake.vert")
-        programId = createProgram(screenVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch.frag"))
-        edgeProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_edges.frag"))
-        hystProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_hyst.frag"))
-        edtProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_edt.frag"))
+        val screenVertexCode = GlesProgram.readAsset(context, "shaders/canvas_sketch/canvas_sketch.vert")
+        val bakeVertexCode = GlesProgram.readAsset(context, "shaders/canvas_sketch/canvas_sketch_bake.vert")
+        programId = GlesProgram.tryLink("Canvas Sketch", screenVertexCode, GlesProgram.readAsset(context, "shaders/canvas_sketch/canvas_sketch.frag"))
+        edgeProgramId = GlesProgram.tryLink("Canvas Sketch", bakeVertexCode, GlesProgram.readAsset(context, "shaders/canvas_sketch/canvas_sketch_edges.frag"))
+        hystProgramId = GlesProgram.tryLink("Canvas Sketch", bakeVertexCode, GlesProgram.readAsset(context, "shaders/canvas_sketch/canvas_sketch_hyst.frag"))
+        edtProgramId = GlesProgram.tryLink("Canvas Sketch", bakeVertexCode, GlesProgram.readAsset(context, "shaders/canvas_sketch/canvas_sketch_edt.frag"))
 
         val fbo = IntArray(1)
         GLES30.glGenFramebuffers(1, fbo, 0)
@@ -259,7 +252,7 @@ class CanvasSketchRenderer(
         currentSet.height = bitmap.height
         currentSet.generation = nextGeneration()
         currentSet.hasSubject = false
-        currentSet.sharpId = uploadTexture(bitmap)
+        currentSet.photoId = GlesTexture.uploadUnchecked(bitmap, mipmaps = true)
 
         buildSketch(currentSet)
         needsSketchRebuild = false
@@ -275,7 +268,7 @@ class CanvasSketchRenderer(
         fittedForWidth = surfaceWidth
         fittedForHeight = surfaceHeight
 
-        nextSet.sharpId = uploadTexture(bitmap, nextSet.sharpId)
+        nextSet.photoId = GlesTexture.uploadUnchecked(bitmap, existingId = nextSet.photoId, mipmaps = true)
         nextSet.width = bitmap.width
         nextSet.height = bitmap.height
         nextSet.generation = nextGeneration()
@@ -307,7 +300,7 @@ class CanvasSketchRenderer(
             return
         }
 
-        currentSet.maskId = uploadMaskTexture(pending.bitmap, currentSet.maskId)
+        currentSet.maskId = GlesTexture.uploadUnchecked(pending.bitmap, existingId = currentSet.maskId)
         currentSet.maskWidth = pending.bitmap.width
         currentSet.maskHeight = pending.bitmap.height
         currentSet.hasSubject = true
@@ -322,8 +315,8 @@ class CanvasSketchRenderer(
      * contribute a guaranteed silhouette; color edges are accepted only when
      * they remain meaningful across two coarse image scales.
      */
-    private fun buildSketch(set: TextureSet) {
-        if (set.sharpId == 0 || set.width <= 0 || set.height <= 0) return
+    private fun buildSketch(set: CanvasSketchTextureSet) {
+        if (set.photoId == 0 || set.width <= 0 || set.height <= 0) return
 
         val sourceWidth = set.width
         val sourceHeight = set.height
@@ -360,7 +353,7 @@ class CanvasSketchRenderer(
         attach(edgeAId)
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, set.sharpId)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, set.photoId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(edgeProgramId, "uTextureSharp"), 0)
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
@@ -491,21 +484,14 @@ class CanvasSketchRenderer(
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollOffsetX"), scrollOffsetX)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollWindowX"), currentWindowX)
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.sharpId)
-        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureSharp"), 0)
+        SceneTextures.bindPhoto(currentSet.photoId, 0, GLES30.glGetUniformLocation(programId, "uTextureSharp"))
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.lineId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uLineTex"), 1)
 
         val maskReady = subjectMaskWanted && currentSet.hasSubject
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE3)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
-        GLES30.glUniform1i(
-            GLES30.glGetUniformLocation(programId, "uClockSubjectMask"),
-            3
-        )
+        SceneTextures.bindSubjectMask(currentSet.maskId, 3, GLES30.glGetUniformLocation(programId, "uClockSubjectMask"))
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
@@ -534,8 +520,8 @@ class CanvasSketchRenderer(
         return generationCounter
     }
 
-    private fun clearTextureSet(set: TextureSet) {
-        deleteTexture(set.sharpId)
+    private fun clearTextureSet(set: CanvasSketchTextureSet) {
+        deleteTexture(set.photoId)
         deleteTexture(set.lineId)
         deleteTexture(set.maskId)
         set.reset()
@@ -597,61 +583,8 @@ class CanvasSketchRenderer(
         return texture[0]
     }
 
-    private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int = 0): Int {
-        val texture = if (existingTextureId != 0) {
-            intArrayOf(existingTextureId)
-        } else {
-            IntArray(1).also { GLES30.glGenTextures(1, it, 0) }
-        }
-
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture[0])
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR_MIPMAP_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-        GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-        GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D)
-        return texture[0]
-    }
-
-    private fun uploadMaskTexture(bitmap: Bitmap, existingTextureId: Int = 0): Int {
-        val texture = if (existingTextureId != 0) {
-            intArrayOf(existingTextureId)
-        } else {
-            IntArray(1).also { GLES30.glGenTextures(1, it, 0) }
-        }
-
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture[0])
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-        GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-        return texture[0]
-    }
-
     private fun deleteTexture(textureId: Int) {
         if (textureId != 0) GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
     }
 
-    private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = loadShader(GLES30.GL_VERTEX_SHADER, vertexSource)
-        val fragmentShader = loadShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource)
-        val program = GLES30.glCreateProgram()
-        GLES30.glAttachShader(program, vertexShader)
-        GLES30.glAttachShader(program, fragmentShader)
-        GLES30.glLinkProgram(program)
-        return program
-    }
-
-    private fun loadShader(type: Int, source: String): Int {
-        val shader = GLES30.glCreateShader(type)
-        GLES30.glShaderSource(shader, source)
-        GLES30.glCompileShader(shader)
-        return shader
-    }
-
-    private fun loadShaderFromAssets(path: String): String {
-        return context.assets.open(path).bufferedReader().use { it.readText() }
-    }
 }

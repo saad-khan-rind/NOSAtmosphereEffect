@@ -6,12 +6,15 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
-import android.opengl.GLUtils
 import androidx.core.graphics.createBitmap
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
-import com.app.nosatmosphereeffect.subject.GlesSubjectMask
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
+import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
+import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
+import com.app.nosatmosphereeffect.renderer.gles.WallpaperTextureSet
+import com.app.nosatmosphereeffect.subject.GlesSubjectMask
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.io.File
 import java.nio.ByteBuffer
@@ -34,16 +37,8 @@ class ColorFillRenderer(
         scrollOffsetX = xOffset.coerceIn(0f, 1f)
     }
 
-    private class TextureSet {
-        var sharpId = 0
-        var width = 0
-        var height = 0
-        fun isValid() = sharpId != 0
-        fun reset() { sharpId = 0; width = 0; height = 0 }
-    }
-
-    private var currentSet = TextureSet()
-    private var nextSet = TextureSet()
+    private var currentSet = WallpaperTextureSet()
+    private var nextSet = WallpaperTextureSet()
     @Volatile private var pendingPlaylistBitmap: Bitmap? = null
 
     @Volatile var blurStrength: Float = 0.0f
@@ -72,7 +67,6 @@ class ColorFillRenderer(
         // own segmentation finds, in the image it actually draws.
         subjectMask.sceneSink = clockOverlay.sceneSink
     }
-
 
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
@@ -139,14 +133,14 @@ class ColorFillRenderer(
             .put(vertices)
         vertexBuffer.position(0)
 
-        val vertexCode = loadShaderFromAssets("shaders/color_fill/color_fill.vert")
+        val vertexCode = GlesProgram.readAsset(context, "shaders/color_fill/color_fill.vert")
         val fragmentCode = if (isReverse) {
-            loadShaderFromAssets("shaders/color_fill/color_to_bw.frag")
+            GlesProgram.readAsset(context, "shaders/color_fill/color_to_bw.frag")
         } else {
-            loadShaderFromAssets("shaders/color_fill/bw_to_color.frag")
+            GlesProgram.readAsset(context, "shaders/color_fill/bw_to_color.frag")
         }
 
-        programId = createProgram(vertexCode, fragmentCode)
+        programId = GlesProgram.tryLink("Color Fill", vertexCode, fragmentCode)
         // GL context is fresh: any previously held texture handles are invalid.
         // Defer the texture load to the first frame, when the surface size is
         // known, so the image can be fitted to the actual display (foldables).
@@ -160,7 +154,7 @@ class ColorFillRenderer(
 
     private fun loadAndApplyTextures() {
         if (currentSet.isValid()) {
-            GLES30.glDeleteTextures(1, intArrayOf(currentSet.sharpId), 0)
+            GLES30.glDeleteTextures(1, intArrayOf(currentSet.photoId), 0)
             currentSet.reset()
         }
         fittedForWidth = surfaceWidth
@@ -172,7 +166,7 @@ class ColorFillRenderer(
         currentSet.width = sharpBitmap.width
         currentSet.height = sharpBitmap.height
 
-        currentSet.sharpId = uploadTexture(sharpBitmap)
+        currentSet.photoId = GlesTexture.uploadUnchecked(sharpBitmap, mipmaps = true)
         // Before the recycle: the extractor needs the pixels.
         subjectMask.onImageLoaded(sharpBitmap)
         sharpBitmap.recycle()
@@ -187,7 +181,7 @@ class ColorFillRenderer(
         fittedForHeight = surfaceHeight
 
         // Reuse the queued texture ID across playlist transitions.
-        nextSet.sharpId = uploadTexture(bitmap, nextSet.sharpId, nextSet.width, nextSet.height)
+        nextSet.photoId = GlesTexture.uploadUnchecked(bitmap, existingId = nextSet.photoId, mipmaps = true)
 
         nextSet.width = bitmap.width
         nextSet.height = bitmap.height
@@ -242,11 +236,9 @@ class ColorFillRenderer(
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollOffsetX"), scrollOffsetX)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollWindowX"), currentWindowX)
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.sharpId)
-        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureSharp"), 0)
+        SceneTextures.bindPhoto(currentSet.photoId, 0, GLES30.glGetUniformLocation(programId, "uTextureSharp"))
 
-        subjectMask.bind(programId, GLES30.GL_TEXTURE2, 2, "uClockSubjectMask")
+        subjectMask.bind(programId, 2, "uClockSubjectMask")
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
             scrollWindowX = currentWindowX,
@@ -273,40 +265,4 @@ class ColorFillRenderer(
         GLES30.glDisableVertexAttribArray(aTexLoc)
     }
 
-    private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int = 0, existingWidth: Int = 0, existingHeight: Int = 0): Int {
-        val textureHandle = if (existingTextureId != 0) intArrayOf(existingTextureId) else { val arr = IntArray(1); GLES30.glGenTextures(1, arr, 0); arr }
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureHandle[0])
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR_MIPMAP_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-
-        GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-
-        GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D)
-
-
-        return textureHandle[0]
-    }
-
-    private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = loadShader(GLES30.GL_VERTEX_SHADER, vertexSource)
-        val fragmentShader = loadShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource)
-        val program = GLES30.glCreateProgram()
-        GLES30.glAttachShader(program, vertexShader)
-        GLES30.glAttachShader(program, fragmentShader)
-        GLES30.glLinkProgram(program)
-        return program
-    }
-
-    private fun loadShader(type: Int, source: String): Int {
-        val shader = GLES30.glCreateShader(type)
-        GLES30.glShaderSource(shader, source)
-        GLES30.glCompileShader(shader)
-        return shader
-    }
-
-    private fun loadShaderFromAssets(path: String): String {
-        return context.assets.open(path).bufferedReader().use { it.readText() }
-    }
 }

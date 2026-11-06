@@ -5,12 +5,15 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
-import android.opengl.GLUtils
 import android.util.Log
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
-import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
+import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
+import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
+import com.app.nosatmosphereeffect.renderer.gles.WallpaperTextureSet
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -40,26 +43,8 @@ class HalftoneRenderer(
         scrollOffsetX = xOffset.coerceIn(0f, 1f)
     }
 
-    private class TextureSet {
-        var sharpId = 0
-        var maskId = 0
-        var width = 0
-        var height = 0
-        var generation = 0L
-        var hasSubject = false
-        fun isValid() = sharpId != 0
-        fun reset() {
-            sharpId = 0
-            maskId = 0
-            width = 0
-            height = 0
-            generation = 0L
-            hasSubject = false
-        }
-    }
-
-    private var currentSet = TextureSet()
-    private var nextSet = TextureSet()
+    private var currentSet = WallpaperTextureSet()
+    private var nextSet = WallpaperTextureSet()
 
     private val playlistLock = Any()
     private var pendingPlaylistBitmap: Bitmap? = null
@@ -103,7 +88,6 @@ class HalftoneRenderer(
         // own segmentation finds, in the image it actually draws.
         subjectMasks.sceneSink = clockOverlay.sceneSink
     }
-
 
     /** Asks the host surface for another frame; used by the clock animation. */
     @Volatile
@@ -213,9 +197,9 @@ class HalftoneRenderer(
         renderFailureLogged = false
         renderRetryCount = 0
         try {
-            val vertexCode = loadShaderFromAssets(SinglePassLook.VERTEX_SHADER)
-            val fragmentCode = loadShaderFromAssets(look.fragmentShader(isReverse))
-            programId = createProgram(vertexCode, fragmentCode)
+            val vertexCode = GlesProgram.readAsset(context, SinglePassLook.VERTEX_SHADER)
+            val fragmentCode = GlesProgram.readAsset(context, look.fragmentShader(isReverse))
+            programId = GlesProgram.link(look.label, vertexCode, fragmentCode)
             needsReload = true
         } catch (failure: Exception) {
             Log.e(TAG, "Unable to initialize the Halftone renderer", failure)
@@ -235,14 +219,14 @@ class HalftoneRenderer(
         val render = WallpaperFitHelper.loadForRender(context, surfaceWidth, surfaceHeight, previewSource)
         val sharpBitmap = render.bitmap
         try {
-            val newTexture = uploadTexture(sharpBitmap)
+            val newTexture = GlesTexture.upload(sharpBitmap, "the ${look.label} photo", mipmaps = true)
             deleteTextureSet(currentSet)
             currentWindowX = render.windowX
             currentSet.width = sharpBitmap.width
             currentSet.height = sharpBitmap.height
             currentSet.generation = nextGeneration()
             currentSet.hasSubject = false
-            currentSet.sharpId = newTexture
+            currentSet.photoId = newTexture
             subjectMasks.request(sharpBitmap, currentSet.generation)
         } finally {
             if (!sharpBitmap.isRecycled) sharpBitmap.recycle()
@@ -267,7 +251,7 @@ class HalftoneRenderer(
             fittedForHeight = surfaceHeight
 
             deleteMaskTexture(nextSet)
-            nextSet.sharpId = uploadTexture(bitmap, nextSet.sharpId)
+            nextSet.photoId = GlesTexture.upload(bitmap, "the ${look.label} photo", existingId = nextSet.photoId, mipmaps = true)
             nextSet.width = bitmap.width
             nextSet.height = bitmap.height
             nextSet.generation = nextGeneration()
@@ -349,7 +333,7 @@ class HalftoneRenderer(
             if (pending.generation != currentSet.generation || !subjectMasks.enabled) {
                 return
             }
-            currentSet.maskId = uploadMaskTexture(pending.bitmap, currentSet.maskId)
+            currentSet.maskId = GlesTexture.upload(pending.bitmap, "the ${look.label} subject mask", existingId = currentSet.maskId)
             currentSet.hasSubject = true
         } finally {
             if (!pending.bitmap.isRecycled) pending.bitmap.recycle()
@@ -379,13 +363,9 @@ class HalftoneRenderer(
             if (backgroundOnly && maskReady) 1f else 0f
         )
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.sharpId)
-        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureSharp"), 0)
+        SceneTextures.bindPhoto(currentSet.photoId, 0, GLES30.glGetUniformLocation(programId, "uTextureSharp"))
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
-        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 1)
+        SceneTextures.bindSubjectMask(currentSet.maskId, 1, GLES30.glGetUniformLocation(programId, "uSubjectMask"))
 
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
@@ -414,91 +394,7 @@ class HalftoneRenderer(
         GLES30.glDisableVertexAttribArray(aTexLoc)
     }
 
-    private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int = 0): Int {
-        val isNewTexture = existingTextureId == 0
-        val textureId = if (isNewTexture) {
-            IntArray(1).also { GLES30.glGenTextures(1, it, 0) }[0]
-        } else {
-            existingTextureId
-        }
-        check(textureId != 0) { "OpenGL did not create a Halftone texture" }
-
-        try {
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MIN_FILTER,
-                GLES30.GL_LINEAR_MIPMAP_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MAG_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_S,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_T,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-            GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D)
-            throwOnGlError("uploading a Halftone texture")
-            return textureId
-        } catch (failure: RuntimeException) {
-            if (isNewTexture) {
-                GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
-            }
-            throw failure
-        }
-    }
-
-    private fun uploadMaskTexture(bitmap: Bitmap, existingTextureId: Int = 0): Int {
-        val isNewTexture = existingTextureId == 0
-        val textureId = if (!isNewTexture) {
-            existingTextureId
-        } else {
-            IntArray(1).also { GLES30.glGenTextures(1, it, 0) }[0]
-        }
-        check(textureId != 0) { "OpenGL did not create a Halftone subject mask" }
-        try {
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MIN_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MAG_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_S,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_T,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-            throwOnGlError("uploading a Halftone subject mask")
-            return textureId
-        } catch (failure: RuntimeException) {
-            if (isNewTexture) {
-                GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
-            }
-            throw failure
-        }
-    }
-
-    private fun deleteMaskTexture(set: TextureSet) {
+    private fun deleteMaskTexture(set: WallpaperTextureSet) {
         if (set.maskId != 0) {
             GLES30.glDeleteTextures(1, intArrayOf(set.maskId), 0)
         }
@@ -506,9 +402,9 @@ class HalftoneRenderer(
         set.hasSubject = false
     }
 
-    private fun deleteTextureSet(set: TextureSet) {
-        if (set.sharpId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(set.sharpId), 0)
+    private fun deleteTextureSet(set: WallpaperTextureSet) {
+        if (set.photoId != 0) {
+            GLES30.glDeleteTextures(1, intArrayOf(set.photoId), 0)
         }
         if (set.maskId != 0) {
             GLES30.glDeleteTextures(1, intArrayOf(set.maskId), 0)
@@ -524,69 +420,6 @@ class HalftoneRenderer(
     private fun clearFrame() {
         GLES30.glClearColor(0f, 0f, 0f, 1f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-    }
-
-    private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = compileShader(GLES30.GL_VERTEX_SHADER, vertexSource, "vertex")
-        val fragmentShader = try {
-            compileShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource, "fragment")
-        } catch (failure: RuntimeException) {
-            GLES30.glDeleteShader(vertexShader)
-            throw failure
-        }
-
-        var program = 0
-        try {
-            program = GLES30.glCreateProgram()
-            check(program != 0) { "OpenGL did not create a Halftone shader program" }
-            GLES30.glAttachShader(program, vertexShader)
-            GLES30.glAttachShader(program, fragmentShader)
-            GLES30.glLinkProgram(program)
-
-            val status = IntArray(1)
-            GLES30.glGetProgramiv(program, GLES30.GL_LINK_STATUS, status, 0)
-            if (status[0] == 0) {
-                val details = GLES30.glGetProgramInfoLog(program).ifBlank {
-                    "No linker diagnostics were returned"
-                }
-                throw IllegalStateException("Halftone shader link failed: $details")
-            }
-            return program
-        } catch (failure: RuntimeException) {
-            if (program != 0) GLES30.glDeleteProgram(program)
-            throw failure
-        } finally {
-            GLES30.glDeleteShader(vertexShader)
-            GLES30.glDeleteShader(fragmentShader)
-        }
-    }
-
-    private fun compileShader(type: Int, source: String, label: String): Int {
-        val shader = GLES30.glCreateShader(type)
-        check(shader != 0) { "OpenGL did not create the Halftone $label shader" }
-        GLES30.glShaderSource(shader, source)
-        GLES30.glCompileShader(shader)
-        val status = IntArray(1)
-        GLES30.glGetShaderiv(shader, GLES30.GL_COMPILE_STATUS, status, 0)
-        if (status[0] == 0) {
-            val details = GLES30.glGetShaderInfoLog(shader).ifBlank {
-                "No compiler diagnostics were returned"
-            }
-            GLES30.glDeleteShader(shader)
-            throw IllegalStateException("Halftone $label shader compilation failed: $details")
-        }
-        return shader
-    }
-
-    private fun loadShaderFromAssets(path: String): String {
-        return context.assets.open(path).bufferedReader().use { it.readText() }
-    }
-
-    private fun throwOnGlError(operation: String) {
-        val error = GLES30.glGetError()
-        check(error == GLES30.GL_NO_ERROR) {
-            "OpenGL error 0x${error.toString(16)} while $operation"
-        }
     }
 
     private fun requestBoundedRetry() {

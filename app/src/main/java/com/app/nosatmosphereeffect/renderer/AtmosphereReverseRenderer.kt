@@ -6,14 +6,18 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
-import android.opengl.GLUtils
 import android.util.Log
 import androidx.core.graphics.createBitmap
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
-import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
-import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.gles.BlurredTextureSet
+import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
+import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
+import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
+import com.app.nosatmosphereeffect.renderer.gles.checkGlError
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.io.File
 import java.nio.ByteBuffer
@@ -53,28 +57,8 @@ class AtmosphereReverseRenderer(
         drawerBlur = if (blurred) 1f else 0f
     }
 
-    private class TextureSet {
-        var sharpId = 0
-        var blurId = 0
-        var maskId = 0
-        var width = 0
-        var height = 0
-        var generation = 0L
-        var hasSubject = false
-        fun isValid() = sharpId != 0 && blurId != 0
-        fun reset() {
-            sharpId = 0
-            blurId = 0
-            maskId = 0
-            width = 0
-            height = 0
-            generation = 0L
-            hasSubject = false
-        }
-    }
-
-    private var currentSet = TextureSet()
-    private var nextSet = TextureSet()
+    private var currentSet = BlurredTextureSet()
+    private var nextSet = BlurredTextureSet()
 
     private val pendingLock = Any()
     private var pendingPlaylistBitmap: Bitmap? = null
@@ -119,7 +103,6 @@ class AtmosphereReverseRenderer(
         // own segmentation finds, in the image it actually draws.
         subjectMasks.sceneSink = clockOverlay.sceneSink
     }
-
 
     // Texture storage can only be reused while its dimensions still match.
     private var tempTextureWidth: Int = 0
@@ -293,13 +276,9 @@ class AtmosphereReverseRenderer(
         renderRetryCount = 0
 
         try {
-            val vertexCode = loadShaderFromAssets(
-                "shaders/atmosphere_reverse/atmosphere_reverse.vert"
-            )
-            val fragmentCode = loadShaderFromAssets(
-                "shaders/atmosphere_reverse/atmosphere_reverse.frag"
-            )
-            programId = createProgram(vertexCode, fragmentCode)
+            val vertexCode = GlesProgram.readAsset(context, "shaders/atmosphere_reverse/atmosphere_reverse.vert")
+            val fragmentCode = GlesProgram.readAsset(context, "shaders/atmosphere_reverse/atmosphere_reverse.frag")
+            programId = GlesProgram.link("Reverse Atmosphere", vertexCode, fragmentCode)
 
             val blurFragCode = """
                 #version 300 es
@@ -322,7 +301,7 @@ class AtmosphereReverseRenderer(
                     fragColor = vec4(result / totalWeight, 1.0);
                 }
             """.trimIndent()
-            blurProgramId = createProgram(vertexCode, blurFragCode)
+            blurProgramId = GlesProgram.link("Reverse Atmosphere", vertexCode, blurFragCode)
 
             val fbo = IntArray(1)
             GLES30.glGenFramebuffers(1, fbo, 0)
@@ -344,13 +323,13 @@ class AtmosphereReverseRenderer(
     private fun loadAndApplyTextures() {
         val render = WallpaperFitHelper.loadForRender(context, surfaceWidth, surfaceHeight, previewSource)
         val sharpBitmap = render.bitmap
-        val replacement = TextureSet()
+        val replacement = BlurredTextureSet()
         var blurredBitmap: Bitmap? = null
         try {
             replacement.width = sharpBitmap.width
             replacement.height = sharpBitmap.height
             replacement.generation = nextGeneration()
-            replacement.sharpId = uploadTexture(sharpBitmap)
+            replacement.photoId = GlesTexture.upload(sharpBitmap, "the Reverse Atmosphere photo")
 
             tempTextureId = createEmptyTexture(
                 sharpBitmap.width,
@@ -362,7 +341,7 @@ class AtmosphereReverseRenderer(
             tempTextureWidth = sharpBitmap.width
             tempTextureHeight = sharpBitmap.height
             replacement.blurId = gpuBlur(
-                replacement.sharpId,
+                replacement.photoId,
                 sharpBitmap.width,
                 sharpBitmap.height,
                 200f
@@ -416,12 +395,7 @@ class AtmosphereReverseRenderer(
 
             // Reuse queued texture IDs; dimensions determine whether storage is reallocated.
             deleteMaskTexture(nextSet)
-            nextSet.sharpId = uploadTexture(
-                bitmap,
-                nextSet.sharpId,
-                nextSet.width,
-                nextSet.height
-            )
+            nextSet.photoId = GlesTexture.upload(bitmap, "the Reverse Atmosphere photo", existingId = nextSet.photoId)
 
             tempTextureId = createEmptyTexture(
                 bitmap.width,
@@ -434,7 +408,7 @@ class AtmosphereReverseRenderer(
             tempTextureHeight = bitmap.height
 
             nextSet.blurId = gpuBlur(
-                nextSet.sharpId,
+                nextSet.photoId,
                 bitmap.width,
                 bitmap.height,
                 200f,
@@ -675,17 +649,13 @@ class AtmosphereReverseRenderer(
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollOffsetX"), scrollOffsetX)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollWindowX"), currentWindowX)
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.sharpId)
-        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureSharp"), 0)
+        SceneTextures.bindPhoto(currentSet.photoId, 0, GLES30.glGetUniformLocation(programId, "uTextureSharp"))
 
         GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.blurId)
         GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uTextureBlur"), 1)
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE2)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
-        GLES30.glUniform1i(GLES30.glGetUniformLocation(programId, "uSubjectMask"), 2)
+        SceneTextures.bindSubjectMask(currentSet.maskId, 2, GLES30.glGetUniformLocation(programId, "uSubjectMask"))
 
             clockOverlay.draw(
                 scrollOffsetX = scrollOffsetX,
@@ -699,7 +669,7 @@ class AtmosphereReverseRenderer(
             val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
             val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")
             drawQuad(aPosLoc, aTexLoc)
-            throwOnGlError("drawing a Reverse Atmosphere frame")
+            checkGlError("drawing a Reverse Atmosphere frame")
             renderFailureLogged = false
             renderRetryCount = 0
         } catch (failure: Exception) {
@@ -779,97 +749,13 @@ class AtmosphereReverseRenderer(
         return bitmap
     }
 
-    private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int = 0, existingWidth: Int = 0, existingHeight: Int = 0): Int {
-        val isNewTexture = existingTextureId == 0
-        val textureId = if (isNewTexture) {
-            IntArray(1).also { GLES30.glGenTextures(1, it, 0) }[0]
-        } else {
-            existingTextureId
-        }
-        check(textureId != 0) { "OpenGL did not create a Reverse Atmosphere texture" }
-        try {
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MIN_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MAG_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_S,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_T,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-            throwOnGlError("uploading a Reverse Atmosphere texture")
-            return textureId
-        } catch (failure: RuntimeException) {
-            if (isNewTexture) {
-                GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
-            }
-            throw failure
-        }
-    }
-
-    private fun uploadMaskTexture(bitmap: Bitmap, existingTextureId: Int = 0): Int {
-        val isNewTexture = existingTextureId == 0
-        val textureId = if (isNewTexture) {
-            IntArray(1).also { GLES30.glGenTextures(1, it, 0) }[0]
-        } else {
-            existingTextureId
-        }
-        check(textureId != 0) {
-            "OpenGL did not create a Reverse Atmosphere subject mask"
-        }
-        try {
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MIN_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MAG_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_S,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_T,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-            throwOnGlError("uploading a Reverse Atmosphere subject mask")
-            return textureId
-        } catch (failure: RuntimeException) {
-            if (isNewTexture) {
-                GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
-            }
-            throw failure
-        }
-    }
-
     private fun applyPendingSubjectMask() {
         val pending = subjectMasks.takePending() ?: return
         try {
             if (pending.generation != currentSet.generation || !subjectMasks.enabled) {
                 return
             }
-            currentSet.maskId = uploadMaskTexture(pending.bitmap, currentSet.maskId)
+            currentSet.maskId = GlesTexture.upload(pending.bitmap, "the Reverse Atmosphere subject mask", existingId = currentSet.maskId)
             currentSet.hasSubject = true
         } catch (failure: RuntimeException) {
             Log.w(TAG, "Unable to upload the Reverse Atmosphere subject mask", failure)
@@ -889,72 +775,9 @@ class AtmosphereReverseRenderer(
         }
     }
 
-    private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = compileShader(GLES30.GL_VERTEX_SHADER, vertexSource, "vertex")
-        val fragmentShader = try {
-            compileShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource, "fragment")
-        } catch (failure: RuntimeException) {
-            GLES30.glDeleteShader(vertexShader)
-            throw failure
-        }
-
-        var program = 0
-        try {
-            program = GLES30.glCreateProgram()
-            check(program != 0) {
-                "OpenGL did not create a Reverse Atmosphere shader program"
-            }
-            GLES30.glAttachShader(program, vertexShader)
-            GLES30.glAttachShader(program, fragmentShader)
-            GLES30.glLinkProgram(program)
-            val status = IntArray(1)
-            GLES30.glGetProgramiv(program, GLES30.GL_LINK_STATUS, status, 0)
-            if (status[0] == 0) {
-                val details = GLES30.glGetProgramInfoLog(program).ifBlank {
-                    "No linker diagnostics were returned"
-                }
-                throw IllegalStateException(
-                    "Reverse Atmosphere shader link failed: $details"
-                )
-            }
-            return program
-        } catch (failure: RuntimeException) {
-            if (program != 0) GLES30.glDeleteProgram(program)
-            throw failure
-        } finally {
-            GLES30.glDeleteShader(vertexShader)
-            GLES30.glDeleteShader(fragmentShader)
-        }
-    }
-
-    private fun compileShader(type: Int, source: String, label: String): Int {
-        val shader = GLES30.glCreateShader(type)
-        check(shader != 0) {
-            "OpenGL did not create the Reverse Atmosphere $label shader"
-        }
-        GLES30.glShaderSource(shader, source)
-        GLES30.glCompileShader(shader)
-        val status = IntArray(1)
-        GLES30.glGetShaderiv(shader, GLES30.GL_COMPILE_STATUS, status, 0)
-        if (status[0] == 0) {
-            val details = GLES30.glGetShaderInfoLog(shader).ifBlank {
-                "No compiler diagnostics were returned"
-            }
-            GLES30.glDeleteShader(shader)
-            throw IllegalStateException(
-                "Reverse Atmosphere $label shader compilation failed: $details"
-            )
-        }
-        return shader
-    }
-
-    private fun loadShaderFromAssets(path: String): String {
-        return context.assets.open(path).bufferedReader().use { it.readText() }
-    }
-
-    private fun deleteTextureSet(set: TextureSet) {
-        if (set.sharpId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(set.sharpId), 0)
+    private fun deleteTextureSet(set: BlurredTextureSet) {
+        if (set.photoId != 0) {
+            GLES30.glDeleteTextures(1, intArrayOf(set.photoId), 0)
         }
         if (set.blurId != 0) {
             GLES30.glDeleteTextures(1, intArrayOf(set.blurId), 0)
@@ -965,7 +788,7 @@ class AtmosphereReverseRenderer(
         set.reset()
     }
 
-    private fun deleteMaskTexture(set: TextureSet) {
+    private fun deleteMaskTexture(set: BlurredTextureSet) {
         if (set.maskId != 0) {
             GLES30.glDeleteTextures(1, intArrayOf(set.maskId), 0)
         }
@@ -981,13 +804,6 @@ class AtmosphereReverseRenderer(
     private fun clearFrame() {
         GLES30.glClearColor(0f, 0f, 0f, 1f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-    }
-
-    private fun throwOnGlError(operation: String) {
-        val error = GLES30.glGetError()
-        check(error == GLES30.GL_NO_ERROR) {
-            "OpenGL error 0x${error.toString(16)} while $operation"
-        }
     }
 
     private fun requestBoundedRetry() {

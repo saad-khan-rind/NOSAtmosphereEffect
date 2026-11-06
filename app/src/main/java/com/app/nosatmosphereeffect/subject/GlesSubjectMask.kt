@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.subject
 import android.content.Context
 import android.graphics.Bitmap
 import android.opengl.GLES30
+import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
 import android.opengl.GLUtils
 import com.app.nosatmosphereeffect.clock.ClockSceneSink
 import java.io.Closeable
@@ -101,16 +102,10 @@ internal class GlesSubjectMask(
      */
     fun bind(
         programId: Int,
-        textureUnit: Int,
         textureUnitIndex: Int,
         uniformName: String
     ) {
-        GLES30.glActiveTexture(textureUnit)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-        GLES30.glUniform1i(
-            GLES30.glGetUniformLocation(programId, uniformName),
-            textureUnitIndex
-        )
+        SceneTextures.bindSubjectMask(textureId, textureUnitIndex, GLES30.glGetUniformLocation(programId, uniformName))
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     }
 

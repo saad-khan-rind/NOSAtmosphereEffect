@@ -4,14 +4,18 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
-import android.opengl.GLUtils
 import android.util.Log
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 import com.app.nosatmosphereeffect.effect.GlassTransitionStyle
-import com.app.nosatmosphereeffect.clock.GlesClockOverlay
-import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
+import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
+import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
+import com.app.nosatmosphereeffect.renderer.gles.WallpaperTextureSet
+import com.app.nosatmosphereeffect.renderer.gles.checkGlError
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -96,26 +100,6 @@ class GlassRenderer(
     @Volatile
     var transitionStyle = GlassTransitionStyle.RIGHT_TO_LEFT
 
-    private data class TextureSet(
-        var textureId: Int = 0,
-        var maskId: Int = 0,
-        var width: Int = 0,
-        var height: Int = 0,
-        var generation: Long = 0L,
-        var hasSubject: Boolean = false
-    ) {
-        fun isValid(): Boolean = textureId != 0
-
-        fun reset() {
-            textureId = 0
-            maskId = 0
-            width = 0
-            height = 0
-            generation = 0L
-            hasSubject = false
-        }
-    }
-
     private data class ProgramHandles(
         val program: Int,
         val position: Int,
@@ -133,8 +117,8 @@ class GlassRenderer(
         val hasSubject: Int
     )
 
-    private var currentSet = TextureSet()
-    private var nextSet = TextureSet()
+    private var currentSet = WallpaperTextureSet()
+    private var nextSet = WallpaperTextureSet()
     private var currentWindowX = 1f
     private var nextWindowX = 1f
     private var fittedForWidth = -1
@@ -157,7 +141,6 @@ class GlassRenderer(
         // own segmentation finds, in the image it actually draws.
         subjectMasks.sceneSink = clockOverlay.sceneSink
     }
-
 
     private val vertices = floatArrayOf(
         -1f, -1f, 0f, 1f,
@@ -264,9 +247,9 @@ class GlassRenderer(
         renderRetryCount = 0
 
         try {
-            val vertexSource = loadShaderFromAssets("shaders/glass/glass.vert")
-            val fragmentSource = loadShaderFromAssets("shaders/glass/glass.frag")
-            val program = createProgram(vertexSource, fragmentSource)
+            val vertexSource = GlesProgram.readAsset(context, "shaders/glass/glass.vert")
+            val fragmentSource = GlesProgram.readAsset(context, "shaders/glass/glass.frag")
+            val program = GlesProgram.link("Glass", vertexSource, fragmentSource)
             programHandles = try {
                 resolveHandles(program)
             } catch (failure: RuntimeException) {
@@ -338,9 +321,9 @@ class GlassRenderer(
         )
         val bitmap = renderImage.bitmap
         try {
-            val newTexture = uploadTexture(bitmap)
+            val newTexture = GlesTexture.upload(bitmap, "the Glass photo", mipmaps = true)
             deleteTexture(currentSet)
-            currentSet.textureId = newTexture
+            currentSet.photoId = newTexture
             currentSet.width = bitmap.width
             currentSet.height = bitmap.height
             currentSet.generation = nextGeneration()
@@ -371,7 +354,7 @@ class GlassRenderer(
             nextWindowX = renderImage.windowX
 
             deleteMaskTexture(nextSet)
-            nextSet.textureId = uploadTexture(fittedBitmap, nextSet.textureId)
+            nextSet.photoId = GlesTexture.upload(fittedBitmap, "the Glass photo", existingId = nextSet.photoId, mipmaps = true)
             nextSet.width = fittedBitmap.width
             nextSet.height = fittedBitmap.height
             nextSet.generation = nextGeneration()
@@ -407,7 +390,7 @@ class GlassRenderer(
             if (pending.generation != currentSet.generation || !subjectMasks.enabled) {
                 return
             }
-            currentSet.maskId = uploadMaskTexture(pending.bitmap, currentSet.maskId)
+            currentSet.maskId = GlesTexture.upload(pending.bitmap, "the Glass subject mask", existingId = currentSet.maskId)
             currentSet.hasSubject = true
         } finally {
             if (!pending.bitmap.isRecycled) pending.bitmap.recycle()
@@ -441,13 +424,9 @@ class GlassRenderer(
             if (backgroundOnly && maskReady) 1f else 0f
         )
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.textureId)
-        GLES30.glUniform1i(handles.texture, 0)
+        SceneTextures.bindPhoto(currentSet.photoId, 0, handles.texture)
 
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE1)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, currentSet.maskId)
-        GLES30.glUniform1i(handles.subjectMask, 1)
+        SceneTextures.bindSubjectMask(currentSet.maskId, 1, handles.subjectMask)
 
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
@@ -487,97 +466,10 @@ class GlassRenderer(
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
         GLES30.glDisableVertexAttribArray(handles.position)
         GLES30.glDisableVertexAttribArray(handles.textureCoordinate)
-        throwOnGlError("drawing a Glass frame")
+        checkGlError("drawing a Glass frame")
     }
 
-    private fun uploadTexture(bitmap: Bitmap, existingTextureId: Int = 0): Int {
-        val isNewTexture = existingTextureId == 0
-        val textureId = if (isNewTexture) {
-            val generated = IntArray(1)
-            GLES30.glGenTextures(1, generated, 0)
-            generated[0]
-        } else {
-            existingTextureId
-        }
-        check(textureId != 0) { "OpenGL did not create a texture" }
-
-        try {
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MIN_FILTER,
-                GLES30.GL_LINEAR_MIPMAP_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MAG_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_S,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_T,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-            GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D)
-            throwOnGlError("uploading a Glass texture")
-            return textureId
-        } catch (failure: RuntimeException) {
-            if (isNewTexture) {
-                GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
-            }
-            throw failure
-        }
-    }
-
-    private fun uploadMaskTexture(bitmap: Bitmap, existingTextureId: Int = 0): Int {
-        val isNewTexture = existingTextureId == 0
-        val textureId = if (!isNewTexture) {
-            existingTextureId
-        } else {
-            IntArray(1).also { GLES30.glGenTextures(1, it, 0) }[0]
-        }
-        check(textureId != 0) { "OpenGL did not create a subject-mask texture" }
-
-        try {
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MIN_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_MAG_FILTER,
-                GLES30.GL_LINEAR
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_S,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLES30.glTexParameteri(
-                GLES30.GL_TEXTURE_2D,
-                GLES30.GL_TEXTURE_WRAP_T,
-                GLES30.GL_CLAMP_TO_EDGE
-            )
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-            throwOnGlError("uploading a Glass subject mask")
-            return textureId
-        } catch (failure: RuntimeException) {
-            if (isNewTexture) {
-                GLES30.glDeleteTextures(1, intArrayOf(textureId), 0)
-            }
-            throw failure
-        }
-    }
-
-    private fun deleteMaskTexture(textureSet: TextureSet) {
+    private fun deleteMaskTexture(textureSet: WallpaperTextureSet) {
         if (textureSet.maskId != 0) {
             GLES30.glDeleteTextures(1, intArrayOf(textureSet.maskId), 0)
         }
@@ -585,69 +477,14 @@ class GlassRenderer(
         textureSet.hasSubject = false
     }
 
-    private fun deleteTexture(textureSet: TextureSet) {
-        if (textureSet.textureId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(textureSet.textureId), 0)
+    private fun deleteTexture(textureSet: WallpaperTextureSet) {
+        if (textureSet.photoId != 0) {
+            GLES30.glDeleteTextures(1, intArrayOf(textureSet.photoId), 0)
         }
         if (textureSet.maskId != 0) {
             GLES30.glDeleteTextures(1, intArrayOf(textureSet.maskId), 0)
         }
         textureSet.reset()
-    }
-
-    private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = compileShader(GLES30.GL_VERTEX_SHADER, vertexSource, "vertex")
-        val fragmentShader = try {
-            compileShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource, "fragment")
-        } catch (failure: RuntimeException) {
-            GLES30.glDeleteShader(vertexShader)
-            throw failure
-        }
-
-        var program = 0
-        try {
-            program = GLES30.glCreateProgram()
-            check(program != 0) { "OpenGL did not create a shader program" }
-            GLES30.glAttachShader(program, vertexShader)
-            GLES30.glAttachShader(program, fragmentShader)
-            GLES30.glLinkProgram(program)
-
-            val status = IntArray(1)
-            GLES30.glGetProgramiv(program, GLES30.GL_LINK_STATUS, status, 0)
-            if (status[0] == 0) {
-                val details = GLES30.glGetProgramInfoLog(program).ifBlank {
-                    "No linker diagnostics were returned"
-                }
-                throw IllegalStateException("Glass shader link failed: $details")
-            }
-            return program
-        } catch (failure: RuntimeException) {
-            if (program != 0) {
-                GLES30.glDeleteProgram(program)
-            }
-            throw failure
-        } finally {
-            GLES30.glDeleteShader(vertexShader)
-            GLES30.glDeleteShader(fragmentShader)
-        }
-    }
-
-    private fun compileShader(type: Int, source: String, label: String): Int {
-        val shader = GLES30.glCreateShader(type)
-        check(shader != 0) { "OpenGL did not create the Glass $label shader" }
-        GLES30.glShaderSource(shader, source)
-        GLES30.glCompileShader(shader)
-
-        val status = IntArray(1)
-        GLES30.glGetShaderiv(shader, GLES30.GL_COMPILE_STATUS, status, 0)
-        if (status[0] == 0) {
-            val details = GLES30.glGetShaderInfoLog(shader).ifBlank {
-                "No compiler diagnostics were returned"
-            }
-            GLES30.glDeleteShader(shader)
-            throw IllegalStateException("Glass $label shader compilation failed: $details")
-        }
-        return shader
     }
 
     private fun resolveHandles(program: Int): ProgramHandles {
@@ -716,17 +553,6 @@ class GlassRenderer(
     private fun requireLocation(location: Int, name: String): Int {
         check(location >= 0) { "Glass shader input '$name' is unavailable" }
         return location
-    }
-
-    private fun loadShaderFromAssets(path: String): String {
-        return context.assets.open(path).bufferedReader().use { it.readText() }
-    }
-
-    private fun throwOnGlError(operation: String) {
-        val error = GLES30.glGetError()
-        check(error == GLES30.GL_NO_ERROR) {
-            "OpenGL error 0x${error.toString(16)} while $operation"
-        }
     }
 
     private fun clearFrame() {
