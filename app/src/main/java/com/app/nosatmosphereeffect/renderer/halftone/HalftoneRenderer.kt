@@ -2,142 +2,76 @@ package com.app.nosatmosphereeffect.renderer.halftone
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.opengl.GLES30
-import android.opengl.GLSurfaceView
 import android.util.Log
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
-import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
+import com.app.nosatmosphereeffect.renderer.gles.FullScreenQuad
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
-import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
-import com.app.nosatmosphereeffect.renderer.gles.WallpaperTextureSet
-import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.renderer.gles.WallpaperImages
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
+/** Halftone on OpenGL ES: the photo screened into printed dots. */
 class HalftoneRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
-    private val previewSource: (() -> Bitmap?)? = null
+    previewSource: (() -> Bitmap?)? = null
 ) : EffectOpenGlRenderer, WallpaperScrollRenderer {
 
-    @Volatile
-    var onSubjectMaskUpdated: (() -> Unit)? = null
-
-    @Volatile
-    var onRenderRetryRequested: (() -> Unit)? = null
-
-    @Volatile private var scrollOffsetX: Float = 0.5f
-    private var currentWindowX: Float = 1f
-    private var nextWindowX: Float = 1f
-
-    override fun setWallpaperOffset(xOffset: Float) {
-        scrollOffsetX = xOffset.coerceIn(0f, 1f)
-    }
-
-    private var currentSet = WallpaperTextureSet()
-    private var nextSet = WallpaperTextureSet()
-
-    private val playlistLock = Any()
-    private var pendingPlaylistBitmap: Bitmap? = null
-    private var released = false
-    private val subjectMasks = SubjectMaskCoordinator(context) {
-        onSubjectMaskUpdated?.invoke()
-    }
-    private var generationCounter = 0L
-    private var renderFailureLogged = false
-    private var renderRetryCount = 0
-
-    @Volatile var blurStrength: Float = 0.0f
-    @Volatile var dimLevel: Float = 0.0f
-    @Volatile private var needsReload: Boolean = false
-    @Volatile var dotSize: Float = 12.0f
-    @Volatile var grayscale: Boolean = false
-
-    /**
-     * The effect's own "background only" setting, kept separate from
-     * [SubjectMaskCoordinator.enabled].
-     *
-     * The two used to be the same thing, because the mask had exactly one
-     * consumer. The clock's depth effect is a second, independent consumer:
-     * it needs a mask even when the user has background-only switched off. If
-     * the shader kept reading uBackgroundOnly from "is a mask being computed",
-     * turning the clock's depth on would silently start protecting the subject
-     * from the halftone as well.
-     */
-    @Volatile private var backgroundOnly: Boolean = false
-
-    /**
-     * The wallpaper clock. Halftone screens the photo into dots but leaves its
-     * geometry in place, so the clock is legible at both ends of the
-     * transition and the user picks which. Units 0 and 1 carry the photo and
-     * the subject mask, so the clock takes 2.
-     */
-    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
-
-    init {
-        // The Adaptive clock fits itself around the subject this renderer's
-        // own segmentation finds, in the image it actually draws.
-        subjectMasks.sceneSink = clockOverlay.sceneSink
-    }
+    @Volatile var onSubjectMaskUpdated: (() -> Unit)? = null
+    @Volatile var onRenderRetryRequested: (() -> Unit)? = null
 
     /** Asks the host surface for another frame; used by the clock animation. */
-    @Volatile
-    var onAnimationFrameRequested: (() -> Unit)? = null
+    @Volatile var onAnimationFrameRequested: (() -> Unit)? = null
         set(value) {
             field = value
             clockOverlay.onAnimationFrameRequested = value
         }
 
-    private var programId: Int = 0
-    private var aspectRatio: Float = 1.0f
+    @Volatile var blurStrength: Float = 0f
+    @Volatile var dimLevel: Float = 0f
+    @Volatile var dotSize: Float = 12f
+    @Volatile var grayscale: Boolean = false
 
-    @Volatile private var surfaceWidth: Int = 0
-    @Volatile private var surfaceHeight: Int = 0
-    private var fittedForWidth: Int = -1
-    private var fittedForHeight: Int = -1
+    /**
+     * The effect's own "background only" setting, apart from whether a mask
+     * is being made: the clock's depth effect can want one too, and that must
+     * not start protecting the subject from the dots.
+     */
+    @Volatile private var backgroundOnly: Boolean = false
 
-    private val vertices = floatArrayOf(
-        -1f, -1f,  0f, 1f,
-        1f, -1f,  1f, 1f,
-        -1f,  1f,  0f, 0f,
-        1f,  1f,  1f, 0f
-    )
-    private lateinit var vertexBuffer: FloatBuffer
+    @Volatile private var scrollOffsetX: Float = 0.5f
 
-    override fun queuePlaylistTransition(bitmap: Bitmap) {
-        if (bitmap.isRecycled) {
-            Log.w(TAG, "Ignoring a recycled playlist bitmap")
-            return
-        }
-        var rejected = false
-        val replaced = synchronized(playlistLock) {
-            if (released) {
-                rejected = true
-                null
-            } else {
-                pendingPlaylistBitmap.also { pendingPlaylistBitmap = bitmap }
-            }
-        }
-        if (rejected) {
-            if (!bitmap.isRecycled) bitmap.recycle()
-            return
-        }
-        if (replaced != null && replaced !== bitmap && !replaced.isRecycled) {
-            replaced.recycle()
-        }
+    private val images = WallpaperImages(context, "Halftone", previewSource) { onSubjectMaskUpdated?.invoke() }
+
+    /**
+     * The wallpaper clock. Halftone screens the photo into dots but leaves its geometry in place,
+     * so the clock is legible at both ends of the transition and the user picks which.
+     * Units 0 and 1 carry the photo and the subject mask, so the clock takes 2.
+     */
+    private val clockOverlay = GlesClockOverlay(context, GLES30.GL_TEXTURE2, 2)
+
+    init {
+        images.sceneSink = clockOverlay.sceneSink
     }
 
-    override fun reloadTexture() {
-        needsReload = true
+    private var quad: FullScreenQuad? = null
+    private var programId = 0
+    private var aspectRatio = 1f
+    private var renderFailureLogged = false
+    private var renderRetryCount = 0
+
+    override fun setWallpaperOffset(xOffset: Float) {
+        scrollOffsetX = xOffset.coerceIn(0f, 1f)
     }
+
+    override fun queuePlaylistTransition(bitmap: Bitmap) = images.queuePlaylistTransition(bitmap)
+
+    override fun reloadTexture() = images.reload()
 
     fun configureBackgroundOnly(enabled: Boolean) {
         backgroundOnly = enabled
@@ -153,166 +87,61 @@ class HalftoneRenderer(
 
     override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
-    /**
-     * Segmentation runs when *either* consumer wants it and is skipped when
-     * neither does. Reloading on the transition into "wanted" is what actually
-     * dispatches the extraction: the coordinator serves one request per image
-     * generation, so without a reload an image that was loaded while the mask
-     * was unwanted would never get one.
-     */
     private fun refreshSubjectMaskNeed() {
-        val wanted = backgroundOnly || clockOverlay.state.needsSubjectMask()
-        val changed = subjectMasks.configure(wanted)
-        // Only on that transition. This also runs from applyClockState, on
-        // every clock push (tint resolved, preferences synced), and reloading
-        // there re-decoded the wallpaper and dropped the mask each time.
-        if (wanted && changed) {
-            needsReload = true
-        }
+        // Only on turning on does this reload (see WallpaperImages.wantSubjectMask): it
+        // runs on every clock push, and reloading there would drop the mask each time.
+        images.wantSubjectMask(backgroundOnly || clockOverlay.state.needsSubjectMask())
     }
 
     override fun release() {
-        val pending = synchronized(playlistLock) {
-            if (released) return
-            released = true
-            pendingPlaylistBitmap.also { pendingPlaylistBitmap = null }
-        }
         onSubjectMaskUpdated = null
         onRenderRetryRequested = null
         onAnimationFrameRequested = null
         clockOverlay.release()
-        subjectMasks.close()
-        if (pending != null && !pending.isRecycled) pending.recycle()
+        images.release()
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        vertexBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
-            .order(ByteOrder.nativeOrder())
-            .asFloatBuffer()
-            .put(vertices)
-        vertexBuffer.position(0)
-
+        quad = FullScreenQuad()
         programId = 0
         renderFailureLogged = false
         renderRetryCount = 0
         try {
-            val vertexCode = GlesProgram.readAsset(context, "shaders/halftone/halftone.vert")
-            val fragmentCode = GlesProgram.readAsset(context, if (isReverse) "shaders/halftone/sharp_to_halftone.frag" else "shaders/halftone/halftone_to_sharp.frag")
-            programId = GlesProgram.link("Halftone", vertexCode, fragmentCode)
-            needsReload = true
+            programId = GlesProgram.link(
+                "Halftone",
+                GlesProgram.readAsset(context, "shaders/halftone/halftone.vert"),
+                GlesProgram.readAsset(context, if (isReverse) "shaders/halftone/sharp_to_halftone.frag" else "shaders/halftone/halftone_to_sharp.frag")
+            )
         } catch (failure: Exception) {
             Log.e(TAG, "Unable to initialize the Halftone renderer", failure)
         }
-
-        // GL context is fresh: any previously held texture handles are invalid.
-        currentSet.reset()
-        nextSet.reset()
-        subjectMasks.discardPending()
+        images.onSurfaceCreated()
         // The clock's texture id belonged to the destroyed context.
         clockOverlay.resetForNewContext()
     }
 
-    private fun loadAndApplyTextures() {
-        fittedForWidth = surfaceWidth
-        fittedForHeight = surfaceHeight
-        val render = WallpaperFitHelper.loadForRender(context, surfaceWidth, surfaceHeight, previewSource)
-        val sharpBitmap = render.bitmap
-        try {
-            val newTexture = GlesTexture.upload(sharpBitmap, "the Halftone photo", mipmaps = true)
-            deleteTextureSet(currentSet)
-            currentWindowX = render.windowX
-            currentSet.width = sharpBitmap.width
-            currentSet.height = sharpBitmap.height
-            currentSet.generation = nextGeneration()
-            currentSet.hasSubject = false
-            currentSet.photoId = newTexture
-            subjectMasks.request(sharpBitmap, currentSet.generation)
-        } finally {
-            if (!sharpBitmap.isRecycled) sharpBitmap.recycle()
-        }
-    }
-
-    private fun processPlaylistTransition() {
-        val raw = synchronized(playlistLock) {
-            pendingPlaylistBitmap.also { pendingPlaylistBitmap = null }
-        } ?: return
-        var bitmap: Bitmap? = null
-        try {
-            val render = WallpaperFitHelper.fitForRender(
-                context,
-                raw,
-                surfaceWidth,
-                surfaceHeight
-            )
-            bitmap = render.bitmap
-            nextWindowX = render.windowX
-            fittedForWidth = surfaceWidth
-            fittedForHeight = surfaceHeight
-
-            deleteMaskTexture(nextSet)
-            nextSet.photoId = GlesTexture.upload(bitmap, "the Halftone photo", existingId = nextSet.photoId, mipmaps = true)
-            nextSet.width = bitmap.width
-            nextSet.height = bitmap.height
-            nextSet.generation = nextGeneration()
-            nextSet.hasSubject = false
-
-            val temp = currentSet
-            currentSet = nextSet
-            nextSet = temp
-            val tmpWin = currentWindowX
-            currentWindowX = nextWindowX
-            nextWindowX = tmpWin
-            subjectMasks.request(bitmap, currentSet.generation)
-        } catch (failure: Exception) {
-            Log.e(TAG, "Unable to apply the next Halftone playlist image", failure)
-            deleteTextureSet(nextSet)
-            needsReload = true
-        } finally {
-            if (bitmap != null && !bitmap.isRecycled) bitmap.recycle()
-            if (!raw.isRecycled) raw.recycle()
-        }
-    }
-
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        surfaceWidth = width.coerceAtLeast(0)
-        surfaceHeight = height.coerceAtLeast(0)
-        GLES30.glViewport(0, 0, surfaceWidth, surfaceHeight)
-        aspectRatio = if (surfaceHeight > 0) {
-            surfaceWidth.toFloat() / surfaceHeight.toFloat()
-        } else {
-            1f
-        }
-        // The surface size changed (fold/unfold, rotation, different display):
-        // re-fit the wallpaper so it is not stretched to the new dimensions.
-        if (surfaceWidth != fittedForWidth || surfaceHeight != fittedForHeight) {
-            needsReload = true
-        }
+        val safeWidth = width.coerceAtLeast(0)
+        val safeHeight = height.coerceAtLeast(0)
+        GLES30.glViewport(0, 0, safeWidth, safeHeight)
+        aspectRatio = if (safeHeight > 0) safeWidth.toFloat() / safeHeight else 1f
+        // A new size (fold/unfold, rotation): the wallpaper is fitted again, not stretched.
+        images.onSurfaceChanged(safeWidth, safeHeight)
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        if (programId == 0) {
+        val quad = quad
+        if (programId == 0 || quad == null) {
             clearFrame()
             return
         }
         try {
-            processPlaylistTransition()
-            if (needsReload) {
-                needsReload = false
-                try {
-                    loadAndApplyTextures()
-                } catch (failure: Exception) {
-                    needsReload = true
-                    throw failure
-                }
-            }
-            applyPendingSubjectMask()
-
-            if (!currentSet.isValid()) {
+            images.prepareFrame()
+            if (!images.current.isValid()) {
                 clearFrame()
                 return
             }
-
-            drawWallpaper()
+            draw(quad)
             renderFailureLogged = false
             renderRetryCount = 0
         } catch (failure: Exception) {
@@ -320,110 +149,51 @@ class HalftoneRenderer(
                 Log.e(TAG, "Unable to draw the Halftone wallpaper", failure)
                 renderFailureLogged = true
             }
-            if (!currentSet.isValid()) needsReload = true
+            images.onFrameFailed()
             clearFrame()
-            requestBoundedRetry()
-        }
-    }
-
-    private fun applyPendingSubjectMask() {
-        val pending = subjectMasks.takePending() ?: return
-        try {
-            if (pending.generation != currentSet.generation || !subjectMasks.enabled) {
-                return
+            if (renderRetryCount < MAX_RENDER_RETRIES) {
+                renderRetryCount++
+                onRenderRetryRequested?.invoke()
             }
-            currentSet.maskId = GlesTexture.upload(pending.bitmap, "the Halftone subject mask", existingId = currentSet.maskId)
-            currentSet.hasSubject = true
-        } finally {
-            if (!pending.bitmap.isRecycled) pending.bitmap.recycle()
         }
     }
 
-    private fun drawWallpaper() {
+    private fun draw(quad: FullScreenQuad) {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
         GLES30.glUseProgram(programId)
-
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uAspectRatio"), aspectRatio)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uBlurStrength"), blurStrength)
-        GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uDotSize"), dotSize)
-        GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uGrayscale"), if (grayscale) 1.0f else 0.0f)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uDimLevel"), dimLevel)
         GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollOffsetX"), scrollOffsetX)
-        GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollWindowX"), currentWindowX)
-        // Gated on the effect's own setting, not on whether a mask exists:
-        // the clock's depth effect can be the reason a mask is being computed.
-        val maskReady = subjectMasks.enabled && currentSet.hasSubject
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uScrollWindowX"), images.windowX)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uDotSize"), dotSize)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(programId, "uGrayscale"), if (grayscale) 1f else 0f)
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uBackgroundOnly"),
-            if (backgroundOnly && subjectMasks.enabled) 1f else 0f
+            if (backgroundOnly && images.masksEnabled) 1f else 0f
         )
         GLES30.glUniform1f(
             GLES30.glGetUniformLocation(programId, "uHasSubject"),
-            if (backgroundOnly && maskReady) 1f else 0f
+            if (backgroundOnly && images.maskReady) 1f else 0f
         )
 
-        SceneTextures.bindPhoto(currentSet.photoId, 0, GLES30.glGetUniformLocation(programId, "uTextureSharp"))
-
-        SceneTextures.bindSubjectMask(currentSet.maskId, 1, GLES30.glGetUniformLocation(programId, "uSubjectMask"))
-
+        val set = images.current
+        SceneTextures.bindPhoto(set.photoId, 0, GLES30.glGetUniformLocation(programId, "uTextureSharp"))
+        SceneTextures.bindSubjectMask(set.maskId, 1, GLES30.glGetUniformLocation(programId, "uSubjectMask"))
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
-            scrollWindowX = currentWindowX,
+            scrollWindowX = images.windowX,
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,
-            subjectMaskAvailable = maskReady
+            subjectMaskAvailable = images.maskReady
         )
-
-        val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")
-        val aTexLoc = GLES30.glGetAttribLocation(programId, "aTexCoord")
-
-        vertexBuffer.position(0)
-        GLES30.glVertexAttribPointer(aPosLoc, 2, GLES30.GL_FLOAT, false, 4 * 4, vertexBuffer)
-        GLES30.glEnableVertexAttribArray(aPosLoc)
-
-        vertexBuffer.position(2)
-        GLES30.glVertexAttribPointer(aTexLoc, 2, GLES30.GL_FLOAT, false, 4 * 4, vertexBuffer)
-        GLES30.glEnableVertexAttribArray(aTexLoc)
-
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-
-        GLES30.glDisableVertexAttribArray(aPosLoc)
-        GLES30.glDisableVertexAttribArray(aTexLoc)
-    }
-
-    private fun deleteMaskTexture(set: WallpaperTextureSet) {
-        if (set.maskId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(set.maskId), 0)
-        }
-        set.maskId = 0
-        set.hasSubject = false
-    }
-
-    private fun deleteTextureSet(set: WallpaperTextureSet) {
-        if (set.photoId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(set.photoId), 0)
-        }
-        if (set.maskId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(set.maskId), 0)
-        }
-        set.reset()
-    }
-
-    private fun nextGeneration(): Long {
-        generationCounter++
-        return generationCounter
+        quad.draw(programId)
     }
 
     private fun clearFrame() {
         GLES30.glClearColor(0f, 0f, 0f, 1f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-    }
-
-    private fun requestBoundedRetry() {
-        if (renderRetryCount >= MAX_RENDER_RETRIES) return
-        renderRetryCount++
-        onRenderRetryRequested?.invoke()
     }
 
     private companion object {

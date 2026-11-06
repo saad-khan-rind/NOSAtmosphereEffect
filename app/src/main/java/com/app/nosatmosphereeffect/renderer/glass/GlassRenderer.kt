@@ -9,12 +9,10 @@ import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 import com.app.nosatmosphereeffect.effect.GlassTransitionStyle
-import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
-import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
-import com.app.nosatmosphereeffect.renderer.gles.WallpaperTextureSet
+import com.app.nosatmosphereeffect.renderer.gles.WallpaperImages
 import com.app.nosatmosphereeffect.renderer.gles.checkGlError
 import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.wallpaper.WallpaperScrollRenderer
@@ -37,9 +35,6 @@ class GlassRenderer(
 
     @Volatile
     private var surfaceHeight = 0
-
-    @Volatile
-    private var needsReload = false
 
     @Volatile
     var onRenderRetryRequested: (() -> Unit)? = null
@@ -118,29 +113,14 @@ class GlassRenderer(
         val hasSubject: Int
     )
 
-    private var currentSet = WallpaperTextureSet()
-    private var nextSet = WallpaperTextureSet()
-    private var currentWindowX = 1f
-    private var nextWindowX = 1f
-    private var fittedForWidth = -1
-    private var fittedForHeight = -1
     private var programHandles: ProgramHandles? = null
     private lateinit var vertexBuffer: FloatBuffer
     private var renderFailureLogged = false
     private var renderRetryCount = 0
-    private var generationCounter = 0L
-
-    private val pendingLock = Any()
-    private var pendingPlaylistBitmap: Bitmap? = null
-    private var released = false
-    private val subjectMasks = SubjectMaskCoordinator(context) {
-        onSubjectMaskUpdated?.invoke()
-    }
+    private val images = WallpaperImages(context, "Glass", previewSource) { onSubjectMaskUpdated?.invoke() }
 
     init {
-        // The Adaptive clock fits itself around the subject this renderer's
-        // own segmentation finds, in the image it actually draws.
-        subjectMasks.sceneSink = clockOverlay.sceneSink
+        images.sceneSink = clockOverlay.sceneSink
     }
 
     private val vertices = floatArrayOf(
@@ -154,35 +134,9 @@ class GlassRenderer(
         scrollOffsetX = if (xOffset.isFinite()) xOffset.coerceIn(0f, 1f) else 0.5f
     }
 
-    override fun queuePlaylistTransition(bitmap: Bitmap) {
-        if (bitmap.isRecycled) {
-            Log.w(TAG, "Ignoring a recycled playlist bitmap")
-            return
-        }
+    override fun queuePlaylistTransition(bitmap: Bitmap) = images.queuePlaylistTransition(bitmap)
 
-        var rejected = false
-        val replaced = synchronized(pendingLock) {
-            if (released) {
-                rejected = true
-                null
-            } else {
-                val previous = pendingPlaylistBitmap
-                pendingPlaylistBitmap = bitmap
-                previous
-            }
-        }
-        if (rejected) {
-            if (!bitmap.isRecycled) bitmap.recycle()
-            return
-        }
-        if (replaced != null && replaced !== bitmap && !replaced.isRecycled) {
-            replaced.recycle()
-        }
-    }
-
-    override fun reloadTexture() {
-        needsReload = true
-    }
+    override fun reloadTexture() = images.reload()
 
     fun configureBackgroundOnly(enabled: Boolean) {
         backgroundOnly = enabled
@@ -205,30 +159,17 @@ class GlassRenderer(
      * while no one wanted a mask would otherwise never get one.
      */
     private fun refreshSubjectMaskNeed() {
-        val wanted = backgroundOnly || clockOverlay.state.needsSubjectMask()
-        val changed = subjectMasks.configure(wanted)
-        // Only on that transition. This also runs from applyClockState, on
-        // every clock push (tint resolved, preferences synced), and reloading
-        // there re-decoded the wallpaper and dropped the mask each time.
-        if (wanted && changed) {
-            needsReload = true
-        }
+        // Only on turning on does this reload (see WallpaperImages.wantSubjectMask): it
+        // runs on every clock push, and reloading there would drop the mask each time.
+        images.wantSubjectMask(backgroundOnly || clockOverlay.state.needsSubjectMask())
     }
 
     override fun release() {
-        val pending = synchronized(pendingLock) {
-            if (released) return
-            released = true
-            pendingPlaylistBitmap.also { pendingPlaylistBitmap = null }
-        }
         onRenderRetryRequested = null
         onSubjectMaskUpdated = null
         onAnimationFrameRequested = null
         clockOverlay.release()
-        subjectMasks.close()
-        if (pending != null && !pending.isRecycled) {
-            pending.recycle()
-        }
+        images.release()
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -238,9 +179,7 @@ class GlassRenderer(
             .put(vertices)
             .apply { position(0) }
 
-        currentSet.reset()
-        nextSet.reset()
-        subjectMasks.discardPending()
+        images.onSurfaceCreated()
         // The clock's texture id belonged to the destroyed context.
         clockOverlay.resetForNewContext()
         programHandles = null
@@ -257,7 +196,6 @@ class GlassRenderer(
                 GLES30.glDeleteProgram(program)
                 throw failure
             }
-            needsReload = true
         } catch (failure: Exception) {
             Log.e(TAG, "Unable to initialize the Glass renderer", failure)
             programHandles = null
@@ -268,9 +206,7 @@ class GlassRenderer(
         surfaceWidth = width.coerceAtLeast(0)
         surfaceHeight = height.coerceAtLeast(0)
         GLES30.glViewport(0, 0, surfaceWidth, surfaceHeight)
-        if (surfaceWidth != fittedForWidth || surfaceHeight != fittedForHeight) {
-            needsReload = true
-        }
+        images.onSurfaceChanged(surfaceWidth, surfaceHeight)
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -281,18 +217,8 @@ class GlassRenderer(
         }
 
         try {
-            processPlaylistTransition()
-            if (needsReload) {
-                needsReload = false
-                try {
-                    loadCurrentTexture()
-                } catch (failure: Exception) {
-                    needsReload = true
-                    throw failure
-                }
-            }
-            applyPendingSubjectMask()
-            if (!currentSet.isValid()) {
+            images.prepareFrame()
+            if (!images.current.isValid()) {
                 clearFrame()
                 return
             }
@@ -305,98 +231,14 @@ class GlassRenderer(
                 Log.e(TAG, "Unable to draw the Glass wallpaper", failure)
                 renderFailureLogged = true
             }
-            if (!currentSet.isValid()) {
-                needsReload = true
-            }
+            images.onFrameFailed()
             clearFrame()
             requestBoundedRetry()
         }
     }
 
-    private fun loadCurrentTexture() {
-        val renderImage = WallpaperFitHelper.loadForRender(
-            context,
-            surfaceWidth,
-            surfaceHeight,
-            previewSource
-        )
-        val bitmap = renderImage.bitmap
-        try {
-            val newTexture = GlesTexture.upload(bitmap, "the Glass photo", mipmaps = true)
-            deleteTexture(currentSet)
-            currentSet.photoId = newTexture
-            currentSet.width = bitmap.width
-            currentSet.height = bitmap.height
-            currentSet.generation = nextGeneration()
-            currentSet.hasSubject = false
-            currentWindowX = renderImage.windowX
-            fittedForWidth = surfaceWidth
-            fittedForHeight = surfaceHeight
-            subjectMasks.request(bitmap, currentSet.generation)
-        } finally {
-            if (!bitmap.isRecycled) bitmap.recycle()
-        }
-    }
 
-    private fun processPlaylistTransition() {
-        val source = synchronized(pendingLock) {
-            pendingPlaylistBitmap.also { pendingPlaylistBitmap = null }
-        } ?: return
 
-        var fittedBitmap: Bitmap? = null
-        try {
-            val renderImage = WallpaperFitHelper.fitForRender(
-                context,
-                source,
-                surfaceWidth,
-                surfaceHeight
-            )
-            fittedBitmap = renderImage.bitmap
-            nextWindowX = renderImage.windowX
-
-            deleteMaskTexture(nextSet)
-            nextSet.photoId = GlesTexture.upload(fittedBitmap, "the Glass photo", existingId = nextSet.photoId, mipmaps = true)
-            nextSet.width = fittedBitmap.width
-            nextSet.height = fittedBitmap.height
-            nextSet.generation = nextGeneration()
-            nextSet.hasSubject = false
-
-            val previous = currentSet
-            currentSet = nextSet
-            nextSet = previous
-
-            val previousWindowX = currentWindowX
-            currentWindowX = nextWindowX
-            nextWindowX = previousWindowX
-            fittedForWidth = surfaceWidth
-            fittedForHeight = surfaceHeight
-            subjectMasks.request(fittedBitmap, currentSet.generation)
-        } catch (failure: Exception) {
-            Log.e(TAG, "Unable to apply the next playlist image", failure)
-            deleteTexture(nextSet)
-            needsReload = true
-        } finally {
-            if (fittedBitmap != null && !fittedBitmap.isRecycled) {
-                fittedBitmap.recycle()
-            }
-            if (!source.isRecycled) {
-                source.recycle()
-            }
-        }
-    }
-
-    private fun applyPendingSubjectMask() {
-        val pending = subjectMasks.takePending() ?: return
-        try {
-            if (pending.generation != currentSet.generation || !subjectMasks.enabled) {
-                return
-            }
-            currentSet.maskId = GlesTexture.upload(pending.bitmap, "the Glass subject mask", existingId = currentSet.maskId)
-            currentSet.hasSubject = true
-        } finally {
-            if (!pending.bitmap.isRecycled) pending.bitmap.recycle()
-        }
-    }
 
     private fun drawWallpaper(handles: ProgramHandles) {
         GLES30.glViewport(0, 0, surfaceWidth, surfaceHeight)
@@ -412,26 +254,26 @@ class GlassRenderer(
         )
         GLES30.glUniform1f(handles.dimLevel, dimLevel)
         GLES30.glUniform1f(handles.scrollOffsetX, scrollOffsetX)
-        GLES30.glUniform1f(handles.scrollWindowX, currentWindowX)
+        GLES30.glUniform1f(handles.scrollWindowX, images.windowX)
         // Gated on the effect's own setting, not on whether a mask exists:
         // the clock's depth effect can be the reason a mask is being computed.
-        val maskReady = subjectMasks.enabled && currentSet.hasSubject
+        val maskReady = images.maskReady
         GLES30.glUniform1f(
             handles.backgroundOnly,
-            if (backgroundOnly && subjectMasks.enabled) 1f else 0f
+            if (backgroundOnly && images.masksEnabled) 1f else 0f
         )
         GLES30.glUniform1f(
             handles.hasSubject,
             if (backgroundOnly && maskReady) 1f else 0f
         )
 
-        SceneTextures.bindPhoto(currentSet.photoId, 0, handles.texture)
+        SceneTextures.bindPhoto(images.current.photoId, 0, handles.texture)
 
-        SceneTextures.bindSubjectMask(currentSet.maskId, 1, handles.subjectMask)
+        SceneTextures.bindSubjectMask(images.current.maskId, 1, handles.subjectMask)
 
         clockOverlay.draw(
             scrollOffsetX = scrollOffsetX,
-            scrollWindowX = currentWindowX,
+            scrollWindowX = images.windowX,
             programId = handles.program,
             progress = progress,
             screenAspect = if (surfaceHeight > 0) {
@@ -470,23 +312,7 @@ class GlassRenderer(
         checkGlError("drawing a Glass frame")
     }
 
-    private fun deleteMaskTexture(textureSet: WallpaperTextureSet) {
-        if (textureSet.maskId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(textureSet.maskId), 0)
-        }
-        textureSet.maskId = 0
-        textureSet.hasSubject = false
-    }
 
-    private fun deleteTexture(textureSet: WallpaperTextureSet) {
-        if (textureSet.photoId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(textureSet.photoId), 0)
-        }
-        if (textureSet.maskId != 0) {
-            GLES30.glDeleteTextures(1, intArrayOf(textureSet.maskId), 0)
-        }
-        textureSet.reset()
-    }
 
     private fun resolveHandles(program: Int): ProgramHandles {
         return ProgramHandles(
@@ -546,10 +372,6 @@ class GlassRenderer(
         )
     }
 
-    private fun nextGeneration(): Long {
-        generationCounter++
-        return generationCounter
-    }
 
     private fun requireLocation(location: Int, name: String): Int {
         check(location >= 0) { "Glass shader input '$name' is unavailable" }
