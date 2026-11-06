@@ -24,9 +24,7 @@ import javax.microedition.khronos.opengles.GL10
 class HalftoneRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
-    private val previewSource: (() -> Bitmap?)? = null,
-    /** Which one-pass look this draws: Halftone, or another sharing its pipeline. */
-    private val look: SinglePassLook = SinglePassLook.HALFTONE
+    private val previewSource: (() -> Bitmap?)? = null
 ) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
 
     @Volatile
@@ -197,9 +195,9 @@ class HalftoneRenderer(
         renderFailureLogged = false
         renderRetryCount = 0
         try {
-            val vertexCode = GlesProgram.readAsset(context, SinglePassLook.VERTEX_SHADER)
-            val fragmentCode = GlesProgram.readAsset(context, look.fragmentShader(isReverse))
-            programId = GlesProgram.link(look.label, vertexCode, fragmentCode)
+            val vertexCode = GlesProgram.readAsset(context, "shaders/halftone/halftone.vert")
+            val fragmentCode = GlesProgram.readAsset(context, if (isReverse) "shaders/halftone/sharp_to_halftone.frag" else "shaders/halftone/halftone_to_sharp.frag")
+            programId = GlesProgram.link("Halftone", vertexCode, fragmentCode)
             needsReload = true
         } catch (failure: Exception) {
             Log.e(TAG, "Unable to initialize the Halftone renderer", failure)
@@ -219,7 +217,7 @@ class HalftoneRenderer(
         val render = WallpaperFitHelper.loadForRender(context, surfaceWidth, surfaceHeight, previewSource)
         val sharpBitmap = render.bitmap
         try {
-            val newTexture = GlesTexture.upload(sharpBitmap, "the ${look.label} photo", mipmaps = true)
+            val newTexture = GlesTexture.upload(sharpBitmap, "the Halftone photo", mipmaps = true)
             deleteTextureSet(currentSet)
             currentWindowX = render.windowX
             currentSet.width = sharpBitmap.width
@@ -251,7 +249,7 @@ class HalftoneRenderer(
             fittedForHeight = surfaceHeight
 
             deleteMaskTexture(nextSet)
-            nextSet.photoId = GlesTexture.upload(bitmap, "the ${look.label} photo", existingId = nextSet.photoId, mipmaps = true)
+            nextSet.photoId = GlesTexture.upload(bitmap, "the Halftone photo", existingId = nextSet.photoId, mipmaps = true)
             nextSet.width = bitmap.width
             nextSet.height = bitmap.height
             nextSet.generation = nextGeneration()
@@ -333,7 +331,7 @@ class HalftoneRenderer(
             if (pending.generation != currentSet.generation || !subjectMasks.enabled) {
                 return
             }
-            currentSet.maskId = GlesTexture.upload(pending.bitmap, "the ${look.label} subject mask", existingId = currentSet.maskId)
+            currentSet.maskId = GlesTexture.upload(pending.bitmap, "the Halftone subject mask", existingId = currentSet.maskId)
             currentSet.hasSubject = true
         } finally {
             if (!pending.bitmap.isRecycled) pending.bitmap.recycle()
@@ -373,8 +371,7 @@ class HalftoneRenderer(
             programId = programId,
             progress = blurStrength,
             screenAspect = aspectRatio,
-            subjectMaskAvailable = maskReady,
-            photoZoom = look.photoZoom(look.effectFirst(isReverse), blurStrength)
+            subjectMaskAvailable = maskReady
         )
 
         val aPosLoc = GLES30.glGetAttribLocation(programId, "aPosition")

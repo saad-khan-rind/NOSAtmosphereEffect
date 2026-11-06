@@ -6,7 +6,6 @@ import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.transition.WakeTransition
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
-import com.app.nosatmosphereeffect.renderer.halftone.SinglePassLook
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 
@@ -16,14 +15,12 @@ internal class VulkanHalftoneHost(
     initialState: HalftoneRenderState,
     onFatalFailure: (WallpaperRenderHost, String) -> Unit,
     onVulkanActive: (WallpaperRenderHost, Int) -> Unit,
-    previewSource: (() -> Bitmap?)? = null,
-    /** Which one-pass look this draws; VHS shares Halftone's native bridge. */
-    look: SinglePassLook = SinglePassLook.HALFTONE
+    previewSource: (() -> Bitmap?)? = null
 ) : VulkanSingleImageHost<HalftoneRenderState>(
     context = context,
-    threadName = "AtmoVulkan${look.label}",
+    threadName = "AtmoVulkanHalftone",
     initialState = initialState.sanitized(),
-    bridge = HalftoneBridge(look.effectFirst(reverse), look),
+    bridge = HalftoneBridge(effectFirst = reverse),
     onFatalFailure = onFatalFailure,
     onVulkanActive = onVulkanActive,
     previewSource = previewSource
@@ -184,14 +181,13 @@ internal class VulkanHalftoneHost(
 
 private class HalftoneBridge(
     /** The effect shows at the start of the transition rather than the end. */
-    private val effectFirst: Boolean,
-    private val look: SinglePassLook
+    private val effectFirst: Boolean
 ) : VulkanSingleImageBridge<HalftoneRenderState> {
-    override val effectLabel = look.label
+    override val effectLabel = "Halftone"
 
     override fun create(assets: android.content.res.AssetManager): Long {
         if (!VulkanHalftoneNative.libraryLoaded) return 0L
-        return VulkanHalftoneNative.nativeCreate(assets, effectFirst, look.nativeShader)
+        return VulkanHalftoneNative.nativeCreate(assets, effectFirst)
     }
 
     override fun setSurface(
@@ -246,8 +242,7 @@ private class HalftoneBridge(
             clockUploaded = safe.clock.faceUploaded,
             clockDepth = safe.clock.depthEnabled,
             clockGlass = safe.clock.glassMeta,
-            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom) *
-                look.photoZoom(effectFirst, safe.progress)
+            wallpaperZoom = WakeTransition.zoom(safe.clock.wallpaperZoom)
         )
     }
 

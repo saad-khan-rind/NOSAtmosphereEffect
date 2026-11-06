@@ -39,7 +39,10 @@ import com.app.nosatmosphereeffect.renderer.glass.GlassRenderer
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderer
-import com.app.nosatmosphereeffect.renderer.halftone.SinglePassLook
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderer
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderState
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderer
 import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderState
 import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
@@ -258,6 +261,8 @@ class EffectPreviewService(
                             is FrostedRenderer -> renderer.beginClockEntry()
                             is GlassRenderer -> renderer.beginClockEntry()
                             is HalftoneRenderer -> renderer.beginClockEntry()
+                            is VhsRenderer -> renderer.beginClockEntry()
+                            is ZoomRenderer -> renderer.beginClockEntry()
                             is ColorFillRenderer -> renderer.beginClockEntry()
                             is CanvasSketchRenderer -> renderer.beginClockEntry()
                         }
@@ -571,14 +576,24 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
-            // VHS and Zoom share Halftone's renderer and state; neither has a background-only mode.
-            "VHS", "VHS_REVERSE", "ZOOM", "ZOOM_REVERSE" -> EffectPreviewRenderState.Halftone(
-                HalftoneRenderState(
+            "VHS", "VHS_REVERSE" -> EffectPreviewRenderState.Vhs(
+                VhsRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
                     clock = previewClockState(
                         prefs,
-                        lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS,
-                        unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
+                        lockedProgress = VhsRenderState.LOCKED_PROGRESS,
+                        unlockedProgress = VhsRenderState.UNLOCKED_PROGRESS
+                    )
+                ).sanitized()
+            )
+
+            "ZOOM", "ZOOM_REVERSE" -> EffectPreviewRenderState.Zoom(
+                ZoomRenderState(
+                    dimLevel = previewFloat(prefs, "dim_level", 0f),
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = ZoomRenderState.LOCKED_PROGRESS,
+                        unlockedProgress = ZoomRenderState.UNLOCKED_PROGRESS
                     )
                 ).sanitized()
             )
@@ -711,9 +726,18 @@ class EffectPreviewService(
                 GlassRenderer(appContext, sourceProvider)
             is EffectPreviewRenderState.Halftone -> HalftoneRenderer(
                 appContext,
-                isReverse = SinglePassLook.isReverse(effectId),
-                previewSource = sourceProvider,
-                look = SinglePassLook.of(effectId)
+                isReverse = effectId == "HALFTONE_REVERSE",
+                previewSource = sourceProvider
+            )
+            is EffectPreviewRenderState.Vhs -> VhsRenderer(
+                appContext,
+                isReverse = effectId == "VHS_REVERSE",
+                previewSource = sourceProvider
+            )
+            is EffectPreviewRenderState.Zoom -> ZoomRenderer(
+                appContext,
+                isReverse = effectId == "ZOOM_REVERSE",
+                previewSource = sourceProvider
             )
             is EffectPreviewRenderState.ColorFill -> ColorFillRenderer(
                 appContext,
@@ -747,6 +771,12 @@ class EffectPreviewService(
                 renderer.progress = update.progress
             renderer is HalftoneRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.Halftone ->
+                renderer.blurStrength = update.progress
+            renderer is VhsRenderer &&
+                update is EffectPreviewOpenGlFrameUpdate.Vhs ->
+                renderer.blurStrength = update.progress
+            renderer is ZoomRenderer &&
+                update is EffectPreviewOpenGlFrameUpdate.Zoom ->
                 renderer.blurStrength = update.progress
             renderer is ColorFillRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.ColorFill ->
@@ -845,6 +875,20 @@ class EffectPreviewService(
                 renderer.configureBackgroundOnly(value.backgroundOnly)
                 renderer.applyClockState(value.clock)
             }
+            renderer is VhsRenderer &&
+                state is EffectPreviewRenderState.Vhs -> {
+                val value = state.value
+                renderer.blurStrength = value.progress
+                renderer.dimLevel = value.dimLevel
+                renderer.applyClockState(value.clock)
+            }
+            renderer is ZoomRenderer &&
+                state is EffectPreviewRenderState.Zoom -> {
+                val value = state.value
+                renderer.blurStrength = value.progress
+                renderer.dimLevel = value.dimLevel
+                renderer.applyClockState(value.clock)
+            }
             renderer is ColorFillRenderer &&
                 state is EffectPreviewRenderState.ColorFill -> {
                 val value = state.value
@@ -904,6 +948,16 @@ class EffectPreviewService(
                 renderer.onRenderRetryRequested = ::requestRenderRetry
                 renderer.onAnimationFrameRequested = render
             }
+            is VhsRenderer -> {
+                renderer.onSubjectMaskUpdated = render
+                renderer.onRenderRetryRequested = ::requestRenderRetry
+                renderer.onAnimationFrameRequested = render
+            }
+            is ZoomRenderer -> {
+                renderer.onSubjectMaskUpdated = render
+                renderer.onRenderRetryRequested = ::requestRenderRetry
+                renderer.onAnimationFrameRequested = render
+            }
             is ColorFillRenderer -> renderer.onAnimationFrameRequested = render
             is FrostedRenderer -> renderer.onAnimationFrameRequested = render
         }
@@ -936,6 +990,8 @@ class EffectPreviewService(
             is CanvasSketchRenderer -> renderer.release()
             is GlassRenderer -> renderer.release()
             is HalftoneRenderer -> renderer.release()
+            is VhsRenderer -> renderer.release()
+            is ZoomRenderer -> renderer.release()
         }
     }
 

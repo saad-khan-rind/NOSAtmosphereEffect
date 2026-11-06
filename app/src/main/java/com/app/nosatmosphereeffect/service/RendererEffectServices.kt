@@ -11,7 +11,10 @@ import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderController
 import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderer
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderController
-import com.app.nosatmosphereeffect.renderer.halftone.SinglePassLook
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderState
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderController
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderController
 import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderController
 
 abstract class ColorFillWallpaperService protected constructor(
@@ -173,17 +176,16 @@ abstract class FrostedWallpaperService protected constructor(
 }
 
 abstract class HalftoneWallpaperService protected constructor(
-    private val reverseEffect: Boolean,
-    private val look: SinglePassLook = SinglePassLook.HALFTONE
+    private val reverseEffect: Boolean
 ) : AnimatedEffectWallpaperService<HalftoneRenderController>() {
 
-    final override val effectId = look.effectId(reverseEffect)
+    final override val effectId = if (reverseEffect) "HALFTONE_REVERSE" else "HALFTONE"
     final override val lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS
     final override val unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
-    final override val defaultAnimationDurationMs = look.defaultDurationMs
+    final override val defaultAnimationDurationMs = 500L
 
     final override fun createEffectRenderer(): HalftoneRenderController {
-        return HalftoneRenderController(applicationContext, isReverse = reverseEffect, look = look)
+        return HalftoneRenderController(applicationContext, isReverse = reverseEffect)
     }
 
     final override fun attachEffectRenderer(
@@ -201,7 +203,7 @@ abstract class HalftoneWallpaperService protected constructor(
             dimLevel = preferences.readFloat("dim_level", 0f),
             dotSize = preferences.readFloat("halftone_dot_size", 12f),
             grayscale = preferences.readBoolean("halftone_grayscale", false),
-            backgroundOnly = look.hasBackgroundOnly && preferences.readBoolean(
+            backgroundOnly = preferences.readBoolean(
                 SubjectIsolationPolicy.HALFTONE_BACKGROUND_ONLY_KEY,
                 false
             )
@@ -247,6 +249,146 @@ abstract class HalftoneWallpaperService protected constructor(
     }
 
     final override fun releaseRenderer(renderer: HalftoneRenderController) {
+        renderer.release()
+    }
+}
+
+abstract class VhsWallpaperService protected constructor(
+    private val reverseEffect: Boolean
+) : AnimatedEffectWallpaperService<VhsRenderController>() {
+
+    final override val effectId = if (reverseEffect) "VHS_REVERSE" else "VHS"
+    final override val lockedProgress = VhsRenderState.LOCKED_PROGRESS
+    final override val unlockedProgress = VhsRenderState.UNLOCKED_PROGRESS
+    final override val defaultAnimationDurationMs = VhsRenderState.DEFAULT_DURATION_MS
+
+    final override fun createEffectRenderer(): VhsRenderController {
+        return VhsRenderController(applicationContext, isReverse = reverseEffect)
+    }
+
+    final override fun attachEffectRenderer(
+        engine: GLWallpaperService.GLEngine,
+        renderer: VhsRenderController
+    ) {
+        renderer.attach(engine)
+    }
+
+    final override fun configureRenderer(
+        renderer: VhsRenderController,
+        preferences: SharedPreferences
+    ) {
+        renderer.configure(dimLevel = preferences.readFloat("dim_level", 0f))
+        // Playlist and theme modes rotate the image underneath the clock, so
+        // the clock stays off there — a position calibrated against one photo
+        // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
+        renderer.configureClock(
+            readClockState(preferences)
+        )
+    }
+
+    /**
+     * The clock's frame cadence is owned by the controller's ClockFramePump,
+     * one per engine. This only tells it when to idle: a live wallpaper
+     * service can have a settings-preview engine and the real wallpaper alive
+     * at once, so anything service-wide would be torn down by whichever engine
+     * happened to die first.
+     */
+    final override fun onEngineVisibilityChanged(
+        renderer: VhsRenderController?,
+        visible: Boolean
+    ) {
+        renderer?.setEngineVisible(visible)
+    }
+
+    final override fun setEffectProgress(
+        renderer: VhsRenderController,
+        progress: Float
+    ) {
+        renderer.setProgress(progress)
+    }
+
+    final override fun reloadRenderer(renderer: VhsRenderController) {
+        renderer.reloadTexture()
+    }
+
+    final override fun queuePlaylistTransition(
+        renderer: VhsRenderController,
+        bitmap: Bitmap
+    ) {
+        renderer.queuePlaylistTransition(bitmap)
+    }
+
+    final override fun releaseRenderer(renderer: VhsRenderController) {
+        renderer.release()
+    }
+}
+
+abstract class ZoomWallpaperService protected constructor(
+    private val reverseEffect: Boolean
+) : AnimatedEffectWallpaperService<ZoomRenderController>() {
+
+    final override val effectId = if (reverseEffect) "ZOOM_REVERSE" else "ZOOM"
+    final override val lockedProgress = ZoomRenderState.LOCKED_PROGRESS
+    final override val unlockedProgress = ZoomRenderState.UNLOCKED_PROGRESS
+    final override val defaultAnimationDurationMs = ZoomRenderState.DEFAULT_DURATION_MS
+
+    final override fun createEffectRenderer(): ZoomRenderController {
+        return ZoomRenderController(applicationContext, isReverse = reverseEffect)
+    }
+
+    final override fun attachEffectRenderer(
+        engine: GLWallpaperService.GLEngine,
+        renderer: ZoomRenderController
+    ) {
+        renderer.attach(engine)
+    }
+
+    final override fun configureRenderer(
+        renderer: ZoomRenderController,
+        preferences: SharedPreferences
+    ) {
+        renderer.configure(dimLevel = preferences.readFloat("dim_level", 0f))
+        // Playlist and theme modes rotate the image underneath the clock, so
+        // the clock stays off there — a position calibrated against one photo
+        // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
+        renderer.configureClock(
+            readClockState(preferences)
+        )
+    }
+
+    /**
+     * The clock's frame cadence is owned by the controller's ClockFramePump,
+     * one per engine. This only tells it when to idle: a live wallpaper
+     * service can have a settings-preview engine and the real wallpaper alive
+     * at once, so anything service-wide would be torn down by whichever engine
+     * happened to die first.
+     */
+    final override fun onEngineVisibilityChanged(
+        renderer: ZoomRenderController?,
+        visible: Boolean
+    ) {
+        renderer?.setEngineVisible(visible)
+    }
+
+    final override fun setEffectProgress(
+        renderer: ZoomRenderController,
+        progress: Float
+    ) {
+        renderer.setProgress(progress)
+    }
+
+    final override fun reloadRenderer(renderer: ZoomRenderController) {
+        renderer.reloadTexture()
+    }
+
+    final override fun queuePlaylistTransition(
+        renderer: ZoomRenderController,
+        bitmap: Bitmap
+    ) {
+        renderer.queuePlaylistTransition(bitmap)
+    }
+
+    final override fun releaseRenderer(renderer: ZoomRenderController) {
         renderer.release()
     }
 }

@@ -7,6 +7,8 @@ import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.glass.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderState
 import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderState
 
 internal sealed interface EffectPreviewRenderState {
@@ -17,6 +19,10 @@ internal sealed interface EffectPreviewRenderState {
     data class Glass(val value: GlassRenderState) : EffectPreviewRenderState
 
     data class Halftone(val value: HalftoneRenderState) : EffectPreviewRenderState
+
+    data class Vhs(val value: VhsRenderState) : EffectPreviewRenderState
+
+    data class Zoom(val value: ZoomRenderState) : EffectPreviewRenderState
 
     data class ColorFill(val value: ColorFillRenderState) : EffectPreviewRenderState
 
@@ -38,6 +44,12 @@ internal sealed interface EffectPreviewOpenGlFrameUpdate {
     data class Halftone(override val progress: Float) :
         EffectPreviewOpenGlFrameUpdate
 
+    data class Vhs(override val progress: Float) :
+        EffectPreviewOpenGlFrameUpdate
+
+    data class Zoom(override val progress: Float) :
+        EffectPreviewOpenGlFrameUpdate
+
     data class ColorFill(override val progress: Float) :
         EffectPreviewOpenGlFrameUpdate
 
@@ -56,6 +68,8 @@ internal object EffectPreviewStatePolicy {
             is EffectPreviewRenderState.Frosted -> state.value.clock
             is EffectPreviewRenderState.Glass -> state.value.clock
             is EffectPreviewRenderState.Halftone -> state.value.clock
+            is EffectPreviewRenderState.Vhs -> state.value.clock
+            is EffectPreviewRenderState.Zoom -> state.value.clock
             is EffectPreviewRenderState.ColorFill -> state.value.clock
             is EffectPreviewRenderState.CanvasSketch -> state.value.clock
         }
@@ -119,6 +133,14 @@ internal object EffectPreviewStatePolicy {
                 EffectPreviewRenderState.Halftone(
                     state.value.copy(clock = safe).sanitized()
                 )
+            is EffectPreviewRenderState.Vhs ->
+                EffectPreviewRenderState.Vhs(
+                    state.value.copy(clock = safe).sanitized()
+                )
+            is EffectPreviewRenderState.Zoom ->
+                EffectPreviewRenderState.Zoom(
+                    state.value.copy(clock = safe).sanitized()
+                )
             is EffectPreviewRenderState.ColorFill ->
                 EffectPreviewRenderState.ColorFill(
                     state.value.copy(clock = safe).sanitized()
@@ -162,6 +184,16 @@ internal object EffectPreviewStatePolicy {
                     state.value.copy(progress = progress).sanitized()
                 )
             }
+            is EffectPreviewRenderState.Vhs -> {
+                EffectPreviewRenderState.Vhs(
+                    state.value.copy(progress = progress).sanitized()
+                )
+            }
+            is EffectPreviewRenderState.Zoom -> {
+                EffectPreviewRenderState.Zoom(
+                    state.value.copy(progress = progress).sanitized()
+                )
+            }
             is EffectPreviewRenderState.ColorFill -> {
                 EffectPreviewRenderState.ColorFill(
                     state.value.copy(progress = progress).sanitized()
@@ -181,6 +213,8 @@ internal object EffectPreviewStatePolicy {
             is EffectPreviewRenderState.Frosted -> state.value.progress
             is EffectPreviewRenderState.Glass -> state.value.progress
             is EffectPreviewRenderState.Halftone -> state.value.progress
+            is EffectPreviewRenderState.Vhs -> state.value.progress
+            is EffectPreviewRenderState.Zoom -> state.value.progress
             is EffectPreviewRenderState.ColorFill -> state.value.progress
             is EffectPreviewRenderState.CanvasSketch -> state.value.progress
         }
@@ -198,6 +232,10 @@ internal object EffectPreviewStatePolicy {
                 EffectPreviewOpenGlFrameUpdate.Glass(state.value.progress)
             is EffectPreviewRenderState.Halftone ->
                 EffectPreviewOpenGlFrameUpdate.Halftone(state.value.progress)
+            is EffectPreviewRenderState.Vhs ->
+                EffectPreviewOpenGlFrameUpdate.Vhs(state.value.progress)
+            is EffectPreviewRenderState.Zoom ->
+                EffectPreviewOpenGlFrameUpdate.Zoom(state.value.progress)
             is EffectPreviewRenderState.ColorFill ->
                 EffectPreviewOpenGlFrameUpdate.ColorFill(state.value.progress)
             is EffectPreviewRenderState.CanvasSketch ->

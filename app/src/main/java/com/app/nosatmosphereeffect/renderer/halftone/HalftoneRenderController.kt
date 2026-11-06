@@ -20,11 +20,10 @@ import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 
 class HalftoneRenderController(
     context: Context,
-    private val isReverse: Boolean,
-    private val look: SinglePassLook = SinglePassLook.HALFTONE
+    private val isReverse: Boolean
 ) : BackendReselectableRenderer {
     private val appContext = context.applicationContext
-    private val effectId = look.effectId(isReverse)
+    private val effectId = if (isReverse) "HALFTONE_REVERSE" else "HALFTONE"
     private val lock = Any()
 
     private var state = HalftoneRenderState()
@@ -252,7 +251,6 @@ class HalftoneRenderController(
         }
         val snapshot = synchronized(lock) { state }
         val host = VulkanHalftoneHost(
-            look = look,
             context = appContext,
             reverse = isReverse,
             initialState = snapshot,
@@ -345,8 +343,7 @@ class HalftoneRenderController(
             when (resolution.backend) {
                 GraphicsBackend.VULKAN -> {
                     VulkanHalftoneHost(
-                        look = look,
-                        context = appContext,
+                                    context = appContext,
                         reverse = isReverse,
                         initialState = synchronized(lock) { state },
                         onFatalFailure = ::fallbackToOpenGl,
@@ -446,7 +443,7 @@ class HalftoneRenderController(
         renderEngine: GLWallpaperService.GLEngine
     ): HalftoneRenderer {
         val snapshot = synchronized(lock) { state }
-        return HalftoneRenderer(appContext, isReverse = isReverse, look = look).apply {
+        return HalftoneRenderer(appContext, isReverse = isReverse).apply {
             blurStrength = snapshot.progress
             dimLevel = snapshot.dimLevel
             dotSize = snapshot.dotSize
