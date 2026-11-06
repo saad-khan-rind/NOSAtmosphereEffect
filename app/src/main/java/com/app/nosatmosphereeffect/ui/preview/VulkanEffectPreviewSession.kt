@@ -15,7 +15,7 @@ import com.app.nosatmosphereeffect.renderer.vulkan.VulkanColorFillHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanFrostedHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanGlassHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanHalftoneHost
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanNeonHost
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanCanvasSketchHost
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class VulkanEffectPreviewSession(
@@ -60,7 +60,7 @@ internal class VulkanEffectPreviewSession(
                 host.updateState(state.value)
             host is VulkanColorFillHost && state is EffectPreviewRenderState.ColorFill ->
                 host.updateState(state.value)
-            host is VulkanNeonHost && state is EffectPreviewRenderState.Neon ->
+            host is VulkanCanvasSketchHost && state is EffectPreviewRenderState.CanvasSketch ->
                 host.updateState(state.value)
             else -> reportBridgeFailure("The Vulkan preview received incompatible effect state")
         }
@@ -80,7 +80,7 @@ internal class VulkanEffectPreviewSession(
             is VulkanGlassHost -> target.beginClockEntry()
             is VulkanHalftoneHost -> target.beginClockEntry()
             is VulkanColorFillHost -> target.beginClockEntry()
-            is VulkanNeonHost -> target.beginClockEntry()
+            is VulkanCanvasSketchHost -> target.beginClockEntry()
             else -> Unit
         }
     }
@@ -148,7 +148,7 @@ internal class VulkanEffectPreviewSession(
                 onVulkanActive = { _, _ -> },
                 previewSource = previewSource
             )
-            is EffectPreviewRenderState.Neon -> VulkanNeonHost(
+            is EffectPreviewRenderState.CanvasSketch -> VulkanCanvasSketchHost(
                 context = context,
                 reverse = effectId == "NEON_REVERSE",
                 initialState = state.value,

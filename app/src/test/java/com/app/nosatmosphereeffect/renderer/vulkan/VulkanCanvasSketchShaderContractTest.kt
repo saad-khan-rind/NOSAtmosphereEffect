@@ -4,7 +4,7 @@ import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class VulkanNeonShaderContractTest {
+class VulkanCanvasSketchShaderContractTest {
     @Test
     fun canvasUsesTheDeviceTestedAndroidBitmapOrientation() {
         val shader = File(

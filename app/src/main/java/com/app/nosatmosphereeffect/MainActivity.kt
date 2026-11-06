@@ -17,8 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
-import com.app.nosatmosphereeffect.activity.AdvancedSettingsActivity
-import com.app.nosatmosphereeffect.activity.BlurToSharpCropActivity
+import com.app.nosatmosphereeffect.activity.FineTuneActivity
+import com.app.nosatmosphereeffect.activity.ReverseCropActivity
 import com.app.nosatmosphereeffect.activity.CropActivity
 import com.app.nosatmosphereeffect.activity.EffectSelectionActivity
 import com.app.nosatmosphereeffect.activity.FineTuneRetention
@@ -337,7 +337,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openAdvancedSettings() {
-        val intent = Intent(this, AdvancedSettingsActivity::class.java)
+        val intent = Intent(this, FineTuneActivity::class.java)
         intent.putExtra("ACTIVE_EFFECT_TYPE", getActiveEffectType() ?: "ORIGINAL")
         intent.putExtra("IS_SAMSUNG", isSamsungDevice())
         intent.putExtra("IS_PLAYLIST_MODE", isPlaylistModeActive)
@@ -372,7 +372,7 @@ class MainActivity : ComponentActivity() {
     private fun launchCropActivity(uri: Uri) {
         val effectId = getActiveEffectType() ?: "ORIGINAL"
         val intent = if (EffectCatalog.isReverse(effectId)) {
-            Intent(this, BlurToSharpCropActivity::class.java)
+            Intent(this, ReverseCropActivity::class.java)
         } else {
             Intent(this, CropActivity::class.java)
         }

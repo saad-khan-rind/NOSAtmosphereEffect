@@ -38,10 +38,10 @@ import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.screens.AdvancedConfig
 import com.app.nosatmosphereeffect.ui.screens.AdvancedResult
-import com.app.nosatmosphereeffect.ui.screens.AdvancedSettingsScreen
+import com.app.nosatmosphereeffect.ui.screens.FineTuneScreen
 import com.app.nosatmosphereeffect.ui.theme.AtmoEngineTheme
 
-class AdvancedSettingsActivity : ComponentActivity() {
+class FineTuneActivity : ComponentActivity() {
 
     private var subjectModelManager: SubjectModelManager? = null
 
@@ -63,7 +63,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
 
         val isHalftone = activeEffect.contains("HALFTONE")
         val isColorFill = activeEffect.contains("COLORFILL")
-        val isNeon = activeEffect.contains("NEON")
+        val isCanvasSketch = activeEffect.contains("NEON")
         val isFrosted = activeEffect.contains("FROSTED")
         val isGlass = activeEffect.contains("GLASS")
         val isVhs = activeEffect.contains("VHS")
@@ -73,10 +73,10 @@ class AdvancedSettingsActivity : ComponentActivity() {
         // no longer an Atmosphere-only question.
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
         // VHS draws its own tape grain and Zoom has none, so the film-grain switch would do nothing there.
-        val showNoiseSwitch = !isHalftone && !isColorFill && !isNeon && !isGlass && !isVhs && !isZoom
+        val showNoiseSwitch = !isHalftone && !isColorFill && !isCanvasSketch && !isGlass && !isVhs && !isZoom
         val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
         // Every clock effect needs the subject for the clock's depth, Colour Fill and Frosted included.
-        val usesSubjectModel = isNeon || isGlass || isHalftone || isAtmosphere ||
+        val usesSubjectModel = isCanvasSketch || isGlass || isHalftone || isAtmosphere ||
             AtmosphereClockPolicy.supportsDepth(activeEffect)
 
         val defaultDuration = EffectCatalog.recommendedDurationMillis(activeEffect)
@@ -113,7 +113,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
             recommendedDurationMs = defaultDuration,
             showHalftone = isHalftone,
             showColorFill = isColorFill,
-            showNeon = isNeon,
+            showCanvasSketch = isCanvasSketch,
             showFrosted = isFrosted,
             showGlass = isGlass,
             showAtmosphereGlassToggle = isAtmosphere,
@@ -211,7 +211,7 @@ class AdvancedSettingsActivity : ComponentActivity() {
                         subjectModelManager?.checkAvailability(updateSubjectModelState)
                     }
                 }
-                AdvancedSettingsScreen(
+                FineTuneScreen(
                     config = config,
                     subjectModelDelivery = SubjectModelBuild.delivery,
                     subjectModelState = subjectModelState,
@@ -427,6 +427,6 @@ class AdvancedSettingsActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val TAG = "AdvancedSettings"
+        const val TAG = "FineTune"
     }
 }

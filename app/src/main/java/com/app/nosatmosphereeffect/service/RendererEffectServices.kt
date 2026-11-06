@@ -12,7 +12,7 @@ import com.app.nosatmosphereeffect.renderer.FrostedRenderer
 import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderController
 import com.app.nosatmosphereeffect.renderer.SinglePassLook
-import com.app.nosatmosphereeffect.renderer.NeonRenderController
+import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderController
 
 abstract class ColorFillWallpaperService protected constructor(
     private val reverseEffect: Boolean
@@ -253,15 +253,15 @@ abstract class HalftoneWallpaperService protected constructor(
 
 abstract class NeonWallpaperService protected constructor(
     private val reverseEffect: Boolean
-) : AnimatedEffectWallpaperService<NeonRenderController>() {
+) : AnimatedEffectWallpaperService<CanvasSketchRenderController>() {
 
     final override val effectId = if (reverseEffect) "NEON_REVERSE" else "NEON"
     final override val lockedProgress = 0f
     final override val unlockedProgress = 1f
     final override val defaultAnimationDurationMs = 1_000L
 
-    final override fun createEffectRenderer(): NeonRenderController {
-        return NeonRenderController(
+    final override fun createEffectRenderer(): CanvasSketchRenderController {
+        return CanvasSketchRenderController(
             applicationContext,
             isReverse = reverseEffect
         )
@@ -269,13 +269,13 @@ abstract class NeonWallpaperService protected constructor(
 
     final override fun attachEffectRenderer(
         engine: GLWallpaperService.GLEngine,
-        renderer: NeonRenderController
+        renderer: CanvasSketchRenderController
     ) {
         renderer.attach(engine)
     }
 
     final override fun configureRenderer(
-        renderer: NeonRenderController,
+        renderer: CanvasSketchRenderController,
         preferences: SharedPreferences
     ) {
         renderer.configure(
@@ -303,31 +303,31 @@ abstract class NeonWallpaperService protected constructor(
      * happened to die first.
      */
     final override fun onEngineVisibilityChanged(
-        renderer: NeonRenderController?,
+        renderer: CanvasSketchRenderController?,
         visible: Boolean
     ) {
         renderer?.setEngineVisible(visible)
     }
 
     final override fun setEffectProgress(
-        renderer: NeonRenderController,
+        renderer: CanvasSketchRenderController,
         progress: Float
     ) {
         renderer.setProgress(progress)
     }
 
-    final override fun reloadRenderer(renderer: NeonRenderController) {
+    final override fun reloadRenderer(renderer: CanvasSketchRenderController) {
         renderer.reloadTexture()
     }
 
     final override fun queuePlaylistTransition(
-        renderer: NeonRenderController,
+        renderer: CanvasSketchRenderController,
         bitmap: Bitmap
     ) {
         renderer.queuePlaylistTransition(bitmap)
     }
 
-    final override fun releaseRenderer(renderer: NeonRenderController) {
+    final override fun releaseRenderer(renderer: CanvasSketchRenderController) {
         renderer.release()
     }
 }

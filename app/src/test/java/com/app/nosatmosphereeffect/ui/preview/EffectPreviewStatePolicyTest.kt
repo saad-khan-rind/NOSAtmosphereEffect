@@ -5,7 +5,7 @@ import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
-import com.app.nosatmosphereeffect.renderer.NeonRenderState
+import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -27,8 +27,8 @@ class EffectPreviewStatePolicyTest {
             EffectPreviewRenderState.ColorFill(
                 ColorFillRenderState(originX = 0.2f, originY = 0.7f)
             ),
-            EffectPreviewRenderState.Neon(
-                NeonRenderState(lineWidth = 2.5f, sensitivity = 0.8f)
+            EffectPreviewRenderState.CanvasSketch(
+                CanvasSketchRenderState(lineWidth = 2.5f, sensitivity = 0.8f)
             )
         )
 
@@ -65,8 +65,8 @@ class EffectPreviewStatePolicyTest {
                     assertEquals(original.value.originX, updated.value.originX, 0f)
                     assertEquals(original.value.originY, updated.value.originY, 0f)
                 }
-                original is EffectPreviewRenderState.Neon &&
-                    updated is EffectPreviewRenderState.Neon -> {
+                original is EffectPreviewRenderState.CanvasSketch &&
+                    updated is EffectPreviewRenderState.CanvasSketch -> {
                     assertEquals(original.value.lineWidth, updated.value.lineWidth, 0f)
                     assertEquals(original.value.sensitivity, updated.value.sensitivity, 0f)
                 }
@@ -151,8 +151,8 @@ class EffectPreviewStatePolicyTest {
                     originY = 0.91f
                 )
             ),
-            EffectPreviewRenderState.Neon(
-                NeonRenderState(
+            EffectPreviewRenderState.CanvasSketch(
+                CanvasSketchRenderState(
                     progress = 0.65f,
                     sensitivity = 0.88f,
                     subjectSegmentationEnabled = true
@@ -169,7 +169,7 @@ class EffectPreviewStatePolicyTest {
                 EffectPreviewOpenGlFrameUpdate.Glass(0.35f),
                 EffectPreviewOpenGlFrameUpdate.Halftone(0.45f),
                 EffectPreviewOpenGlFrameUpdate.ColorFill(0.55f),
-                EffectPreviewOpenGlFrameUpdate.Neon(0.65f)
+                EffectPreviewOpenGlFrameUpdate.CanvasSketch(0.65f)
             ),
             updates
         )

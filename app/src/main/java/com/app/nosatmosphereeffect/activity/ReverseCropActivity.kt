@@ -1,5 +1,5 @@
 package com.app.nosatmosphereeffect.activity
 
-class BlurToSharpCropActivity : BaseCropActivity() {
+class ReverseCropActivity : BaseCropActivity() {
     override val fallbackEffectId = "REVERSE"
 }

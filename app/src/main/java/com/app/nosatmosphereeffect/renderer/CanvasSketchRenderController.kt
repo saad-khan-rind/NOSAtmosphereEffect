@@ -14,10 +14,10 @@ import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatusReposito
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendChange
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendResolution
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendSelection
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanNeonHost
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanCanvasSketchHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 
-class NeonRenderController(
+class CanvasSketchRenderController(
     context: Context,
     private val isReverse: Boolean
 ) : BackendReselectableRenderer {
@@ -25,11 +25,11 @@ class NeonRenderController(
     private val effectId = if (isReverse) "NEON_REVERSE" else "NEON"
     private val lock = Any()
 
-    private var state = NeonRenderState()
+    private var state = CanvasSketchRenderState()
     private var engine: GLWallpaperService.GLEngine? = null
     private var activeHost: WallpaperRenderHost? = null
-    private var openGlRenderer: NeonRenderer? = null
-    private var vulkanHost: VulkanNeonHost? = null
+    private var openGlRenderer: CanvasSketchRenderer? = null
+    private var vulkanHost: VulkanCanvasSketchHost? = null
     private var backendPreference = GraphicsBackendPreference.AUTOMATIC
     private var activeVulkanApiVersion: Int? = null
     private var runtimeSession: RendererRuntimeSession? = null
@@ -100,8 +100,8 @@ class NeonRenderController(
             state
         }
 
-        val gl: NeonRenderer?
-        val vk: VulkanNeonHost?
+        val gl: CanvasSketchRenderer?
+        val vk: VulkanCanvasSketchHost?
         synchronized(lock) {
             gl = openGlRenderer
             vk = vulkanHost
@@ -182,7 +182,7 @@ class NeonRenderController(
      * and must not happen on a progress tick. The clock needs neither, so it
      * gets its own narrow push.
      */
-    private fun applyClockToTargets(snapshot: NeonRenderState) {
+    private fun applyClockToTargets(snapshot: CanvasSketchRenderState) {
         forEachClockTarget { gl, vk ->
             gl?.applyClockState(snapshot.clock)
             vk?.updateState(snapshot)
@@ -190,10 +190,10 @@ class NeonRenderController(
     }
 
     private fun forEachClockTarget(
-        block: (NeonRenderer?, VulkanNeonHost?) -> Unit
+        block: (CanvasSketchRenderer?, VulkanCanvasSketchHost?) -> Unit
     ) {
-        val gl: NeonRenderer?
-        val vk: VulkanNeonHost?
+        val gl: CanvasSketchRenderer?
+        val vk: VulkanCanvasSketchHost?
         synchronized(lock) {
             gl = openGlRenderer
             vk = vulkanHost
@@ -210,8 +210,8 @@ class NeonRenderController(
             state = state.copy(progress = progress).sanitized()
             state
         }
-        val gl: NeonRenderer?
-        val vk: VulkanNeonHost?
+        val gl: CanvasSketchRenderer?
+        val vk: VulkanCanvasSketchHost?
         synchronized(lock) {
             gl = openGlRenderer
             vk = vulkanHost
@@ -221,8 +221,8 @@ class NeonRenderController(
     }
 
     fun reloadTexture() {
-        val gl: NeonRenderer?
-        val vk: VulkanNeonHost?
+        val gl: CanvasSketchRenderer?
+        val vk: VulkanCanvasSketchHost?
         synchronized(lock) {
             gl = openGlRenderer
             vk = vulkanHost
@@ -234,8 +234,8 @@ class NeonRenderController(
     }
 
     fun queuePlaylistTransition(bitmap: Bitmap) {
-        val gl: NeonRenderer?
-        val vk: VulkanNeonHost?
+        val gl: CanvasSketchRenderer?
+        val vk: VulkanCanvasSketchHost?
         val isClosed: Boolean
         synchronized(lock) {
             gl = openGlRenderer
@@ -252,8 +252,8 @@ class NeonRenderController(
 
     fun release() {
         clockRuntime.close()
-        val vk: VulkanNeonHost?
-        val gl: NeonRenderer?
+        val vk: VulkanCanvasSketchHost?
+        val gl: CanvasSketchRenderer?
         val session: RendererRuntimeSession?
         synchronized(lock) {
             if (closed) return
@@ -283,7 +283,7 @@ class NeonRenderController(
             )
         }
         val snapshot = synchronized(lock) { state }
-        val host = VulkanNeonHost(
+        val host = VulkanCanvasSketchHost(
             context = appContext,
             reverse = isReverse,
             initialState = snapshot,
@@ -376,12 +376,12 @@ class NeonRenderController(
         change: VulkanBackendChange.Swap
     ) {
         val resolution = change.resolution
-        var replacementRenderer: NeonRenderer? = null
-        var replacementVulkan: VulkanNeonHost? = null
+        var replacementRenderer: CanvasSketchRenderer? = null
+        var replacementVulkan: VulkanCanvasSketchHost? = null
         val replacement = runCatching {
             when (resolution.backend) {
                 GraphicsBackend.VULKAN -> {
-                    VulkanNeonHost(
+                    VulkanCanvasSketchHost(
                         context = appContext,
                         reverse = isReverse,
                         initialState = synchronized(lock) { state },
@@ -483,9 +483,9 @@ class NeonRenderController(
 
     private fun createOpenGlRenderer(
         renderEngine: GLWallpaperService.GLEngine
-    ): NeonRenderer {
+    ): CanvasSketchRenderer {
         val snapshot = synchronized(lock) { state }
-        return NeonRenderer(appContext, isReverse = isReverse).apply {
+        return CanvasSketchRenderer(appContext, isReverse = isReverse).apply {
             blurStrength = snapshot.progress
             dimLevel = snapshot.dimLevel
             lineWidth = snapshot.lineWidth

@@ -22,7 +22,7 @@ import javax.microedition.khronos.opengles.GL10
  * no useful result, the same restrained contour treatment uses the full image.
  * [isReverse] swaps which state belongs to the lock screen.
  */
-class NeonRenderer(
+class CanvasSketchRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
     private val previewSource: (() -> Bitmap?)? = null

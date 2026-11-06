@@ -152,7 +152,7 @@ class EffectSelectionActivity : ComponentActivity() {
 
     private fun launchCropActivity(uri: Uri) {
         val intent = if (EffectCatalog.isReverse(selectedEffectId)) {
-            Intent(this, BlurToSharpCropActivity::class.java)
+            Intent(this, ReverseCropActivity::class.java)
         } else {
             Intent(this, CropActivity::class.java)
         }

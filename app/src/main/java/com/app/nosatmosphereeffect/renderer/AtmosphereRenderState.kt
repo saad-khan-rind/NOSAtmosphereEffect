@@ -231,7 +231,7 @@ data class AtmosphereRenderState(
      * Atmosphere keeps its flat fields — they are load-bearing for its Vulkan
      * host and its unit tests, and rewriting working code to match a newer
      * convention is how working code stops working. This bridges the two so
-     * BlurToSharpRenderer can use the same GlesClockOverlay as everything
+     * AtmosphereReverseRenderer can use the same GlesClockOverlay as everything
      * else instead of a seventh hand-written copy of the compositing rules.
      *
      * [clockColor] is already resolved by the controller, so it stands in for

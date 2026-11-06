@@ -89,7 +89,7 @@ data class AdvancedConfig(
     val recommendedDurationMs: Long,
     val showHalftone: Boolean,
     val showColorFill: Boolean,
-    val showNeon: Boolean,
+    val showCanvasSketch: Boolean,
     val showFrosted: Boolean,
     val showGlass: Boolean,
     val showAtmosphereGlassToggle: Boolean,
@@ -187,7 +187,7 @@ private enum class FineTuneTab(@StringRes val label: Int) {
 }
 
 @Composable
-fun AdvancedSettingsScreen(
+fun FineTuneScreen(
     config: AdvancedConfig,
     subjectModelDelivery: SubjectModelDelivery,
     subjectModelState: SubjectModelState,
@@ -409,9 +409,9 @@ fun AdvancedSettingsScreen(
                         contrast = contrast,
                         onContrastChange = { contrast = it },
                         neonSensitivity = neonSensitivity,
-                        onNeonSensitivityChange = { neonSensitivity = it },
+                        onCanvasSketchSensitivityChange = { neonSensitivity = it },
                         neonLineWidth = neonLineWidth,
-                        onNeonLineWidthChange = { neonLineWidth = it },
+                        onCanvasSketchLineWidthChange = { neonLineWidth = it },
                         atmosphereGlassEnabled = atmosphereGlassEnabled,
                         onAtmosphereGlassEnabledChange = {
                             atmosphereGlassEnabled = it
@@ -517,9 +517,9 @@ private fun EffectSettings(
     contrast: Float,
     onContrastChange: (Float) -> Unit,
     neonSensitivity: Float,
-    onNeonSensitivityChange: (Float) -> Unit,
+    onCanvasSketchSensitivityChange: (Float) -> Unit,
     neonLineWidth: Float,
-    onNeonLineWidthChange: (Float) -> Unit,
+    onCanvasSketchLineWidthChange: (Float) -> Unit,
     atmosphereGlassEnabled: Boolean,
     onAtmosphereGlassEnabledChange: (Boolean) -> Unit,
     clockEnabled: Boolean,
@@ -560,7 +560,7 @@ private fun EffectSettings(
         subjectModelReady || subjectModelState.phase == SubjectModelPhase.CHECKING
     ) null else stringResource(R.string.model_required)
     val needsSubjectModel = config.showGlass || config.showAtmosphereGlassToggle ||
-        config.showHalftone || config.showNeon ||
+        config.showHalftone || config.showCanvasSketch ||
         (config.showClockToggle && !config.isPlaylistMode)
     SettingsScroll {
         // One place for the model, above everything that needs it, rather than
@@ -853,7 +853,7 @@ private fun EffectSettings(
             }
         }
 
-        if (config.showNeon) {
+        if (config.showCanvasSketch) {
             SettingsGroup(stringResource(R.string.canvas_group)) {
                 SubjectIsolationSetting(
                     title = stringResource(R.string.canvas_segmentation),
@@ -870,7 +870,7 @@ private fun EffectSettings(
                 LabeledSlider(
                     label = stringResource(R.string.canvas_detail),
                     value = neonSensitivity,
-                    onValueChange = onNeonSensitivityChange,
+                    onValueChange = onCanvasSketchSensitivityChange,
                     valueRange = 0f..1f,
                     step = 0.05f
                 )
@@ -878,7 +878,7 @@ private fun EffectSettings(
                 LabeledSlider(
                     label = stringResource(R.string.common_line_thickness),
                     value = neonLineWidth,
-                    onValueChange = onNeonLineWidthChange,
+                    onValueChange = onCanvasSketchLineWidthChange,
                     valueRange = 0.5f..4f,
                     step = 0.5f
                 )

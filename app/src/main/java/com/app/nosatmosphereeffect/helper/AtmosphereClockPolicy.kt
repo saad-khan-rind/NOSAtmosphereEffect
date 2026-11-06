@@ -5,7 +5,7 @@ package com.app.nosatmosphereeffect.helper
  * Atmosphere effect (blobs/clouds renderer, [AtmosphereRenderer] on GLES and
  * VulkanAtmosphereHost on Vulkan).
  *
- * Excludes "REVERSE": that direction runs through BlurToSharpRenderer, which
+ * Excludes "REVERSE": that direction runs through AtmosphereReverseRenderer, which
  * has no clock compositing pass.
  *
  * Geometry is stored as screen-fraction values (matching the shader's

@@ -27,7 +27,7 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.pow
 
-class BlurToSharpRenderer(
+class AtmosphereReverseRenderer(
     private val context: Context,
     private val previewSource: (() -> Bitmap?)? = null
 ) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
@@ -1049,7 +1049,7 @@ class BlurToSharpRenderer(
     }
 
     private companion object {
-        const val TAG = "BlurToSharpRenderer"
+        const val TAG = "AtmosphereReverseRenderer"
         const val MAX_RENDER_RETRIES = 3
     }
 }

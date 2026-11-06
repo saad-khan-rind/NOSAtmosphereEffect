@@ -2,7 +2,7 @@ package com.app.nosatmosphereeffect.renderer
 
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 
-data class NeonRenderState(
+data class CanvasSketchRenderState(
     val progress: Float = 0f,
     val dimLevel: Float = 0f,
     val lineWidth: Float = 1.5f,
@@ -21,7 +21,7 @@ data class NeonRenderState(
      */
     val hasSubject: Boolean = false
 ) {
-    fun sanitized(): NeonRenderState {
+    fun sanitized(): CanvasSketchRenderState {
         return copy(
             progress = progress.finiteOr(0f).coerceIn(0f, 1f),
             dimLevel = dimLevel.finiteOr(0f).coerceIn(0f, 1f),

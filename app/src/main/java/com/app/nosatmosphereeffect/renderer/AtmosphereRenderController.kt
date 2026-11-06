@@ -53,7 +53,7 @@ class AtmosphereRenderController(
     private var engine: GLWallpaperService.GLEngine? = null
     private var activeHost: WallpaperRenderHost? = null
     private var openGlAtmosphere: AtmosphereRenderer? = null
-    private var openGlReverse: BlurToSharpRenderer? = null
+    private var openGlReverse: AtmosphereReverseRenderer? = null
     private var vulkanHost: VulkanAtmosphereHost? = null
     private var configuredGlassEnabled = false
     private var configuredGlassBackgroundOnly = false
@@ -395,7 +395,7 @@ class AtmosphereRenderController(
         val renderer = createOpenGlRenderer(engine)
         val host = when (renderer) {
             is AtmosphereRenderer -> engine.setRenderer(renderer)
-            is BlurToSharpRenderer -> engine.setRenderer(renderer)
+            is AtmosphereReverseRenderer -> engine.setRenderer(renderer)
             else -> error("Unexpected Atmosphere renderer")
         }
         synchronized(lock) {
@@ -429,7 +429,7 @@ class AtmosphereRenderController(
             val replacement = when (renderer) {
                 is AtmosphereRenderer ->
                     currentEngine.createOpenGlRenderHost(renderer)
-                is BlurToSharpRenderer ->
+                is AtmosphereReverseRenderer ->
                     currentEngine.createOpenGlRenderHost(renderer)
                 else -> error("Unexpected Atmosphere renderer")
             }
@@ -491,7 +491,7 @@ class AtmosphereRenderController(
                         when (renderer) {
                             is AtmosphereRenderer ->
                                 snapshot.engine.createOpenGlRenderHost(renderer)
-                            is BlurToSharpRenderer ->
+                            is AtmosphereReverseRenderer ->
                                 snapshot.engine.createOpenGlRenderHost(renderer)
                             else -> error("Unexpected Atmosphere renderer")
                         }
@@ -593,7 +593,7 @@ class AtmosphereRenderController(
     ): Any {
         val snapshot = synchronized(lock) { state }
         return if (reverse) {
-            BlurToSharpRenderer(appContext).apply {
+            AtmosphereReverseRenderer(appContext).apply {
                 applyState(snapshot)
                 onRenderRetryRequested = engine::requestRender
                 onSubjectMaskUpdated = engine::requestRender
@@ -652,7 +652,7 @@ class AtmosphereRenderController(
         clockUnlockedProgress = state.clockUnlockedProgress
     }
 
-    private fun BlurToSharpRenderer.applyState(state: AtmosphereRenderState) {
+    private fun AtmosphereReverseRenderer.applyState(state: AtmosphereRenderState) {
         blurStrength = state.progress
         dimLevel = state.dimLevel
         enableNoise = state.noiseEnabled
@@ -673,14 +673,14 @@ class AtmosphereRenderController(
     private fun storeOpenGl(renderer: Any) {
         when (renderer) {
             is AtmosphereRenderer -> openGlAtmosphere = renderer
-            is BlurToSharpRenderer -> openGlReverse = renderer
+            is AtmosphereReverseRenderer -> openGlReverse = renderer
         }
     }
 
     private fun releaseOpenGl(renderer: Any) {
         when (renderer) {
             is AtmosphereRenderer -> renderer.release()
-            is BlurToSharpRenderer -> renderer.release()
+            is AtmosphereReverseRenderer -> renderer.release()
         }
     }
 
@@ -706,7 +706,7 @@ class AtmosphereRenderController(
 
     private data class RenderTargets(
         val atmosphere: AtmosphereRenderer?,
-        val reverse: BlurToSharpRenderer?,
+        val reverse: AtmosphereReverseRenderer?,
         val vulkan: VulkanAtmosphereHost?,
         val closed: Boolean
     )

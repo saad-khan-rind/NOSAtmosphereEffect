@@ -7,23 +7,23 @@ import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.helper.ClockOverlayState
 import com.app.nosatmosphereeffect.helper.WakeTransition
 import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.NeonRenderState
+import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 import kotlin.math.abs
 
-internal class VulkanNeonHost(
+internal class VulkanCanvasSketchHost(
     context: Context,
     private val reverse: Boolean,
-    initialState: NeonRenderState,
+    initialState: CanvasSketchRenderState,
     onFatalFailure: (WallpaperRenderHost, String) -> Unit,
     onVulkanActive: (WallpaperRenderHost, Int) -> Unit,
     previewSource: (() -> Bitmap?)? = null
-) : VulkanSingleImageHost<NeonRenderState>(
+) : VulkanSingleImageHost<CanvasSketchRenderState>(
     context = context,
     threadName = "AtmoVulkanCanvas",
     initialState = initialState.sanitized(),
-    bridge = NeonBridge(reverse),
+    bridge = CanvasSketchBridge(reverse),
     onFatalFailure = onFatalFailure,
     onVulkanActive = onVulkanActive,
     previewSource = previewSource
@@ -111,7 +111,7 @@ internal class VulkanNeonHost(
         startNativeEngine()
     }
 
-    fun updateState(state: NeonRenderState) {
+    fun updateState(state: CanvasSketchRenderState) {
         val sanitized = state.sanitized()
         val previous = currentEffectState()
         // Sketch's own segmentation feeds the off-screen contour bake; the
@@ -395,9 +395,9 @@ internal class VulkanNeonHost(
     }
 }
 
-private class NeonBridge(
+private class CanvasSketchBridge(
     private val reverse: Boolean
-) : VulkanSingleImageBridge<NeonRenderState> {
+) : VulkanSingleImageBridge<CanvasSketchRenderState> {
     override val effectLabel = "Canvas Sketch"
 
     override fun create(assets: android.content.res.AssetManager): Long {
@@ -429,7 +429,7 @@ private class NeonBridge(
 
     override fun setState(
         handle: Long,
-        state: NeonRenderState,
+        state: CanvasSketchRenderState,
         scrollOffsetX: Float,
         scrollWindowX: Float
     ) {

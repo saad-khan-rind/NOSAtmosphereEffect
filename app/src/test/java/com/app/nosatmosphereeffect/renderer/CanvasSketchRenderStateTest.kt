@@ -4,10 +4,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
-class NeonRenderStateTest {
+class CanvasSketchRenderStateTest {
     @Test
     fun invalidNumericValuesAreSanitized() {
-        val state = NeonRenderState(
+        val state = CanvasSketchRenderState(
             progress = Float.NaN,
             dimLevel = Float.POSITIVE_INFINITY,
             lineWidth = -10f,
@@ -24,8 +24,8 @@ class NeonRenderStateTest {
 
     @Test
     fun reverseSwapsSketchAndSharpEndpoints() {
-        val sketchEndpoint = NeonRenderState(progress = 0f)
-        val sharpEndpoint = NeonRenderState(progress = 1f)
+        val sketchEndpoint = CanvasSketchRenderState(progress = 0f)
+        val sharpEndpoint = CanvasSketchRenderState(progress = 1f)
 
         assertEquals(0f, sketchEndpoint.imageAmount(reverse = false))
         assertEquals(1f, sharpEndpoint.imageAmount(reverse = false))

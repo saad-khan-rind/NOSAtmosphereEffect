@@ -5,7 +5,7 @@ import com.app.nosatmosphereeffect.renderer.ColorFillRenderController
 import com.app.nosatmosphereeffect.renderer.FrostedRenderController
 import com.app.nosatmosphereeffect.renderer.GlassRenderController
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderController
-import com.app.nosatmosphereeffect.renderer.NeonRenderController
+import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderController
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,7 +16,7 @@ class BackendReselectableRendererContractTest {
             AtmosphereRenderController::class.java,
             GlassRenderController::class.java,
             ColorFillRenderController::class.java,
-            NeonRenderController::class.java,
+            CanvasSketchRenderController::class.java,
             FrostedRenderController::class.java,
             HalftoneRenderController::class.java
         ).forEach { controller ->

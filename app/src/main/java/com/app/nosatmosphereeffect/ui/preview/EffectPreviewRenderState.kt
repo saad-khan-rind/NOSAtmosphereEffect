@@ -7,7 +7,7 @@ import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
-import com.app.nosatmosphereeffect.renderer.NeonRenderState
+import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderState
 
 internal sealed interface EffectPreviewRenderState {
     data class Atmosphere(val value: AtmosphereRenderState) : EffectPreviewRenderState
@@ -20,7 +20,7 @@ internal sealed interface EffectPreviewRenderState {
 
     data class ColorFill(val value: ColorFillRenderState) : EffectPreviewRenderState
 
-    data class Neon(val value: NeonRenderState) : EffectPreviewRenderState
+    data class CanvasSketch(val value: CanvasSketchRenderState) : EffectPreviewRenderState
 }
 
 internal sealed interface EffectPreviewOpenGlFrameUpdate {
@@ -41,7 +41,7 @@ internal sealed interface EffectPreviewOpenGlFrameUpdate {
     data class ColorFill(override val progress: Float) :
         EffectPreviewOpenGlFrameUpdate
 
-    data class Neon(override val progress: Float) :
+    data class CanvasSketch(override val progress: Float) :
         EffectPreviewOpenGlFrameUpdate
 }
 
@@ -57,7 +57,7 @@ internal object EffectPreviewStatePolicy {
             is EffectPreviewRenderState.Glass -> state.value.clock
             is EffectPreviewRenderState.Halftone -> state.value.clock
             is EffectPreviewRenderState.ColorFill -> state.value.clock
-            is EffectPreviewRenderState.Neon -> state.value.clock
+            is EffectPreviewRenderState.CanvasSketch -> state.value.clock
         }
     }
 
@@ -123,8 +123,8 @@ internal object EffectPreviewStatePolicy {
                 EffectPreviewRenderState.ColorFill(
                     state.value.copy(clock = safe).sanitized()
                 )
-            is EffectPreviewRenderState.Neon ->
-                EffectPreviewRenderState.Neon(
+            is EffectPreviewRenderState.CanvasSketch ->
+                EffectPreviewRenderState.CanvasSketch(
                     state.value.copy(clock = safe).sanitized()
                 )
         }
@@ -167,8 +167,8 @@ internal object EffectPreviewStatePolicy {
                     state.value.copy(progress = progress).sanitized()
                 )
             }
-            is EffectPreviewRenderState.Neon -> {
-                EffectPreviewRenderState.Neon(
+            is EffectPreviewRenderState.CanvasSketch -> {
+                EffectPreviewRenderState.CanvasSketch(
                     state.value.copy(progress = progress).sanitized()
                 )
             }
@@ -182,7 +182,7 @@ internal object EffectPreviewStatePolicy {
             is EffectPreviewRenderState.Glass -> state.value.progress
             is EffectPreviewRenderState.Halftone -> state.value.progress
             is EffectPreviewRenderState.ColorFill -> state.value.progress
-            is EffectPreviewRenderState.Neon -> state.value.progress
+            is EffectPreviewRenderState.CanvasSketch -> state.value.progress
         }
     }
 
@@ -200,8 +200,8 @@ internal object EffectPreviewStatePolicy {
                 EffectPreviewOpenGlFrameUpdate.Halftone(state.value.progress)
             is EffectPreviewRenderState.ColorFill ->
                 EffectPreviewOpenGlFrameUpdate.ColorFill(state.value.progress)
-            is EffectPreviewRenderState.Neon ->
-                EffectPreviewOpenGlFrameUpdate.Neon(state.value.progress)
+            is EffectPreviewRenderState.CanvasSketch ->
+                EffectPreviewOpenGlFrameUpdate.CanvasSketch(state.value.progress)
         }
     }
 }

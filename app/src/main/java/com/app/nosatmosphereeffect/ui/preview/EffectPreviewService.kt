@@ -29,7 +29,7 @@ import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
 import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderer
 import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
-import com.app.nosatmosphereeffect.renderer.BlurToSharpRenderer
+import com.app.nosatmosphereeffect.renderer.AtmosphereReverseRenderer
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.ColorFillRenderer
 import com.app.nosatmosphereeffect.renderer.FrostedRenderState
@@ -40,8 +40,8 @@ import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
 import com.app.nosatmosphereeffect.renderer.HalftoneRenderer
 import com.app.nosatmosphereeffect.renderer.SinglePassLook
-import com.app.nosatmosphereeffect.renderer.NeonRenderState
-import com.app.nosatmosphereeffect.renderer.NeonRenderer
+import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderState
+import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
@@ -254,12 +254,12 @@ class EffectPreviewService(
                         }
                         when (renderer) {
                             is AtmosphereRenderer -> renderer.beginClockEntry()
-                            is BlurToSharpRenderer -> renderer.beginClockEntry()
+                            is AtmosphereReverseRenderer -> renderer.beginClockEntry()
                             is FrostedRenderer -> renderer.beginClockEntry()
                             is GlassRenderer -> renderer.beginClockEntry()
                             is HalftoneRenderer -> renderer.beginClockEntry()
                             is ColorFillRenderer -> renderer.beginClockEntry()
-                            is NeonRenderer -> renderer.beginClockEntry()
+                            is CanvasSketchRenderer -> renderer.beginClockEntry()
                         }
                     }
                     surface.requestRender()
@@ -598,8 +598,8 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
-            "NEON", "NEON_REVERSE" -> EffectPreviewRenderState.Neon(
-                NeonRenderState(
+            "NEON", "NEON_REVERSE" -> EffectPreviewRenderState.CanvasSketch(
+                CanvasSketchRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
                     lineWidth = previewFloat(prefs, "neon_line_width", 1.5f),
                     sensitivity = previewFloat(prefs, "neon_sensitivity", 0.5f),
@@ -609,7 +609,7 @@ class EffectPreviewService(
                         false
                     ),
                     // Matches CanvasSketchWallpaperService: fixed endpoints,
-                    // with the reversal living in NeonRenderState.imageAmount.
+                    // with the reversal living in CanvasSketchRenderState.imageAmount.
                     clock = previewClockState(
                         prefs,
                         lockedProgress = 0f,
@@ -700,7 +700,7 @@ class EffectPreviewService(
         return when (state) {
             is EffectPreviewRenderState.Atmosphere -> {
                 if (effectId == "REVERSE") {
-                    BlurToSharpRenderer(appContext, sourceProvider)
+                    AtmosphereReverseRenderer(appContext, sourceProvider)
                 } else {
                     AtmosphereRenderer(appContext, sourceProvider)
                 }
@@ -720,7 +720,7 @@ class EffectPreviewService(
                 isReverse = effectId == "COLORFILL_REVERSE",
                 previewSource = sourceProvider
             )
-            is EffectPreviewRenderState.Neon -> NeonRenderer(
+            is EffectPreviewRenderState.CanvasSketch -> CanvasSketchRenderer(
                 appContext,
                 isReverse = effectId == "NEON_REVERSE",
                 previewSource = sourceProvider
@@ -736,7 +736,7 @@ class EffectPreviewService(
             renderer is AtmosphereRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.Atmosphere ->
                 renderer.blurStrength = update.progress
-            renderer is BlurToSharpRenderer &&
+            renderer is AtmosphereReverseRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.Atmosphere ->
                 renderer.blurStrength = update.progress
             renderer is FrostedRenderer &&
@@ -751,8 +751,8 @@ class EffectPreviewService(
             renderer is ColorFillRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.ColorFill ->
                 renderer.blurStrength = update.progress
-            renderer is NeonRenderer &&
-                update is EffectPreviewOpenGlFrameUpdate.Neon ->
+            renderer is CanvasSketchRenderer &&
+                update is EffectPreviewOpenGlFrameUpdate.CanvasSketch ->
                 renderer.blurStrength = update.progress
             else -> error("The preview renderer and frame update do not match")
         }
@@ -795,7 +795,7 @@ class EffectPreviewService(
                 renderer.clockLockedProgress = value.clockLockedProgress
                 renderer.clockUnlockedProgress = value.clockUnlockedProgress
             }
-            renderer is BlurToSharpRenderer &&
+            renderer is AtmosphereReverseRenderer &&
                 state is EffectPreviewRenderState.Atmosphere -> {
                 val value = state.value
                 renderer.blurStrength = value.progress
@@ -854,8 +854,8 @@ class EffectPreviewService(
                 renderer.originY = value.originY
                 renderer.applyClockState(value.clock)
             }
-            renderer is NeonRenderer &&
-                state is EffectPreviewRenderState.Neon -> {
+            renderer is CanvasSketchRenderer &&
+                state is EffectPreviewRenderState.CanvasSketch -> {
                 val value = state.value
                 renderer.blurStrength = value.progress
                 renderer.dimLevel = value.dimLevel
@@ -878,7 +878,7 @@ class EffectPreviewService(
         // stall part-way in the preview: these surfaces are
         // RENDERMODE_WHEN_DIRTY, so nothing else asks for the next frame.
         when (renderer) {
-            is NeonRenderer -> {
+            is CanvasSketchRenderer -> {
                 renderer.onSketchUpdated = render
                 renderer.onAnimationFrameRequested = render
             }
@@ -889,7 +889,7 @@ class EffectPreviewService(
                 // its first frame on OpenGL and stopped there.
                 renderer.onAnimationFrameRequested = render
             }
-            is BlurToSharpRenderer -> {
+            is AtmosphereReverseRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
                 renderer.onAnimationFrameRequested = render
@@ -932,8 +932,8 @@ class EffectPreviewService(
         }
         when (renderer) {
             is AtmosphereRenderer -> renderer.release()
-            is BlurToSharpRenderer -> renderer.release()
-            is NeonRenderer -> renderer.release()
+            is AtmosphereReverseRenderer -> renderer.release()
+            is CanvasSketchRenderer -> renderer.release()
             is GlassRenderer -> renderer.release()
             is HalftoneRenderer -> renderer.release()
         }
