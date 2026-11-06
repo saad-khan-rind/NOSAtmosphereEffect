@@ -140,7 +140,8 @@ data class WakeTransitionSettings(
         const val MAX_BUBBLES_PERCENT = 100
         const val DEFAULT_BUBBLES_PERCENT = 70
         const val MIN_SCALE_PERCENT = 5
-        const val MAX_SCALE_PERCENT = 60
+        // Above 100 it starts zoomed in (to 150%) and settles back to full size.
+        const val MAX_SCALE_PERCENT = 150
         const val DEFAULT_SCALE_PERCENT = 15
 
         /** The styles Random picks from. */
