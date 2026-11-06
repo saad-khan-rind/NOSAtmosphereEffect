@@ -438,12 +438,12 @@ private object VulkanFailureStore {
 
 internal object VulkanFailurePolicy {
     private val legacyColorFillEffects = setOf(
-        "COLORFILL",
-        "COLORFILL_REVERSE"
+        "COLOR_FILL",
+        "COLOR_FILL_REVERSE"
     )
     private val obsoleteAtmosphereStateFailures = mapOf(
-        "ORIGINAL" to "The Vulkan Atmosphere state could not be updated",
-        "REVERSE" to "The Vulkan Reverse Atmosphere state could not be updated"
+        "ATMOSPHERE" to "The Vulkan Atmosphere state could not be updated",
+        "ATMOSPHERE_REVERSE" to "The Vulkan Reverse Atmosphere state could not be updated"
     )
 
     fun isBlocked(

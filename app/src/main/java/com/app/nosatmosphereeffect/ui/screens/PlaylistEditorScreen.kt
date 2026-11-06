@@ -74,7 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoChip
@@ -288,7 +288,7 @@ fun PlaylistEditorScreen(
                     if (showAtmosphereGlassOption) {
                         SettingSwitchRow(
                             title = stringResource(R.string.glass_add, stringResource(R.string.glass_group)),
-                            subtitle = stringResource(R.string.glass_add_subtitle, stringResource(R.string.effect_original_title)),
+                            subtitle = stringResource(R.string.glass_add_subtitle, stringResource(R.string.effect_atmosphere_title)),
                             checked = atmosphereGlassEnabled,
                             onCheckedChange = onAtmosphereGlassEnabledChange
                         )

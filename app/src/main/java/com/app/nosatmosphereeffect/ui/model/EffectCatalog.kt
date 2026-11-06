@@ -2,7 +2,7 @@ package com.app.nosatmosphereeffect.ui.model
 
 import androidx.annotation.StringRes
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
 
 /**
  * [title], [transition] and [description] are string resources, so they follow the phone's language.
@@ -27,28 +27,28 @@ data class EffectFamily(
 
 object EffectCatalog {
     private val originalFirstEffectIds = setOf(
-        "ORIGINAL",
+        "ATMOSPHERE",
         "GLASS",
         "FROSTED",
         "HALFTONE",
-        "COLORFILL_REVERSE",
-        "NEON_REVERSE",
+        "COLOR_FILL_REVERSE",
+        "CANVAS_SKETCH_REVERSE",
         "VHS_REVERSE",
         "ZOOM"
     )
 
     val items = listOf(
         EffectItem(
-            "ORIGINAL",
-            R.string.effect_original_title,
-            R.string.effect_original_transition,
-            R.string.effect_original_description
+            "ATMOSPHERE",
+            R.string.effect_atmosphere_title,
+            R.string.effect_atmosphere_transition,
+            R.string.effect_atmosphere_description
         ),
         EffectItem(
-            "REVERSE",
-            R.string.effect_reverse_title,
-            R.string.effect_reverse_transition,
-            R.string.effect_reverse_description
+            "ATMOSPHERE_REVERSE",
+            R.string.effect_atmosphere_reverse_title,
+            R.string.effect_atmosphere_reverse_transition,
+            R.string.effect_atmosphere_reverse_description
         ),
         EffectItem(
             "GLASS",
@@ -63,28 +63,28 @@ object EffectCatalog {
             R.string.effect_glass_reverse_description
         ),
         EffectItem(
-            "COLORFILL",
-            R.string.effect_colorfill_title,
-            R.string.effect_colorfill_transition,
-            R.string.effect_colorfill_description
+            "COLOR_FILL",
+            R.string.effect_color_fill_title,
+            R.string.effect_color_fill_transition,
+            R.string.effect_color_fill_description
         ),
         EffectItem(
-            "COLORFILL_REVERSE",
-            R.string.effect_colorfill_reverse_title,
-            R.string.effect_colorfill_reverse_transition,
-            R.string.effect_colorfill_reverse_description
+            "COLOR_FILL_REVERSE",
+            R.string.effect_color_fill_reverse_title,
+            R.string.effect_color_fill_reverse_transition,
+            R.string.effect_color_fill_reverse_description
         ),
         EffectItem(
-            "NEON",
-            R.string.effect_neon_title,
-            R.string.effect_neon_transition,
-            R.string.effect_neon_description
+            "CANVAS_SKETCH",
+            R.string.effect_canvas_sketch_title,
+            R.string.effect_canvas_sketch_transition,
+            R.string.effect_canvas_sketch_description
         ),
         EffectItem(
-            "NEON_REVERSE",
-            R.string.effect_neon_reverse_title,
-            R.string.effect_neon_reverse_transition,
-            R.string.effect_neon_reverse_description
+            "CANVAS_SKETCH_REVERSE",
+            R.string.effect_canvas_sketch_reverse_title,
+            R.string.effect_canvas_sketch_reverse_transition,
+            R.string.effect_canvas_sketch_reverse_description
         ),
         EffectItem(
             "FROSTED",
@@ -141,15 +141,15 @@ object EffectCatalog {
     fun find(id: String?): EffectItem = items.firstOrNull { it.id == id } ?: items.first()
 
     fun recommendedDurationMillis(id: String?): Long = when (id) {
-        "ORIGINAL" -> 2500L
-        "REVERSE" -> 1500L
+        "ATMOSPHERE" -> 2500L
+        "ATMOSPHERE_REVERSE" -> 1500L
         "GLASS", "GLASS_REVERSE" -> 1200L
         "FROSTED", "FROSTED_REVERSE" -> 500L
         "HALFTONE", "HALFTONE_REVERSE" -> 500L
         "VHS", "VHS_REVERSE" -> 900L
         "ZOOM", "ZOOM_REVERSE" -> 500L
-        "COLORFILL", "COLORFILL_REVERSE" -> 1500L
-        "NEON", "NEON_REVERSE" -> 1000L
+        "COLOR_FILL", "COLOR_FILL_REVERSE" -> 1500L
+        "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE" -> 1000L
         else -> 1000L
     }
 
@@ -157,13 +157,13 @@ object EffectCatalog {
         id?.contains("HALFTONE") == true -> 0f
         id?.contains("VHS") == true -> 0f
         id?.contains("ZOOM") == true -> 0f
-        id?.contains("COLORFILL") == true -> 0f
-        id?.contains("NEON") == true -> 0f
+        id?.contains("COLOR_FILL") == true -> 0f
+        id?.contains("CANVAS_SKETCH") == true -> 0f
         id?.contains("GLASS") == true -> 0f
         else -> 0.2f
     }
 
-    fun isReverse(id: String): Boolean = id.endsWith("_REVERSE") || id == "REVERSE"
+    fun isReverse(id: String): Boolean = id.endsWith("_REVERSE")
 
     fun startsFromOriginalWallpaper(id: String?): Boolean = id in originalFirstEffectIds
 
@@ -186,8 +186,8 @@ object EffectCatalog {
         id.contains("HALFTONE") -> "HALFTONE"
         id.contains("VHS") -> "VHS"
         id.contains("ZOOM") -> "ZOOM"
-        id.contains("COLORFILL") -> "COLORFILL"
-        id.contains("NEON") -> "CANVAS"
+        id.contains("COLOR_FILL") -> "COLOR_FILL"
+        id.contains("CANVAS_SKETCH") -> "CANVAS_SKETCH"
         id.contains("GLASS") -> "GLASS"
         else -> "ATMOSPHERE"
     }

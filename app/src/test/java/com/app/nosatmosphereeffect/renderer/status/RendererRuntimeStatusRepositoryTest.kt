@@ -422,18 +422,18 @@ class RendererRuntimeStatusRepositoryTest {
     }
 
     private companion object {
-        const val COLOR_FILL = "COLORFILL"
+        const val COLOR_FILL = "COLOR_FILL"
         const val VULKAN_1_2 = 0x00402000
         const val VULKAN_1_3 = 0x00403000
         val ALL_EFFECT_IDS = listOf(
-            "ORIGINAL",
-            "REVERSE",
+            "ATMOSPHERE",
+            "ATMOSPHERE_REVERSE",
             "GLASS",
             "GLASS_REVERSE",
-            "COLORFILL",
-            "COLORFILL_REVERSE",
-            "NEON",
-            "NEON_REVERSE",
+            "COLOR_FILL",
+            "COLOR_FILL_REVERSE",
+            "CANVAS_SKETCH",
+            "CANVAS_SKETCH_REVERSE",
             "FROSTED",
             "FROSTED_REVERSE",
             "HALFTONE",

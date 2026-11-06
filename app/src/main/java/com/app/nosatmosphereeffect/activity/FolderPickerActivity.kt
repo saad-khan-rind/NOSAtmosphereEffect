@@ -9,7 +9,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
+import com.app.nosatmosphereeffect.playlist.FolderPlaylistSource
 import com.app.nosatmosphereeffect.storage.WatchedFolder
 
 /**
@@ -57,7 +57,7 @@ class FolderPickerActivity : ComponentActivity() {
         } else {
             startActivity(
                 Intent(this, PlaylistEditorActivity::class.java)
-                    .putExtra("EFFECT_ID", intent.getStringExtra("EFFECT_ID") ?: "ORIGINAL")
+                    .putExtra("EFFECT_ID", intent.getStringExtra("EFFECT_ID") ?: "ATMOSPHERE")
                     .putStringArrayListExtra(EXTRA_FOLDER_IDS, ids)
                     .putStringArrayListExtra(EXTRA_FOLDER_NAMES, names)
             )

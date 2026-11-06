@@ -42,7 +42,7 @@
             android:name=".activity.CropActivity" />
 
         <activity
-            android:name=".activity.BlurToSharpCropActivity" />
+            android:name=".activity.ReverseCropActivity" />
 
         <activity
             android:name=".activity.EffectSelectionActivity"
@@ -60,7 +60,7 @@
         </activity>
 
         <activity
-            android:name=".activity.AdvancedSettingsActivity"
+            android:name=".activity.FineTuneActivity"
             android:windowSoftInputMode="adjustResize"/>
 
         <activity android:name=".activity.ClockAdjustActivity" />
@@ -89,7 +89,7 @@
         </service>
 
         <service
-            android:name=".service.BlurToSharpService"
+            android:name=".service.AtmosphereReverseService"
             android:enabled="true"
             android:exported="true"
             android:label="@string/service_atmosphere_reverse"
@@ -159,7 +159,7 @@
         </service>
 
         <service
-            android:name=".service.NeonService"
+            android:name=".service.CanvasSketchService"
             android:enabled="true"
             android:exported="true"
             android:label="@string/service_canvas"
@@ -173,7 +173,7 @@
         </service>
 
         <service
-            android:name=".service.NeonReverseService"
+            android:name=".service.CanvasSketchReverseService"
             android:enabled="true"
             android:exported="true"
             android:label="@string/service_canvas_reverse"

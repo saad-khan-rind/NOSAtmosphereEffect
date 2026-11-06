@@ -8,7 +8,7 @@ import android.content.Intent
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import com.app.nosatmosphereeffect.service.AtmosphereService
-import com.app.nosatmosphereeffect.service.BlurToSharpService
+import com.app.nosatmosphereeffect.service.AtmosphereReverseService
 import com.app.nosatmosphereeffect.service.ColorFillReverseService
 import com.app.nosatmosphereeffect.service.ColorFillService
 import com.app.nosatmosphereeffect.service.FrostedReverseService
@@ -21,23 +21,23 @@ import com.app.nosatmosphereeffect.service.VhsReverseService
 import com.app.nosatmosphereeffect.service.VhsService
 import com.app.nosatmosphereeffect.service.ZoomReverseService
 import com.app.nosatmosphereeffect.service.ZoomService
-import com.app.nosatmosphereeffect.service.NeonReverseService
-import com.app.nosatmosphereeffect.service.NeonService
+import com.app.nosatmosphereeffect.service.CanvasSketchReverseService
+import com.app.nosatmosphereeffect.service.CanvasSketchService
 
 internal object WallpaperEffectServices {
-    const val DEFAULT_EFFECT_ID = "ORIGINAL"
+    const val DEFAULT_EFFECT_ID = "ATMOSPHERE"
 
     private const val TAG = "WallpaperEffects"
 
     private val serviceByEffectId: Map<String, Class<out WallpaperService>> = linkedMapOf(
-        "ORIGINAL" to AtmosphereService::class.java,
-        "REVERSE" to BlurToSharpService::class.java,
+        "ATMOSPHERE" to AtmosphereService::class.java,
+        "ATMOSPHERE_REVERSE" to AtmosphereReverseService::class.java,
         "GLASS" to GlassService::class.java,
         "GLASS_REVERSE" to GlassReverseService::class.java,
-        "COLORFILL" to ColorFillService::class.java,
-        "COLORFILL_REVERSE" to ColorFillReverseService::class.java,
-        "NEON" to NeonService::class.java,
-        "NEON_REVERSE" to NeonReverseService::class.java,
+        "COLOR_FILL" to ColorFillService::class.java,
+        "COLOR_FILL_REVERSE" to ColorFillReverseService::class.java,
+        "CANVAS_SKETCH" to CanvasSketchService::class.java,
+        "CANVAS_SKETCH_REVERSE" to CanvasSketchReverseService::class.java,
         "FROSTED" to FrostedService::class.java,
         "FROSTED_REVERSE" to FrostedReverseService::class.java,
         "HALFTONE" to HalftoneService::class.java,

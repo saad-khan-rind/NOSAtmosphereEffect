@@ -174,8 +174,8 @@ fun LivePulseDot(color: Color, modifier: Modifier = Modifier, dotSize: Dp = 10.d
 /** One recognisable glyph per effect family, shared by the picker and the home screen. */
 fun effectFamilyIcon(effectId: String): ImageVector = when (EffectCatalog.family(effectId)) {
     "GLASS" -> Icons.Rounded.ViewWeek
-    "COLORFILL" -> Icons.Rounded.FormatColorFill
-    "CANVAS" -> Icons.Rounded.Draw
+    "COLOR_FILL" -> Icons.Rounded.FormatColorFill
+    "CANVAS_SKETCH" -> Icons.Rounded.Draw
     "FROSTED" -> Icons.Rounded.AcUnit
     "HALFTONE" -> Icons.Rounded.Grain
     "VHS" -> Icons.Rounded.Videocam

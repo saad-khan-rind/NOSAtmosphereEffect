@@ -3,11 +3,11 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
-import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.AtmosphereBlobFrame
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
+import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereBlobFrame
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 
 internal class VulkanAtmosphereHost(
@@ -221,7 +221,7 @@ internal class VulkanAtmosphereHost(
      * Plays the clock's entry animation on the next prepared frame. Called
      * when the wallpaper engine becomes visible.
      */
-    fun beginClockEntry() {
+    override fun beginClockEntry() {
         pendingClockEntry = true
         clockEntryWaited = false
         // A clock that is off costs nothing: no frame for it, ever.
@@ -359,7 +359,7 @@ internal class VulkanAtmosphereHost(
      * Re-reads the system 12/24-hour setting and forces a redraw. Called from
      * AtmosphereService's time-tick receiver.
      */
-    fun onTimeChanged() {
+    override fun onTimeChanged() {
         clockTexture.refreshClockFormatPreference()
         clockTexture.reset()
         if (currentEffectState().clockEnabled) requestRender()

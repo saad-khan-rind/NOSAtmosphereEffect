@@ -3,23 +3,26 @@ package com.app.nosatmosphereeffect.service
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
-import com.app.nosatmosphereeffect.helper.GLWallpaperService
-import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
-import com.app.nosatmosphereeffect.renderer.ColorFillRenderController
-import com.app.nosatmosphereeffect.renderer.FrostedRenderController
-import com.app.nosatmosphereeffect.renderer.FrostedRenderer
-import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
-import com.app.nosatmosphereeffect.renderer.HalftoneRenderController
-import com.app.nosatmosphereeffect.renderer.SinglePassLook
-import com.app.nosatmosphereeffect.renderer.NeonRenderController
+import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
+import com.app.nosatmosphereeffect.subject.SubjectIsolationPolicy
+import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderController
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderController
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderer
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneProgressPolicy
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderController
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderState
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderController
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderController
+import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderController
 
 abstract class ColorFillWallpaperService protected constructor(
     private val reverseEffect: Boolean
 ) : AnimatedEffectWallpaperService<ColorFillRenderController>() {
 
     final override val effectId =
-        if (reverseEffect) "COLORFILL_REVERSE" else "COLORFILL"
+        if (reverseEffect) "COLOR_FILL_REVERSE" else "COLOR_FILL"
     final override val lockedProgress = if (reverseEffect) 0f else 1f
     final override val unlockedProgress = if (reverseEffect) 1f else 0f
     final override val defaultAnimationDurationMs = 1_500L
@@ -173,17 +176,16 @@ abstract class FrostedWallpaperService protected constructor(
 }
 
 abstract class HalftoneWallpaperService protected constructor(
-    private val reverseEffect: Boolean,
-    private val look: SinglePassLook = SinglePassLook.HALFTONE
+    private val reverseEffect: Boolean
 ) : AnimatedEffectWallpaperService<HalftoneRenderController>() {
 
-    final override val effectId = look.effectId(reverseEffect)
+    final override val effectId = if (reverseEffect) "HALFTONE_REVERSE" else "HALFTONE"
     final override val lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS
     final override val unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
-    final override val defaultAnimationDurationMs = look.defaultDurationMs
+    final override val defaultAnimationDurationMs = 500L
 
     final override fun createEffectRenderer(): HalftoneRenderController {
-        return HalftoneRenderController(applicationContext, isReverse = reverseEffect, look = look)
+        return HalftoneRenderController(applicationContext, isReverse = reverseEffect)
     }
 
     final override fun attachEffectRenderer(
@@ -201,7 +203,7 @@ abstract class HalftoneWallpaperService protected constructor(
             dimLevel = preferences.readFloat("dim_level", 0f),
             dotSize = preferences.readFloat("halftone_dot_size", 12f),
             grayscale = preferences.readBoolean("halftone_grayscale", false),
-            backgroundOnly = look.hasBackgroundOnly && preferences.readBoolean(
+            backgroundOnly = preferences.readBoolean(
                 SubjectIsolationPolicy.HALFTONE_BACKGROUND_ONLY_KEY,
                 false
             )
@@ -251,17 +253,157 @@ abstract class HalftoneWallpaperService protected constructor(
     }
 }
 
-abstract class NeonWallpaperService protected constructor(
+abstract class VhsWallpaperService protected constructor(
     private val reverseEffect: Boolean
-) : AnimatedEffectWallpaperService<NeonRenderController>() {
+) : AnimatedEffectWallpaperService<VhsRenderController>() {
 
-    final override val effectId = if (reverseEffect) "NEON_REVERSE" else "NEON"
+    final override val effectId = if (reverseEffect) "VHS_REVERSE" else "VHS"
+    final override val lockedProgress = VhsRenderState.LOCKED_PROGRESS
+    final override val unlockedProgress = VhsRenderState.UNLOCKED_PROGRESS
+    final override val defaultAnimationDurationMs = VhsRenderState.DEFAULT_DURATION_MS
+
+    final override fun createEffectRenderer(): VhsRenderController {
+        return VhsRenderController(applicationContext, isReverse = reverseEffect)
+    }
+
+    final override fun attachEffectRenderer(
+        engine: GLWallpaperService.GLEngine,
+        renderer: VhsRenderController
+    ) {
+        renderer.attach(engine)
+    }
+
+    final override fun configureRenderer(
+        renderer: VhsRenderController,
+        preferences: SharedPreferences
+    ) {
+        renderer.configure(dimLevel = preferences.readFloat("dim_level", 0f))
+        // Playlist and theme modes rotate the image underneath the clock, so
+        // the clock stays off there — a position calibrated against one photo
+        // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
+        renderer.configureClock(
+            readClockState(preferences)
+        )
+    }
+
+    /**
+     * The clock's frame cadence is owned by the controller's ClockFramePump,
+     * one per engine. This only tells it when to idle: a live wallpaper
+     * service can have a settings-preview engine and the real wallpaper alive
+     * at once, so anything service-wide would be torn down by whichever engine
+     * happened to die first.
+     */
+    final override fun onEngineVisibilityChanged(
+        renderer: VhsRenderController?,
+        visible: Boolean
+    ) {
+        renderer?.setEngineVisible(visible)
+    }
+
+    final override fun setEffectProgress(
+        renderer: VhsRenderController,
+        progress: Float
+    ) {
+        renderer.setProgress(progress)
+    }
+
+    final override fun reloadRenderer(renderer: VhsRenderController) {
+        renderer.reloadTexture()
+    }
+
+    final override fun queuePlaylistTransition(
+        renderer: VhsRenderController,
+        bitmap: Bitmap
+    ) {
+        renderer.queuePlaylistTransition(bitmap)
+    }
+
+    final override fun releaseRenderer(renderer: VhsRenderController) {
+        renderer.release()
+    }
+}
+
+abstract class ZoomWallpaperService protected constructor(
+    private val reverseEffect: Boolean
+) : AnimatedEffectWallpaperService<ZoomRenderController>() {
+
+    final override val effectId = if (reverseEffect) "ZOOM_REVERSE" else "ZOOM"
+    final override val lockedProgress = ZoomRenderState.LOCKED_PROGRESS
+    final override val unlockedProgress = ZoomRenderState.UNLOCKED_PROGRESS
+    final override val defaultAnimationDurationMs = ZoomRenderState.DEFAULT_DURATION_MS
+
+    final override fun createEffectRenderer(): ZoomRenderController {
+        return ZoomRenderController(applicationContext, isReverse = reverseEffect)
+    }
+
+    final override fun attachEffectRenderer(
+        engine: GLWallpaperService.GLEngine,
+        renderer: ZoomRenderController
+    ) {
+        renderer.attach(engine)
+    }
+
+    final override fun configureRenderer(
+        renderer: ZoomRenderController,
+        preferences: SharedPreferences
+    ) {
+        renderer.configure(dimLevel = preferences.readFloat("dim_level", 0f))
+        // Playlist and theme modes rotate the image underneath the clock, so
+        // the clock stays off there — a position calibrated against one photo
+        // is wrong for the next. See AtmosphereClockPolicy.resolveEnabled.
+        renderer.configureClock(
+            readClockState(preferences)
+        )
+    }
+
+    /**
+     * The clock's frame cadence is owned by the controller's ClockFramePump,
+     * one per engine. This only tells it when to idle: a live wallpaper
+     * service can have a settings-preview engine and the real wallpaper alive
+     * at once, so anything service-wide would be torn down by whichever engine
+     * happened to die first.
+     */
+    final override fun onEngineVisibilityChanged(
+        renderer: ZoomRenderController?,
+        visible: Boolean
+    ) {
+        renderer?.setEngineVisible(visible)
+    }
+
+    final override fun setEffectProgress(
+        renderer: ZoomRenderController,
+        progress: Float
+    ) {
+        renderer.setProgress(progress)
+    }
+
+    final override fun reloadRenderer(renderer: ZoomRenderController) {
+        renderer.reloadTexture()
+    }
+
+    final override fun queuePlaylistTransition(
+        renderer: ZoomRenderController,
+        bitmap: Bitmap
+    ) {
+        renderer.queuePlaylistTransition(bitmap)
+    }
+
+    final override fun releaseRenderer(renderer: ZoomRenderController) {
+        renderer.release()
+    }
+}
+
+abstract class CanvasSketchWallpaperService protected constructor(
+    private val reverseEffect: Boolean
+) : AnimatedEffectWallpaperService<CanvasSketchRenderController>() {
+
+    final override val effectId = if (reverseEffect) "CANVAS_SKETCH_REVERSE" else "CANVAS_SKETCH"
     final override val lockedProgress = 0f
     final override val unlockedProgress = 1f
     final override val defaultAnimationDurationMs = 1_000L
 
-    final override fun createEffectRenderer(): NeonRenderController {
-        return NeonRenderController(
+    final override fun createEffectRenderer(): CanvasSketchRenderController {
+        return CanvasSketchRenderController(
             applicationContext,
             isReverse = reverseEffect
         )
@@ -269,19 +411,19 @@ abstract class NeonWallpaperService protected constructor(
 
     final override fun attachEffectRenderer(
         engine: GLWallpaperService.GLEngine,
-        renderer: NeonRenderController
+        renderer: CanvasSketchRenderController
     ) {
         renderer.attach(engine)
     }
 
     final override fun configureRenderer(
-        renderer: NeonRenderController,
+        renderer: CanvasSketchRenderController,
         preferences: SharedPreferences
     ) {
         renderer.configure(
             dimLevel = preferences.readFloat("dim_level", 0f),
-            lineWidth = preferences.readFloat("neon_line_width", 1.5f),
-            sensitivity = preferences.readFloat("neon_sensitivity", 0.5f),
+            lineWidth = preferences.readFloat("canvas_sketch_line_width", 1.5f),
+            sensitivity = preferences.readFloat("canvas_sketch_sensitivity", 0.5f),
             subjectSegmentationEnabled = preferences.readBoolean(
                 CanvasSubjectSettings.ENABLED_KEY,
                 false
@@ -303,31 +445,31 @@ abstract class NeonWallpaperService protected constructor(
      * happened to die first.
      */
     final override fun onEngineVisibilityChanged(
-        renderer: NeonRenderController?,
+        renderer: CanvasSketchRenderController?,
         visible: Boolean
     ) {
         renderer?.setEngineVisible(visible)
     }
 
     final override fun setEffectProgress(
-        renderer: NeonRenderController,
+        renderer: CanvasSketchRenderController,
         progress: Float
     ) {
         renderer.setProgress(progress)
     }
 
-    final override fun reloadRenderer(renderer: NeonRenderController) {
+    final override fun reloadRenderer(renderer: CanvasSketchRenderController) {
         renderer.reloadTexture()
     }
 
     final override fun queuePlaylistTransition(
-        renderer: NeonRenderController,
+        renderer: CanvasSketchRenderController,
         bitmap: Bitmap
     ) {
         renderer.queuePlaylistTransition(bitmap)
     }
 
-    final override fun releaseRenderer(renderer: NeonRenderController) {
+    final override fun releaseRenderer(renderer: CanvasSketchRenderController) {
         renderer.release()
     }
 }

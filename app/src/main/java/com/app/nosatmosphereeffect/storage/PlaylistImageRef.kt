@@ -2,7 +2,7 @@ package com.app.nosatmosphereeffect.storage
 
 import android.content.Context
 import android.net.Uri
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.image.BitmapStore
 import java.io.File

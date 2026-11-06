@@ -76,8 +76,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
+import com.app.nosatmosphereeffect.wallpaper.AlwaysAppliedTarget
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.ui.components.AtmoAnimatedIconButton
 import com.app.nosatmosphereeffect.ui.components.AtmoChip
 import com.app.nosatmosphereeffect.ui.components.AtmoIconMotion
@@ -191,7 +191,7 @@ fun MainScreen(
                 AtmoReveal {
                     if (wallpaperActive) {
                         ActiveWallpaperPanel(
-                            effectId = activeEffectId ?: "ORIGINAL",
+                            effectId = activeEffectId ?: "ATMOSPHERE",
                             previewBitmap = previewBitmap,
                             isPlaylistMode = isPlaylistMode,
                             isThemePlaylistMode = isThemePlaylistMode,
@@ -722,7 +722,7 @@ private fun EmptyWallpaperPanel(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
         WallpaperTransitionPreview(
-            effectId = "ORIGINAL",
+            effectId = "ATMOSPHERE",
             wallpaper = null,
             settingsMode = EffectPreviewSettingsMode.EFFECT_DEFAULTS,
             modifier = Modifier

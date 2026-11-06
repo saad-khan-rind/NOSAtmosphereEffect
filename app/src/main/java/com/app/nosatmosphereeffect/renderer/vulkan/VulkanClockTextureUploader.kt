@@ -3,12 +3,12 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
-import com.app.nosatmosphereeffect.helper.ClockFont
-import com.app.nosatmosphereeffect.helper.ClockFaceBox
-import com.app.nosatmosphereeffect.helper.ClockFaceRenderer
-import com.app.nosatmosphereeffect.helper.ClockPlacement
-import com.app.nosatmosphereeffect.helper.ClockSceneSink
-import com.app.nosatmosphereeffect.helper.ClockStyle
+import com.app.nosatmosphereeffect.clock.ClockFont
+import com.app.nosatmosphereeffect.clock.ClockFaceBox
+import com.app.nosatmosphereeffect.clock.ClockFaceRenderer
+import com.app.nosatmosphereeffect.clock.ClockPlacement
+import com.app.nosatmosphereeffect.clock.ClockSceneSink
+import com.app.nosatmosphereeffect.clock.ClockStyle
 
 /**
  * Vulkan-side wrapper around the shared [ClockFaceRenderer].
