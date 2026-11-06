@@ -14,34 +14,37 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.graphics.createBitmap
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
-import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
-import com.app.nosatmosphereeffect.helper.ClockPalette
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.ClockPreferences
-import com.app.nosatmosphereeffect.helper.PlaylistModeManager
-import com.app.nosatmosphereeffect.helper.ClockFont
-import com.app.nosatmosphereeffect.helper.ClockStyle
-import com.app.nosatmosphereeffect.helper.EffectStatePolicy
-import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
-import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderer
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
-import com.app.nosatmosphereeffect.renderer.BlurToSharpRenderer
-import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
-import com.app.nosatmosphereeffect.renderer.ColorFillRenderer
-import com.app.nosatmosphereeffect.renderer.FrostedRenderState
-import com.app.nosatmosphereeffect.renderer.FrostedRenderer
-import com.app.nosatmosphereeffect.renderer.GlassRenderState
-import com.app.nosatmosphereeffect.renderer.GlassRenderer
-import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
-import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
-import com.app.nosatmosphereeffect.renderer.HalftoneRenderer
-import com.app.nosatmosphereeffect.renderer.SinglePassLook
-import com.app.nosatmosphereeffect.renderer.NeonRenderState
-import com.app.nosatmosphereeffect.renderer.NeonRenderer
+import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.clock.ClockPalette
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.ClockPreferences
+import com.app.nosatmosphereeffect.playlist.PlaylistModeManager
+import com.app.nosatmosphereeffect.clock.ClockFont
+import com.app.nosatmosphereeffect.clock.ClockStyle
+import com.app.nosatmosphereeffect.wallpaper.EffectStatePolicy
+import com.app.nosatmosphereeffect.effect.GlassEffectPreferences
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
+import com.app.nosatmosphereeffect.subject.SubjectIsolationPolicy
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderer
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderState
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereReverseRenderer
+import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderState
+import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderer
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderState
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderer
+import com.app.nosatmosphereeffect.renderer.glass.GlassRenderState
+import com.app.nosatmosphereeffect.renderer.glass.GlassRenderer
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneProgressPolicy
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderer
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
+import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderer
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderState
+import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderer
+import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderState
+import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
@@ -254,12 +257,14 @@ class EffectPreviewService(
                         }
                         when (renderer) {
                             is AtmosphereRenderer -> renderer.beginClockEntry()
-                            is BlurToSharpRenderer -> renderer.beginClockEntry()
+                            is AtmosphereReverseRenderer -> renderer.beginClockEntry()
                             is FrostedRenderer -> renderer.beginClockEntry()
                             is GlassRenderer -> renderer.beginClockEntry()
                             is HalftoneRenderer -> renderer.beginClockEntry()
+                            is VhsRenderer -> renderer.beginClockEntry()
+                            is ZoomRenderer -> renderer.beginClockEntry()
                             is ColorFillRenderer -> renderer.beginClockEntry()
-                            is NeonRenderer -> renderer.beginClockEntry()
+                            is CanvasSketchRenderer -> renderer.beginClockEntry()
                         }
                     }
                     surface.requestRender()
@@ -363,7 +368,7 @@ class EffectPreviewService(
     private fun createInitialState(): EffectPreviewRenderState {
         val prefs = appContext.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         return when (effectId) {
-            "ORIGINAL", "REVERSE" -> {
+            "ATMOSPHERE", "ATMOSPHERE_REVERSE" -> {
                 val glassEnabled = previewAtmosphereGlassEnabled(prefs)
                 configuredAtmosphereGlassEnabled = glassEnabled
                 val glassSettings = previewGlassSettings(prefs)
@@ -571,19 +576,29 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
-            // VHS and Zoom share Halftone's renderer and state; neither has a background-only mode.
-            "VHS", "VHS_REVERSE", "ZOOM", "ZOOM_REVERSE" -> EffectPreviewRenderState.Halftone(
-                HalftoneRenderState(
+            "VHS", "VHS_REVERSE" -> EffectPreviewRenderState.Vhs(
+                VhsRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
                     clock = previewClockState(
                         prefs,
-                        lockedProgress = HalftoneProgressPolicy.LOCKED_PROGRESS,
-                        unlockedProgress = HalftoneProgressPolicy.UNLOCKED_PROGRESS
+                        lockedProgress = VhsRenderState.LOCKED_PROGRESS,
+                        unlockedProgress = VhsRenderState.UNLOCKED_PROGRESS
                     )
                 ).sanitized()
             )
 
-            "COLORFILL", "COLORFILL_REVERSE" -> EffectPreviewRenderState.ColorFill(
+            "ZOOM", "ZOOM_REVERSE" -> EffectPreviewRenderState.Zoom(
+                ZoomRenderState(
+                    dimLevel = previewFloat(prefs, "dim_level", 0f),
+                    clock = previewClockState(
+                        prefs,
+                        lockedProgress = ZoomRenderState.LOCKED_PROGRESS,
+                        unlockedProgress = ZoomRenderState.UNLOCKED_PROGRESS
+                    )
+                ).sanitized()
+            )
+
+            "COLOR_FILL", "COLOR_FILL_REVERSE" -> EffectPreviewRenderState.ColorFill(
                 ColorFillRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
                     originX = previewFloat(prefs, "origin_x", 0.5f),
@@ -592,24 +607,24 @@ class EffectPreviewService(
                     // most effects: 1 is the monochrome lock-screen end.
                     clock = previewClockState(
                         prefs,
-                        lockedProgress = if (effectId == "COLORFILL_REVERSE") 0f else 1f,
-                        unlockedProgress = if (effectId == "COLORFILL_REVERSE") 1f else 0f
+                        lockedProgress = if (effectId == "COLOR_FILL_REVERSE") 0f else 1f,
+                        unlockedProgress = if (effectId == "COLOR_FILL_REVERSE") 1f else 0f
                     )
                 ).sanitized()
             )
 
-            "NEON", "NEON_REVERSE" -> EffectPreviewRenderState.Neon(
-                NeonRenderState(
+            "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE" -> EffectPreviewRenderState.CanvasSketch(
+                CanvasSketchRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
-                    lineWidth = previewFloat(prefs, "neon_line_width", 1.5f),
-                    sensitivity = previewFloat(prefs, "neon_sensitivity", 0.5f),
+                    lineWidth = previewFloat(prefs, "canvas_sketch_line_width", 1.5f),
+                    sensitivity = previewFloat(prefs, "canvas_sketch_sensitivity", 0.5f),
                     subjectSegmentationEnabled = previewBoolean(
                         prefs,
                         CanvasSubjectSettings.ENABLED_KEY,
                         false
                     ),
                     // Matches CanvasSketchWallpaperService: fixed endpoints,
-                    // with the reversal living in NeonRenderState.imageAmount.
+                    // with the reversal living in CanvasSketchRenderState.imageAmount.
                     clock = previewClockState(
                         prefs,
                         lockedProgress = 0f,
@@ -699,8 +714,8 @@ class EffectPreviewService(
     ): GLSurfaceView.Renderer {
         return when (state) {
             is EffectPreviewRenderState.Atmosphere -> {
-                if (effectId == "REVERSE") {
-                    BlurToSharpRenderer(appContext, sourceProvider)
+                if (effectId == "ATMOSPHERE_REVERSE") {
+                    AtmosphereReverseRenderer(appContext, sourceProvider)
                 } else {
                     AtmosphereRenderer(appContext, sourceProvider)
                 }
@@ -711,18 +726,27 @@ class EffectPreviewService(
                 GlassRenderer(appContext, sourceProvider)
             is EffectPreviewRenderState.Halftone -> HalftoneRenderer(
                 appContext,
-                isReverse = SinglePassLook.isReverse(effectId),
-                previewSource = sourceProvider,
-                look = SinglePassLook.of(effectId)
+                isReverse = effectId == "HALFTONE_REVERSE",
+                previewSource = sourceProvider
+            )
+            is EffectPreviewRenderState.Vhs -> VhsRenderer(
+                appContext,
+                isReverse = effectId == "VHS_REVERSE",
+                previewSource = sourceProvider
+            )
+            is EffectPreviewRenderState.Zoom -> ZoomRenderer(
+                appContext,
+                isReverse = effectId == "ZOOM_REVERSE",
+                previewSource = sourceProvider
             )
             is EffectPreviewRenderState.ColorFill -> ColorFillRenderer(
                 appContext,
-                isReverse = effectId == "COLORFILL_REVERSE",
+                isReverse = effectId == "COLOR_FILL_REVERSE",
                 previewSource = sourceProvider
             )
-            is EffectPreviewRenderState.Neon -> NeonRenderer(
+            is EffectPreviewRenderState.CanvasSketch -> CanvasSketchRenderer(
                 appContext,
-                isReverse = effectId == "NEON_REVERSE",
+                isReverse = effectId == "CANVAS_SKETCH_REVERSE",
                 previewSource = sourceProvider
             )
         }
@@ -736,7 +760,7 @@ class EffectPreviewService(
             renderer is AtmosphereRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.Atmosphere ->
                 renderer.blurStrength = update.progress
-            renderer is BlurToSharpRenderer &&
+            renderer is AtmosphereReverseRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.Atmosphere ->
                 renderer.blurStrength = update.progress
             renderer is FrostedRenderer &&
@@ -748,11 +772,17 @@ class EffectPreviewService(
             renderer is HalftoneRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.Halftone ->
                 renderer.blurStrength = update.progress
+            renderer is VhsRenderer &&
+                update is EffectPreviewOpenGlFrameUpdate.Vhs ->
+                renderer.blurStrength = update.progress
+            renderer is ZoomRenderer &&
+                update is EffectPreviewOpenGlFrameUpdate.Zoom ->
+                renderer.blurStrength = update.progress
             renderer is ColorFillRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.ColorFill ->
                 renderer.blurStrength = update.progress
-            renderer is NeonRenderer &&
-                update is EffectPreviewOpenGlFrameUpdate.Neon ->
+            renderer is CanvasSketchRenderer &&
+                update is EffectPreviewOpenGlFrameUpdate.CanvasSketch ->
                 renderer.blurStrength = update.progress
             else -> error("The preview renderer and frame update do not match")
         }
@@ -795,7 +825,7 @@ class EffectPreviewService(
                 renderer.clockLockedProgress = value.clockLockedProgress
                 renderer.clockUnlockedProgress = value.clockUnlockedProgress
             }
-            renderer is BlurToSharpRenderer &&
+            renderer is AtmosphereReverseRenderer &&
                 state is EffectPreviewRenderState.Atmosphere -> {
                 val value = state.value
                 renderer.blurStrength = value.progress
@@ -845,6 +875,20 @@ class EffectPreviewService(
                 renderer.configureBackgroundOnly(value.backgroundOnly)
                 renderer.applyClockState(value.clock)
             }
+            renderer is VhsRenderer &&
+                state is EffectPreviewRenderState.Vhs -> {
+                val value = state.value
+                renderer.blurStrength = value.progress
+                renderer.dimLevel = value.dimLevel
+                renderer.applyClockState(value.clock)
+            }
+            renderer is ZoomRenderer &&
+                state is EffectPreviewRenderState.Zoom -> {
+                val value = state.value
+                renderer.blurStrength = value.progress
+                renderer.dimLevel = value.dimLevel
+                renderer.applyClockState(value.clock)
+            }
             renderer is ColorFillRenderer &&
                 state is EffectPreviewRenderState.ColorFill -> {
                 val value = state.value
@@ -854,8 +898,8 @@ class EffectPreviewService(
                 renderer.originY = value.originY
                 renderer.applyClockState(value.clock)
             }
-            renderer is NeonRenderer &&
-                state is EffectPreviewRenderState.Neon -> {
+            renderer is CanvasSketchRenderer &&
+                state is EffectPreviewRenderState.CanvasSketch -> {
                 val value = state.value
                 renderer.blurStrength = value.progress
                 renderer.dimLevel = value.dimLevel
@@ -878,7 +922,7 @@ class EffectPreviewService(
         // stall part-way in the preview: these surfaces are
         // RENDERMODE_WHEN_DIRTY, so nothing else asks for the next frame.
         when (renderer) {
-            is NeonRenderer -> {
+            is CanvasSketchRenderer -> {
                 renderer.onSketchUpdated = render
                 renderer.onAnimationFrameRequested = render
             }
@@ -889,7 +933,7 @@ class EffectPreviewService(
                 // its first frame on OpenGL and stopped there.
                 renderer.onAnimationFrameRequested = render
             }
-            is BlurToSharpRenderer -> {
+            is AtmosphereReverseRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
                 renderer.onAnimationFrameRequested = render
@@ -900,6 +944,16 @@ class EffectPreviewService(
                 renderer.onAnimationFrameRequested = render
             }
             is HalftoneRenderer -> {
+                renderer.onSubjectMaskUpdated = render
+                renderer.onRenderRetryRequested = ::requestRenderRetry
+                renderer.onAnimationFrameRequested = render
+            }
+            is VhsRenderer -> {
+                renderer.onSubjectMaskUpdated = render
+                renderer.onRenderRetryRequested = ::requestRenderRetry
+                renderer.onAnimationFrameRequested = render
+            }
+            is ZoomRenderer -> {
                 renderer.onSubjectMaskUpdated = render
                 renderer.onRenderRetryRequested = ::requestRenderRetry
                 renderer.onAnimationFrameRequested = render
@@ -932,10 +986,12 @@ class EffectPreviewService(
         }
         when (renderer) {
             is AtmosphereRenderer -> renderer.release()
-            is BlurToSharpRenderer -> renderer.release()
-            is NeonRenderer -> renderer.release()
+            is AtmosphereReverseRenderer -> renderer.release()
+            is CanvasSketchRenderer -> renderer.release()
             is GlassRenderer -> renderer.release()
             is HalftoneRenderer -> renderer.release()
+            is VhsRenderer -> renderer.release()
+            is ZoomRenderer -> renderer.release()
         }
     }
 

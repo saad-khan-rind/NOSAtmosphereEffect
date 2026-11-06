@@ -3,10 +3,10 @@ package com.app.nosatmosphereeffect.service
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.GLWallpaperService
-import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
-import com.app.nosatmosphereeffect.renderer.GlassRenderController
+import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
+import com.app.nosatmosphereeffect.effect.GlassEffectPreferences
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
+import com.app.nosatmosphereeffect.renderer.glass.GlassRenderController
 
 abstract class GlassWallpaperService protected constructor(
     private val reverseEffect: Boolean

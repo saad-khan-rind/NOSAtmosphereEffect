@@ -7,8 +7,8 @@ import android.graphics.Matrix
 import android.net.Uri
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
-import com.app.nosatmosphereeffect.helper.ImageMemoryBudget
-import com.app.nosatmosphereeffect.helper.ImageSampling
+import com.app.nosatmosphereeffect.image.ImageMemoryBudget
+import com.app.nosatmosphereeffect.image.ImageSampling
 import com.app.nosatmosphereeffect.storage.UriFiles
 import java.io.File
 import java.io.FileNotFoundException

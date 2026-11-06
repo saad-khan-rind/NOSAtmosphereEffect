@@ -31,7 +31,7 @@ import java.util.concurrent.Executors
 class EffectSelectionActivity : ComponentActivity() {
 
     private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    private var selectedEffectId: String = "ORIGINAL"
+    private var selectedEffectId: String = "ATMOSPHERE"
     private var previewBitmap by mutableStateOf<ImageBitmap?>(null)
 
     private var sharedUris: ArrayList<Uri>? = null
@@ -152,7 +152,7 @@ class EffectSelectionActivity : ComponentActivity() {
 
     private fun launchCropActivity(uri: Uri) {
         val intent = if (EffectCatalog.isReverse(selectedEffectId)) {
-            Intent(this, BlurToSharpCropActivity::class.java)
+            Intent(this, ReverseCropActivity::class.java)
         } else {
             Intent(this, CropActivity::class.java)
         }

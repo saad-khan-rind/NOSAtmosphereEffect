@@ -20,16 +20,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
-import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
-import com.app.nosatmosphereeffect.helper.FolderSyncPolicy
-import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
-import com.app.nosatmosphereeffect.helper.GlassEffectSettings
-import com.app.nosatmosphereeffect.helper.MatrixStatePolicy
-import com.app.nosatmosphereeffect.helper.MediaImage
-import com.app.nosatmosphereeffect.helper.PlaylistModeManager
-import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.playlist.FolderPlaylistSource
+import com.app.nosatmosphereeffect.playlist.FolderSyncPolicy
+import com.app.nosatmosphereeffect.effect.GlassEffectPreferences
+import com.app.nosatmosphereeffect.effect.GlassEffectSettings
+import com.app.nosatmosphereeffect.image.MatrixStatePolicy
+import com.app.nosatmosphereeffect.playlist.MediaImage
+import com.app.nosatmosphereeffect.playlist.PlaylistModeManager
+import com.app.nosatmosphereeffect.color.SystemColorSyncPreferences
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.storage.ActiveFolderWatch
 import com.app.nosatmosphereeffect.storage.FileTransactions
 import com.app.nosatmosphereeffect.storage.FolderWatchState
@@ -63,7 +63,7 @@ class PlaylistEditorActivity : ComponentActivity() {
     private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val draftState: StandardPlaylistDraftState by viewModels()
     private val playlistItems get() = draftState.items
-    private var effectId: String = "ORIGINAL"
+    private var effectId: String = "ATMOSPHERE"
     private var editingPosition = -1
     private var isEditExisting = false
 
@@ -141,7 +141,7 @@ class PlaylistEditorActivity : ComponentActivity() {
         window.attributes.layoutInDisplayCutoutMode =
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
 
-        effectId = intent.getStringExtra("EFFECT_ID") ?: "ORIGINAL"
+        effectId = intent.getStringExtra("EFFECT_ID") ?: "ATMOSPHERE"
         // Opening the saved entry of the active playlist edits the active copy,
         // which may hold folder images newer than the saved one.
         isEditExisting = intent.getBooleanExtra("EDIT_EXISTING", false) ||

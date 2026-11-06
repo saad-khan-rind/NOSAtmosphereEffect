@@ -19,14 +19,14 @@ enum class GraphicsBackendPreference(val storedValue: String) {
 
 object GraphicsBackendSelector {
     private val vulkanEffects = setOf(
-        "ORIGINAL",
-        "REVERSE",
+        "ATMOSPHERE",
+        "ATMOSPHERE_REVERSE",
         "GLASS",
         "GLASS_REVERSE",
-        "COLORFILL",
-        "COLORFILL_REVERSE",
-        "NEON",
-        "NEON_REVERSE",
+        "COLOR_FILL",
+        "COLOR_FILL_REVERSE",
+        "CANVAS_SKETCH",
+        "CANVAS_SKETCH_REVERSE",
         "FROSTED",
         "FROSTED_REVERSE",
         "HALFTONE",

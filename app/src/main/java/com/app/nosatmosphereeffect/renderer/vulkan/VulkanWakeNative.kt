@@ -1,6 +1,6 @@
 package com.app.nosatmosphereeffect.renderer.vulkan
 
-import com.app.nosatmosphereeffect.helper.WakeTransition
+import com.app.nosatmosphereeffect.transition.WakeTransition
 
 /** Hands the lock screen's wake transition to the native engine's post pass. */
 internal object VulkanWakeNative {

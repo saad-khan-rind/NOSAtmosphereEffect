@@ -3,10 +3,10 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.WakeTransition
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.FrostedRenderState
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.transition.WakeTransition
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 
@@ -51,14 +51,14 @@ internal class VulkanFrostedHost(
 
 
     /** Plays the clock's entry animation on the next prepared frame. */
-    fun beginClockEntry() {
+    override fun beginClockEntry() {
         clockOverlay.beginEntry()
         // A clock that is off costs nothing: no frame for it, ever.
         if (clockOverlay.state.enabled) requestRender()
     }
 
     /** Re-reads the system 12/24-hour setting and forces a redraw. */
-    fun onTimeChanged() {
+    override fun onTimeChanged() {
         clockOverlay.onTimeChanged()
         if (clockOverlay.state.enabled) requestRender()
     }

@@ -16,12 +16,12 @@ val localProperties = Properties().apply {
 android {
     namespace = "com.app.nosatmosphereeffect"
     compileSdk = 37
-    ndkVersion = "29.0.14206865"
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "com.saad_khan_rind.atmosphere_effect"
-        versionName = "7.4.2"
-        versionCode = 500742
+        versionName = "7.4.6"
+        versionCode = 500746
     }
 
     signingConfigs {
@@ -47,21 +47,21 @@ android {
             dimension = "apiLevel"
             minSdk = 36
             targetSdk = 36
-            versionCode = 500742
+            versionCode = 500746
         }
 
         create("v35") {
             dimension = "apiLevel"
             minSdk = 35
             targetSdk = 36
-            versionCode = 400742
+            versionCode = 400746
         }
 
         create("v33") {
             dimension = "apiLevel"
             minSdk = 33
             targetSdk = 33
-            versionCode = 300742
+            versionCode = 300746
         }
 
         create("play") {

@@ -9,9 +9,9 @@
 namespace {
 
 constexpr char kVertexShader[] =
-    "shaders/vulkan/colorfill/colorfill.vert.spv";
+    "shaders/vulkan/color_fill/color_fill.vert.spv";
 constexpr char kFragmentShader[] =
-    "shaders/vulkan/colorfill/colorfill.frag.spv";
+    "shaders/vulkan/color_fill/color_fill.frag.spv";
 constexpr uint32_t kWallpaperBinding = 0;
 constexpr uint32_t kClockBinding = 1;
 // Exists purely for the clock's depth effect: Colour Fill has no

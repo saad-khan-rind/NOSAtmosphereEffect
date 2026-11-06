@@ -3,8 +3,8 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.ClockSceneSink
-import com.app.nosatmosphereeffect.helper.SubjectMaskCoordinator
+import com.app.nosatmosphereeffect.clock.ClockSceneSink
+import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import java.io.Closeable
 
 /**
@@ -15,7 +15,7 @@ import java.io.Closeable
  * wanted a mask for its own "background only" mode. Colour Fill and Frosted
  * have no such mode, so rather than paste the same logic into two more hosts
  * they share this — the Vulkan counterpart of
- * [com.app.nosatmosphereeffect.helper.GlesSubjectMask].
+ * [com.app.nosatmosphereeffect.subject.GlesSubjectMask].
  *
  * ## The generation rule
  *

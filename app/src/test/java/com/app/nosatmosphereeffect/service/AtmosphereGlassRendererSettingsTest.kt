@@ -3,9 +3,9 @@ package com.app.nosatmosphereeffect.service
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
+import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderController
 import java.lang.reflect.Method
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,7 +31,7 @@ class AtmosphereGlassRendererSettingsTest {
         val reverse = AtmosphereRenderController(context, reverse = true)
 
         configure(AtmosphereService(), forward, preferences)
-        configure(BlurToSharpService(), reverse, preferences)
+        configure(AtmosphereReverseService(), reverse, preferences)
 
         val forwardState = forward.currentStateForTesting()
         val reverseState = reverse.currentStateForTesting()
@@ -60,7 +60,7 @@ class AtmosphereGlassRendererSettingsTest {
             val reverse = AtmosphereRenderController(context, reverse = true)
 
             configure(AtmosphereService(), forward, preferences)
-            configure(BlurToSharpService(), reverse, preferences)
+            configure(AtmosphereReverseService(), reverse, preferences)
 
             assertFalse(forward.currentStateForTesting().glassEnabled)
             assertFalse(reverse.currentStateForTesting().glassEnabled)

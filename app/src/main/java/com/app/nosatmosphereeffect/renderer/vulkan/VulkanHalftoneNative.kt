@@ -8,14 +8,10 @@ internal object VulkanHalftoneNative {
     val libraryLoaded: Boolean
         get() = VulkanNative.libraryLoaded
 
-    /**
-     * [reverse] means the effect shows at the start of the transition (the
-     * lock screen); [shader] picks the look, see SinglePassLook.nativeShader.
-     */
+    /** [reverse] means the effect shows at the start of the transition (the lock screen). */
     external fun nativeCreate(
         assets: AssetManager,
-        reverse: Boolean,
-        shader: Int
+        reverse: Boolean
     ): Long
 
     external fun nativeSetSurface(

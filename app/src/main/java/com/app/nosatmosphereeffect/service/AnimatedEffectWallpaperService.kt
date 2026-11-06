@@ -17,21 +17,21 @@ import android.view.Choreographer
 import android.view.SurfaceHolder
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
-import com.app.nosatmosphereeffect.helper.ClockOverlayState
-import com.app.nosatmosphereeffect.helper.ClockPreferences
-import com.app.nosatmosphereeffect.helper.ClockScreen
-import com.app.nosatmosphereeffect.helper.GLWallpaperService
-import com.app.nosatmosphereeffect.helper.EffectStatePolicy
-import com.app.nosatmosphereeffect.helper.PlaylistModeManager
-import com.app.nosatmosphereeffect.helper.PlaylistRotationController
-import com.app.nosatmosphereeffect.helper.WakeRandom
-import com.app.nosatmosphereeffect.helper.WakeTransition
-import com.app.nosatmosphereeffect.helper.WakeTransitionSettings
-import com.app.nosatmosphereeffect.helper.WakeTransitionStyle
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPolicy
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
-import com.app.nosatmosphereeffect.helper.WallpaperSurface
+import com.app.nosatmosphereeffect.clock.ClockOverlayState
+import com.app.nosatmosphereeffect.clock.ClockPreferences
+import com.app.nosatmosphereeffect.clock.ClockScreen
+import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
+import com.app.nosatmosphereeffect.wallpaper.EffectStatePolicy
+import com.app.nosatmosphereeffect.playlist.PlaylistModeManager
+import com.app.nosatmosphereeffect.playlist.PlaylistRotationController
+import com.app.nosatmosphereeffect.transition.WakeRandom
+import com.app.nosatmosphereeffect.transition.WakeTransition
+import com.app.nosatmosphereeffect.transition.WakeTransitionSettings
+import com.app.nosatmosphereeffect.transition.WakeTransitionStyle
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorPolicy
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorPreferences
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorSettings
+import com.app.nosatmosphereeffect.wallpaper.WallpaperSurface
 import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeSession
@@ -468,7 +468,14 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         override fun onWakingUp() {
             if (!WakeTransition.blackout) return
             WakeTransition.blackout = false
-            requestRender()
+            // Drawn now, before the wallpaper is shown again: a plain request
+            // waits for that (drawing is paused while hidden), and the black
+            // frame stayed up for about half a second on a quick off and on.
+            renderWhileHidden(HIDDEN_FRAME_MS)
+        }
+
+        override fun onKeyguardGoingAway() {
+            events.keyguardGoingAway()
         }
 
         fun handleThemeChange(isNightMode: Boolean) {

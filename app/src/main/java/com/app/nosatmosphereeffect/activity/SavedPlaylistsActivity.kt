@@ -26,12 +26,12 @@ class SavedPlaylistsActivity : ComponentActivity() {
 
     private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var playlists by mutableStateOf<List<SavedPlaylistSummary>?>(null)
-    private var effectId = "ORIGINAL"
+    private var effectId = "ATMOSPHERE"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        effectId = intent.getStringExtra(EXTRA_EFFECT_ID) ?: "ORIGINAL"
+        effectId = intent.getStringExtra(EXTRA_EFFECT_ID) ?: "ATMOSPHERE"
 
         setContent {
             AtmoEngineTheme {
