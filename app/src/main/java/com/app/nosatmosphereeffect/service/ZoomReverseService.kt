@@ -1,5 +1,5 @@
 package com.app.nosatmosphereeffect.service
 
-import com.app.nosatmosphereeffect.renderer.SinglePassLook
+import com.app.nosatmosphereeffect.renderer.halftone.SinglePassLook
 
 class ZoomReverseService : HalftoneWallpaperService(reverseEffect = true, look = SinglePassLook.ZOOM)

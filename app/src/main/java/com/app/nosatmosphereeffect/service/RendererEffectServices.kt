@@ -6,13 +6,13 @@ import android.util.Log
 import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
 import com.app.nosatmosphereeffect.subject.SubjectIsolationPolicy
-import com.app.nosatmosphereeffect.renderer.ColorFillRenderController
-import com.app.nosatmosphereeffect.renderer.FrostedRenderController
-import com.app.nosatmosphereeffect.renderer.FrostedRenderer
-import com.app.nosatmosphereeffect.renderer.HalftoneProgressPolicy
-import com.app.nosatmosphereeffect.renderer.HalftoneRenderController
-import com.app.nosatmosphereeffect.renderer.SinglePassLook
-import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderController
+import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderController
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderController
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderer
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneProgressPolicy
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderController
+import com.app.nosatmosphereeffect.renderer.halftone.SinglePassLook
+import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderController
 
 abstract class ColorFillWallpaperService protected constructor(
     private val reverseEffect: Boolean

@@ -5,8 +5,8 @@ import android.graphics.Bitmap
 import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.transition.WakeTransition
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
-import com.app.nosatmosphereeffect.renderer.SinglePassLook
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
+import com.app.nosatmosphereeffect.renderer.halftone.SinglePassLook
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 

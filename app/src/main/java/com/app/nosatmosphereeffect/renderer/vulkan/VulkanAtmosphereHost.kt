@@ -6,8 +6,8 @@ import android.util.Log
 import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.AtmosphereBlobFrame
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereBlobFrame
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 
 internal class VulkanAtmosphereHost(

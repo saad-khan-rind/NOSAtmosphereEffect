@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.GlassRenderState
+import com.app.nosatmosphereeffect.renderer.glass.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 
 internal class VulkanGlassHost(

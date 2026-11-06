@@ -4,7 +4,7 @@ import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.view.Surface
 import com.app.nosatmosphereeffect.transition.WakeTransition
-import com.app.nosatmosphereeffect.renderer.GlassRenderState
+import com.app.nosatmosphereeffect.renderer.glass.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 
 internal object VulkanGlassNative {

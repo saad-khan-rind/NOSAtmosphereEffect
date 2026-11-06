@@ -7,7 +7,7 @@ package com.app.nosatmosphereeffect.clock
  * ## Why this exists
  *
  * The clock started out as an Atmosphere-only feature, so its settings live as
- * a dozen flat fields on [com.app.nosatmosphereeffect.renderer.AtmosphereRenderState].
+ * a dozen flat fields on [com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderState].
  * Copying those twelve fields into five more render states — and then into
  * five more renderers, five controllers, five services and both backends —
  * would have meant twelve chances per effect to forget one. Grouping them

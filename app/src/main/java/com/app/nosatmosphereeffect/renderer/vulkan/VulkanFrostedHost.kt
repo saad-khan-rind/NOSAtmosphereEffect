@@ -6,7 +6,7 @@ import android.util.Log
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.transition.WakeTransition
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.FrostedRenderState
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 

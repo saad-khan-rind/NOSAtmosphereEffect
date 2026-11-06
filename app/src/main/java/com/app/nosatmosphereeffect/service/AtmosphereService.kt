@@ -6,7 +6,7 @@ import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
 import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 import com.app.nosatmosphereeffect.effect.GlassEffectPreferences
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderController
 
 class AtmosphereService :
     AnimatedEffectWallpaperService<AtmosphereRenderController>() {

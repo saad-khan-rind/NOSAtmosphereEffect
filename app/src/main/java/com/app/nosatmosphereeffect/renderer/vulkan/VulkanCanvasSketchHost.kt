@@ -7,7 +7,7 @@ import com.app.nosatmosphereeffect.subject.SubjectMaskCoordinator
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.transition.WakeTransition
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderState
+import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageBridge
 import com.app.nosatmosphereeffect.renderer.vulkan.common.VulkanSingleImageHost
 import kotlin.math.abs

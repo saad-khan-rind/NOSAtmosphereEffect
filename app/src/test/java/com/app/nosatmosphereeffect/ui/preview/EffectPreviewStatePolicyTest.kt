@@ -1,11 +1,11 @@
 package com.app.nosatmosphereeffect.ui.preview
 
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderState
-import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
-import com.app.nosatmosphereeffect.renderer.FrostedRenderState
-import com.app.nosatmosphereeffect.renderer.GlassRenderState
-import com.app.nosatmosphereeffect.renderer.HalftoneRenderState
-import com.app.nosatmosphereeffect.renderer.CanvasSketchRenderState
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderState
+import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderState
+import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderState
+import com.app.nosatmosphereeffect.renderer.glass.GlassRenderState
+import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
+import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

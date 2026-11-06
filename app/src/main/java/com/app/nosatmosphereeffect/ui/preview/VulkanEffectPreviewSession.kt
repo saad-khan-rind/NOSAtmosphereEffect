@@ -8,7 +8,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewOutlineProvider
-import com.app.nosatmosphereeffect.renderer.SinglePassLook
+import com.app.nosatmosphereeffect.renderer.halftone.SinglePassLook
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanColorFillHost

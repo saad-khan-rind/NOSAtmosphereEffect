@@ -11,7 +11,7 @@ import android.view.SurfaceHolder
 import com.app.nosatmosphereeffect.transition.WakeTransition
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.ColorFillRenderState
+import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.vulkan.common.SwapchainRecreationBudget
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
