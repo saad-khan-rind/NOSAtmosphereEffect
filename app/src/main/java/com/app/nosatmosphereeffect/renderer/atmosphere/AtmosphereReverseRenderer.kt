@@ -34,7 +34,7 @@ import kotlin.math.pow
 class AtmosphereReverseRenderer(
     private val context: Context,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : AtmosphereOpenGlRenderer, WallpaperScrollRenderer {
 
     @Volatile private var scrollOffsetX: Float = 0.5f
     private var currentWindowX: Float = 1f
@@ -173,7 +173,7 @@ class AtmosphereReverseRenderer(
     )
     private lateinit var vertexBuffer: FloatBuffer
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         if (!released) {
             needsReload = true
         }
@@ -189,9 +189,9 @@ class AtmosphereReverseRenderer(
         refreshSubjectMaskNeed()
     }
 
-    fun beginClockEntry() = clockOverlay.beginEntry()
+    override fun beginClockEntry() = clockOverlay.beginEntry()
 
-    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+    override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
     /** Segmentation runs when either consumer wants it, and only then. */
     private fun refreshSubjectMaskNeed() {
@@ -215,7 +215,7 @@ class AtmosphereReverseRenderer(
     internal val glassBackgroundOnlyEnabled: Boolean
         get() = glassBackgroundOnly
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         if (bitmap.isRecycled) return
 
         var rejected = false
@@ -236,7 +236,25 @@ class AtmosphereReverseRenderer(
         }
     }
 
-    fun release() {
+    override fun applyState(state: AtmosphereRenderState) {
+        blurStrength = state.progress
+        dimLevel = state.dimLevel
+        enableNoise = state.noiseEnabled
+        noiseScale = state.noiseScale
+        noiseStrength = state.noiseStrength
+        blobSaturation = state.saturation
+        blobContrast = state.contrast
+        atmosphereGlassEnabled = state.glassEnabled
+        glassLineCount = state.glassLineCount
+        glassLineThickness = state.glassLineThickness
+        configureGlassBackgroundOnly(state.glassBackgroundOnly)
+        // Reverse Atmosphere gets the clock through the shared overlay rather
+        // than the flat fields the forward renderer uses.
+        applyClockState(state.clockOverlay())
+        setDrawerBlurred(state.drawerBlur > 0.5f)
+    }
+
+    override fun release() {
         val pending = synchronized(pendingLock) {
             if (released) return
             released = true

@@ -8,6 +8,7 @@ import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.renderer.gles.BlurredTextureSet
+import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
 import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
@@ -22,7 +23,7 @@ import javax.microedition.khronos.opengles.GL10
 class FrostedRenderer(
     private val context: Context,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : EffectOpenGlRenderer, WallpaperScrollRenderer {
 
     @Volatile private var scrollOffsetX: Float = 0.5f
     private var currentWindowX: Float = 1f
@@ -107,11 +108,11 @@ class FrostedRenderer(
         }
     }
 
-    fun beginClockEntry() = clockOverlay.beginEntry()
+    override fun beginClockEntry() = clockOverlay.beginEntry()
 
-    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+    override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
-    fun release() {
+    override fun release() {
         onAnimationFrameRequested = null
         clockOverlay.release()
         subjectMask.close()
@@ -128,7 +129,9 @@ class FrostedRenderer(
     private var fittedForWidth: Int = -1
     private var fittedForHeight: Int = -1
 
-    fun queuePlaylistTransition(bitmap: Bitmap, value: Float = 0.0f) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) = queuePlaylistTransition(bitmap, 0.0f)
+
+    fun queuePlaylistTransition(bitmap: Bitmap, value: Float) {
         pendingPlaylistBitmap = bitmap
         blurStrength = value
     }
@@ -141,7 +144,7 @@ class FrostedRenderer(
     )
     private lateinit var vertexBuffer: FloatBuffer
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         needsReload = true
     }
 

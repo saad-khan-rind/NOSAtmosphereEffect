@@ -1,116 +1,48 @@
 package com.app.nosatmosphereeffect.renderer.atmosphere
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.util.Log
 import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
-import com.app.nosatmosphereeffect.clock.ClockFramePump
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
-import com.app.nosatmosphereeffect.clock.ClockPalette
 import com.app.nosatmosphereeffect.clock.ClockScreen
 import com.app.nosatmosphereeffect.clock.ClockScreenPolicy
+import com.app.nosatmosphereeffect.renderer.backend.EffectBackends
+import com.app.nosatmosphereeffect.renderer.backend.EffectController
+import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereHost
 import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
 import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
-import com.app.nosatmosphereeffect.renderer.backend.BackendReselectableRenderer
-import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackend
-import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreference
-import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeSession
-import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatusRepository
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereHost
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendChange
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendResolution
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanBackendSelection
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanSupport
-import java.util.concurrent.Executors
 
-class AtmosphereRenderController(
-    context: Context,
-    private val reverse: Boolean
-) : BackendReselectableRenderer {
-    private val appContext = context.applicationContext
-    private val effectId = if (reverse) "ATMOSPHERE_REVERSE" else "ATMOSPHERE"
-    private val lock = Any()
+/** Atmosphere's two OpenGL ES renderers, forward and reverse, both take its whole state. */
+internal interface AtmosphereOpenGlRenderer : EffectOpenGlRenderer {
+    fun applyState(state: AtmosphereRenderState)
+}
 
-    /**
-     * Drives clock frames. One per controller, i.e. one per wallpaper engine
-     * — see ClockFramePump for why this must not be service-wide.
-     */
-    private val clockPump = ClockFramePump(appContext) { onClockTick() }
-    // Started the first time a wallpaper colour is needed, so a clock that is
-    // off, or set to a fixed colour, never runs a thread for it.
-    private val clockColorWorker by lazy {
-        Executors.newSingleThreadExecutor { runnable ->
-            Thread(runnable, "AtmoClockColor").apply { isDaemon = true }
-        }
-    }
-    @Volatile private var clockColorWorkerStarted = false
-    /** Whether the clock is on; a colour for a clock that is off is never worked out. */
-    @Volatile private var clockShown = false
-    @Volatile private var requestedClockColor: Int = AtmosphereClockPolicy.DEFAULT_COLOR
-    @Volatile private var resolvedAutoClockColor: Int? = null
+/** Atmosphere on whichever backend suits the phone (EffectBackends); what is Atmosphere's own is here. */
+class AtmosphereRenderController private constructor(
+    private val effectId: String,
+    private val backends: EffectBackends<AtmosphereRenderState, AtmosphereOpenGlRenderer, VulkanAtmosphereHost>
+) : EffectController by backends {
 
-    private var state = AtmosphereRenderState()
-    private var engine: GLWallpaperService.GLEngine? = null
-    private var activeHost: WallpaperRenderHost? = null
-    private var openGlAtmosphere: AtmosphereRenderer? = null
-    private var openGlReverse: AtmosphereReverseRenderer? = null
-    private var vulkanHost: VulkanAtmosphereHost? = null
-    private var configuredGlassEnabled = false
-    private var configuredGlassBackgroundOnly = false
-    private var backendPreference = GraphicsBackendPreference.AUTOMATIC
-    private var activeVulkanApiVersion: Int? = null
-    private var runtimeSession: RendererRuntimeSession? = null
-    private var closed = false
+    constructor(context: Context, reverse: Boolean) : this(
+        if (reverse) "ATMOSPHERE_REVERSE" else "ATMOSPHERE",
+        reverse,
+        context
+    )
 
-    fun attach(engine: GLWallpaperService.GLEngine) {
-        synchronized(lock) {
-            check(this.engine == null) {
-                "The Atmosphere renderer is already attached"
-            }
-            check(!closed) { "The Atmosphere renderer has been released" }
-            this.engine = engine
-        }
-        val selection = VulkanSupport.selectBackend(appContext, effectId)
-        synchronized(lock) {
-            backendPreference = selection.preference
-            runtimeSession = selection.runtimeSession
-        }
-        when (selection.backend) {
-            GraphicsBackend.VULKAN -> attachVulkan(engine)
-            GraphicsBackend.OPENGL_ES -> attachOpenGl(engine)
-        }
-    }
+    private constructor(effectId: String, reverse: Boolean, context: Context) : this(
+        effectId,
+        EffectBackends(
+            context = context,
+            effectId = effectId,
+            label = "Atmosphere",
+            initialState = AtmosphereRenderState(),
+            effect = AtmosphereEffect(reverse)
+        )
+    )
 
-    override fun reselectBackend() {
-        val snapshot = synchronized(lock) {
-            val currentEngine = engine
-            val currentHost = activeHost
-            if (closed || currentEngine == null || currentHost == null) return
-            BackendSnapshot(
-                engine = currentEngine,
-                host = currentHost,
-                preference = backendPreference,
-                backend = if (vulkanHost === currentHost) {
-                    GraphicsBackend.VULKAN
-                } else {
-                    GraphicsBackend.OPENGL_ES
-                }
-            )
-        }
-        when (
-            val change = VulkanSupport.resolveBackendChange(
-                context = appContext,
-                effectId = effectId,
-                appliedPreference = snapshot.preference,
-                activeBackend = snapshot.backend
-            )
-        ) {
-            VulkanBackendChange.None -> Unit
-            is VulkanBackendChange.PreferenceOnly ->
-                refreshActiveSession(snapshot, change.resolution)
-            is VulkanBackendChange.Swap -> swapBackend(snapshot, change)
-        }
-    }
+    /** The glass the user set, which a fixed (transition-free) wallpaper turns off on its plain side. */
+    @Volatile private var configuredGlassEnabled = false
+    @Volatile private var configuredGlassBackgroundOnly = false
 
     fun configure(
         dimLevel: Float,
@@ -124,10 +56,10 @@ class AtmosphereRenderController(
         glassLineThickness: Float,
         glassBackgroundOnly: Boolean
     ) {
-        val snapshot = synchronized(lock) {
-            configuredGlassEnabled = glassEnabled
-            configuredGlassBackgroundOnly = glassBackgroundOnly
-            state = state.copy(
+        configuredGlassEnabled = glassEnabled
+        configuredGlassBackgroundOnly = glassBackgroundOnly
+        backends.update {
+            it.copy(
                 dimLevel = dimLevel,
                 saturation = saturation,
                 contrast = contrast,
@@ -138,587 +70,90 @@ class AtmosphereRenderController(
                 glassLineCount = glassLineCount,
                 glassLineThickness = glassLineThickness,
                 glassBackgroundOnly = glassBackgroundOnly
-            ).sanitized()
-            state
+            )
         }
-        applyState(snapshot)
     }
 
     /**
-     * The clock, configured separately from the effect's own settings.
-     *
-     * Split out when the clock stopped being Atmosphere-only: every other
-     * effect service now hands its controller the same [ClockOverlayState],
-     * and having one shape of call across all of them is worth more than
-     * keeping this controller's twelve extra parameters. The state is unpacked
-     * into the flat fields the renderers and the Vulkan host already read,
-     * rather than those being rewritten to match.
+     * The clock, with Atmosphere's rules collapsed here, once: an effect that
+     * is only sharp on one side gets the clock on that side, whatever is
+     * stored, so a preference carried over from another effect can't put it
+     * somewhere illegible.
      */
-    fun configureClock(clock: ClockOverlayState) {
+    override fun configureClock(clock: ClockOverlayState) {
         val safe = clock.sanitized()
-        requestedClockColor = safe.requestedColor
-        val resolvedClock =
-            AtmosphereClockPolicy.resolveEnabled(effectId, safe.enabled)
-        // Collapsed here, once, rather than in each renderer: an effect that
-        // is only sharp on one side gets that side regardless of what is
-        // stored, so a preference carried over from another effect cannot put
-        // the clock somewhere it would be illegible.
-        val resolvedScreen = ClockScreenPolicy.resolveScreen(
-            effectId,
-            ClockScreen.fromId(safe.screenId)
+        backends.configureClock(
+            safe.copy(
+                enabled = AtmosphereClockPolicy.resolveEnabled(effectId, safe.enabled),
+                screenId = ClockScreenPolicy.resolveScreen(effectId, ClockScreen.fromId(safe.screenId)).id
+            )
         )
-        val snapshot = synchronized(lock) {
-            state = state.copy(
-                clockEnabled = resolvedClock,
-                clockDepthEnabled = safe.depthEnabled,
-                clockAdaptToSubject = safe.adaptToSubject,
-                clockStyleId = safe.styleId,
-                clockFontId = safe.fontId,
-                clockShowDate = safe.showDate,
-                clockAnimate = safe.animate,
-                clockCenterX = safe.centerX,
-                clockTop = safe.top,
-                clockHeight = safe.height,
-                clockWidthScale = safe.widthScale,
-                clockHeightScale = safe.heightScale,
-                clockDateCenterX = safe.dateCenterX,
-                clockDateTop = safe.dateTop,
-                clockDateHeight = safe.dateHeight,
-                clockDateWidthScale = safe.dateWidthScale,
-                clockOpacity = safe.opacity,
-                clockFrost = safe.frost,
-                clockWeight = safe.weight,
-                clockAdaptiveColors = safe.adaptiveColors,
-                clockColorFollowsWallpaper = ClockPalette.followsWallpaper(safe.requestedColor),
-                clockColor = ClockPalette.resolve(
-                    requestedClockColor,
-                    resolvedAutoClockColor
-                ),
-                clockHourFormat = safe.hourFormat,
-                clockScreenId = resolvedScreen.id,
-                clockLockedProgress = safe.lockedProgress,
-                clockUnlockedProgress = safe.unlockedProgress
-            ).sanitized()
-            state
-        }
-        applyState(snapshot)
-        clockShown = resolvedClock
-        clockPump.configure(resolvedClock)
-        if (resolvedClock && ClockPalette.followsWallpaper(requestedClockColor)) {
-            refreshAutoClockColor()
-        }
-    }
-
-    /**
-     * Forwarded from the wallpaper engine so the pump idles when hidden, and
-     * so the clock plays its entry animation when the wallpaper comes back.
-     *
-     * Both backends hold the request until the clock would actually be on
-     * screen, so becoming visible on the wrong side of the transition does
-     * not spend the animation invisibly.
-     */
-    fun setEngineVisible(visible: Boolean) {
-        clockPump.setVisible(visible)
-        if (!visible) return
-        val targets = synchronized(lock) {
-            Triple(openGlAtmosphere, openGlReverse, vulkanHost)
-        }
-        targets.first?.beginClockEntry()
-        targets.second?.beginClockEntry()
-        targets.third?.beginClockEntry()
-    }
-
-    /**
-     * Re-derives the wallpaper-tinted clock colour off the main thread, then
-     * pushes it if it actually changed. Extraction decodes and runs Palette,
-     * so it must not happen on the render or main thread.
-     */
-    private fun refreshAutoClockColor() {
-        // Never starts the thread for a controller that has already shut down.
-        if (synchronized(lock) { closed }) return
-        val submitted = runCatching {
-            clockColorWorkerStarted = true
-            clockColorWorker.execute {
-                val derived = ClockPalette.autoColorFor(appContext) ?: return@execute
-                if (derived == resolvedAutoClockColor) return@execute
-                resolvedAutoClockColor = derived
-                if (!ClockPalette.followsWallpaper(requestedClockColor)) return@execute
-                val snapshot = synchronized(lock) {
-                    if (closed) return@execute
-                    state = state.copy(clockColor = derived).sanitized()
-                    state
-                }
-                applyState(snapshot)
-                synchronized(lock) { engine }?.requestRender()
-            }
-        }
-        if (submitted.isFailure) {
-            Log.w(TAG, "Could not schedule clock colour extraction")
-        }
-    }
-
-    private fun onClockTick() {
-        val targets = synchronized(lock) {
-            Triple(openGlAtmosphere, openGlReverse, vulkanHost)
-        }
-        targets.first?.onTimeChanged()
-        targets.second?.onClockTimeChanged()
-        targets.third?.onTimeChanged()
-        synchronized(lock) { engine }?.requestRender()
     }
 
     fun setProgress(progress: Float) {
-        val snapshot = synchronized(lock) {
-            state = state.copy(progress = progress).sanitized()
-            state
-        }
-        applyState(snapshot)
+        backends.update { it.copy(progress = progress) }
     }
 
     fun setFixedEffectApplied(effectApplied: Boolean) {
-        val snapshot = synchronized(lock) {
-            state = state.copy(
+        backends.update {
+            it.copy(
                 glassEnabled = effectApplied && configuredGlassEnabled,
-                glassBackgroundOnly =
-                    effectApplied &&
-                    configuredGlassEnabled &&
-                    configuredGlassBackgroundOnly
-            ).sanitized()
-            state
+                glassBackgroundOnly = effectApplied && configuredGlassEnabled && configuredGlassBackgroundOnly
+            )
         }
-        applyState(snapshot)
     }
 
     fun setDrawerBlurred(blurred: Boolean) {
-        val snapshot = synchronized(lock) {
-            state = state.copy(drawerBlur = if (blurred) 1f else 0f)
-                .sanitized()
-            state
-        }
-        applyState(snapshot)
+        backends.update { it.copy(drawerBlur = if (blurred) 1f else 0f) }
     }
 
-    internal fun currentStateForTesting(): AtmosphereRenderState {
-        return synchronized(lock) { state }
-    }
+    internal fun currentStateForTesting(): AtmosphereRenderState = backends.current
 
-    fun reloadTexture() {
-        // The image is changing, so any wallpaper-derived clock tint is stale.
-        ClockPalette.invalidateAutoColor()
-        // Decoding the photo for a colour costs real work on every new image
-        // and playlist rotation, so only a clock that is showing asks for it.
-        if (clockShown && ClockPalette.followsWallpaper(requestedClockColor)) refreshAutoClockColor()
-        val targets = synchronized(lock) {
-            Triple(openGlAtmosphere, openGlReverse, vulkanHost)
-        }
-        targets.first?.reloadTexture()
-        targets.second?.reloadTexture()
-        targets.third?.reloadTexture()
-    }
-
-    fun queuePlaylistTransition(bitmap: Bitmap) {
-        val targets = synchronized(lock) {
-            RenderTargets(
-                atmosphere = openGlAtmosphere,
-                reverse = openGlReverse,
-                vulkan = vulkanHost,
-                closed = closed
-            )
-        }
-        when {
-            targets.closed -> bitmap.recycleSafely()
-            targets.vulkan != null -> targets.vulkan.queuePlaylistTransition(bitmap)
-            targets.atmosphere != null ->
-                targets.atmosphere.queuePlaylistTransition(bitmap)
-            targets.reverse != null -> targets.reverse.queuePlaylistTransition(bitmap)
-            else -> bitmap.recycleSafely()
-        }
-    }
-
-    fun release() {
-        clockPump.close()
-        if (clockColorWorkerStarted) clockColorWorker.shutdownNow()
-        val targets: RenderTargets
-        val session: RendererRuntimeSession?
-        synchronized(lock) {
-            if (closed) return
-            closed = true
-            targets = RenderTargets(
-                atmosphere = openGlAtmosphere,
-                reverse = openGlReverse,
-                vulkan = vulkanHost,
-                closed = true
-            )
-            session = runtimeSession
-            openGlAtmosphere = null
-            openGlReverse = null
-            vulkanHost = null
-            activeHost = null
-            engine = null
-            activeVulkanApiVersion = null
-            runtimeSession = null
-        }
-        targets.atmosphere?.release()
-        targets.reverse?.release()
-        targets.vulkan?.close()
-        publishStatus(session) {
-            RendererRuntimeStatusRepository.recordReleased(appContext, it)
-        }
-    }
-
-    private fun attachVulkan(engine: GLWallpaperService.GLEngine) {
-        publishStatus {
-            RendererRuntimeStatusRepository.recordVulkanInitializing(
-                appContext,
-                it
-            )
-        }
-        val host = VulkanAtmosphereHost(
-            context = appContext,
-            reverse = reverse,
-            initialState = synchronized(lock) { state },
-            onFatalFailure = ::fallbackToOpenGl,
-            onVulkanActive = ::onVulkanActive
-        )
-        synchronized(lock) {
-            if (closed) {
-                host.close()
-                return
-            }
-            vulkanHost = host
-            activeHost = host
-        }
-        engine.installRenderHost(host)
-    }
-
-    private fun attachOpenGl(engine: GLWallpaperService.GLEngine) {
-        val renderer = createOpenGlRenderer(engine)
-        val host = when (renderer) {
-            is AtmosphereRenderer -> engine.setRenderer(renderer)
-            is AtmosphereReverseRenderer -> engine.setRenderer(renderer)
-            else -> error("Unexpected Atmosphere renderer")
-        }
-        synchronized(lock) {
-            if (closed) {
-                releaseOpenGl(renderer)
-                host.close()
-                return
-            }
-            storeOpenGl(renderer)
-            activeHost = host
-        }
-        publishStatus {
-            RendererRuntimeStatusRepository.recordOpenGlActive(appContext, it)
-        }
-    }
-
-    private fun fallbackToOpenGl(
-        failedHost: VulkanAtmosphereHost,
-        reason: String
-    ) {
-        val currentEngine = synchronized(lock) {
-            if (closed || activeHost !== failedHost) return
-            engine ?: return
-        }
-        runCatching { VulkanSupport.recordFailure(appContext, effectId, reason) }
-            .onFailure { failure ->
-                Log.w(TAG, "Unable to persist the Vulkan fallback state", failure)
-            }
-        val fallback = runCatching {
-            val renderer = createOpenGlRenderer(currentEngine)
-            val replacement = when (renderer) {
-                is AtmosphereRenderer ->
-                    currentEngine.createOpenGlRenderHost(renderer)
-                is AtmosphereReverseRenderer ->
-                    currentEngine.createOpenGlRenderHost(renderer)
-                else -> error("Unexpected Atmosphere renderer")
-            }
-            renderer to replacement
-        }.getOrElse { failure ->
-            Log.e(TAG, "Unable to create the OpenGL ES Atmosphere fallback", failure)
-            return
-        }
-        val (renderer, replacement) = fallback
-        if (!currentEngine.replaceRenderHost(failedHost, replacement)) {
-            releaseOpenGl(renderer)
-            Log.e(TAG, "Unable to attach the OpenGL ES Atmosphere fallback")
-            return
-        }
-        synchronized(lock) {
-            if (closed) {
-                releaseOpenGl(renderer)
-                return
-            }
-            storeOpenGl(renderer)
-            vulkanHost = null
-            activeHost = replacement
-            activeVulkanApiVersion = null
-        }
-        publishStatus {
-            RendererRuntimeStatusRepository.recordOpenGlActive(
-                context = appContext,
-                session = it,
-                reason = reason
-            )
-        }
-        reloadTexture()
-        currentEngine.requestRender()
-        Log.w(TAG, "Atmosphere switched to OpenGL ES after Vulkan failed: $reason")
-    }
-
-    private fun swapBackend(
-        snapshot: BackendSnapshot,
-        change: VulkanBackendChange.Swap
-    ) {
-        val resolution = change.resolution
-        var replacementRenderer: Any? = null
-        var replacementVulkan: VulkanAtmosphereHost? = null
-        val replacement = runCatching {
-            when (resolution.backend) {
-                GraphicsBackend.VULKAN -> {
-                    VulkanAtmosphereHost(
-                        context = appContext,
-                        reverse = reverse,
-                        initialState = synchronized(lock) { state },
-                        onFatalFailure = ::fallbackToOpenGl,
-                        onVulkanActive = ::onVulkanActive
-                    ).also { replacementVulkan = it }
-                }
-                GraphicsBackend.OPENGL_ES -> {
-                    createOpenGlRenderer(snapshot.engine).also { renderer ->
-                        replacementRenderer = renderer
-                    }.let { renderer ->
-                        when (renderer) {
-                            is AtmosphereRenderer ->
-                                snapshot.engine.createOpenGlRenderHost(renderer)
-                            is AtmosphereReverseRenderer ->
-                                snapshot.engine.createOpenGlRenderHost(renderer)
-                            else -> error("Unexpected Atmosphere renderer")
-                        }
-                    }
-                }
-            }
-        }.getOrElse { failure ->
-            Log.e(TAG, "Unable to prepare the requested Atmosphere renderer", failure)
-            replacementRenderer?.let(::releaseOpenGl)
-            return
-        }
-        if (!snapshot.engine.replaceRenderHost(snapshot.host, replacement)) {
-            replacementRenderer?.let(::releaseOpenGl)
-            Log.e(TAG, "Unable to switch the Atmosphere renderer backend")
-            return
-        }
-
-        val selection = VulkanSupport.publishActiveSelection(
-            context = appContext,
-            effectId = effectId,
-            resolution = resolution,
-            activeVulkanApiVersion = null
-        )
-        val previous = synchronized(lock) {
-            if (closed) {
-                releaseSelection(selection)
-                return
-            }
-            val previousRenderer: Any? = openGlAtmosphere ?: openGlReverse
-            val result = previousRenderer to runtimeSession
-            openGlAtmosphere = null
-            openGlReverse = null
-            replacementRenderer?.let(::storeOpenGl)
-            vulkanHost = replacementVulkan
-            activeHost = replacement
-            backendPreference = selection.preference
-            activeVulkanApiVersion = null
-            runtimeSession = selection.runtimeSession
-            result
-        }
-        previous.first?.let(::releaseOpenGl)
-        publishStatus(previous.second) {
-            RendererRuntimeStatusRepository.recordReleased(appContext, it)
-        }
-        snapshot.engine.requestRender()
-    }
-
-    private fun refreshActiveSession(
-        snapshot: BackendSnapshot,
-        resolution: VulkanBackendResolution
-    ) {
-        val activeVersion = synchronized(lock) {
-            if (closed || activeHost !== snapshot.host) return
-            activeVulkanApiVersion
-        }
-        val selection = VulkanSupport.publishActiveSelection(
-            context = appContext,
-            effectId = effectId,
-            resolution = resolution,
-            activeVulkanApiVersion = activeVersion
-        )
-        val previousSession = synchronized(lock) {
-            if (closed || activeHost !== snapshot.host) {
-                releaseSelection(selection)
-                return
-            }
-            val previous = runtimeSession
-            backendPreference = resolution.preference
-            runtimeSession = selection.runtimeSession
-            previous
-        }
-        publishStatus(previousSession) {
-            RendererRuntimeStatusRepository.recordReleased(appContext, it)
-        }
-    }
-
-    private fun onVulkanActive(
-        host: VulkanAtmosphereHost,
-        packedVersion: Int
-    ) {
-        if (synchronized(lock) {
-                (!closed && activeHost === host).also { isCurrent ->
-                    if (isCurrent) activeVulkanApiVersion = packedVersion
-                }
-            }
-        ) {
-            publishStatus {
-                RendererRuntimeStatusRepository.recordVulkanActive(
-                    context = appContext,
-                    session = it,
-                    packedVersion = packedVersion
-                )
-            }
-        }
-    }
-
-    private fun createOpenGlRenderer(
-        engine: GLWallpaperService.GLEngine
-    ): Any {
-        val snapshot = synchronized(lock) { state }
-        return if (reverse) {
-            AtmosphereReverseRenderer(appContext).apply {
-                applyState(snapshot)
+    private class AtmosphereEffect(
+        private val reverse: Boolean
+    ) : EffectBackends.Effect<AtmosphereRenderState, AtmosphereOpenGlRenderer, VulkanAtmosphereHost> {
+        override fun createOpenGl(
+            context: Context,
+            state: AtmosphereRenderState,
+            engine: GLWallpaperService.GLEngine
+        ): AtmosphereOpenGlRenderer = if (reverse) {
+            AtmosphereReverseRenderer(context).apply {
+                applyState(state)
                 onRenderRetryRequested = engine::requestRender
                 onSubjectMaskUpdated = engine::requestRender
                 onAnimationFrameRequested = engine::requestRender
             }
         } else {
-            AtmosphereRenderer(appContext).apply {
-                applyState(snapshot)
+            AtmosphereRenderer(context).apply {
+                applyState(state)
                 onRenderRetryRequested = engine::requestRender
                 onSubjectMaskUpdated = engine::requestRender
                 onAnimationFrameRequested = engine::requestRender
             }
         }
-    }
 
-    /** Kept for callers outside the pump (config updates, wallpaper swaps). */
-    fun onSystemTimeChanged() = onClockTick()
+        override fun createVulkan(
+            context: Context,
+            state: AtmosphereRenderState,
+            onFatalFailure: (WallpaperRenderHost, String) -> Unit,
+            onVulkanActive: (WallpaperRenderHost, Int) -> Unit
+        ) = VulkanAtmosphereHost(
+            context = context,
+            reverse = reverse,
+            initialState = state,
+            onFatalFailure = onFatalFailure,
+            onVulkanActive = onVulkanActive
+        )
 
-    private fun applyState(snapshot: AtmosphereRenderState) {
-        val targets = synchronized(lock) {
-            Triple(openGlAtmosphere, openGlReverse, vulkanHost)
-        }
-        targets.first?.applyState(snapshot)
-        targets.second?.applyState(snapshot)
-        targets.third?.updateState(snapshot)
-    }
+        override fun applyToOpenGl(renderer: AtmosphereOpenGlRenderer, state: AtmosphereRenderState) =
+            renderer.applyState(state)
 
-    private fun AtmosphereRenderer.applyState(state: AtmosphereRenderState) {
-        blurStrength = state.progress
-        dimLevel = state.dimLevel
-        enableNoise = state.noiseEnabled
-        noiseScale = state.noiseScale
-        noiseStrength = state.noiseStrength
-        blobSaturation = state.saturation
-        blobContrast = state.contrast
-        atmosphereGlassEnabled = state.glassEnabled
-        glassLineCount = state.glassLineCount
-        glassLineThickness = state.glassLineThickness
-        glassBackgroundOnly = state.glassBackgroundOnly
-        configureSubjectIsolation(state.needsSubjectMask())
-        clockEnabled = state.clockEnabled
-        clockDepthEnabled = state.clockDepthEnabled
-        clockStyle = state.clockStyle
-        clockFont = state.clockFont
-        clockShowDate = state.clockShowDate
-        clockAnimate = state.clockAnimate
-        clockColor = state.clockColor
-        clockWeight = state.clockWeight
-        clockAdaptiveColors = state.clockAdaptiveColors
-        clockAdaptToSubject = state.clockAdaptToSubject
-        clockHourFormat = state.clockHourFormat
-        clockLayout = state.clockOverlay()
-        clockOpacity = state.clockOpacity
-        clockScreen = state.clockScreen
-        clockLockedProgress = state.clockLockedProgress
-        clockUnlockedProgress = state.clockUnlockedProgress
-    }
+        override fun applyToVulkan(host: VulkanAtmosphereHost, state: AtmosphereRenderState) = host.updateState(state)
 
-    private fun AtmosphereReverseRenderer.applyState(state: AtmosphereRenderState) {
-        blurStrength = state.progress
-        dimLevel = state.dimLevel
-        enableNoise = state.noiseEnabled
-        noiseScale = state.noiseScale
-        noiseStrength = state.noiseStrength
-        blobSaturation = state.saturation
-        blobContrast = state.contrast
-        atmosphereGlassEnabled = state.glassEnabled
-        glassLineCount = state.glassLineCount
-        glassLineThickness = state.glassLineThickness
-        configureGlassBackgroundOnly(state.glassBackgroundOnly)
-        // Reverse Atmosphere gets the clock through the shared overlay rather
-        // than the flat fields the forward renderer uses.
-        applyClockState(state.clockOverlay())
-        setDrawerBlurred(state.drawerBlur > 0.5f)
-    }
+        override fun sanitize(state: AtmosphereRenderState) = state.sanitized()
 
-    private fun storeOpenGl(renderer: Any) {
-        when (renderer) {
-            is AtmosphereRenderer -> openGlAtmosphere = renderer
-            is AtmosphereReverseRenderer -> openGlReverse = renderer
-        }
-    }
+        override fun clockOf(state: AtmosphereRenderState) = state.clockOverlay()
 
-    private fun releaseOpenGl(renderer: Any) {
-        when (renderer) {
-            is AtmosphereRenderer -> renderer.release()
-            is AtmosphereReverseRenderer -> renderer.release()
-        }
-    }
-
-    private inline fun publishStatus(
-        session: RendererRuntimeSession? = synchronized(lock) { runtimeSession },
-        block: (RendererRuntimeSession) -> Unit
-    ) {
-        if (session == null) return
-        runCatching { block(session) }.onFailure { failure ->
-            Log.w(TAG, "Unable to publish the Atmosphere renderer status", failure)
-        }
-    }
-
-    private fun releaseSelection(selection: VulkanBackendSelection) {
-        publishStatus(selection.runtimeSession) {
-            RendererRuntimeStatusRepository.recordReleased(appContext, it)
-        }
-    }
-
-    private fun Bitmap.recycleSafely() {
-        if (!isRecycled) recycle()
-    }
-
-    private data class RenderTargets(
-        val atmosphere: AtmosphereRenderer?,
-        val reverse: AtmosphereReverseRenderer?,
-        val vulkan: VulkanAtmosphereHost?,
-        val closed: Boolean
-    )
-
-    private data class BackendSnapshot(
-        val engine: GLWallpaperService.GLEngine,
-        val host: WallpaperRenderHost,
-        val preference: GraphicsBackendPreference,
-        val backend: GraphicsBackend
-    )
-
-    private companion object {
-        const val TAG = "AtmosphereRenderController"
+        override fun withClock(state: AtmosphereRenderState, clock: ClockOverlayState) = state.withClock(clock)
     }
 }

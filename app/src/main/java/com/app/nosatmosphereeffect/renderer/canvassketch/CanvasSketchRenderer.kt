@@ -7,6 +7,7 @@ import android.opengl.GLSurfaceView
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
 import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
@@ -29,7 +30,7 @@ class CanvasSketchRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : EffectOpenGlRenderer, WallpaperScrollRenderer {
 
     private companion object {
         const val LINE_MAX_DIST = 6.0f
@@ -68,9 +69,9 @@ class CanvasSketchRenderer(
         refreshSubjectMaskNeed()
     }
 
-    fun beginClockEntry() = clockOverlay.beginEntry()
+    override fun beginClockEntry() = clockOverlay.beginEntry()
 
-    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+    override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
     @Volatile
     private var scrollOffsetX = 0.5f
@@ -170,11 +171,11 @@ class CanvasSketchRenderer(
     )
     private lateinit var vertexBuffer: FloatBuffer
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         pendingPlaylistBitmap = bitmap
     }
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         needsReload = true
     }
 
@@ -206,7 +207,7 @@ class CanvasSketchRenderer(
         if (subjectMasks.configure(wanted) && wanted) needsReload = true
     }
 
-    fun release() {
+    override fun release() {
         onSketchUpdated = null
         onAnimationFrameRequested = null
         clockOverlay.release()

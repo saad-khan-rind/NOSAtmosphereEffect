@@ -42,7 +42,7 @@ import kotlin.math.pow
 class AtmosphereRenderer(
     private val context: Context,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : AtmosphereOpenGlRenderer, WallpaperScrollRenderer {
 
     @Volatile private var scrollOffsetX: Float = 0.5f
     private var currentWindowX: Float = 1f
@@ -238,7 +238,7 @@ class AtmosphereRenderer(
     )
     private lateinit var vertexBuffer: FloatBuffer
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         if (!released) {
             needsReload = true
         }
@@ -289,7 +289,7 @@ class AtmosphereRenderer(
     internal val glassBackgroundOnlyEnabled: Boolean
         get() = subjectMasks.enabled
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         if (bitmap.isRecycled) return
 
         var rejected = false
@@ -310,7 +310,38 @@ class AtmosphereRenderer(
         }
     }
 
-    fun release() {
+    override fun applyState(state: AtmosphereRenderState) {
+        blurStrength = state.progress
+        dimLevel = state.dimLevel
+        enableNoise = state.noiseEnabled
+        noiseScale = state.noiseScale
+        noiseStrength = state.noiseStrength
+        blobSaturation = state.saturation
+        blobContrast = state.contrast
+        atmosphereGlassEnabled = state.glassEnabled
+        glassLineCount = state.glassLineCount
+        glassLineThickness = state.glassLineThickness
+        glassBackgroundOnly = state.glassBackgroundOnly
+        configureSubjectIsolation(state.needsSubjectMask())
+        clockEnabled = state.clockEnabled
+        clockDepthEnabled = state.clockDepthEnabled
+        clockStyle = state.clockStyle
+        clockFont = state.clockFont
+        clockShowDate = state.clockShowDate
+        clockAnimate = state.clockAnimate
+        clockColor = state.clockColor
+        clockWeight = state.clockWeight
+        clockAdaptiveColors = state.clockAdaptiveColors
+        clockAdaptToSubject = state.clockAdaptToSubject
+        clockHourFormat = state.clockHourFormat
+        clockLayout = state.clockOverlay()
+        clockOpacity = state.clockOpacity
+        clockScreen = state.clockScreen
+        clockLockedProgress = state.clockLockedProgress
+        clockUnlockedProgress = state.clockUnlockedProgress
+    }
+
+    override fun release() {
         val pending = synchronized(pendingLock) {
             if (released) return
             released = true
@@ -870,7 +901,7 @@ class AtmosphereRenderer(
      * redraw the face. Called from AtmosphereService's time-tick receiver;
      * safe to call from any thread (the work happens on the next draw).
      */
-    fun onTimeChanged() {
+    override fun onClockTimeChanged() {
         pendingClockFormatRefresh = true
         // A clock that is off costs nothing: no frame for it, ever.
         if (clockEnabled) onAnimationFrameRequested?.invoke()
@@ -884,7 +915,7 @@ class AtmosphereRenderer(
      * here: onVisibilityChanged arrives on the main thread, and
      * ClockFaceRenderer is confined to whichever thread draws it.
      */
-    fun beginClockEntry() {
+    override fun beginClockEntry() {
         pendingClockEntry = true
         clockEntryWaited = false
         if (clockEnabled) onAnimationFrameRequested?.invoke()

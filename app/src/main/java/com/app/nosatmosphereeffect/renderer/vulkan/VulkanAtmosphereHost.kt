@@ -221,7 +221,7 @@ internal class VulkanAtmosphereHost(
      * Plays the clock's entry animation on the next prepared frame. Called
      * when the wallpaper engine becomes visible.
      */
-    fun beginClockEntry() {
+    override fun beginClockEntry() {
         pendingClockEntry = true
         clockEntryWaited = false
         // A clock that is off costs nothing: no frame for it, ever.
@@ -359,7 +359,7 @@ internal class VulkanAtmosphereHost(
      * Re-reads the system 12/24-hour setting and forces a redraw. Called from
      * AtmosphereService's time-tick receiver.
      */
-    fun onTimeChanged() {
+    override fun onTimeChanged() {
         clockTexture.refreshClockFormatPreference()
         clockTexture.reset()
         if (currentEffectState().clockEnabled) requestRender()

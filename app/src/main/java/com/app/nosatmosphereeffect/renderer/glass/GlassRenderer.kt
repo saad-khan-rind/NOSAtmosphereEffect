@@ -10,6 +10,7 @@ import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
 import com.app.nosatmosphereeffect.effect.GlassTransitionStyle
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
 import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
@@ -26,7 +27,7 @@ import javax.microedition.khronos.opengles.GL10
 class GlassRenderer(
     private val context: Context,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : EffectOpenGlRenderer, WallpaperScrollRenderer {
 
     @Volatile
     private var scrollOffsetX = 0.5f
@@ -153,7 +154,7 @@ class GlassRenderer(
         scrollOffsetX = if (xOffset.isFinite()) xOffset.coerceIn(0f, 1f) else 0.5f
     }
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         if (bitmap.isRecycled) {
             Log.w(TAG, "Ignoring a recycled playlist bitmap")
             return
@@ -179,7 +180,7 @@ class GlassRenderer(
         }
     }
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         needsReload = true
     }
 
@@ -193,9 +194,9 @@ class GlassRenderer(
         refreshSubjectMaskNeed()
     }
 
-    fun beginClockEntry() = clockOverlay.beginEntry()
+    override fun beginClockEntry() = clockOverlay.beginEntry()
 
-    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+    override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
     /**
      * Segmentation runs when either consumer wants it. Reloading on the
@@ -214,7 +215,7 @@ class GlassRenderer(
         }
     }
 
-    fun release() {
+    override fun release() {
         val pending = synchronized(pendingLock) {
             if (released) return
             released = true

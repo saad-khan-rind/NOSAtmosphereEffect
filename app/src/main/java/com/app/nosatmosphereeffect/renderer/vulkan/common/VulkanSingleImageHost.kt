@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.renderer.vulkan.common
 
+import com.app.nosatmosphereeffect.renderer.backend.EffectVulkanHost
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Handler
@@ -25,7 +26,7 @@ internal abstract class VulkanSingleImageHost<State : Any>(
     private val onFatalFailure: (WallpaperRenderHost, String) -> Unit,
     private val onVulkanActive: (WallpaperRenderHost, Int) -> Unit,
     private val previewSource: (() -> Bitmap?)? = null
-) : WallpaperRenderHost {
+) : EffectVulkanHost {
     protected val appContext: Context = context.applicationContext
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -115,7 +116,7 @@ internal abstract class VulkanSingleImageHost<State : Any>(
             0f
         }
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         postIfActive {
             needsReload = true
             val generation = surfaceGeneration
@@ -125,7 +126,7 @@ internal abstract class VulkanSingleImageHost<State : Any>(
         }
     }
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         if (closed.get() || failed.get()) {
             bitmap.recycleSafely()
             return

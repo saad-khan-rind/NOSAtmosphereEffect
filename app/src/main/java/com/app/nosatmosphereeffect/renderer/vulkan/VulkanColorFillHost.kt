@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.renderer.vulkan
 
+import com.app.nosatmosphereeffect.renderer.backend.EffectVulkanHost
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Handler
@@ -26,7 +27,7 @@ internal class VulkanColorFillHost(
     private val onFatalFailure: (VulkanColorFillHost, String) -> Unit,
     private val onVulkanActive: (VulkanColorFillHost, Int) -> Unit = { _, _ -> },
     private val previewSource: (() -> Bitmap?)? = null
-) : WallpaperRenderHost {
+) : EffectVulkanHost {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private val renderThread = HandlerThread("AtmoVulkanColorFill").apply { start() }
@@ -167,14 +168,14 @@ internal class VulkanColorFillHost(
     }
 
     /** Plays the clock's entry animation on the next drawn frame. */
-    fun beginClockEntry() {
+    override fun beginClockEntry() {
         clockOverlay.beginEntry()
         // A clock that is off costs nothing: no frame for it, ever.
         if (clockOverlay.state.enabled) requestRender()
     }
 
     /** Re-reads the system 12/24-hour setting and forces a redraw. */
-    fun onTimeChanged() {
+    override fun onTimeChanged() {
         clockOverlay.onTimeChanged()
         if (clockOverlay.state.enabled) requestRender()
     }
@@ -219,7 +220,7 @@ internal class VulkanColorFillHost(
         }
     }
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         postIfActive {
             needsReload = true
             val generation = surfaceGeneration
@@ -229,7 +230,7 @@ internal class VulkanColorFillHost(
         }
     }
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         if (closed.get() || failed.get()) {
             bitmap.recycleSafely()
             return

@@ -237,6 +237,42 @@ data class AtmosphereRenderState(
      * [clockColor] is already resolved by the controller, so it stands in for
      * both the request and the result.
      */
+    /**
+     * These settings with [clock] in the flat clock fields. The face metrics
+     * the renderers measure stay as they are: [clock] doesn't know them.
+     */
+    fun withClock(clock: ClockOverlayState): AtmosphereRenderState {
+        val safe = clock.sanitized()
+        return copy(
+            clockEnabled = safe.enabled,
+            clockDepthEnabled = safe.depthEnabled,
+            clockAdaptToSubject = safe.adaptToSubject,
+            clockStyleId = safe.styleId,
+            clockFontId = safe.fontId,
+            clockShowDate = safe.showDate,
+            clockAnimate = safe.animate,
+            clockCenterX = safe.centerX,
+            clockTop = safe.top,
+            clockHeight = safe.height,
+            clockWidthScale = safe.widthScale,
+            clockHeightScale = safe.heightScale,
+            clockDateCenterX = safe.dateCenterX,
+            clockDateTop = safe.dateTop,
+            clockDateHeight = safe.dateHeight,
+            clockDateWidthScale = safe.dateWidthScale,
+            clockOpacity = safe.opacity,
+            clockFrost = safe.frost,
+            clockWeight = safe.weight,
+            clockAdaptiveColors = safe.adaptiveColors,
+            clockColorFollowsWallpaper = ClockPalette.followsWallpaper(safe.requestedColor),
+            clockColor = safe.color,
+            clockHourFormat = safe.hourFormat,
+            clockScreenId = safe.screenId,
+            clockLockedProgress = safe.lockedProgress,
+            clockUnlockedProgress = safe.unlockedProgress
+        ).sanitized()
+    }
+
     fun clockOverlay(): ClockOverlayState = ClockOverlayState(
         enabled = clockEnabled,
         depthEnabled = clockDepthEnabled,

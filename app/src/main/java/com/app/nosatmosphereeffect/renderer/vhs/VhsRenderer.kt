@@ -9,6 +9,7 @@ import android.util.Log
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
 import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
@@ -25,7 +26,7 @@ class VhsRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : EffectOpenGlRenderer, WallpaperScrollRenderer {
 
     @Volatile
     var onSubjectMaskUpdated: (() -> Unit)? = null
@@ -97,7 +98,7 @@ class VhsRenderer(
     )
     private lateinit var vertexBuffer: FloatBuffer
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         if (bitmap.isRecycled) {
             Log.w(TAG, "Ignoring a recycled playlist bitmap")
             return
@@ -120,7 +121,7 @@ class VhsRenderer(
         }
     }
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         needsReload = true
     }
 
@@ -129,9 +130,9 @@ class VhsRenderer(
         refreshSubjectMaskNeed()
     }
 
-    fun beginClockEntry() = clockOverlay.beginEntry()
+    override fun beginClockEntry() = clockOverlay.beginEntry()
 
-    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+    override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
     /**
      * Segmentation runs only for the clock's depth effect. Reloading on the
@@ -151,7 +152,7 @@ class VhsRenderer(
         }
     }
 
-    fun release() {
+    override fun release() {
         val pending = synchronized(playlistLock) {
             if (released) return
             released = true

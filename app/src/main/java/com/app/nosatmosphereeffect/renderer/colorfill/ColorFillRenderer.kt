@@ -10,6 +10,7 @@ import androidx.core.graphics.createBitmap
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
 import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
@@ -27,7 +28,7 @@ class ColorFillRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : EffectOpenGlRenderer, WallpaperScrollRenderer {
 
     @Volatile private var scrollOffsetX: Float = 0.5f
     private var currentWindowX: Float = 1f
@@ -87,11 +88,11 @@ class ColorFillRenderer(
         }
     }
 
-    fun beginClockEntry() = clockOverlay.beginEntry()
+    override fun beginClockEntry() = clockOverlay.beginEntry()
 
-    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+    override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
-    fun release() {
+    override fun release() {
         onAnimationFrameRequested = null
         clockOverlay.release()
         subjectMask.close()
@@ -118,11 +119,11 @@ class ColorFillRenderer(
     )
     private lateinit var vertexBuffer: FloatBuffer
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         pendingPlaylistBitmap = bitmap
     }
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         needsReload = true
     }
 

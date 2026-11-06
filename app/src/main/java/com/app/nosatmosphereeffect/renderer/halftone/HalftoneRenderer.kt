@@ -9,6 +9,7 @@ import android.util.Log
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.GlesClockOverlay
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
+import com.app.nosatmosphereeffect.renderer.backend.EffectOpenGlRenderer
 import com.app.nosatmosphereeffect.renderer.gles.GlesProgram
 import com.app.nosatmosphereeffect.renderer.gles.GlesTexture
 import com.app.nosatmosphereeffect.renderer.gles.SceneTextures
@@ -25,7 +26,7 @@ class HalftoneRenderer(
     private val context: Context,
     private val isReverse: Boolean = false,
     private val previewSource: (() -> Bitmap?)? = null
-) : GLSurfaceView.Renderer, WallpaperScrollRenderer {
+) : EffectOpenGlRenderer, WallpaperScrollRenderer {
 
     @Volatile
     var onSubjectMaskUpdated: (() -> Unit)? = null
@@ -111,7 +112,7 @@ class HalftoneRenderer(
     )
     private lateinit var vertexBuffer: FloatBuffer
 
-    fun queuePlaylistTransition(bitmap: Bitmap) {
+    override fun queuePlaylistTransition(bitmap: Bitmap) {
         if (bitmap.isRecycled) {
             Log.w(TAG, "Ignoring a recycled playlist bitmap")
             return
@@ -134,7 +135,7 @@ class HalftoneRenderer(
         }
     }
 
-    fun reloadTexture() {
+    override fun reloadTexture() {
         needsReload = true
     }
 
@@ -148,9 +149,9 @@ class HalftoneRenderer(
         refreshSubjectMaskNeed()
     }
 
-    fun beginClockEntry() = clockOverlay.beginEntry()
+    override fun beginClockEntry() = clockOverlay.beginEntry()
 
-    fun onClockTimeChanged() = clockOverlay.onTimeChanged()
+    override fun onClockTimeChanged() = clockOverlay.onTimeChanged()
 
     /**
      * Segmentation runs when *either* consumer wants it and is skipped when
@@ -170,7 +171,7 @@ class HalftoneRenderer(
         }
     }
 
-    fun release() {
+    override fun release() {
         val pending = synchronized(playlistLock) {
             if (released) return
             released = true

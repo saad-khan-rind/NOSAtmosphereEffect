@@ -1,7 +1,6 @@
 package com.app.nosatmosphereeffect.ui.preview
 
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
-import com.app.nosatmosphereeffect.clock.ClockPalette
 import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderState
 import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderState
@@ -92,35 +91,7 @@ internal object EffectPreviewStatePolicy {
         val safe = clock.sanitized()
         return when (state) {
             is EffectPreviewRenderState.Atmosphere ->
-                EffectPreviewRenderState.Atmosphere(
-                    state.value.copy(
-                        clockEnabled = safe.enabled,
-                        clockDepthEnabled = safe.depthEnabled,
-                        clockAdaptToSubject = safe.adaptToSubject,
-                        clockStyleId = safe.styleId,
-                        clockFontId = safe.fontId,
-                        clockShowDate = safe.showDate,
-                        clockAnimate = safe.animate,
-                        clockCenterX = safe.centerX,
-                        clockTop = safe.top,
-                        clockHeight = safe.height,
-                        clockWidthScale = safe.widthScale,
-                        clockHeightScale = safe.heightScale,
-                        clockDateCenterX = safe.dateCenterX,
-                        clockDateTop = safe.dateTop,
-                        clockDateHeight = safe.dateHeight,
-                        clockDateWidthScale = safe.dateWidthScale,
-                        clockOpacity = safe.opacity,
-                        clockFrost = safe.frost,
-                        clockWeight = safe.weight,
-                        clockAdaptiveColors = safe.adaptiveColors,
-                        clockColorFollowsWallpaper =
-                            ClockPalette.followsWallpaper(safe.requestedColor),
-                        clockColor = safe.color,
-                        clockHourFormat = safe.hourFormat,
-                        clockScreenId = safe.screenId
-                    ).sanitized()
-                )
+                EffectPreviewRenderState.Atmosphere(state.value.withClock(safe))
             is EffectPreviewRenderState.Frosted ->
                 EffectPreviewRenderState.Frosted(
                     state.value.copy(clock = safe).sanitized()
