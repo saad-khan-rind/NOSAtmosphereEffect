@@ -9,9 +9,9 @@
 namespace {
 
 constexpr char kVertexShader[] =
-    "shaders/vulkan/neon/neon.vert.spv";
+    "shaders/vulkan/canvas_sketch/canvas_sketch.vert.spv";
 constexpr char kFragmentShader[] =
-    "shaders/vulkan/neon/neon.frag.spv";
+    "shaders/vulkan/canvas_sketch/canvas_sketch.frag.spv";
 constexpr uint32_t kWallpaperBinding = 0;
 constexpr uint32_t kContourBinding = 1;
 constexpr uint32_t kClockBinding = 2;
@@ -64,7 +64,7 @@ CanvasHandle* fromHandle(jlong handle) {
 }  // namespace
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeCreate(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeCreate(
     JNIEnv* env,
     jobject,
     jobject assetManager,
@@ -96,7 +96,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeCreate(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetSurface(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeSetSurface(
     JNIEnv* env,
     jobject,
     jlong handle,
@@ -123,7 +123,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetSurfa
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeGetApiVersion(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeGetApiVersion(
     JNIEnv*,
     jobject,
     jlong handle
@@ -137,7 +137,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeGetApiVe
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadWallpaper(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeUploadWallpaper(
     JNIEnv* env,
     jobject,
     jlong handle,
@@ -157,7 +157,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadWa
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadContour(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeUploadContour(
     JNIEnv* env,
     jobject,
     jlong handle,
@@ -177,7 +177,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadCo
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadClock(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeUploadClock(
     JNIEnv* env,
     jobject,
     jlong handle,
@@ -191,7 +191,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadCl
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeClearClock(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeClearClock(
     JNIEnv*,
     jobject,
     jlong handle
@@ -204,7 +204,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeClearClo
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadSubjectMask(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeUploadSubjectMask(
     JNIEnv* env,
     jobject,
     jlong handle,
@@ -218,7 +218,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeUploadSu
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeClearSubjectMask(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeClearSubjectMask(
     JNIEnv*,
     jobject,
     jlong handle
@@ -231,7 +231,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeClearSub
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeSetState(
     JNIEnv*,
     jobject,
     jlong handle,
@@ -285,7 +285,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeSetState
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeRender(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeRender(
     JNIEnv*,
     jobject,
     jlong handle
@@ -297,7 +297,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeRender(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeDestroySurface(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeDestroySurface(
     JNIEnv*,
     jobject,
     jlong handle
@@ -309,7 +309,7 @@ Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeDestroyS
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanNeonNative_nativeDestroy(
+Java_com_app_nosatmosphereeffect_renderer_vulkan_VulkanCanvasSketchNative_nativeDestroy(
     JNIEnv* env,
     jobject,
     jlong handle

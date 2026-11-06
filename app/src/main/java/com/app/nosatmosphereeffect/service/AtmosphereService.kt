@@ -11,7 +11,7 @@ import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
 class AtmosphereService :
     AnimatedEffectWallpaperService<AtmosphereRenderController>() {
 
-    override val effectId = "ORIGINAL"
+    override val effectId = "ATMOSPHERE"
     override val lockedProgress = 0f
     override val unlockedProgress = 1f
     override val defaultAnimationDurationMs = 2_500L

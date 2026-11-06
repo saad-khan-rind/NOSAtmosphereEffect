@@ -140,12 +140,12 @@ class MainActivity : ComponentActivity() {
                     onEditExistingPlaylist = { launchEditExistingPlaylist() },
                     onOpenSavedPlaylists = {
                         startActivity(
-                            SavedPlaylistsActivity.intent(this, getActiveEffectType() ?: "ORIGINAL")
+                            SavedPlaylistsActivity.intent(this, getActiveEffectType() ?: "ATMOSPHERE")
                         )
                     },
                     onPickFolderPlaylist = {
                         startActivity(
-                            FolderPickerActivity.intent(this, getActiveEffectType() ?: "ORIGINAL")
+                            FolderPickerActivity.intent(this, getActiveEffectType() ?: "ATMOSPHERE")
                         )
                     },
                     onAdvancedSettings = { openAdvancedSettings() },
@@ -338,7 +338,7 @@ class MainActivity : ComponentActivity() {
 
     private fun openAdvancedSettings() {
         val intent = Intent(this, FineTuneActivity::class.java)
-        intent.putExtra("ACTIVE_EFFECT_TYPE", getActiveEffectType() ?: "ORIGINAL")
+        intent.putExtra("ACTIVE_EFFECT_TYPE", getActiveEffectType() ?: "ATMOSPHERE")
         intent.putExtra("IS_SAMSUNG", isSamsungDevice())
         intent.putExtra("IS_PLAYLIST_MODE", isPlaylistModeActive)
         startActivity(intent)
@@ -355,7 +355,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val effectId = getActiveEffectType() ?: "ORIGINAL"
+        val effectId = getActiveEffectType() ?: "ATMOSPHERE"
         val intent = Intent(this, PlaylistEditorActivity::class.java)
         intent.putExtra("EDIT_EXISTING", true)
         intent.putExtra("EFFECT_ID", effectId)
@@ -365,12 +365,12 @@ class MainActivity : ComponentActivity() {
     private fun launchThemePlaylistEditor(editExisting: Boolean) {
         val intent = Intent(this, ThemePlaylistEditorActivity::class.java)
         intent.putExtra("EDIT_EXISTING", editExisting)
-        intent.putExtra("EFFECT_ID", getActiveEffectType() ?: "ORIGINAL")
+        intent.putExtra("EFFECT_ID", getActiveEffectType() ?: "ATMOSPHERE")
         startActivity(intent)
     }
 
     private fun launchCropActivity(uri: Uri) {
-        val effectId = getActiveEffectType() ?: "ORIGINAL"
+        val effectId = getActiveEffectType() ?: "ATMOSPHERE"
         val intent = if (EffectCatalog.isReverse(effectId)) {
             Intent(this, ReverseCropActivity::class.java)
         } else {
@@ -383,7 +383,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchMultiCropActivity(uris: ArrayList<Uri>) {
-        val effectId = getActiveEffectType() ?: "ORIGINAL"
+        val effectId = getActiveEffectType() ?: "ATMOSPHERE"
         val intent = Intent(this, PlaylistEditorActivity::class.java)
         intent.data = uris[0]
         val clipData = ClipData.newUri(contentResolver, "Images", uris[0])

@@ -118,12 +118,12 @@ object ClockScreenPolicy {
      * clock that only shows on the lock screen is never worse than wrong.
      */
     fun sharpSide(effectId: String?): ClockSharpSide = when (effectId) {
-        "COLORFILL", "COLORFILL_REVERSE",
-        "NEON", "NEON_REVERSE",
+        "COLOR_FILL", "COLOR_FILL_REVERSE",
+        "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE",
         "HALFTONE", "HALFTONE_REVERSE",
         "VHS", "VHS_REVERSE",
         "ZOOM", "ZOOM_REVERSE" -> ClockSharpSide.BOTH
-        "REVERSE",
+        "ATMOSPHERE_REVERSE",
         "GLASS_REVERSE",
         "FROSTED_REVERSE" -> ClockSharpSide.HOME
         else -> ClockSharpSide.LOCK

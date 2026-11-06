@@ -4,7 +4,7 @@ import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.view.Surface
 
-internal object VulkanNeonNative {
+internal object VulkanCanvasSketchNative {
     val libraryLoaded: Boolean
         get() = VulkanNative.libraryLoaded
 

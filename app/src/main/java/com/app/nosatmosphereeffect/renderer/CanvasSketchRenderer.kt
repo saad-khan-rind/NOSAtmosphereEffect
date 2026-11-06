@@ -227,12 +227,12 @@ class CanvasSketchRenderer(
             .put(vertices)
         vertexBuffer.position(0)
 
-        val screenVertexCode = loadShaderFromAssets("shaders/neon/neon.vert")
-        val bakeVertexCode = loadShaderFromAssets("shaders/neon/neon_bake.vert")
-        programId = createProgram(screenVertexCode, loadShaderFromAssets("shaders/neon/neon.frag"))
-        edgeProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/neon/neon_edges.frag"))
-        hystProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/neon/neon_hyst.frag"))
-        edtProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/neon/neon_edt.frag"))
+        val screenVertexCode = loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch.vert")
+        val bakeVertexCode = loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_bake.vert")
+        programId = createProgram(screenVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch.frag"))
+        edgeProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_edges.frag"))
+        hystProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_hyst.frag"))
+        edtProgramId = createProgram(bakeVertexCode, loadShaderFromAssets("shaders/canvas_sketch/canvas_sketch_edt.frag"))
 
         val fbo = IntArray(1)
         GLES30.glGenFramebuffers(1, fbo, 0)

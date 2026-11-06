@@ -31,7 +31,7 @@ class AtmosphereGlassRendererSettingsTest {
         val reverse = AtmosphereRenderController(context, reverse = true)
 
         configure(AtmosphereService(), forward, preferences)
-        configure(BlurToSharpService(), reverse, preferences)
+        configure(AtmosphereReverseService(), reverse, preferences)
 
         val forwardState = forward.currentStateForTesting()
         val reverseState = reverse.currentStateForTesting()
@@ -60,7 +60,7 @@ class AtmosphereGlassRendererSettingsTest {
             val reverse = AtmosphereRenderController(context, reverse = true)
 
             configure(AtmosphereService(), forward, preferences)
-            configure(BlurToSharpService(), reverse, preferences)
+            configure(AtmosphereReverseService(), reverse, preferences)
 
             assertFalse(forward.currentStateForTesting().glassEnabled)
             assertFalse(reverse.currentStateForTesting().glassEnabled)

@@ -32,30 +32,30 @@
     <string name="experimental">Experimental</string>
     <string name="manualCroppingWillBeDisabled">(Turns off manual cropping)</string>
 
-    <string name="effect_original_title" translatable="false">Atmosphere</string>
-    <string name="effect_original_transition">Sharp to blur</string>
-    <string name="effect_original_description">Soft color and clouds that drift across your photo.</string>
-    <string name="effect_reverse_title" translatable="false">Atmosphere Reverse</string>
-    <string name="effect_reverse_transition">Blur to sharp</string>
-    <string name="effect_reverse_description">The clouds clear away to show your photo.</string>
+    <string name="effect_atmosphere_title" translatable="false">Atmosphere</string>
+    <string name="effect_atmosphere_transition">Sharp to blur</string>
+    <string name="effect_atmosphere_description">Soft color and clouds that drift across your photo.</string>
+    <string name="effect_atmosphere_reverse_title" translatable="false">Atmosphere Reverse</string>
+    <string name="effect_atmosphere_reverse_transition">Blur to sharp</string>
+    <string name="effect_atmosphere_reverse_description">The clouds clear away to show your photo.</string>
     <string name="effect_glass_title" translatable="false">Glass Effect</string>
     <string name="effect_glass_transition">Right-to-left or fade in</string>
     <string name="effect_glass_description">Ribbed glass over your photo, with a transition you can pick.</string>
     <string name="effect_glass_reverse_title" translatable="false">Glass Effect Reverse</string>
     <string name="effect_glass_reverse_transition">Left-to-right or fade out</string>
     <string name="effect_glass_reverse_description">The ribbed glass clears away, with a transition you can pick.</string>
-    <string name="effect_colorfill_title" translatable="false">Color Fill</string>
-    <string name="effect_colorfill_transition">Monochrome to color</string>
-    <string name="effect_colorfill_description">Color spreads out from where your fingerprint is.</string>
-    <string name="effect_colorfill_reverse_title" translatable="false">Color Fill Reverse</string>
-    <string name="effect_colorfill_reverse_transition">Color to monochrome</string>
-    <string name="effect_colorfill_reverse_description">Color drains back toward your fingerprint.</string>
-    <string name="effect_neon_title" translatable="false">Canvas Sketch</string>
-    <string name="effect_neon_transition">Sketch to image</string>
-    <string name="effect_neon_description">A clean line drawing turns into your photo.</string>
-    <string name="effect_neon_reverse_title" translatable="false">Canvas Sketch Reverse</string>
-    <string name="effect_neon_reverse_transition">Image to sketch</string>
-    <string name="effect_neon_reverse_description">Your photo turns into a clean line drawing.</string>
+    <string name="effect_color_fill_title" translatable="false">Color Fill</string>
+    <string name="effect_color_fill_transition">Monochrome to color</string>
+    <string name="effect_color_fill_description">Color spreads out from where your fingerprint is.</string>
+    <string name="effect_color_fill_reverse_title" translatable="false">Color Fill Reverse</string>
+    <string name="effect_color_fill_reverse_transition">Color to monochrome</string>
+    <string name="effect_color_fill_reverse_description">Color drains back toward your fingerprint.</string>
+    <string name="effect_canvas_sketch_title" translatable="false">Canvas Sketch</string>
+    <string name="effect_canvas_sketch_transition">Sketch to image</string>
+    <string name="effect_canvas_sketch_description">A clean line drawing turns into your photo.</string>
+    <string name="effect_canvas_sketch_reverse_title" translatable="false">Canvas Sketch Reverse</string>
+    <string name="effect_canvas_sketch_reverse_transition">Image to sketch</string>
+    <string name="effect_canvas_sketch_reverse_description">Your photo turns into a clean line drawing.</string>
     <string name="effect_frosted_title" translatable="false">Simple Frosted</string>
     <string name="effect_frosted_transition">Sharp to blur</string>
     <string name="effect_frosted_description">A simple, even frosted glass blur.</string>

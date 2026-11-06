@@ -132,8 +132,8 @@ data class AdvancedConfig(
     val originY: Float,
     val saturation: Float,
     val contrast: Float,
-    val neonSensitivity: Float,
-    val neonLineWidth: Float,
+    val canvasSketchSensitivity: Float,
+    val canvasSketchLineWidth: Float,
     val glassLineCount: Int,
     val glassLineThickness: Float,
     val glassTransitionStyle: GlassTransitionStyle,
@@ -163,8 +163,8 @@ data class AdvancedResult(
     val originY: Float,
     val saturation: Float,
     val contrast: Float,
-    val neonSensitivity: Float,
-    val neonLineWidth: Float,
+    val canvasSketchSensitivity: Float,
+    val canvasSketchLineWidth: Float,
     val atmosphereGlassEnabled: Boolean,
     val clockEnabled: Boolean,
     val clockDepthEnabled: Boolean,
@@ -213,8 +213,8 @@ fun FineTuneScreen(
     var originY by remember { mutableFloatStateOf(config.originY) }
     var saturation by remember { mutableFloatStateOf(config.saturation) }
     var contrast by remember { mutableFloatStateOf(config.contrast) }
-    var neonSensitivity by remember { mutableFloatStateOf(config.neonSensitivity) }
-    var neonLineWidth by remember { mutableFloatStateOf(config.neonLineWidth) }
+    var canvasSketchSensitivity by remember { mutableFloatStateOf(config.canvasSketchSensitivity) }
+    var canvasSketchLineWidth by remember { mutableFloatStateOf(config.canvasSketchLineWidth) }
     var atmosphereGlassEnabled by remember {
         mutableStateOf(config.atmosphereGlassEnabled)
     }
@@ -311,8 +311,8 @@ fun FineTuneScreen(
         originY = originY,
         saturation = saturation,
         contrast = contrast,
-        neonSensitivity = neonSensitivity,
-        neonLineWidth = neonLineWidth,
+        canvasSketchSensitivity = canvasSketchSensitivity,
+        canvasSketchLineWidth = canvasSketchLineWidth,
         atmosphereGlassEnabled = atmosphereGlassEnabled,
         clockEnabled = clockEnabled,
         clockDepthEnabled = clockDepthEnabled,
@@ -408,10 +408,10 @@ fun FineTuneScreen(
                         onSaturationChange = { saturation = it },
                         contrast = contrast,
                         onContrastChange = { contrast = it },
-                        neonSensitivity = neonSensitivity,
-                        onCanvasSketchSensitivityChange = { neonSensitivity = it },
-                        neonLineWidth = neonLineWidth,
-                        onCanvasSketchLineWidthChange = { neonLineWidth = it },
+                        canvasSketchSensitivity = canvasSketchSensitivity,
+                        onCanvasSketchSensitivityChange = { canvasSketchSensitivity = it },
+                        canvasSketchLineWidth = canvasSketchLineWidth,
+                        onCanvasSketchLineWidthChange = { canvasSketchLineWidth = it },
                         atmosphereGlassEnabled = atmosphereGlassEnabled,
                         onAtmosphereGlassEnabledChange = {
                             atmosphereGlassEnabled = it
@@ -516,9 +516,9 @@ private fun EffectSettings(
     onSaturationChange: (Float) -> Unit,
     contrast: Float,
     onContrastChange: (Float) -> Unit,
-    neonSensitivity: Float,
+    canvasSketchSensitivity: Float,
     onCanvasSketchSensitivityChange: (Float) -> Unit,
-    neonLineWidth: Float,
+    canvasSketchLineWidth: Float,
     onCanvasSketchLineWidthChange: (Float) -> Unit,
     atmosphereGlassEnabled: Boolean,
     onAtmosphereGlassEnabledChange: (Boolean) -> Unit,
@@ -609,9 +609,9 @@ private fun EffectSettings(
                         checked = atmosphereGlassEnabled,
                         onCheckedChange = onAtmosphereGlassEnabledChange,
                         subtitle = if (atmosphereGlassEnabled) {
-                            stringResource(R.string.glass_on_sharp, stringResource(R.string.effect_original_title))
+                            stringResource(R.string.glass_on_sharp, stringResource(R.string.effect_atmosphere_title))
                         } else {
-                            stringResource(R.string.glass_off_sharp, stringResource(R.string.effect_original_title))
+                            stringResource(R.string.glass_off_sharp, stringResource(R.string.effect_atmosphere_title))
                         }
                     )
                 }
@@ -869,7 +869,7 @@ private fun EffectSettings(
                 Spacer(Modifier.height(18.dp))
                 LabeledSlider(
                     label = stringResource(R.string.canvas_detail),
-                    value = neonSensitivity,
+                    value = canvasSketchSensitivity,
                     onValueChange = onCanvasSketchSensitivityChange,
                     valueRange = 0f..1f,
                     step = 0.05f
@@ -877,7 +877,7 @@ private fun EffectSettings(
                 Spacer(Modifier.height(12.dp))
                 LabeledSlider(
                     label = stringResource(R.string.common_line_thickness),
-                    value = neonLineWidth,
+                    value = canvasSketchLineWidth,
                     onValueChange = onCanvasSketchLineWidthChange,
                     valueRange = 0.5f..4f,
                     step = 0.5f
@@ -886,7 +886,7 @@ private fun EffectSettings(
         }
 
         if (config.showBlob) {
-            SettingsGroup(stringResource(R.string.atmos_color_group, stringResource(R.string.effect_original_title))) {
+            SettingsGroup(stringResource(R.string.atmos_color_group, stringResource(R.string.effect_atmosphere_title))) {
                 LabeledSlider(
                     label = stringResource(R.string.atmos_saturation),
                     value = saturation,
@@ -1069,7 +1069,7 @@ private fun TimingSettings(
                                 WakeTransitionStyle.SCALE -> R.string.wake_scale_hint
                                 WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
                             },
-                            stringResource(R.string.effect_colorfill_title)
+                            stringResource(R.string.effect_color_fill_title)
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

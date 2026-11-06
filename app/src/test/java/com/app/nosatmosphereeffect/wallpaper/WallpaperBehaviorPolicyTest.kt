@@ -90,12 +90,12 @@ class WallpaperBehaviorPolicyTest {
 
     @Test
     fun `monochrome lock screens are recognised`() {
-        assertTrue(WakeTransition.lockScreenIsMonochrome("COLORFILL", 1f, halftoneGrayscale = false))
-        assertFalse(WakeTransition.lockScreenIsMonochrome("COLORFILL_REVERSE", 0f, halftoneGrayscale = false))
+        assertTrue(WakeTransition.lockScreenIsMonochrome("COLOR_FILL", 1f, halftoneGrayscale = false))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("COLOR_FILL_REVERSE", 0f, halftoneGrayscale = false))
         assertTrue(WakeTransition.lockScreenIsMonochrome("HALFTONE_REVERSE", 0f, halftoneGrayscale = true))
         assertFalse(WakeTransition.lockScreenIsMonochrome("HALFTONE_REVERSE", 0f, halftoneGrayscale = false))
         assertFalse(WakeTransition.lockScreenIsMonochrome("HALFTONE", 0f, halftoneGrayscale = true))
-        assertFalse(WakeTransition.lockScreenIsMonochrome("ORIGINAL", 0f, halftoneGrayscale = true))
+        assertFalse(WakeTransition.lockScreenIsMonochrome("ATMOSPHERE", 0f, halftoneGrayscale = true))
     }
 
     @Test
@@ -245,14 +245,14 @@ class WallpaperBehaviorPolicyTest {
     @Test
     fun `every effect exposes its original and applied endpoints`() {
         val expectedEndpoints = mapOf(
-            "ORIGINAL" to EffectStateEndpoints(0f, 1f),
-            "REVERSE" to EffectStateEndpoints(0f, 1f),
+            "ATMOSPHERE" to EffectStateEndpoints(0f, 1f),
+            "ATMOSPHERE_REVERSE" to EffectStateEndpoints(0f, 1f),
             "GLASS" to EffectStateEndpoints(0f, 1f),
             "GLASS_REVERSE" to EffectStateEndpoints(0f, 1f),
-            "COLORFILL" to EffectStateEndpoints(0f, 1f),
-            "COLORFILL_REVERSE" to EffectStateEndpoints(0f, 1f),
-            "NEON" to EffectStateEndpoints(1f, 0f),
-            "NEON_REVERSE" to EffectStateEndpoints(0f, 1f),
+            "COLOR_FILL" to EffectStateEndpoints(0f, 1f),
+            "COLOR_FILL_REVERSE" to EffectStateEndpoints(0f, 1f),
+            "CANVAS_SKETCH" to EffectStateEndpoints(1f, 0f),
+            "CANVAS_SKETCH_REVERSE" to EffectStateEndpoints(0f, 1f),
             "FROSTED" to EffectStateEndpoints(0f, 1f),
             "FROSTED_REVERSE" to EffectStateEndpoints(0f, 1f),
             "HALFTONE" to EffectStateEndpoints(0f, 1f),
@@ -357,14 +357,14 @@ class WallpaperBehaviorPolicyTest {
 
     private companion object {
         val TRANSITION_DIRECTIONS = linkedMapOf(
-            "ORIGINAL" to false,
-            "REVERSE" to true,
+            "ATMOSPHERE" to false,
+            "ATMOSPHERE_REVERSE" to true,
             "GLASS" to false,
             "GLASS_REVERSE" to true,
-            "COLORFILL" to true,
-            "COLORFILL_REVERSE" to false,
-            "NEON" to false,
-            "NEON_REVERSE" to false,
+            "COLOR_FILL" to true,
+            "COLOR_FILL_REVERSE" to false,
+            "CANVAS_SKETCH" to false,
+            "CANVAS_SKETCH_REVERSE" to false,
             "FROSTED" to false,
             "FROSTED_REVERSE" to true,
             "HALFTONE" to false,

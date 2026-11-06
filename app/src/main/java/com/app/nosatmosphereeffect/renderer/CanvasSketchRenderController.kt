@@ -22,7 +22,7 @@ class CanvasSketchRenderController(
     private val isReverse: Boolean
 ) : BackendReselectableRenderer {
     private val appContext = context.applicationContext
-    private val effectId = if (isReverse) "NEON_REVERSE" else "NEON"
+    private val effectId = if (isReverse) "CANVAS_SKETCH_REVERSE" else "CANVAS_SKETCH"
     private val lock = Any()
 
     private var state = CanvasSketchRenderState()

@@ -28,7 +28,7 @@ class AtmosphereRenderController(
     private val reverse: Boolean
 ) : BackendReselectableRenderer {
     private val appContext = context.applicationContext
-    private val effectId = if (reverse) "REVERSE" else "ORIGINAL"
+    private val effectId = if (reverse) "ATMOSPHERE_REVERSE" else "ATMOSPHERE"
     private val lock = Any()
 
     /**

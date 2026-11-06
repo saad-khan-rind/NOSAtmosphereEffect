@@ -363,7 +363,7 @@ class EffectPreviewService(
     private fun createInitialState(): EffectPreviewRenderState {
         val prefs = appContext.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         return when (effectId) {
-            "ORIGINAL", "REVERSE" -> {
+            "ATMOSPHERE", "ATMOSPHERE_REVERSE" -> {
                 val glassEnabled = previewAtmosphereGlassEnabled(prefs)
                 configuredAtmosphereGlassEnabled = glassEnabled
                 val glassSettings = previewGlassSettings(prefs)
@@ -583,7 +583,7 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
-            "COLORFILL", "COLORFILL_REVERSE" -> EffectPreviewRenderState.ColorFill(
+            "COLOR_FILL", "COLOR_FILL_REVERSE" -> EffectPreviewRenderState.ColorFill(
                 ColorFillRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
                     originX = previewFloat(prefs, "origin_x", 0.5f),
@@ -592,17 +592,17 @@ class EffectPreviewService(
                     // most effects: 1 is the monochrome lock-screen end.
                     clock = previewClockState(
                         prefs,
-                        lockedProgress = if (effectId == "COLORFILL_REVERSE") 0f else 1f,
-                        unlockedProgress = if (effectId == "COLORFILL_REVERSE") 1f else 0f
+                        lockedProgress = if (effectId == "COLOR_FILL_REVERSE") 0f else 1f,
+                        unlockedProgress = if (effectId == "COLOR_FILL_REVERSE") 1f else 0f
                     )
                 ).sanitized()
             )
 
-            "NEON", "NEON_REVERSE" -> EffectPreviewRenderState.CanvasSketch(
+            "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE" -> EffectPreviewRenderState.CanvasSketch(
                 CanvasSketchRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
-                    lineWidth = previewFloat(prefs, "neon_line_width", 1.5f),
-                    sensitivity = previewFloat(prefs, "neon_sensitivity", 0.5f),
+                    lineWidth = previewFloat(prefs, "canvas_sketch_line_width", 1.5f),
+                    sensitivity = previewFloat(prefs, "canvas_sketch_sensitivity", 0.5f),
                     subjectSegmentationEnabled = previewBoolean(
                         prefs,
                         CanvasSubjectSettings.ENABLED_KEY,
@@ -699,7 +699,7 @@ class EffectPreviewService(
     ): GLSurfaceView.Renderer {
         return when (state) {
             is EffectPreviewRenderState.Atmosphere -> {
-                if (effectId == "REVERSE") {
+                if (effectId == "ATMOSPHERE_REVERSE") {
                     AtmosphereReverseRenderer(appContext, sourceProvider)
                 } else {
                     AtmosphereRenderer(appContext, sourceProvider)
@@ -717,12 +717,12 @@ class EffectPreviewService(
             )
             is EffectPreviewRenderState.ColorFill -> ColorFillRenderer(
                 appContext,
-                isReverse = effectId == "COLORFILL_REVERSE",
+                isReverse = effectId == "COLOR_FILL_REVERSE",
                 previewSource = sourceProvider
             )
             is EffectPreviewRenderState.CanvasSketch -> CanvasSketchRenderer(
                 appContext,
-                isReverse = effectId == "NEON_REVERSE",
+                isReverse = effectId == "CANVAS_SKETCH_REVERSE",
                 previewSource = sourceProvider
             )
         }

@@ -88,7 +88,7 @@ object EffectStatePolicy {
             originalProgress = 1f,
             appliedProgress = 0f
         )
-        "NEON" -> EffectStateEndpoints(
+        "CANVAS_SKETCH" -> EffectStateEndpoints(
             originalProgress = 1f,
             appliedProgress = 0f
         )
@@ -104,12 +104,12 @@ object EffectStatePolicy {
             ?.coerceIn(0f, 1f)
             ?: 0f
         return when (effectId) {
-            "REVERSE", "FROSTED_REVERSE" -> 1f - progress
+            "ATMOSPHERE_REVERSE", "FROSTED_REVERSE" -> 1f - progress
             "GLASS", "GLASS_REVERSE" -> GlassEffectPolicy.shaderProgress(
                 progress,
                 reverse = effectId == "GLASS_REVERSE"
             )
-            "COLORFILL" -> 1f - progress
+            "COLOR_FILL" -> 1f - progress
             else -> progress
         }
     }

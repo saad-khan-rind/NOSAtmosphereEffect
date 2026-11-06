@@ -10,7 +10,7 @@ object AtmosphereGlassPolicy {
     const val ENABLED_KEY = "atmosphere_glass_enabled"
 
     fun supportsEffect(effectId: String?): Boolean {
-        return effectId == "ORIGINAL" || effectId == "REVERSE"
+        return effectId == "ATMOSPHERE" || effectId == "ATMOSPHERE_REVERSE"
     }
 
     fun resolveEnabled(effectId: String?, requested: Boolean): Boolean {

@@ -5,7 +5,7 @@ package com.app.nosatmosphereeffect.clock
  * Atmosphere effect (blobs/clouds renderer, [AtmosphereRenderer] on GLES and
  * VulkanAtmosphereHost on Vulkan).
  *
- * Excludes "REVERSE": that direction runs through AtmosphereReverseRenderer, which
+ * Excludes "ATMOSPHERE_REVERSE": that direction runs through AtmosphereReverseRenderer, which
  * has no clock compositing pass.
  *
  * Geometry is stored as screen-fraction values (matching the shader's
@@ -231,14 +231,14 @@ object AtmosphereClockPolicy {
      * another, which reads as a bug rather than a limitation.
      */
     private val SUPPORTED_EFFECT_IDS = setOf(
-        "ORIGINAL",
-        "REVERSE",
+        "ATMOSPHERE",
+        "ATMOSPHERE_REVERSE",
         "GLASS",
         "GLASS_REVERSE",
-        "COLORFILL",
-        "COLORFILL_REVERSE",
-        "NEON",
-        "NEON_REVERSE",
+        "COLOR_FILL",
+        "COLOR_FILL_REVERSE",
+        "CANVAS_SKETCH",
+        "CANVAS_SKETCH_REVERSE",
         "FROSTED",
         "FROSTED_REVERSE",
         "HALFTONE",

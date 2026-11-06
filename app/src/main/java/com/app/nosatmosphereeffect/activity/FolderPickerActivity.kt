@@ -57,7 +57,7 @@ class FolderPickerActivity : ComponentActivity() {
         } else {
             startActivity(
                 Intent(this, PlaylistEditorActivity::class.java)
-                    .putExtra("EFFECT_ID", intent.getStringExtra("EFFECT_ID") ?: "ORIGINAL")
+                    .putExtra("EFFECT_ID", intent.getStringExtra("EFFECT_ID") ?: "ATMOSPHERE")
                     .putStringArrayListExtra(EXTRA_FOLDER_IDS, ids)
                     .putStringArrayListExtra(EXTRA_FOLDER_NAMES, names)
             )

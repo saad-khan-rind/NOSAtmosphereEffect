@@ -18,14 +18,14 @@ class EffectCatalogTest {
     fun `effect families follow the requested catalog order`() {
         assertEquals(
             listOf(
-                "ORIGINAL",
-                "REVERSE",
+                "ATMOSPHERE",
+                "ATMOSPHERE_REVERSE",
                 "GLASS",
                 "GLASS_REVERSE",
-                "COLORFILL",
-                "COLORFILL_REVERSE",
-                "NEON",
-                "NEON_REVERSE",
+                "COLOR_FILL",
+                "COLOR_FILL_REVERSE",
+                "CANVAS_SKETCH",
+                "CANVAS_SKETCH_REVERSE",
                 "FROSTED",
                 "FROSTED_REVERSE",
                 "HALFTONE",
@@ -46,8 +46,8 @@ class EffectCatalogTest {
         EffectCatalog.items
             .filter { EffectCatalog.isReverse(it.id) }
             .forEach { reverse ->
-                val forwardId = if (reverse.id == "REVERSE") {
-                    "ORIGINAL"
+                val forwardId = if (reverse.id == "ATMOSPHERE_REVERSE") {
+                    "ATMOSPHERE"
                 } else {
                     reverse.id.removeSuffix("_REVERSE")
                 }
@@ -64,7 +64,7 @@ class EffectCatalogTest {
         val families = EffectCatalog.families()
 
         assertEquals(
-            listOf("ATMOSPHERE", "GLASS", "COLORFILL", "CANVAS", "FROSTED", "HALFTONE", "VHS", "ZOOM"),
+            listOf("ATMOSPHERE", "GLASS", "COLOR_FILL", "CANVAS_SKETCH", "FROSTED", "HALFTONE", "VHS", "ZOOM"),
             families.map(EffectFamily::key)
         )
         families.forEach { family ->
@@ -81,9 +81,9 @@ class EffectCatalogTest {
 
     @Test
     fun `a family offered in one direction falls back to it`() {
-        val reverseOnly = EffectCatalog.families(listOf(EffectCatalog.find("NEON_REVERSE"))).single()
+        val reverseOnly = EffectCatalog.families(listOf(EffectCatalog.find("CANVAS_SKETCH_REVERSE"))).single()
 
-        assertEquals("NEON_REVERSE", reverseOnly.forward.id)
+        assertEquals("CANVAS_SKETCH_REVERSE", reverseOnly.forward.id)
         assertEquals(null, reverseOnly.reverse)
         assertSame(reverseOnly.forward, reverseOnly.pick(reversed = true))
     }
@@ -112,29 +112,29 @@ class EffectCatalogTest {
         listOf(
             "HALFTONE",
             "HALFTONE_REVERSE",
-            "COLORFILL",
-            "COLORFILL_REVERSE",
-            "NEON",
-            "NEON_REVERSE",
+            "COLOR_FILL",
+            "COLOR_FILL_REVERSE",
+            "CANVAS_SKETCH",
+            "CANVAS_SKETCH_REVERSE",
             "GLASS",
             "GLASS_REVERSE"
         ).forEach { id ->
             assertEquals(0f, EffectCatalog.defaultDimness(id), 0f)
         }
 
-        assertEquals(0.2f, EffectCatalog.defaultDimness("ORIGINAL"), 0f)
+        assertEquals(0.2f, EffectCatalog.defaultDimness("ATMOSPHERE"), 0f)
         assertEquals(0.2f, EffectCatalog.defaultDimness(null), 0f)
     }
 
     @Test
     fun `only declared effects start from the original wallpaper`() {
         val originalFirst = setOf(
-            "ORIGINAL",
+            "ATMOSPHERE",
             "GLASS",
             "FROSTED",
             "HALFTONE",
-            "COLORFILL_REVERSE",
-            "NEON_REVERSE",
+            "COLOR_FILL_REVERSE",
+            "CANVAS_SKETCH_REVERSE",
             "VHS_REVERSE",
             "ZOOM"
         )
@@ -162,7 +162,7 @@ class EffectCatalogTest {
     fun `image glass is offered only for original and reverse atmosphere`() {
         EffectCatalog.items.forEach { effect ->
             assertEquals(
-                effect.id == "ORIGINAL" || effect.id == "REVERSE",
+                effect.id == "ATMOSPHERE" || effect.id == "ATMOSPHERE_REVERSE",
                 EffectCatalog.supportsAtmosphereGlass(effect.id)
             )
         }

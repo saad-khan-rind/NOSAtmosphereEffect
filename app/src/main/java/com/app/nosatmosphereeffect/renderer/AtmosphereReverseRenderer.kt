@@ -294,10 +294,10 @@ class AtmosphereReverseRenderer(
 
         try {
             val vertexCode = loadShaderFromAssets(
-                "shaders/reverseAtmosphere/atmosphere_blur_to_sharp.vert"
+                "shaders/atmosphere_reverse/atmosphere_reverse.vert"
             )
             val fragmentCode = loadShaderFromAssets(
-                "shaders/reverseAtmosphere/atmosphere_blur_to_sharp.frag"
+                "shaders/atmosphere_reverse/atmosphere_reverse.frag"
             )
             programId = createProgram(vertexCode, fragmentCode)
 

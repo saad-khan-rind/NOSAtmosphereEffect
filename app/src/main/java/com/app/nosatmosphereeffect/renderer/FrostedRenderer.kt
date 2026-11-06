@@ -159,8 +159,8 @@ class FrostedRenderer(
             .put(vertices)
         vertexBuffer.position(0)
 
-        val vertexCode = loadShaderFromAssets("shaders/frostedBlur/frosted.vert")
-        val fragmentCode = loadShaderFromAssets("shaders/frostedBlur/frosted.frag")
+        val vertexCode = loadShaderFromAssets("shaders/frosted/frosted.vert")
+        val fragmentCode = loadShaderFromAssets("shaders/frosted/frosted.frag")
 
         programId = createProgram(vertexCode, fragmentCode)
 

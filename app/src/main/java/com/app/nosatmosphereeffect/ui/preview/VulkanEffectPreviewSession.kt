@@ -111,7 +111,7 @@ internal class VulkanEffectPreviewSession(
         return when (state) {
             is EffectPreviewRenderState.Atmosphere -> VulkanAtmosphereHost(
                 context = context,
-                reverse = effectId == "REVERSE",
+                reverse = effectId == "ATMOSPHERE_REVERSE",
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },
@@ -142,7 +142,7 @@ internal class VulkanEffectPreviewSession(
             )
             is EffectPreviewRenderState.ColorFill -> VulkanColorFillHost(
                 context = context,
-                reverse = effectId == "COLORFILL_REVERSE",
+                reverse = effectId == "COLOR_FILL_REVERSE",
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },
@@ -150,7 +150,7 @@ internal class VulkanEffectPreviewSession(
             )
             is EffectPreviewRenderState.CanvasSketch -> VulkanCanvasSketchHost(
                 context = context,
-                reverse = effectId == "NEON_REVERSE",
+                reverse = effectId == "CANVAS_SKETCH_REVERSE",
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },

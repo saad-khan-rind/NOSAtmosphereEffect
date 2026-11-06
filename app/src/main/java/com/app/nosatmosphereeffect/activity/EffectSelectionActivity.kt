@@ -31,7 +31,7 @@ import java.util.concurrent.Executors
 class EffectSelectionActivity : ComponentActivity() {
 
     private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    private var selectedEffectId: String = "ORIGINAL"
+    private var selectedEffectId: String = "ATMOSPHERE"
     private var previewBitmap by mutableStateOf<ImageBitmap?>(null)
 
     private var sharedUris: ArrayList<Uri>? = null

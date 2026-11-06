@@ -9,8 +9,8 @@ class AtmosphereGlassPolicyTest {
 
     @Test
     fun `only the two atmosphere directions support image glass`() {
-        assertTrue(AtmosphereGlassPolicy.supportsEffect("ORIGINAL"))
-        assertTrue(AtmosphereGlassPolicy.supportsEffect("REVERSE"))
+        assertTrue(AtmosphereGlassPolicy.supportsEffect("ATMOSPHERE"))
+        assertTrue(AtmosphereGlassPolicy.supportsEffect("ATMOSPHERE_REVERSE"))
 
         listOf(
             null,
@@ -18,8 +18,8 @@ class AtmosphereGlassPolicyTest {
             "GLASS",
             "GLASS_REVERSE",
             "FROSTED",
-            "COLORFILL",
-            "NEON",
+            "COLOR_FILL",
+            "CANVAS_SKETCH",
             "HALFTONE",
             "NOT_AN_EFFECT"
         ).forEach { effectId ->
@@ -32,9 +32,9 @@ class AtmosphereGlassPolicyTest {
 
     @Test
     fun `requested state is forced off for unsupported effects`() {
-        assertTrue(AtmosphereGlassPolicy.resolveEnabled("ORIGINAL", requested = true))
-        assertTrue(AtmosphereGlassPolicy.resolveEnabled("REVERSE", requested = true))
-        assertFalse(AtmosphereGlassPolicy.resolveEnabled("ORIGINAL", requested = false))
+        assertTrue(AtmosphereGlassPolicy.resolveEnabled("ATMOSPHERE", requested = true))
+        assertTrue(AtmosphereGlassPolicy.resolveEnabled("ATMOSPHERE_REVERSE", requested = true))
+        assertFalse(AtmosphereGlassPolicy.resolveEnabled("ATMOSPHERE", requested = false))
         assertFalse(AtmosphereGlassPolicy.resolveEnabled("GLASS", requested = true))
         assertFalse(AtmosphereGlassPolicy.resolveEnabled(null, requested = true))
     }

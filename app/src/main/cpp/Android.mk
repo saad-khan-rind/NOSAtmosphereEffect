@@ -7,7 +7,7 @@ LOCAL_SRC_FILES := \
     vulkan_color_fill_jni.cpp \
     vulkan_halftone_jni.cpp \
     vulkan_glass_jni.cpp \
-    vulkan_neon_jni.cpp \
+    vulkan_canvas_sketch_jni.cpp \
     vulkan_atmosphere_jni.cpp \
     vulkan_frosted_jni.cpp
 LOCAL_CPPFLAGS := -std=c++17 -Wall -Wextra -Wno-missing-field-initializers

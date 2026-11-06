@@ -288,7 +288,7 @@ fun PlaylistEditorScreen(
                     if (showAtmosphereGlassOption) {
                         SettingSwitchRow(
                             title = stringResource(R.string.glass_add, stringResource(R.string.glass_group)),
-                            subtitle = stringResource(R.string.glass_add_subtitle, stringResource(R.string.effect_original_title)),
+                            subtitle = stringResource(R.string.glass_add_subtitle, stringResource(R.string.effect_atmosphere_title)),
                             checked = atmosphereGlassEnabled,
                             onCheckedChange = onAtmosphereGlassEnabledChange
                         )

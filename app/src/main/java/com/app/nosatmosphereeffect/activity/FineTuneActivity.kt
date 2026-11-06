@@ -57,13 +57,13 @@ class FineTuneActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val activeEffect = intent.getStringExtra("ACTIVE_EFFECT_TYPE") ?: "ORIGINAL"
+        val activeEffect = intent.getStringExtra("ACTIVE_EFFECT_TYPE") ?: "ATMOSPHERE"
         val isSamsung = intent.getBooleanExtra("IS_SAMSUNG", false)
         val isPlaylistMode = intent.getBooleanExtra("IS_PLAYLIST_MODE", false)
 
         val isHalftone = activeEffect.contains("HALFTONE")
-        val isColorFill = activeEffect.contains("COLORFILL")
-        val isCanvasSketch = activeEffect.contains("NEON")
+        val isColorFill = activeEffect.contains("COLOR_FILL")
+        val isCanvasSketch = activeEffect.contains("CANVAS_SKETCH")
         val isFrosted = activeEffect.contains("FROSTED")
         val isGlass = activeEffect.contains("GLASS")
         val isVhs = activeEffect.contains("VHS")
@@ -74,7 +74,7 @@ class FineTuneActivity : ComponentActivity() {
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
         // VHS draws its own tape grain and Zoom has none, so the film-grain switch would do nothing there.
         val showNoiseSwitch = !isHalftone && !isColorFill && !isCanvasSketch && !isGlass && !isVhs && !isZoom
-        val showBlob = activeEffect == "ORIGINAL" || activeEffect == "REVERSE"
+        val showBlob = activeEffect == "ATMOSPHERE" || activeEffect == "ATMOSPHERE_REVERSE"
         // Every clock effect needs the subject for the clock's depth, Colour Fill and Frosted included.
         val usesSubjectModel = isCanvasSketch || isGlass || isHalftone || isAtmosphere ||
             AtmosphereClockPolicy.supportsDepth(activeEffect)
@@ -157,8 +157,8 @@ class FineTuneActivity : ComponentActivity() {
             originY = prefs.getFloat("origin_y", 0.8f),
             saturation = prefs.getFloat("blob_saturation", 1.0f),
             contrast = prefs.getFloat("blob_contrast", 1.0f),
-            neonSensitivity = prefs.getFloat("neon_sensitivity", 0.5f),
-            neonLineWidth = prefs.getFloat("neon_line_width", 1.5f),
+            canvasSketchSensitivity = prefs.getFloat("canvas_sketch_sensitivity", 0.5f),
+            canvasSketchLineWidth = prefs.getFloat("canvas_sketch_line_width", 1.5f),
             glassLineCount = glassSettings.lineCount,
             glassLineThickness = glassSettings.lineThickness,
             glassTransitionStyle = glassSettings.transitionStyle,
@@ -294,8 +294,8 @@ class FineTuneActivity : ComponentActivity() {
             putFloat("blob_contrast", result.contrast)
             putFloat("origin_x", result.originX)
             putFloat("origin_y", result.originY)
-            putFloat("neon_sensitivity", result.neonSensitivity)
-            putFloat("neon_line_width", result.neonLineWidth)
+            putFloat("canvas_sketch_sensitivity", result.canvasSketchSensitivity)
+            putFloat("canvas_sketch_line_width", result.canvasSketchLineWidth)
             if (updateAtmosphereGlass) {
                 putBoolean(
                     AtmosphereGlassPolicy.ENABLED_KEY,
@@ -371,8 +371,8 @@ class FineTuneActivity : ComponentActivity() {
             remove("blob_contrast")
             remove("origin_x")
             remove("origin_y")
-            remove("neon_sensitivity")
-            remove("neon_line_width")
+            remove("canvas_sketch_sensitivity")
+            remove("canvas_sketch_line_width")
             remove(AtmosphereGlassPolicy.ENABLED_KEY)
             AtmosphereClockPolicy.ALL_KEYS.forEach { remove(it) }
             remove(GlassEffectPolicy.LINE_COUNT_KEY)

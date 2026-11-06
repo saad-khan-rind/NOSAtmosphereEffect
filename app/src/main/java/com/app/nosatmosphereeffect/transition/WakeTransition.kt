@@ -350,7 +350,7 @@ object WakeTransition {
      */
     fun lockScreenIsMonochrome(effectId: String, lockProgress: Float, halftoneGrayscale: Boolean): Boolean =
         when (effectId) {
-            "COLORFILL", "COLORFILL_REVERSE" -> lockProgress >= 0.5f
+            "COLOR_FILL", "COLOR_FILL_REVERSE" -> lockProgress >= 0.5f
             "HALFTONE" -> halftoneGrayscale && lockProgress >= 0.5f
             "HALFTONE_REVERSE" -> halftoneGrayscale && lockProgress < 0.5f
             else -> false

@@ -191,7 +191,7 @@ fun MainScreen(
                 AtmoReveal {
                     if (wallpaperActive) {
                         ActiveWallpaperPanel(
-                            effectId = activeEffectId ?: "ORIGINAL",
+                            effectId = activeEffectId ?: "ATMOSPHERE",
                             previewBitmap = previewBitmap,
                             isPlaylistMode = isPlaylistMode,
                             isThemePlaylistMode = isThemePlaylistMode,
@@ -722,7 +722,7 @@ private fun EmptyWallpaperPanel(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
         WallpaperTransitionPreview(
-            effectId = "ORIGINAL",
+            effectId = "ATMOSPHERE",
             wallpaper = null,
             settingsMode = EffectPreviewSettingsMode.EFFECT_DEFAULTS,
             modifier = Modifier

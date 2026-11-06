@@ -139,11 +139,11 @@ class ColorFillRenderer(
             .put(vertices)
         vertexBuffer.position(0)
 
-        val vertexCode = loadShaderFromAssets("shaders/colorfill/colorfill.vert")
+        val vertexCode = loadShaderFromAssets("shaders/color_fill/color_fill.vert")
         val fragmentCode = if (isReverse) {
-            loadShaderFromAssets("shaders/colorfill/color_to_bw.frag")
+            loadShaderFromAssets("shaders/color_fill/color_to_bw.frag")
         } else {
-            loadShaderFromAssets("shaders/colorfill/bw_to_color.frag")
+            loadShaderFromAssets("shaders/color_fill/bw_to_color.frag")
         }
 
         programId = createProgram(vertexCode, fragmentCode)

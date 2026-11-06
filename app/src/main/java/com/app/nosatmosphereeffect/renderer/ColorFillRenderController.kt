@@ -23,7 +23,7 @@ class ColorFillRenderController(
     private val isReverse: Boolean
 ) : BackendReselectableRenderer {
     private val appContext = context.applicationContext
-    private val effectId = if (isReverse) "COLORFILL_REVERSE" else "COLORFILL"
+    private val effectId = if (isReverse) "COLOR_FILL_REVERSE" else "COLOR_FILL"
     private val lock = Any()
 
     private var state = ColorFillRenderState()

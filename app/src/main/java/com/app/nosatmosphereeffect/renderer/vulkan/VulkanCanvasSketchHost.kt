@@ -88,7 +88,7 @@ internal class VulkanCanvasSketchHost(
             scrollWindowX = wallpaperScrollWindowX,
             surfaceAspect = surfaceAspect,
             effectiveOpacity = current.clock.effectiveOpacity(current.progress),
-            upload = { bitmap -> VulkanNeonNative.nativeUploadClock(handle, bitmap) },
+            upload = { bitmap -> VulkanCanvasSketchNative.nativeUploadClock(handle, bitmap) },
             requestRender = ::requestRender
         )
         if (!changed) return
@@ -247,14 +247,14 @@ internal class VulkanCanvasSketchHost(
         val mask = retainedSubjectMask
         if (!maskWanted || mask == null || mask.isRecycled) {
             if (uploadedClockMaskRevision != NO_MASK_REVISION) {
-                VulkanNeonNative.nativeClearSubjectMask(handle)
+                VulkanCanvasSketchNative.nativeClearSubjectMask(handle)
                 uploadedClockMaskRevision = NO_MASK_REVISION
                 updateEffectState { it.copy(hasSubject = false).sanitized() }
             }
             return
         }
         if (uploadedClockMaskRevision == subjectMaskRevision) return
-        if (!VulkanNeonNative.nativeUploadSubjectMask(handle, mask)) {
+        if (!VulkanCanvasSketchNative.nativeUploadSubjectMask(handle, mask)) {
             Log.w(TAG, "Unable to upload the Sketch clock depth mask")
             return
         }
@@ -328,7 +328,7 @@ internal class VulkanCanvasSketchHost(
                 )
                 val bitmap = contour.toBitmap()
                 try {
-                    if (!VulkanNeonNative.nativeUploadContour(handle, bitmap)) {
+                    if (!VulkanCanvasSketchNative.nativeUploadContour(handle, bitmap)) {
                         return@runCatching false
                     }
                 } finally {
@@ -401,8 +401,8 @@ private class CanvasSketchBridge(
     override val effectLabel = "Canvas Sketch"
 
     override fun create(assets: android.content.res.AssetManager): Long {
-        if (!VulkanNeonNative.libraryLoaded) return 0L
-        return VulkanNeonNative.nativeCreate(assets, reverse)
+        if (!VulkanCanvasSketchNative.libraryLoaded) return 0L
+        return VulkanCanvasSketchNative.nativeCreate(assets, reverse)
     }
 
     override fun setSurface(
@@ -411,7 +411,7 @@ private class CanvasSketchBridge(
         width: Int,
         height: Int
     ): Boolean {
-        return VulkanNeonNative.nativeSetSurface(
+        return VulkanCanvasSketchNative.nativeSetSurface(
             handle,
             surface,
             width,
@@ -420,11 +420,11 @@ private class CanvasSketchBridge(
     }
 
     override fun getApiVersion(handle: Long): Int {
-        return VulkanNeonNative.nativeGetApiVersion(handle)
+        return VulkanCanvasSketchNative.nativeGetApiVersion(handle)
     }
 
     override fun uploadWallpaper(handle: Long, bitmap: Bitmap): Boolean {
-        return VulkanNeonNative.nativeUploadWallpaper(handle, bitmap)
+        return VulkanCanvasSketchNative.nativeUploadWallpaper(handle, bitmap)
     }
 
     override fun setState(
@@ -434,7 +434,7 @@ private class CanvasSketchBridge(
         scrollWindowX: Float
     ) {
         val safe = state.sanitized()
-        VulkanNeonNative.nativeSetState(
+        VulkanCanvasSketchNative.nativeSetState(
             handle = handle,
             progress = safe.progress,
             dimLevel = safe.dimLevel,
@@ -461,14 +461,14 @@ private class CanvasSketchBridge(
     }
 
     override fun render(handle: Long): Int {
-        return VulkanNeonNative.nativeRender(handle)
+        return VulkanCanvasSketchNative.nativeRender(handle)
     }
 
     override fun destroySurface(handle: Long) {
-        VulkanNeonNative.nativeDestroySurface(handle)
+        VulkanCanvasSketchNative.nativeDestroySurface(handle)
     }
 
     override fun destroy(handle: Long) {
-        VulkanNeonNative.nativeDestroy(handle)
+        VulkanCanvasSketchNative.nativeDestroy(handle)
     }
 }

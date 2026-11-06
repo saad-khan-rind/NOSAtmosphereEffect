@@ -19,7 +19,7 @@ abstract class ColorFillWallpaperService protected constructor(
 ) : AnimatedEffectWallpaperService<ColorFillRenderController>() {
 
     final override val effectId =
-        if (reverseEffect) "COLORFILL_REVERSE" else "COLORFILL"
+        if (reverseEffect) "COLOR_FILL_REVERSE" else "COLOR_FILL"
     final override val lockedProgress = if (reverseEffect) 0f else 1f
     final override val unlockedProgress = if (reverseEffect) 1f else 0f
     final override val defaultAnimationDurationMs = 1_500L
@@ -251,11 +251,11 @@ abstract class HalftoneWallpaperService protected constructor(
     }
 }
 
-abstract class NeonWallpaperService protected constructor(
+abstract class CanvasSketchWallpaperService protected constructor(
     private val reverseEffect: Boolean
 ) : AnimatedEffectWallpaperService<CanvasSketchRenderController>() {
 
-    final override val effectId = if (reverseEffect) "NEON_REVERSE" else "NEON"
+    final override val effectId = if (reverseEffect) "CANVAS_SKETCH_REVERSE" else "CANVAS_SKETCH"
     final override val lockedProgress = 0f
     final override val unlockedProgress = 1f
     final override val defaultAnimationDurationMs = 1_000L
@@ -280,8 +280,8 @@ abstract class NeonWallpaperService protected constructor(
     ) {
         renderer.configure(
             dimLevel = preferences.readFloat("dim_level", 0f),
-            lineWidth = preferences.readFloat("neon_line_width", 1.5f),
-            sensitivity = preferences.readFloat("neon_sensitivity", 0.5f),
+            lineWidth = preferences.readFloat("canvas_sketch_line_width", 1.5f),
+            sensitivity = preferences.readFloat("canvas_sketch_sensitivity", 0.5f),
             subjectSegmentationEnabled = preferences.readBoolean(
                 CanvasSubjectSettings.ENABLED_KEY,
                 false

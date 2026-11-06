@@ -19,10 +19,10 @@ class ClockScreenPolicyTest {
     @Test
     fun `every catalogued effect composites the clock on both backends`() {
         val expected = listOf(
-            "ORIGINAL", "REVERSE",
+            "ATMOSPHERE", "ATMOSPHERE_REVERSE",
             "GLASS", "GLASS_REVERSE",
-            "COLORFILL", "COLORFILL_REVERSE",
-            "NEON", "NEON_REVERSE",
+            "COLOR_FILL", "COLOR_FILL_REVERSE",
+            "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE",
             "FROSTED", "FROSTED_REVERSE",
             "HALFTONE", "HALFTONE_REVERSE",
             "VHS", "VHS_REVERSE"
@@ -48,8 +48,8 @@ class ClockScreenPolicyTest {
         // dots, VHS only wears the photo — none of them displaces it far
         // enough to lose a clock, so a clock reads at both ends and the user picks.
         listOf(
-            "COLORFILL", "COLORFILL_REVERSE",
-            "NEON", "NEON_REVERSE",
+            "COLOR_FILL", "COLOR_FILL_REVERSE",
+            "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE",
             "HALFTONE", "HALFTONE_REVERSE",
             "VHS", "VHS_REVERSE"
         ).forEach { effectId ->
@@ -61,7 +61,7 @@ class ClockScreenPolicyTest {
 
         // Atmosphere, Glass and Frosted all blur or refract on one side.
         listOf(
-            "ORIGINAL", "REVERSE",
+            "ATMOSPHERE", "ATMOSPHERE_REVERSE",
             "GLASS", "GLASS_REVERSE",
             "FROSTED", "FROSTED_REVERSE"
         ).forEach { effectId ->
@@ -91,7 +91,7 @@ class ClockScreenPolicyTest {
         ClockScreen.entries.forEach { requested ->
             assertEquals(
                 requested,
-                ClockScreenPolicy.resolveScreen("COLORFILL", requested)
+                ClockScreenPolicy.resolveScreen("COLOR_FILL", requested)
             )
         }
     }
@@ -103,8 +103,8 @@ class ClockScreenPolicyTest {
             ClockScreenPolicy.defaultScreen("GLASS_REVERSE")
         )
         assertNotEquals(
-            ClockScreenPolicy.defaultScreen("ORIGINAL"),
-            ClockScreenPolicy.defaultScreen("REVERSE")
+            ClockScreenPolicy.defaultScreen("ATMOSPHERE"),
+            ClockScreenPolicy.defaultScreen("ATMOSPHERE_REVERSE")
         )
         assertNotEquals(
             ClockScreenPolicy.defaultScreen("FROSTED"),
@@ -119,10 +119,10 @@ class ClockScreenPolicyTest {
         // mask in its display pass, so the sets match. If they ever diverge,
         // the settings screen must hide the depth switch for the difference.
         listOf(
-            "ORIGINAL", "REVERSE",
+            "ATMOSPHERE", "ATMOSPHERE_REVERSE",
             "GLASS", "GLASS_REVERSE",
-            "COLORFILL", "COLORFILL_REVERSE",
-            "NEON", "NEON_REVERSE",
+            "COLOR_FILL", "COLOR_FILL_REVERSE",
+            "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE",
             "FROSTED", "FROSTED_REVERSE",
             "HALFTONE", "HALFTONE_REVERSE",
             "VHS", "VHS_REVERSE"

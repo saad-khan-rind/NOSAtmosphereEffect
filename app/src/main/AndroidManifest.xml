@@ -19,6 +19,7 @@
         android:required="false" />
 
     <application
+        android:name=".AtmoApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
@@ -89,7 +90,7 @@
         </service>
 
         <service
-            android:name=".service.BlurToSharpService"
+            android:name=".service.AtmosphereReverseService"
             android:enabled="true"
             android:exported="true"
             android:label="@string/service_atmosphere_reverse"
@@ -159,7 +160,7 @@
         </service>
 
         <service
-            android:name=".service.NeonService"
+            android:name=".service.CanvasSketchService"
             android:enabled="true"
             android:exported="true"
             android:label="@string/service_canvas"
@@ -173,7 +174,7 @@
         </service>
 
         <service
-            android:name=".service.NeonReverseService"
+            android:name=".service.CanvasSketchReverseService"
             android:enabled="true"
             android:exported="true"
             android:label="@string/service_canvas_reverse"

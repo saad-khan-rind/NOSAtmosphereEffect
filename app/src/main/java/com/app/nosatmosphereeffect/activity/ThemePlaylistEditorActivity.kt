@@ -56,7 +56,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
     private val lightItems get() = draftState.lightItems
     private val darkItems get() = draftState.darkItems
     private var selectedPlaylist by mutableIntStateOf(0)
-    private var effectId = "ORIGINAL"
+    private var effectId = "ATMOSPHERE"
     private var editingPosition = -1
     private var editingPlaylist = 0
     private var isEditExisting = false
@@ -126,7 +126,7 @@ class ThemePlaylistEditorActivity : ComponentActivity() {
         window.attributes.layoutInDisplayCutoutMode =
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
 
-        effectId = intent.getStringExtra("EFFECT_ID") ?: "ORIGINAL"
+        effectId = intent.getStringExtra("EFFECT_ID") ?: "ATMOSPHERE"
         isEditExisting = intent.getBooleanExtra("EDIT_EXISTING", false)
         if (savedInstanceState != null) {
             selectedPlaylist = savedInstanceState.getInt("SELECTED_PLAYLIST", 0)
