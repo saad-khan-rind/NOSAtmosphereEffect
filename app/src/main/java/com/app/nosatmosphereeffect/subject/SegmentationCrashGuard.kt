@@ -1,5 +1,7 @@
 package com.app.nosatmosphereeffect.subject
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.annotation.StringRes
@@ -44,6 +46,15 @@ import com.app.nosatmosphereeffect.R
  * Try again ([reset]) lets the user try it sooner. Without a known version
  * (the bundled model), the older rule stays: skip one attempt after a crash,
  * switch off after two in a row.
+ *
+ * ## A kill is not a crash
+ *
+ * A process can also die mid-attempt without crashing: the system or a ROM's
+ * battery saver kills it, it runs out of memory, the user swipes it away.
+ * Counted as crashes, these paused detection after a day or so on phones that
+ * kill apps often, until a reinstall. So the process that set the flag is
+ * remembered, and Android's record of how it ended decides: only a native
+ * crash counts.
  */
 object SegmentationCrashGuard {
     private const val PREFS_NAME = "segmentation_crash_guard"
@@ -57,7 +68,11 @@ object SegmentationCrashGuard {
     private fun core(context: Context): CrashGuardCore = synchronized(cores) {
         val appContext = context.applicationContext
         cores.getOrPut(appContext.packageName) {
-            CrashGuardCore(PreferencesStore(appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)))
+            CrashGuardCore(
+                PreferencesStore(appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)),
+                pid = android.os.Process.myPid(),
+                diedOfNativeCrash = { pid -> diedOfNativeCrash(appContext, pid) }
+            )
         }
     }
 
@@ -123,6 +138,21 @@ object SegmentationCrashGuard {
     /** Exposed for a "try again" action in the UI after a disable or a pause. */
     fun reset(context: Context) = core(context).reset()
 
+    /**
+     * Whether this app's process [pid] ended in a native crash, by Android's
+     * record of it. Without a record (none kept, or no process remembered)
+     * it counts as a crash, as every death mid-attempt used to.
+     */
+    private fun diedOfNativeCrash(context: Context, pid: Int): Boolean {
+        if (pid <= 0) return true
+        val exit = runCatching {
+            context.getSystemService(ActivityManager::class.java)
+                .getHistoricalProcessExitReasons(context.packageName, pid, 1)
+                .firstOrNull()
+        }.getOrNull() ?: return true
+        return exit.reason == ApplicationExitInfo.REASON_CRASH_NATIVE
+    }
+
     private class PreferencesStore(private val prefs: SharedPreferences) : CrashGuardCore.Store {
         override var inFlight: Boolean
             get() = prefs.getBoolean(IN_FLIGHT_KEY, false)
@@ -130,6 +160,11 @@ object SegmentationCrashGuard {
                 // commit(), not apply(): this must be on disk before the
                 // risky call, not just queued to be written eventually.
                 prefs.edit().putBoolean(IN_FLIGHT_KEY, value).commit()
+            }
+        override var inFlightPid: Int
+            get() = prefs.getInt(IN_FLIGHT_PID_KEY, 0)
+            set(value) {
+                prefs.edit().putInt(IN_FLIGHT_PID_KEY, value).commit()
             }
         override var streak: Int
             get() = prefs.getInt(CRASH_STREAK_KEY, 0)
@@ -148,6 +183,7 @@ object SegmentationCrashGuard {
 
         private companion object {
             const val IN_FLIGHT_KEY = "in_flight"
+            const val IN_FLIGHT_PID_KEY = "in_flight_pid"
             const val CRASH_STREAK_KEY = "crash_streak"
             const val PAUSED_MODEL_KEY = "paused_model"
         }
@@ -158,11 +194,19 @@ object SegmentationCrashGuard {
  * The guard's rules, apart from Android storage so they can be tested: one
  * instance per process, over storage that outlives it.
  */
-internal class CrashGuardCore(private val store: Store) {
+internal class CrashGuardCore(
+    private val store: Store,
+    /** This process's id, remembered with the flag. */
+    private val pid: Int = 0,
+    /** Whether the process with this id died of a native crash; true when unknown. */
+    private val diedOfNativeCrash: (Int) -> Boolean = { true }
+) {
 
     interface Store {
         /** Set while at least one attempt is running; survives a crash. */
         var inFlight: Boolean
+        /** The process that set [inFlight]; 0 when unknown. */
+        var inFlightPid: Int
         /** Crashes in a row, cleared by any attempt that returns. */
         var streak: Int
         /** The model version detection is paused for, if any. */
@@ -214,6 +258,8 @@ internal class CrashGuardCore(private val store: Store) {
             // flag can only have been left by a process that died mid-attempt.
             if (store.inFlight) {
                 store.inFlight = false
+                // Killed, not crashed: nothing to hold against the model.
+                if (!diedOfNativeCrash(store.inFlightPid)) return allow()
                 if (model != null) {
                     // One strike for a known model version.
                     store.pausedModel = model
@@ -224,9 +270,16 @@ internal class CrashGuardCore(private val store: Store) {
                 return Outcome.CrashDetected(streak, streak >= DISABLE_AFTER_STREAK)
             }
         }
-        if (active == 0) store.inFlight = true
+        allow()
+    }
+
+    private fun allow(): Outcome {
+        if (active == 0) {
+            store.inFlightPid = pid
+            store.inFlight = true
+        }
         active++
-        Outcome.ALLOWED
+        return Outcome.ALLOWED
     }
 
     fun end() = synchronized(lock) {
