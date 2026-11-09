@@ -10,6 +10,7 @@ class SegmentationCrashGuardTest {
     /** Storage that outlives a "process", as SharedPreferences does. */
     private class MemoryStore : CrashGuardCore.Store {
         override var inFlight = false
+        override var inFlightPid = 0
         override var streak = 0
         override var pausedModel: String? = null
         override fun clear() {
@@ -17,6 +18,25 @@ class SegmentationCrashGuardTest {
             streak = 0
             pausedModel = null
         }
+    }
+
+    @Test
+    fun `a process killed mid-attempt is not a crash`() {
+        val store = MemoryStore()
+        CrashGuardCore(store, pid = 41).begin("mlkit-subject:1") // killed here, not crashed
+        val restarted = CrashGuardCore(store, pid = 42, diedOfNativeCrash = { it != 41 })
+        assertEquals(CrashGuardCore.Outcome.ALLOWED, restarted.begin("mlkit-subject:1"))
+        assertFalse(restarted.isPaused("mlkit-subject:1"))
+        assertEquals(42, store.inFlightPid)
+    }
+
+    @Test
+    fun `a process that crashed natively mid-attempt still pauses the model`() {
+        val store = MemoryStore()
+        CrashGuardCore(store, pid = 41).begin("mlkit-subject:1") // SIGBUS here
+        val restarted = CrashGuardCore(store, pid = 42, diedOfNativeCrash = { it == 41 })
+        assertTrue(restarted.begin("mlkit-subject:1") is CrashGuardCore.Outcome.CrashDetected)
+        assertTrue(restarted.isPaused("mlkit-subject:1"))
     }
 
     @Test
