@@ -13,6 +13,9 @@ layout(push_constant) uniform WakeParams {
 } params;
 
 #define SAMPLE(uv) texture(frame, clamp(uv, 0.0, 1.0)).rgb
+// Up the screen: Vulkan's frame runs top to bottom.
+#define UP(y) (1.0 - (y))
+const float UP_SIGN = -1.0;
 
 // The lock screen's wake transition, drawn over the finished frame (every
 // effect, clock included) while it runs. The Vulkan copy in
@@ -30,6 +33,11 @@ layout(push_constant) uniform WakeParams {
 //           down the screen, or across it when [params].x is 1
 //   mode 8: the frame breathes in from dim, swelling [param] past full
 //   mode 9: black (WakeTransition.blackout)
+//   mode 10: twisted from the centre by [param] radians, unwinding
+//   mode 11: a wave [param] deep running from the centre line out to two
+//            opposite edges, left and right, or top and bottom when [params].x is 1
+//   mode 12: a surge of small bubbles rising from the bottom, [param] strong
+//   mode 13: the picture grown from a card [param] of its size, over a blur
 // amount runs from 1 (start) to 0 (done).
 
 // A bit-mixing hash rather than fract(sin(...)), which collapses into a
@@ -46,14 +54,37 @@ float hash(vec2 p) {
 // the wake never opens on a black screen.
 const float WAKE_FLOOR = 0.3;
 
+// One layer of Bubble surge's bubbles, in cells [cells] to a screen height:
+// the bend each bubble gives the picture (xy, before strength) and its rim (z).
+vec3 bubbles(vec2 uv, float aspect, float t, float amount, float band, float cells, float seed) {
+    vec2 g = vec2(uv.x * aspect, UP(uv.y)) * cells;
+    float rise = t * cells * 0.55;
+    g.y -= rise;
+    vec2 id = floor(g);
+    vec2 f = fract(g) - 0.5;
+    float cellUp = (id.y + 0.5 + rise) / cells;
+    float density = (1.0 - smoothstep(0.0, 0.42, abs(cellUp - band))) * 0.97 +
+        0.35 * amount * step(cellUp, band);
+    float present = step(1.0 - density, hash(id + seed));
+    vec2 centre = (vec2(hash(id + seed + 3.0), hash(id + seed + 7.0)) - 0.5) * 0.3;
+    float r = mix(0.2, 0.44, hash(id + seed + 13.0));
+    vec2 d = f - centre;
+    float dist = length(d);
+    float inside = present * (1.0 - smoothstep(r - 0.04, r, dist));
+    vec2 bend = d / max(r, 1e-3) * (1.0 - dist / r) * inside * 0.02;
+    return vec3(bend, inside * smoothstep(r * 0.6, r, dist));
+}
+
 vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 params) {
     float t = 1.0 - amount;
     if (mode == 9) return vec3(0.0);
     if (mode == 3) {
         // Each axis pulled by how far along the other it is, so the corners
-        // move most and the middle lines not at all. Never folds below 1/3.
+        // move most and the middle lines not at all.
         vec2 n = uv * 2.0 - 1.0;
-        vec2 from = n * (1.0 - param * amount * n.yx * n.yx) * 0.5 + 0.5;
+        // Weighted by the other axis itself, not its square, so the pull
+        // reaches well in towards the middle, not just the outer corners.
+        vec2 from = n * (1.0 - param * amount * abs(n.yx)) * 0.5 + 0.5;
         if (any(lessThan(from, vec2(0.0))) || any(greaterThan(from, vec2(1.0)))) return vec3(0.0);
         return SAMPLE(from);
     }
@@ -90,6 +121,72 @@ vec3 wake(vec2 uv, int mode, float amount, float aspect, float param, vec3 param
         vec3 color = vec3(SAMPLE(p + vec2(split, 0.0)).r, SAMPLE(p).g, SAMPLE(p - vec2(split, 0.0)).b);
         vec3 noise = vec3(hash(cell + vec2(seed, 5.0)), hash(cell + vec2(seed, 9.0)), hash(cell + vec2(seed, 13.0)));
         return mix(color, noise, broken * 0.7);
+    }
+    if (mode == 10) {
+        // Twisted about the centre, most in the middle and not at all at the
+        // corners, unwinding as it settles. Mirrored at the edges: never black.
+        vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+        float reach = length(vec2(aspect, 1.0) * 0.5);
+        float f = 1.0 - clamp(length(p) / reach, 0.0, 1.0);
+        float angle = param * amount * f * f;
+        float c = cos(angle);
+        float s = sin(angle);
+        vec2 from = vec2(c * p.x - s * p.y, s * p.x + c * p.y) / vec2(aspect, 1.0) + 0.5;
+        return SAMPLE(abs(mod(from + 1.0, 2.0) - 1.0));
+    }
+    if (mode == 11) {
+        // A cloth snapped by its two opposite edges: a wave starts on the
+        // centre line and runs out to both edges, dying away as it goes. The
+        // picture rolls with it and its slopes are shaded, so it reads as a
+        // surface, not a slide.
+        float along = params.x > 0.5 ? uv.y : uv.x;
+        float e = abs(along - 0.5);
+        float x = (e - t * 0.75) / 0.16;
+        float envelope = exp(-x * x) * amount;
+        float phase = x * 4.712389;
+        float height = sin(phase) * envelope;
+        float slope = cos(phase) * envelope;
+        float outwards = along < 0.5 ? -1.0 : 1.0;
+        vec2 axis = params.x > 0.5 ? vec2(0.0, outwards) : vec2(outwards, 0.0);
+        vec2 from = uv - axis * height * param;
+        vec3 cloth = SAMPLE(abs(mod(from + 1.0, 2.0) - 1.0));
+        return cloth * (1.0 + slope * 0.35 * min(param / 0.05, 2.0));
+    }
+    if (mode == 12) {
+        // A dense, fizzing surge of small bubbles rising from the bottom to
+        // the top: two layers of different sizes, each bubble bending the
+        // picture behind it like a lens, with a bright rim. The surge stays
+        // on screen for nearly the whole wake, a lighter fizz trailing it.
+        float band = 1.45 * t - 0.2;
+        vec3 fine = bubbles(uv, aspect, t, amount, band, 46.0, 0.0);
+        vec3 coarse = bubbles(uv, aspect, t, amount, band, 26.0, 50.0);
+        vec2 bend = fine.xy + coarse.xy;
+        vec2 from = uv - vec2(bend.x / aspect, bend.y * UP_SIGN) * param;
+        return SAMPLE(from) + (fine.z + coarse.z) * 0.35 * param;
+    }
+    if (mode == 13) {
+        // The picture grows out of a small card in the middle of the screen,
+        // with a slight bounce at the end ([param] is its size this frame),
+        // over a heavily blurred copy of itself, never black.
+        float size = max(param, 1e-3);
+        vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+        vec2 halfSize = vec2(aspect, 1.0) * 0.5 * size;
+        float corner = 0.05 * size;
+        vec2 q = abs(p) - halfSize + corner;
+        float outside = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - corner;
+        float card = 1.0 - smoothstep(-0.002, 0.002, outside);
+        vec3 inner = SAMPLE((uv - 0.5) / size + 0.5);
+        if (card >= 1.0) return inner;
+        vec3 backdrop = vec3(0.0);
+        float total = 0.0;
+        for (int i = 0; i < 32; i++) {
+            float r = sqrt((float(i) + 0.5) / 32.0);
+            float a = float(i) * 2.39996;
+            backdrop += SAMPLE(uv + vec2(cos(a), sin(a) * aspect) * r * 0.09);
+            total += 1.0;
+        }
+        backdrop = backdrop / total * 0.7;
+        return mix(backdrop, inner, card);
     }
     vec3 color = SAMPLE(uv);
     if (mode == 7) {

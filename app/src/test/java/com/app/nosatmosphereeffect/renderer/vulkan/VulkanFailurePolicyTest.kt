@@ -29,7 +29,7 @@ class VulkanFailurePolicyTest {
     fun `the old global failure protects only color fill`() {
         assertTrue(
             VulkanFailurePolicy.isBlocked(
-                effectId = "colorfill_reverse",
+                effectId = "color_fill_reverse",
                 currentFailureId = CURRENT,
                 scopedFailureId = null,
                 legacyFailureId = CURRENT
@@ -37,7 +37,7 @@ class VulkanFailurePolicyTest {
         )
         assertFalse(
             VulkanFailurePolicy.isBlocked(
-                effectId = "ORIGINAL",
+                effectId = "ATMOSPHERE",
                 currentFailureId = CURRENT,
                 scopedFailureId = null,
                 legacyFailureId = CURRENT
@@ -49,7 +49,7 @@ class VulkanFailurePolicyTest {
     fun `obsolete atmosphere state failures are repaired for both directions`() {
         assertTrue(
             VulkanFailurePolicy.shouldClearObsoleteAtmosphereStateFailure(
-                effectId = "ORIGINAL",
+                effectId = "ATMOSPHERE",
                 currentFailureId = CURRENT,
                 scopedFailureId = CURRENT,
                 failureReason = "The Vulkan Atmosphere state could not be updated"
@@ -57,7 +57,7 @@ class VulkanFailurePolicyTest {
         )
         assertTrue(
             VulkanFailurePolicy.shouldClearObsoleteAtmosphereStateFailure(
-                effectId = "reverse",
+                effectId = "atmosphere_reverse",
                 currentFailureId = CURRENT,
                 scopedFailureId = CURRENT,
                 failureReason = "The Vulkan Reverse Atmosphere state could not be updated"
@@ -69,7 +69,7 @@ class VulkanFailurePolicyTest {
     fun `repair preserves unrelated current and stale failures`() {
         assertFalse(
             VulkanFailurePolicy.shouldClearObsoleteAtmosphereStateFailure(
-                effectId = "ORIGINAL",
+                effectId = "ATMOSPHERE",
                 currentFailureId = CURRENT,
                 scopedFailureId = CURRENT,
                 failureReason = "The wallpaper texture could not be uploaded to Vulkan"
@@ -85,7 +85,7 @@ class VulkanFailurePolicyTest {
         )
         assertFalse(
             VulkanFailurePolicy.shouldClearObsoleteAtmosphereStateFailure(
-                effectId = "REVERSE",
+                effectId = "ATMOSPHERE_REVERSE",
                 currentFailureId = CURRENT,
                 scopedFailureId = "another-build",
                 failureReason = "The Vulkan Reverse Atmosphere state could not be updated"

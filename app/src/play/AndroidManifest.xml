@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The app never uses the network. Play services' subject segmentation (ML Kit)
+  declares these permissions in its own manifest; they are removed again here,
+  so the Play build asks for nothing the F-Droid build doesn't.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+</manifest>

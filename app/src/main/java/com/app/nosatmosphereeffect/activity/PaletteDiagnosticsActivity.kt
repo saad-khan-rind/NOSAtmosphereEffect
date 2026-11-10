@@ -13,11 +13,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.PaletteSyncDiagnostics
-import com.app.nosatmosphereeffect.helper.PaletteSyncTrace
-import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperColorExtractor
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.color.PaletteSyncDiagnostics
+import com.app.nosatmosphereeffect.color.PaletteSyncTrace
+import com.app.nosatmosphereeffect.color.SystemColorSyncPreferences
+import com.app.nosatmosphereeffect.color.WallpaperColorExtractor
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.ui.model.PaletteDiagnosticLevel
 import com.app.nosatmosphereeffect.ui.model.PaletteDiagnosticMessage
 import com.app.nosatmosphereeffect.ui.model.PaletteDiagnostics

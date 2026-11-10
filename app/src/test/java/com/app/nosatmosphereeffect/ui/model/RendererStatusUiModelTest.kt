@@ -100,7 +100,7 @@ class RendererStatusUiModelTest {
     @Test
     fun anyEffectCanReportAnActiveOpenGlRenderer() {
         val fallback = runtimeStatus(
-            effectId = "COLORFILL",
+            effectId = "COLOR_FILL",
             activeBackend = GraphicsBackend.OPENGL_ES,
             activeVulkanVersion = null,
             fallbackReason = "Vulkan presentation failed"
@@ -114,7 +114,7 @@ class RendererStatusUiModelTest {
 
         val colorFillUi = rendererStatusUiModel(
             wallpaperActive = true,
-            activeEffectId = "COLORFILL",
+            activeEffectId = "COLOR_FILL",
             runtimeStatus = fallback
         )
         val glassUi = rendererStatusUiModel(
@@ -146,14 +146,14 @@ class RendererStatusUiModelTest {
         assertNull(
             rendererStatusUiModel(
                 wallpaperActive = true,
-                activeEffectId = "COLORFILL_REVERSE",
+                activeEffectId = "COLOR_FILL_REVERSE",
                 runtimeStatus = activeStatus
             )
         )
     }
 
     private fun runtimeStatus(
-        effectId: String = "COLORFILL",
+        effectId: String = "COLOR_FILL",
         phase: RendererRuntimePhase = RendererRuntimePhase.ACTIVE,
         selectedBackend: GraphicsBackend = GraphicsBackend.VULKAN,
         activeBackend: GraphicsBackend?,

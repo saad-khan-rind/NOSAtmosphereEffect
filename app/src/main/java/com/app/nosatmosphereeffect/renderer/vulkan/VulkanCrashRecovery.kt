@@ -6,7 +6,7 @@ import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.SegmentationCrashGuard
+import com.app.nosatmosphereeffect.subject.SegmentationCrashGuard
 
 /**
  * Moves an effect off Vulkan after the GPU driver crashes the process.

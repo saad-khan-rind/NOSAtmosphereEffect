@@ -28,7 +28,7 @@ layout(push_constant) uniform ZoomParams {
 
 // Zoom: the photo itself, zoomed in or out through the transition. The zoom
 // is the vertex shader's wallpaper zoom (scroll.z), which the host drives from
-// the progress (SinglePassLook.photoZoom), so the clock stays put. Mirrors the
+// the progress (ZoomRenderState.photoZoom), so the clock stays put. Mirrors the
 // GLES path in assets/shaders/zoom/; keep the two in step. The push constants
 // are Halftone's (they share a native bridge); only the clock's are read here.
 //

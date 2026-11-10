@@ -2,7 +2,7 @@ package com.app.nosatmosphereeffect.renderer.vulkan
 
 import android.graphics.Bitmap
 import android.graphics.Color
-import com.app.nosatmosphereeffect.renderer.AtmosphereBlobFrame
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereBlobFrame
 import java.util.Random
 import kotlin.math.abs
 import kotlin.math.hypot

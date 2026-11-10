@@ -7,14 +7,14 @@ class GraphicsBackendSelectorTest {
     @Test
     fun healthyVulkanIsSelectedForEveryEffectDirection() {
         listOf(
-            "ORIGINAL",
-            "REVERSE",
+            "ATMOSPHERE",
+            "ATMOSPHERE_REVERSE",
             "GLASS",
             "GLASS_REVERSE",
-            "COLORFILL",
-            "COLORFILL_REVERSE",
-            "NEON",
-            "NEON_REVERSE",
+            "COLOR_FILL",
+            "COLOR_FILL_REVERSE",
+            "CANVAS_SKETCH",
+            "CANVAS_SKETCH_REVERSE",
             "FROSTED",
             "FROSTED_REVERSE",
             "HALFTONE",
@@ -35,7 +35,7 @@ class GraphicsBackendSelectorTest {
 
     @Test
     fun unknownEffectRemainsOnOpenGl() {
-        listOf("", "UNKNOWN", "ATMOSPHERE", "original").forEach {
+        listOf("", "UNKNOWN", "AMBIENT", "original").forEach {
             assertEquals(
                 GraphicsBackend.OPENGL_ES,
                 GraphicsBackendSelector.select(
@@ -56,7 +56,7 @@ class GraphicsBackendSelectorTest {
             Triple(true, false, false),
             Triple(true, true, true)
         )
-        listOf("ORIGINAL", "COLORFILL", "FROSTED_REVERSE").forEach { effectId ->
+        listOf("ATMOSPHERE", "COLOR_FILL", "FROSTED_REVERSE").forEach { effectId ->
             unavailableSignals.forEach { (feature, probe, blocked) ->
                 assertEquals(
                     GraphicsBackend.OPENGL_ES,
@@ -77,7 +77,7 @@ class GraphicsBackendSelectorTest {
         assertEquals(
             GraphicsBackend.OPENGL_ES,
             GraphicsBackendSelector.select(
-                effectId = "ORIGINAL",
+                effectId = "ATMOSPHERE",
                 hasVulkan11 = true,
                 nativeProbePassed = true,
                 blockedAfterFailure = false,
@@ -105,7 +105,7 @@ class GraphicsBackendSelectorTest {
         assertEquals(
             GraphicsBackend.VULKAN,
             GraphicsBackendSelector.select(
-                effectId = "COLORFILL",
+                effectId = "COLOR_FILL",
                 hasVulkan11 = true,
                 nativeProbePassed = true,
                 blockedAfterFailure = false,

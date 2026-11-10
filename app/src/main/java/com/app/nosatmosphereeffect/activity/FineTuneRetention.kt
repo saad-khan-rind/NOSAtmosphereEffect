@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
-import com.app.nosatmosphereeffect.helper.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.service.LiveWallpaperEngines
 
 /**

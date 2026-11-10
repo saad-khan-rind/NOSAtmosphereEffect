@@ -13,8 +13,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.MatrixStatePolicy
-import com.app.nosatmosphereeffect.helper.WallpaperFitHelper
+import com.app.nosatmosphereeffect.image.MatrixStatePolicy
+import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.image.BitmapStore
 import com.app.nosatmosphereeffect.ui.screens.CropController

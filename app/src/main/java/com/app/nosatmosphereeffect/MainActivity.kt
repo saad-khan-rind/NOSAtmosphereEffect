@@ -17,8 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
-import com.app.nosatmosphereeffect.activity.AdvancedSettingsActivity
-import com.app.nosatmosphereeffect.activity.BlurToSharpCropActivity
+import com.app.nosatmosphereeffect.activity.FineTuneActivity
+import com.app.nosatmosphereeffect.activity.ReverseCropActivity
 import com.app.nosatmosphereeffect.activity.CropActivity
 import com.app.nosatmosphereeffect.activity.EffectSelectionActivity
 import com.app.nosatmosphereeffect.activity.FineTuneRetention
@@ -28,11 +28,11 @@ import com.app.nosatmosphereeffect.activity.PlaylistEditorActivity
 import com.app.nosatmosphereeffect.activity.SavedPlaylistsActivity
 import com.app.nosatmosphereeffect.activity.ThemePlaylistEditorActivity
 import com.app.nosatmosphereeffect.activity.WallpaperEffectServices
-import com.app.nosatmosphereeffect.helper.FolderPlaylistSource
-import com.app.nosatmosphereeffect.helper.PlaylistModeManager
-import com.app.nosatmosphereeffect.helper.SystemColorSyncPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
+import com.app.nosatmosphereeffect.playlist.FolderPlaylistSource
+import com.app.nosatmosphereeffect.playlist.PlaylistModeManager
+import com.app.nosatmosphereeffect.color.SystemColorSyncPreferences
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorPreferences
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.image.BitmapDecoder
 import com.app.nosatmosphereeffect.renderer.status.RendererRuntimeStatus
 import com.app.nosatmosphereeffect.storage.SavedPlaylistLibrary
@@ -140,12 +140,12 @@ class MainActivity : ComponentActivity() {
                     onEditExistingPlaylist = { launchEditExistingPlaylist() },
                     onOpenSavedPlaylists = {
                         startActivity(
-                            SavedPlaylistsActivity.intent(this, getActiveEffectType() ?: "ORIGINAL")
+                            SavedPlaylistsActivity.intent(this, getActiveEffectType() ?: "ATMOSPHERE")
                         )
                     },
                     onPickFolderPlaylist = {
                         startActivity(
-                            FolderPickerActivity.intent(this, getActiveEffectType() ?: "ORIGINAL")
+                            FolderPickerActivity.intent(this, getActiveEffectType() ?: "ATMOSPHERE")
                         )
                     },
                     onAdvancedSettings = { openAdvancedSettings() },
@@ -337,8 +337,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openAdvancedSettings() {
-        val intent = Intent(this, AdvancedSettingsActivity::class.java)
-        intent.putExtra("ACTIVE_EFFECT_TYPE", getActiveEffectType() ?: "ORIGINAL")
+        val intent = Intent(this, FineTuneActivity::class.java)
+        intent.putExtra("ACTIVE_EFFECT_TYPE", getActiveEffectType() ?: "ATMOSPHERE")
         intent.putExtra("IS_SAMSUNG", isSamsungDevice())
         intent.putExtra("IS_PLAYLIST_MODE", isPlaylistModeActive)
         startActivity(intent)
@@ -355,7 +355,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val effectId = getActiveEffectType() ?: "ORIGINAL"
+        val effectId = getActiveEffectType() ?: "ATMOSPHERE"
         val intent = Intent(this, PlaylistEditorActivity::class.java)
         intent.putExtra("EDIT_EXISTING", true)
         intent.putExtra("EFFECT_ID", effectId)
@@ -365,14 +365,14 @@ class MainActivity : ComponentActivity() {
     private fun launchThemePlaylistEditor(editExisting: Boolean) {
         val intent = Intent(this, ThemePlaylistEditorActivity::class.java)
         intent.putExtra("EDIT_EXISTING", editExisting)
-        intent.putExtra("EFFECT_ID", getActiveEffectType() ?: "ORIGINAL")
+        intent.putExtra("EFFECT_ID", getActiveEffectType() ?: "ATMOSPHERE")
         startActivity(intent)
     }
 
     private fun launchCropActivity(uri: Uri) {
-        val effectId = getActiveEffectType() ?: "ORIGINAL"
+        val effectId = getActiveEffectType() ?: "ATMOSPHERE"
         val intent = if (EffectCatalog.isReverse(effectId)) {
-            Intent(this, BlurToSharpCropActivity::class.java)
+            Intent(this, ReverseCropActivity::class.java)
         } else {
             Intent(this, CropActivity::class.java)
         }
@@ -383,7 +383,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchMultiCropActivity(uris: ArrayList<Uri>) {
-        val effectId = getActiveEffectType() ?: "ORIGINAL"
+        val effectId = getActiveEffectType() ?: "ATMOSPHERE"
         val intent = Intent(this, PlaylistEditorActivity::class.java)
         intent.data = uris[0]
         val clipData = ClipData.newUri(contentResolver, "Images", uris[0])

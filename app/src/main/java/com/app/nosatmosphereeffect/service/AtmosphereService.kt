@@ -2,16 +2,16 @@ package com.app.nosatmosphereeffect.service
 
 import android.content.SharedPreferences
 import android.graphics.Bitmap
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
-import com.app.nosatmosphereeffect.helper.GLWallpaperService
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
-import com.app.nosatmosphereeffect.helper.GlassEffectPreferences
-import com.app.nosatmosphereeffect.renderer.AtmosphereRenderController
+import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
+import com.app.nosatmosphereeffect.effect.GlassEffectPreferences
+import com.app.nosatmosphereeffect.renderer.atmosphere.AtmosphereRenderController
 
 class AtmosphereService :
     AnimatedEffectWallpaperService<AtmosphereRenderController>() {
 
-    override val effectId = "ORIGINAL"
+    override val effectId = "ATMOSPHERE"
     override val lockedProgress = 0f
     override val unlockedProgress = 1f
     override val defaultAnimationDurationMs = 2_500L

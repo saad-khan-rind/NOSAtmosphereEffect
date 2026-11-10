@@ -3,7 +3,7 @@ precision highp float;
 
 // Zoom: the photo itself, zoomed in or out through the transition. The zoom
 // is the vertex shader's wallpaper zoom, which the renderer drives from the
-// progress (SinglePassLook.photoZoom), so the clock, placed in screen space,
+// progress (ZoomRenderState.photoZoom), so the clock, placed in screen space,
 // stays put. This draws the photo, as it is, and the clock.
 
 

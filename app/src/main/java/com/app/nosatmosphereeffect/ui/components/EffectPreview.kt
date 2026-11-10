@@ -47,14 +47,14 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.app.nosatmosphereeffect.R
-import com.app.nosatmosphereeffect.helper.AlwaysAppliedTarget
-import com.app.nosatmosphereeffect.helper.AtmosphereGlassPolicy
-import com.app.nosatmosphereeffect.helper.CanvasSubjectSettings
-import com.app.nosatmosphereeffect.helper.GlassEffectPolicy
-import com.app.nosatmosphereeffect.helper.SubjectIsolationPolicy
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPolicy
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorPreferences
-import com.app.nosatmosphereeffect.helper.WallpaperBehaviorSettings
+import com.app.nosatmosphereeffect.wallpaper.AlwaysAppliedTarget
+import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
+import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
+import com.app.nosatmosphereeffect.effect.GlassEffectPolicy
+import com.app.nosatmosphereeffect.subject.SubjectIsolationPolicy
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorPolicy
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorPreferences
+import com.app.nosatmosphereeffect.wallpaper.WallpaperBehaviorSettings
 import com.app.nosatmosphereeffect.renderer.backend.GraphicsBackendPreferences
 import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 import com.app.nosatmosphereeffect.ui.preview.EffectPreviewService
@@ -142,8 +142,8 @@ fun WallpaperTransitionPreview(
             "halftone_grayscale",
             "origin_x",
             "origin_y",
-            "neon_line_width",
-            "neon_sensitivity",
+            "canvas_sketch_line_width",
+            "canvas_sketch_sensitivity",
             GlassEffectPolicy.LINE_COUNT_KEY,
             GlassEffectPolicy.LINE_THICKNESS_KEY,
             GlassEffectPolicy.TRANSITION_STYLE_KEY,

@@ -8,14 +8,15 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewOutlineProvider
-import com.app.nosatmosphereeffect.renderer.SinglePassLook
-import com.app.nosatmosphereeffect.helper.WallpaperRenderHost
+import com.app.nosatmosphereeffect.wallpaper.WallpaperRenderHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanAtmosphereHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanColorFillHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanFrostedHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanGlassHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanHalftoneHost
-import com.app.nosatmosphereeffect.renderer.vulkan.VulkanNeonHost
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanVhsHost
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanZoomHost
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanCanvasSketchHost
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class VulkanEffectPreviewSession(
@@ -58,9 +59,13 @@ internal class VulkanEffectPreviewSession(
                 host.updateState(state.value)
             host is VulkanHalftoneHost && state is EffectPreviewRenderState.Halftone ->
                 host.updateState(state.value)
+            host is VulkanVhsHost && state is EffectPreviewRenderState.Vhs ->
+                host.updateState(state.value)
+            host is VulkanZoomHost && state is EffectPreviewRenderState.Zoom ->
+                host.updateState(state.value)
             host is VulkanColorFillHost && state is EffectPreviewRenderState.ColorFill ->
                 host.updateState(state.value)
-            host is VulkanNeonHost && state is EffectPreviewRenderState.Neon ->
+            host is VulkanCanvasSketchHost && state is EffectPreviewRenderState.CanvasSketch ->
                 host.updateState(state.value)
             else -> reportBridgeFailure("The Vulkan preview received incompatible effect state")
         }
@@ -79,8 +84,10 @@ internal class VulkanEffectPreviewSession(
             is VulkanFrostedHost -> target.beginClockEntry()
             is VulkanGlassHost -> target.beginClockEntry()
             is VulkanHalftoneHost -> target.beginClockEntry()
+            is VulkanVhsHost -> target.beginClockEntry()
+            is VulkanZoomHost -> target.beginClockEntry()
             is VulkanColorFillHost -> target.beginClockEntry()
-            is VulkanNeonHost -> target.beginClockEntry()
+            is VulkanCanvasSketchHost -> target.beginClockEntry()
             else -> Unit
         }
     }
@@ -111,7 +118,7 @@ internal class VulkanEffectPreviewSession(
         return when (state) {
             is EffectPreviewRenderState.Atmosphere -> VulkanAtmosphereHost(
                 context = context,
-                reverse = effectId == "REVERSE",
+                reverse = effectId == "ATMOSPHERE_REVERSE",
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },
@@ -132,9 +139,24 @@ internal class VulkanEffectPreviewSession(
                 previewSource = previewSource
             )
             is EffectPreviewRenderState.Halftone -> VulkanHalftoneHost(
-                look = SinglePassLook.of(effectId),
                 context = context,
-                reverse = SinglePassLook.isReverse(effectId),
+                reverse = effectId == "HALFTONE_REVERSE",
+                initialState = state.value,
+                onFatalFailure = { _, reason -> reportHostFailure(reason) },
+                onVulkanActive = { _, _ -> },
+                previewSource = previewSource
+            )
+            is EffectPreviewRenderState.Vhs -> VulkanVhsHost(
+                context = context,
+                reverse = effectId == "VHS_REVERSE",
+                initialState = state.value,
+                onFatalFailure = { _, reason -> reportHostFailure(reason) },
+                onVulkanActive = { _, _ -> },
+                previewSource = previewSource
+            )
+            is EffectPreviewRenderState.Zoom -> VulkanZoomHost(
+                context = context,
+                reverse = effectId == "ZOOM_REVERSE",
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },
@@ -142,15 +164,15 @@ internal class VulkanEffectPreviewSession(
             )
             is EffectPreviewRenderState.ColorFill -> VulkanColorFillHost(
                 context = context,
-                reverse = effectId == "COLORFILL_REVERSE",
+                reverse = effectId == "COLOR_FILL_REVERSE",
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },
                 previewSource = previewSource
             )
-            is EffectPreviewRenderState.Neon -> VulkanNeonHost(
+            is EffectPreviewRenderState.CanvasSketch -> VulkanCanvasSketchHost(
                 context = context,
-                reverse = effectId == "NEON_REVERSE",
+                reverse = effectId == "CANVAS_SKETCH_REVERSE",
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },
