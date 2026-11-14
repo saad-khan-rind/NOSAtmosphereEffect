@@ -291,6 +291,34 @@
                 android:resource="@xml/wallpaper" />
         </service>
 
+        <service
+            android:name=".service.DuoService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_duo"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
+        <service
+            android:name=".service.ShuffleService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/service_shuffle"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
+
     </application>
 
 </manifest>

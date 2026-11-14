@@ -127,6 +127,24 @@ abstract class GLWallpaperService : WallpaperService() {
             rendererLifecycle.markRendererAttached()
         }
 
+        /**
+         * Takes the render host off the engine and closes it, so another can
+         * be installed in its place: for a wallpaper whose effect itself
+         * changes (Shuffle), where the next effect brings its own host.
+         */
+        fun removeRenderHost() {
+            check(Looper.myLooper() == Looper.getMainLooper()) {
+                "Render hosts must be removed on the wallpaper engine thread"
+            }
+            val host = renderHost ?: return
+            rendererLifecycle.reset()
+            renderHost = null
+            runCatching {
+                if (surfaceCreated) host.quiesceSurface(wallpaperSurfaceHolder.requireHolder())
+                host.close()
+            }.onFailure { failure -> Log.e(TAG, "Unable to close the removed render host", failure) }
+        }
+
         fun replaceRenderHost(
             expected: WallpaperRenderHost,
             replacement: WallpaperRenderHost

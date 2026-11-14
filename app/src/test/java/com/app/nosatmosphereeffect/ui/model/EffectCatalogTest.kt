@@ -33,7 +33,9 @@ class EffectCatalogTest {
                 "VHS",
                 "VHS_REVERSE",
                 "ZOOM",
-                "ZOOM_REVERSE"
+                "ZOOM_REVERSE",
+                "DUO",
+                "SHUFFLE"
             ),
             EffectCatalog.items.map(EffectItem::id)
         )
@@ -64,10 +66,19 @@ class EffectCatalogTest {
         val families = EffectCatalog.families()
 
         assertEquals(
-            listOf("ATMOSPHERE", "GLASS", "COLOR_FILL", "CANVAS_SKETCH", "FROSTED", "HALFTONE", "VHS", "ZOOM"),
+            listOf(
+                "ATMOSPHERE", "GLASS", "COLOR_FILL", "CANVAS_SKETCH", "FROSTED", "HALFTONE", "VHS", "ZOOM",
+                "DUO", "SHUFFLE"
+            ),
             families.map(EffectFamily::key)
         )
-        families.forEach { family ->
+        // Duo (two photos) and Shuffle (every effect in turn) run one way only.
+        val oneWay = setOf("DUO", "SHUFFLE")
+        families.filter { it.key in oneWay }.forEach { family ->
+            assertEquals(null, family.reverse)
+            assertSame(family.forward, family.pick(reversed = true))
+        }
+        families.filter { it.key !in oneWay }.forEach { family ->
             assertFalse(EffectCatalog.isReverse(family.forward.id))
             assertTrue(EffectCatalog.isReverse(family.reverse!!.id))
             assertSame(family.reverse, family.pick(reversed = true))
@@ -136,7 +147,8 @@ class EffectCatalogTest {
             "COLOR_FILL_REVERSE",
             "CANVAS_SKETCH_REVERSE",
             "VHS_REVERSE",
-            "ZOOM"
+            "ZOOM",
+            "DUO"
         )
 
         EffectCatalog.items.forEach { effect ->
