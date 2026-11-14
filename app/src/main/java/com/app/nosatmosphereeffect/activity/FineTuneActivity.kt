@@ -74,7 +74,11 @@ class FineTuneActivity : ComponentActivity() {
         // no longer an Atmosphere-only question.
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
         // VHS draws its own tape grain and Zoom has none, so the film-grain switch would do nothing there.
-        val showNoiseSwitch = !isHalftone && !isColorFill && !isCanvasSketch && !isGlass && !isVhs && !isZoom
+        val isDuo = activeEffect == "DUO"
+        val isShuffle = activeEffect == ShuffleEffects.EFFECT_ID
+        // Nor on Duo, which draws two plain photos, or Shuffle, where each effect keeps its own.
+        val showNoiseSwitch = !isHalftone && !isColorFill && !isCanvasSketch && !isGlass && !isVhs && !isZoom &&
+            !isDuo && !isShuffle
         val showBlob = activeEffect == "ATMOSPHERE" || activeEffect == "ATMOSPHERE_REVERSE"
         // Every clock effect needs the subject for the clock's depth, Colour Fill and Frosted included.
         val usesSubjectModel = isCanvasSketch || isGlass || isHalftone || isAtmosphere ||
@@ -113,8 +117,8 @@ class FineTuneActivity : ComponentActivity() {
             activeEffectTitle = getString(EffectCatalog.find(activeEffect).title),
             recommendedDurationMs = defaultDuration,
             showHalftone = isHalftone,
-            showDuo = activeEffect == "DUO",
-            showShuffle = activeEffect == ShuffleEffects.EFFECT_ID,
+            showDuo = isDuo,
+            showShuffle = isShuffle,
             showColorFill = isColorFill,
             showCanvasSketch = isCanvasSketch,
             showFrosted = isFrosted,

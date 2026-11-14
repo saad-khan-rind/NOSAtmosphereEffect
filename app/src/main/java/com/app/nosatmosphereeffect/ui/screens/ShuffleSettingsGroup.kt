@@ -15,25 +15,40 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.effect.ShuffleDirection
 import com.app.nosatmosphereeffect.effect.ShuffleEffects
-import com.app.nosatmosphereeffect.renderer.duo.DuoHomeImage
+import com.app.nosatmosphereeffect.ui.components.AtmoDropdownField
 import com.app.nosatmosphereeffect.ui.components.AtmoSettingsGroup
 import com.app.nosatmosphereeffect.ui.components.SettingSwitchRow
-import com.app.nosatmosphereeffect.ui.model.EffectCatalog
 
 /**
- * Fine tuning's Shuffle group: the effects Shuffle picks from, a switch for
- * each family (ShuffleEffects). Saved as they are switched; the next lock
- * picks from what is on then.
+ * Fine tuning's Shuffle group: which way round its effects run, and the
+ * effects it picks from, a switch for each family (ShuffleEffects). Saved as
+ * they are changed; the next lock picks from what is set then.
  */
 @Composable
 internal fun ShuffleSettingsGroup() {
     val context = LocalContext.current
+    var direction by remember { mutableStateOf(ShuffleEffects.direction(context)) }
     var excluded by remember { mutableStateOf(ShuffleEffects.excludedFamilies(context)) }
-    val families = remember { EffectCatalog.families().filter { it.key != ShuffleEffects.EFFECT_ID } }
-    val duoReady = remember { DuoHomeImage.exists(context) }
+    val families = remember { ShuffleEffects.families() }
 
     AtmoSettingsGroup(title = stringResource(R.string.shuffle_group)) {
+        AtmoDropdownField(
+            label = stringResource(R.string.effects_direction),
+            // In ShuffleDirection's order.
+            options = listOf(
+                stringResource(R.string.shuffle_direction_photo_first),
+                stringResource(R.string.shuffle_direction_effect_first),
+                stringResource(R.string.shuffle_direction_random)
+            ),
+            selectedIndex = direction.ordinal,
+            onSelected = { index ->
+                direction = ShuffleDirection.entries[index]
+                ShuffleEffects.setDirection(context, direction)
+            }
+        )
+        Spacer(Modifier.height(16.dp))
         Text(
             stringResource(R.string.shuffle_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -48,11 +63,6 @@ internal fun ShuffleSettingsGroup() {
                 onCheckedChange = { included ->
                     ShuffleEffects.setFamilyIncluded(context, family.key, included)
                     excluded = ShuffleEffects.excludedFamilies(context)
-                },
-                subtitle = if (family.key == "DUO" && !duoReady) {
-                    stringResource(R.string.shuffle_duo_needs_photo)
-                } else {
-                    null
                 }
             )
             Spacer(Modifier.height(6.dp))
