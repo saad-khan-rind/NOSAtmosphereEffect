@@ -15,6 +15,7 @@ import com.app.nosatmosphereeffect.renderer.vulkan.VulkanFrostedHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanGlassHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanHalftoneHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanVhsHost
+import com.app.nosatmosphereeffect.renderer.vulkan.VulkanDuoHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanZoomHost
 import com.app.nosatmosphereeffect.renderer.vulkan.VulkanCanvasSketchHost
 import java.util.concurrent.atomic.AtomicBoolean
@@ -157,6 +158,13 @@ internal class VulkanEffectPreviewSession(
             is EffectPreviewRenderState.Zoom -> VulkanZoomHost(
                 context = context,
                 reverse = effectId == "ZOOM_REVERSE",
+                initialState = state.value,
+                onFatalFailure = { _, reason -> reportHostFailure(reason) },
+                onVulkanActive = { _, _ -> },
+                previewSource = previewSource
+            )
+            is EffectPreviewRenderState.Duo -> VulkanDuoHost(
+                context = context,
                 initialState = state.value,
                 onFatalFailure = { _, reason -> reportHostFailure(reason) },
                 onVulkanActive = { _, _ -> },

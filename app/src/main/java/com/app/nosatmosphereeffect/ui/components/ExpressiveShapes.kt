@@ -21,9 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.FormatColorFill
 import androidx.compose.material.icons.rounded.Grain
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.ViewWeek
 import androidx.compose.material.icons.rounded.ZoomIn
@@ -180,6 +182,8 @@ fun effectFamilyIcon(effectId: String): ImageVector = when (EffectCatalog.family
     "HALFTONE" -> Icons.Rounded.Grain
     "VHS" -> Icons.Rounded.Videocam
     "ZOOM" -> Icons.Rounded.ZoomIn
+    "DUO" -> Icons.Rounded.Collections
+    "SHUFFLE" -> Icons.Rounded.Shuffle
     else -> Icons.Rounded.Cloud
 }
 

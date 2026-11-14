@@ -3,6 +3,7 @@ package com.app.nosatmosphereeffect.service
 import android.animation.ValueAnimator
 import android.app.KeyguardManager
 import android.app.WallpaperManager
+import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -45,6 +46,12 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
     protected abstract val lockedProgress: Float
     protected abstract val unlockedProgress: Float
     protected abstract val defaultAnimationDurationMs: Long
+    /**
+     * The effect this wallpaper is, as the app names it: its own id, unless
+     * it shows other effects in turn (Shuffle), when [effectId] is the one
+     * showing now.
+     */
+    protected open val wallpaperEffectId: String get() = effectId
     protected open val initialProgress: Float? = null
     protected open val sleepingProgress: Float = 0f
     protected open val blurDrawerWhenHidden: Boolean = false
@@ -80,6 +87,13 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
     protected open fun releaseRenderer(renderer: R) = Unit
 
     /**
+     * Called as the screen goes off, when a playlist would move to its next
+     * image, whether or not there is one: for an effect with images of its
+     * own to move on (Duo's home photo).
+     */
+    protected open fun rotateOwnImages(renderer: R) = Unit
+
+    /**
      * True while [configureRenderer] runs for a preview engine.
      *
      * A service hosts several engines — the wallpaper picker's preview and the
@@ -90,6 +104,59 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
      */
     @Volatile
     private var configuringPreviewEngine = false
+
+    /** Hosted by another service ([hostIn]), which shows no clock: see [readClockState]. */
+    private var hosted = false
+
+    /**
+     * Makes this service a holder of its effect's hooks inside [host]'s
+     * wallpaper, in place of being a wallpaper itself: the system never binds
+     * it, and it only lends its context from [host]. Once per instance. The
+     * hosted effect has no clock: a clock is placed against one effect's look.
+     */
+    internal fun hostIn(host: Context): HostedEffect {
+        attachBaseContext(host)
+        hosted = true
+        return object : HostedEffect {
+            override val effectId get() = this@AnimatedEffectWallpaperService.effectId
+            override val lockedProgress get() = this@AnimatedEffectWallpaperService.lockedProgress
+            override val unlockedProgress get() = this@AnimatedEffectWallpaperService.unlockedProgress
+            override val defaultAnimationDurationMs get() = this@AnimatedEffectWallpaperService.defaultAnimationDurationMs
+            override val initialProgress get() = this@AnimatedEffectWallpaperService.initialProgress
+            override val sleepingProgress get() = this@AnimatedEffectWallpaperService.sleepingProgress
+            override val blurDrawerWhenHidden get() = this@AnimatedEffectWallpaperService.blurDrawerWhenHidden
+
+            override fun newRenderer(): HostedRenderer = hostedRenderer(createEffectRenderer())
+        }
+    }
+
+    private fun hostedRenderer(renderer: R) = object : HostedRenderer {
+        override fun attach(engine: GLEngine) = attachEffectRenderer(engine, renderer)
+        override fun configure(preferences: SharedPreferences) = configureRenderer(renderer, preferences)
+        override fun setProgress(progress: Float) = setEffectProgress(renderer, progress)
+        override fun setFixedState(effectApplied: Boolean) = setFixedEffectState(renderer, effectApplied)
+        override fun setDrawerBlurred(blurred: Boolean) =
+            this@AnimatedEffectWallpaperService.setDrawerBlurred(renderer, blurred)
+        override fun onAttached(requestRender: () -> Unit) = onRendererAttached(renderer, requestRender)
+        override fun onVisibilityChanged(visible: Boolean) = onEngineVisibilityChanged(renderer, visible)
+        override fun reload() = reloadRenderer(renderer)
+        override fun queuePlaylistTransition(bitmap: Bitmap) =
+            this@AnimatedEffectWallpaperService.queuePlaylistTransition(renderer, bitmap)
+        override fun rotateOwnImages() = this@AnimatedEffectWallpaperService.rotateOwnImages(renderer)
+        override fun reselectBackend() {
+            (renderer as? BackendReselectableRenderer)?.reselectBackend()
+        }
+        override fun release() = releaseRenderer(renderer)
+    }
+
+    /**
+     * The effect behind every engine's renderer changed (Shuffle): each reads
+     * the settings and timing again, for the new [effectId], and shows the
+     * lock screen's look, which is what is seen next.
+     */
+    protected fun notifyEffectChanged() {
+        activeEngines.toList().forEach { it.onEffectChanged() }
+    }
 
     /**
      * The clock settings for this effect, with the one preview-only
@@ -106,10 +173,10 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             lockedProgress = lockedProgress,
             unlockedProgress = unlockedProgress
         )
-        return if (configuringPreviewEngine) {
-            clock.copy(screenId = ClockScreen.BOTH.id)
-        } else {
-            clock
+        return when {
+            hosted -> clock.copy(enabled = false)
+            configuringPreviewEngine -> clock.copy(screenId = ClockScreen.BOTH.id)
+            else -> clock
         }
     }
 
@@ -183,7 +250,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
-            if (!isPreview) LiveWallpaperEngines.add(this, effectId)
+            if (!isPreview) LiveWallpaperEngines.add(this, wallpaperEffectId)
 
             val createdRenderer = try {
                 createEffectRenderer()
@@ -486,6 +553,10 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             isThemeChange: Boolean = false,
             currentNightMode: Boolean = false
         ) {
+            if (!isThemeChange && !isPreview) {
+                runCatching { renderer?.let(::rotateOwnImages) }
+                    .onFailure { Log.e(logTag, "Unable to rotate the effect's own images", it) }
+            }
             try {
                 PlaylistRotationController.rotateAsync(
                     context = applicationContext,
@@ -511,6 +582,22 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
             } catch (failure: RuntimeException) {
                 Log.e(logTag, "Unable to rotate the wallpaper playlist", failure)
             }
+        }
+
+        /** See [notifyEffectChanged]. */
+        fun onEffectChanged() {
+            val currentRenderer = renderer ?: return
+            animator?.cancel()
+            animator = null
+            runInitializationStep("load the new effect's settings") {
+                applyRendererConfig(currentRenderer)
+            }
+            if (behavior.transitionsEnabled) {
+                setEffectProgress(currentRenderer, lockScreenProgress())
+            } else {
+                applyFixedState(currentRenderer, isKeyguardLocked())
+            }
+            requestRender()
         }
 
         private fun reloadWallpaper() {
@@ -822,7 +909,7 @@ abstract class AnimatedEffectWallpaperService<R : Any> : GLWallpaperService() {
         return Build.MANUFACTURER.equals("samsung", ignoreCase = true)
     }
 
-    private companion object {
+    protected companion object {
         const val PREFERENCES_NAME = "app_prefs"
         const val POLL_INTERVAL_KEY = "poll_interval"
         const val LOCK_DELAY_KEY = "lock_delay"

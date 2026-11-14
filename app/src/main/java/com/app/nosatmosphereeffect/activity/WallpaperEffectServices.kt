@@ -4,19 +4,25 @@ import android.app.Activity
 import android.app.WallpaperManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.service.wallpaper.WallpaperService
 import android.util.Log
+import com.app.nosatmosphereeffect.effect.ShuffleEffects
+import com.app.nosatmosphereeffect.service.AnimatedEffectWallpaperService
 import com.app.nosatmosphereeffect.service.AtmosphereService
 import com.app.nosatmosphereeffect.service.AtmosphereReverseService
 import com.app.nosatmosphereeffect.service.ColorFillReverseService
 import com.app.nosatmosphereeffect.service.ColorFillService
+import com.app.nosatmosphereeffect.service.DuoService
 import com.app.nosatmosphereeffect.service.FrostedReverseService
 import com.app.nosatmosphereeffect.service.FrostedService
 import com.app.nosatmosphereeffect.service.GlassReverseService
 import com.app.nosatmosphereeffect.service.GlassService
 import com.app.nosatmosphereeffect.service.HalftoneReverseService
+import com.app.nosatmosphereeffect.service.HostedEffect
 import com.app.nosatmosphereeffect.service.HalftoneService
+import com.app.nosatmosphereeffect.service.ShuffleService
 import com.app.nosatmosphereeffect.service.VhsReverseService
 import com.app.nosatmosphereeffect.service.VhsService
 import com.app.nosatmosphereeffect.service.ZoomReverseService
@@ -45,7 +51,9 @@ internal object WallpaperEffectServices {
         "VHS" to VhsService::class.java,
         "VHS_REVERSE" to VhsReverseService::class.java,
         "ZOOM" to ZoomService::class.java,
-        "ZOOM_REVERSE" to ZoomReverseService::class.java
+        "ZOOM_REVERSE" to ZoomReverseService::class.java,
+        "DUO" to DuoService::class.java,
+        ShuffleEffects.EFFECT_ID to ShuffleService::class.java
     )
 
     private val effectIdByServiceName = serviceByEffectId.entries.associate { (id, service) ->
@@ -62,6 +70,16 @@ internal object WallpaperEffectServices {
 
     fun serviceFor(effectId: String?): Class<out WallpaperService> =
         serviceByEffectId.getValue(normalize(effectId))
+
+    /**
+     * [effectId]'s wallpaper hooks for [host], a service showing the effect
+     * in place of its own (ShuffleService): a new instance of the effect's own
+     * service, as a holder of its hooks rather than a wallpaper.
+     */
+    fun newHostedEffect(effectId: String, host: Context): HostedEffect {
+        val service = serviceFor(effectId).getDeclaredConstructor().newInstance()
+        return (service as AnimatedEffectWallpaperService<*>).hostIn(host)
+    }
 
     fun effectIdForService(className: String?): String? =
         className?.let(effectIdByServiceName::get)

@@ -39,6 +39,10 @@ import com.app.nosatmosphereeffect.renderer.glass.GlassRenderer
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneProgressPolicy
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderer
+import com.app.nosatmosphereeffect.effect.ShuffleEffects
+import com.app.nosatmosphereeffect.renderer.duo.DuoRenderState
+import com.app.nosatmosphereeffect.renderer.duo.DuoRenderer
+import com.app.nosatmosphereeffect.renderer.duo.DuoStyle
 import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
 import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderer
 import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderState
@@ -58,7 +62,7 @@ enum class EffectPreviewSettingsMode {
 
 class EffectPreviewService(
     context: Context,
-    private val effectId: String,
+    effectId: String,
     source: Bitmap?,
     cornerRadiusPx: Float,
     private val settingsMode: EffectPreviewSettingsMode =
@@ -67,6 +71,8 @@ class EffectPreviewService(
     private val forceOpenGlEs: Boolean = false
 ) {
     private val appContext = context.applicationContext
+    /** Shuffle previews as the effect it is showing now. */
+    private val effectId = if (effectId == ShuffleEffects.EFFECT_ID) ShuffleEffects.current(appContext) else effectId
     private val released = AtomicBoolean(false)
     private val sourceLock = Any()
     private val sourceBitmap = source?.copy(Bitmap.Config.ARGB_8888, false)
@@ -587,6 +593,13 @@ class EffectPreviewService(
                 ).sanitized()
             )
 
+            "DUO" -> EffectPreviewRenderState.Duo(
+                DuoRenderState(
+                    dimLevel = previewFloat(prefs, "dim_level", 0f),
+                    style = DuoStyle.read(prefs)
+                ).sanitized()
+            )
+
             "ZOOM", "ZOOM_REVERSE" -> EffectPreviewRenderState.Zoom(
                 ZoomRenderState(
                     dimLevel = previewFloat(prefs, "dim_level", 0f),
@@ -739,6 +752,7 @@ class EffectPreviewService(
                 isReverse = effectId == "ZOOM_REVERSE",
                 previewSource = sourceProvider
             )
+            is EffectPreviewRenderState.Duo -> DuoRenderer(appContext, previewSource = sourceProvider)
             is EffectPreviewRenderState.ColorFill -> ColorFillRenderer(
                 appContext,
                 isReverse = effectId == "COLOR_FILL_REVERSE",
@@ -778,6 +792,9 @@ class EffectPreviewService(
             renderer is ZoomRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.Zoom ->
                 renderer.blurStrength = update.progress
+            renderer is DuoRenderer &&
+                update is EffectPreviewOpenGlFrameUpdate.Duo ->
+                renderer.progress = update.progress
             renderer is ColorFillRenderer &&
                 update is EffectPreviewOpenGlFrameUpdate.ColorFill ->
                 renderer.blurStrength = update.progress
@@ -889,6 +906,13 @@ class EffectPreviewService(
                 renderer.dimLevel = value.dimLevel
                 renderer.applyClockState(value.clock)
             }
+            renderer is DuoRenderer &&
+                state is EffectPreviewRenderState.Duo -> {
+                val value = state.value
+                renderer.progress = value.progress
+                renderer.dimLevel = value.dimLevel
+                renderer.style = value.style
+            }
             renderer is ColorFillRenderer &&
                 state is EffectPreviewRenderState.ColorFill -> {
                 val value = state.value
@@ -958,6 +982,7 @@ class EffectPreviewService(
                 renderer.onRenderRetryRequested = ::requestRenderRetry
                 renderer.onAnimationFrameRequested = render
             }
+            is DuoRenderer -> renderer.onRenderRetryRequested = ::requestRenderRetry
             is ColorFillRenderer -> renderer.onAnimationFrameRequested = render
             is FrostedRenderer -> renderer.onAnimationFrameRequested = render
         }
@@ -992,6 +1017,7 @@ class EffectPreviewService(
             is HalftoneRenderer -> renderer.release()
             is VhsRenderer -> renderer.release()
             is ZoomRenderer -> renderer.release()
+            is DuoRenderer -> renderer.release()
         }
     }
 

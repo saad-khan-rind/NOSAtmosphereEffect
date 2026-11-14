@@ -80,6 +80,35 @@
     <string name="effect_zoom_reverse_title" translatable="false">Zoom Out</string>
     <string name="effect_zoom_reverse_transition">Zoomed in to photo</string>
     <string name="effect_zoom_reverse_description">The lock screen starts zoomed in, and your photo settles back out as you unlock.</string>
+    <string name="effect_duo_title" translatable="false">Duo</string>
+    <string name="effect_duo_transition">One photo to another</string>
+    <string name="effect_duo_description">Your lock screen and your home screen each get their own photo, and one turns into the other as you unlock.</string>
+    <string name="duo_group" translatable="false">Duo</string>
+    <string name="duo_style">Transition</string>
+    <string name="duo_style_crossfade">Crossfade</string>
+    <string name="duo_style_wipe">Wipe up</string>
+    <string name="duo_style_circle">Circle</string>
+    <string name="duo_style_dissolve">Dissolve</string>
+    <string name="duo_home_photo">Home screen photo</string>
+    <string name="duo_home_hint">Your lock screen shows the wallpaper photo you set as usual. Choose the one your home screen shows.</string>
+    <string name="duo_home_none">None chosen yet, so your lock screen photo shows on both screens.</string>
+    <string name="duo_home_pick">Choose a photo</string>
+    <string name="duo_home_change">Change the photo</string>
+    <string name="duo_home_playlist">Home screen playlist</string>
+    <string name="duo_home_playlist_hint">Add several photos and your home screen gets another one at random each time you lock your phone.</string>
+    <string name="duo_home_add">Add photos</string>
+    <string name="duo_home_clear">Remove all</string>
+    <string name="duo_home_failed">That photo couldn\'t be opened.</string>
+    <plurals name="duo_home_count">
+        <item quantity="one">%d photo in the playlist</item>
+        <item quantity="other">%d photos in the playlist</item>
+    </plurals>
+    <string name="effect_shuffle_title" translatable="false">Shuffle</string>
+    <string name="effect_shuffle_transition">A different effect each time</string>
+    <string name="effect_shuffle_description">Every time you lock your phone, your wallpaper comes back with another effect, each with the settings you gave it.</string>
+    <string name="shuffle_group" translatable="false">Shuffle</string>
+    <string name="shuffle_hint">The effects Shuffle picks from. Each one shows in both directions, with its own Fine tuning.</string>
+    <string name="shuffle_duo_needs_photo">Duo joins in once it has a home screen photo.</string>
     <string name="effects_continue_with">Continue with <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>
@@ -741,4 +770,6 @@
     <string name="service_vhs_reverse" translatable="false">VHS Tape (Reverse)</string>
     <string name="service_zoom" translatable="false">Zoom In</string>
     <string name="service_zoom_reverse" translatable="false">Zoom Out</string>
+    <string name="service_duo" translatable="false">Duo</string>
+    <string name="service_shuffle" translatable="false">Shuffle</string>
 </resources>
