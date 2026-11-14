@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.edit
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.effect.ShuffleEffects
 import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.clock.ClockScreen
@@ -112,6 +113,8 @@ class FineTuneActivity : ComponentActivity() {
             activeEffectTitle = getString(EffectCatalog.find(activeEffect).title),
             recommendedDurationMs = defaultDuration,
             showHalftone = isHalftone,
+            showDuo = activeEffect == "DUO",
+            showShuffle = activeEffect == ShuffleEffects.EFFECT_ID,
             showColorFill = isColorFill,
             showCanvasSketch = isCanvasSketch,
             showFrosted = isFrosted,
