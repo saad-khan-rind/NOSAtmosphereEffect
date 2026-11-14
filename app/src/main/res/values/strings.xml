@@ -107,8 +107,10 @@
     <string name="effect_shuffle_transition">A different effect each time</string>
     <string name="effect_shuffle_description">Every time you lock your phone, your wallpaper comes back with another effect, each with the settings you gave it.</string>
     <string name="shuffle_group" translatable="false">Shuffle</string>
-    <string name="shuffle_hint">The effects Shuffle picks from. Each one shows in both directions, with its own Fine tuning.</string>
-    <string name="shuffle_duo_needs_photo">Duo joins in once it has a home screen photo.</string>
+    <string name="shuffle_hint">The effects Shuffle picks from. Each one keeps its own Fine tuning.</string>
+    <string name="shuffle_direction_photo_first">Photo on the lock screen</string>
+    <string name="shuffle_direction_effect_first">Effect on the lock screen</string>
+    <string name="shuffle_direction_random">Random</string>
     <string name="effects_continue_with">Continue with <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>

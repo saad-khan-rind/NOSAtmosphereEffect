@@ -9,36 +9,51 @@ import kotlin.random.Random
 
 class ShuffleEffectsTest {
 
-    private val all = listOf("ATMOSPHERE", "ATMOSPHERE_REVERSE", "ZOOM", "ZOOM_REVERSE", "DUO", "SHUFFLE")
+    private val all = listOf("ATMOSPHERE", "ATMOSPHERE_REVERSE", "VHS", "VHS_REVERSE", "DUO", "SHUFFLE")
+
+    /** Atmosphere runs photo first; VHS is the tape first, and its reverse the photo. */
+    private val photoFirst = setOf("ATMOSPHERE", "VHS_REVERSE")
+
+    private fun candidates(excluded: Set<String> = emptySet(), direction: ShuffleDirection = ShuffleDirection.RANDOM) =
+        ShuffleEffects.candidates(all, excluded, direction) { it in photoFirst }
 
     @Test
-    fun `shuffle never picks itself`() {
-        assertFalse("SHUFFLE" in ShuffleEffects.candidates(all, emptySet(), duoReady = true))
+    fun `shuffle never picks itself or duo`() {
+        assertEquals(listOf("ATMOSPHERE", "ATMOSPHERE_REVERSE", "VHS", "VHS_REVERSE"), candidates())
     }
 
     @Test
     fun `a family switched off leaves both its directions out`() {
-        val candidates = ShuffleEffects.candidates(all, setOf("ZOOM"), duoReady = true)
-        assertEquals(listOf("ATMOSPHERE", "ATMOSPHERE_REVERSE", "DUO"), candidates)
+        assertEquals(listOf("ATMOSPHERE", "ATMOSPHERE_REVERSE"), candidates(excluded = setOf("VHS")))
     }
 
     @Test
-    fun `duo joins only once it has its second photo`() {
-        assertFalse("DUO" in ShuffleEffects.candidates(all, emptySet(), duoReady = false))
-        assertTrue("DUO" in ShuffleEffects.candidates(all, emptySet(), duoReady = true))
+    fun `a direction keeps the effects that run that way round`() {
+        assertEquals(listOf("ATMOSPHERE", "VHS_REVERSE"), candidates(direction = ShuffleDirection.PHOTO_FIRST))
+        assertEquals(listOf("ATMOSPHERE_REVERSE", "VHS"), candidates(direction = ShuffleDirection.EFFECT_FIRST))
     }
 
     @Test
     fun `with every family off something still shows`() {
-        val candidates = ShuffleEffects.candidates(all, setOf("ATMOSPHERE", "ZOOM", "DUO"), duoReady = true)
-        assertEquals(listOf(ShuffleEffects.FALLBACK_EFFECT_ID), candidates)
+        assertEquals(
+            listOf(ShuffleEffects.FALLBACK_EFFECT_ID),
+            candidates(excluded = setOf("ATMOSPHERE", "VHS"))
+        )
+    }
+
+    @Test
+    fun `the families offered leave out shuffle and duo`() {
+        val keys = ShuffleEffects.families().map { it.key }
+        assertFalse("SHUFFLE" in keys)
+        assertFalse("DUO" in keys)
+        assertTrue("ATMOSPHERE" in keys)
     }
 
     @Test
     fun `the next effect is another one whenever there is another`() {
-        val candidates = listOf("ATMOSPHERE", "ZOOM", "VHS")
+        val three = listOf("ATMOSPHERE", "ZOOM", "VHS")
         repeat(50) { seed ->
-            assertNotEquals("ZOOM", ShuffleEffects.pick(candidates, "ZOOM", Random(seed)))
+            assertNotEquals("ZOOM", ShuffleEffects.pick(three, "ZOOM", Random(seed)))
         }
     }
 
