@@ -108,6 +108,10 @@ internal abstract class VulkanSingleImageHost<State : Any>(
     protected val wallpaperScrollWindowX: Float
         get() = scrollWindowX
 
+    /** The surface's size in pixels; 0 before there is one. */
+    protected val surfaceWidth: Int get() = latestWidth
+    protected val surfaceHeight: Int get() = latestHeight
+
     /** Width/height of the current surface, or 0 before there is one. */
     protected val surfaceAspect: Float
         get() = if (latestWidth > 0 && latestHeight > 0) {

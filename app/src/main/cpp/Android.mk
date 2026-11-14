@@ -8,6 +8,7 @@ LOCAL_SRC_FILES := \
     vulkan_halftone_jni.cpp \
     vulkan_vhs_jni.cpp \
     vulkan_zoom_jni.cpp \
+    vulkan_duo_jni.cpp \
     vulkan_glass_jni.cpp \
     vulkan_canvas_sketch_jni.cpp \
     vulkan_atmosphere_jni.cpp \

@@ -260,7 +260,9 @@ class WallpaperBehaviorPolicyTest {
             "VHS" to EffectStateEndpoints(1f, 0f),
             "VHS_REVERSE" to EffectStateEndpoints(0f, 1f),
             "ZOOM" to EffectStateEndpoints(0f, 1f),
-            "ZOOM_REVERSE" to EffectStateEndpoints(1f, 0f)
+            "ZOOM_REVERSE" to EffectStateEndpoints(1f, 0f),
+            "DUO" to EffectStateEndpoints(0f, 1f),
+            "SHUFFLE" to EffectStateEndpoints(0f, 1f)
         )
 
         assertEquals(EFFECT_IDS, expectedEndpoints.keys)
@@ -372,7 +374,9 @@ class WallpaperBehaviorPolicyTest {
             "VHS" to false,
             "VHS_REVERSE" to false,
             "ZOOM" to false,
-            "ZOOM_REVERSE" to false
+            "ZOOM_REVERSE" to false,
+            "DUO" to false,
+            "SHUFFLE" to false
         )
         val EFFECT_IDS = TRANSITION_DIRECTIONS.keys
         val VALID_PROGRESS_VALUES = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)

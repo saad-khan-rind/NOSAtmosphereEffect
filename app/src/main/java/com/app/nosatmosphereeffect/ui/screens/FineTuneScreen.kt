@@ -88,6 +88,10 @@ data class AdvancedConfig(
     val activeEffectTitle: String,
     val recommendedDurationMs: Long,
     val showHalftone: Boolean,
+    /** Duo's own group: its transition, and the home screen's photo and playlist. */
+    val showDuo: Boolean = false,
+    /** Shuffle's own group: the effects it picks from. */
+    val showShuffle: Boolean = false,
     val showColorFill: Boolean,
     val showCanvasSketch: Boolean,
     val showFrosted: Boolean,
@@ -802,6 +806,9 @@ private fun EffectSettings(
                 }
             }
         }
+
+        if (config.showDuo) DuoSettingsGroup()
+        if (config.showShuffle) ShuffleSettingsGroup()
 
         if (config.showHalftone) {
             SettingsGroup(stringResource(R.string.halftone_group)) {

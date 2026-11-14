@@ -34,7 +34,8 @@ object EffectCatalog {
         "COLOR_FILL_REVERSE",
         "CANVAS_SKETCH_REVERSE",
         "VHS_REVERSE",
-        "ZOOM"
+        "ZOOM",
+        "DUO"
     )
 
     val items = listOf(
@@ -135,6 +136,18 @@ object EffectCatalog {
             R.string.effect_zoom_reverse_title,
             R.string.effect_zoom_reverse_transition,
             R.string.effect_zoom_reverse_description
+        ),
+        EffectItem(
+            "DUO",
+            R.string.effect_duo_title,
+            R.string.effect_duo_transition,
+            R.string.effect_duo_description
+        ),
+        EffectItem(
+            "SHUFFLE",
+            R.string.effect_shuffle_title,
+            R.string.effect_shuffle_transition,
+            R.string.effect_shuffle_description
         )
     )
 
@@ -148,6 +161,7 @@ object EffectCatalog {
         "HALFTONE", "HALFTONE_REVERSE" -> 500L
         "VHS", "VHS_REVERSE" -> 900L
         "ZOOM", "ZOOM_REVERSE" -> 500L
+        "DUO" -> 900L
         "COLOR_FILL", "COLOR_FILL_REVERSE" -> 1500L
         "CANVAS_SKETCH", "CANVAS_SKETCH_REVERSE" -> 1000L
         else -> 1000L
@@ -157,6 +171,8 @@ object EffectCatalog {
         id?.contains("HALFTONE") == true -> 0f
         id?.contains("VHS") == true -> 0f
         id?.contains("ZOOM") == true -> 0f
+        id == "DUO" -> 0f
+        id == "SHUFFLE" -> 0f
         id?.contains("COLOR_FILL") == true -> 0f
         id?.contains("CANVAS_SKETCH") == true -> 0f
         id?.contains("GLASS") == true -> 0f
@@ -186,6 +202,8 @@ object EffectCatalog {
         id.contains("HALFTONE") -> "HALFTONE"
         id.contains("VHS") -> "VHS"
         id.contains("ZOOM") -> "ZOOM"
+        id == "DUO" -> "DUO"
+        id == "SHUFFLE" -> "SHUFFLE"
         id.contains("COLOR_FILL") -> "COLOR_FILL"
         id.contains("CANVAS_SKETCH") -> "CANVAS_SKETCH"
         id.contains("GLASS") -> "GLASS"
