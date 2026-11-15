@@ -1,0 +1,660 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+  <string name="share_target_label">用 Atmo Engine 设置</string>
+  <string name="status_instruction">挑选一个特效和一张照片，\n制作属于你的动态壁纸。</string>
+  <string name="action_apply">应用</string>
+  <string name="renderer_status_label">渲染器</string>
+  <string name="renderer_vulkan_active">Vulkan 运行中</string>
+  <string name="renderer_vulkan_version">版本 <xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="renderer_opengl_active">OpenGL ES 运行中</string>
+  <string name="renderer_vulkan_fallback_reason">Vulkan 回退：<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="renderer_current_wallpaper_renderer">当前壁纸渲染器</string>
+  <string name="renderer_preference_group">显示渲染器</string>
+  <string name="renderer_preference_label">图形接口</string>
+  <string name="renderer_preference_automatic">自动（推荐）</string>
+  <string name="renderer_preference_automatic_helper">手机支持时使用 Vulkan，否则切换为 OpenGL ES。修改立即生效，同时作用于预览和壁纸。</string>
+  <string name="renderer_preference_vulkan_helper">优先尝试 Vulkan。如果手机不支持或运行出错，会切换为 OpenGL ES。修改立即生效，同时作用于预览和壁纸。</string>
+  <string name="renderer_preference_opengl_helper">始终使用 OpenGL ES，不尝试 Vulkan。修改立即生效，同时作用于预览和壁纸。</string>
+  <string name="experimental">实验性</string>
+  <string name="manualCroppingWillBeDisabled">（将关闭手动裁剪）</string>
+  <string name="effect_atmosphere_transition">清晰到模糊</string>
+  <string name="effect_atmosphere_description">柔和的色彩与云雾在你的照片上缓缓流动。</string>
+  <string name="effect_atmosphere_reverse_transition">模糊到清晰</string>
+  <string name="effect_atmosphere_reverse_description">云雾散去，露出你的照片。</string>
+  <string name="effect_glass_transition">从右向左或淡入</string>
+  <string name="effect_glass_description">照片蒙上条纹玻璃，转场方式任你挑选。</string>
+  <string name="effect_glass_reverse_transition">从左向右或淡出</string>
+  <string name="effect_glass_reverse_description">条纹玻璃消散，转场方式任你挑选。</string>
+  <string name="effect_color_fill_transition">黑白到彩色</string>
+  <string name="effect_color_fill_description">色彩从你的指纹位置向外蔓延。</string>
+  <string name="effect_color_fill_reverse_transition">彩色到黑白</string>
+  <string name="effect_color_fill_reverse_description">色彩向指纹位置回流消退。</string>
+  <string name="effect_canvas_sketch_transition">素描到照片</string>
+  <string name="effect_canvas_sketch_description">干净的线条画渐变为你的照片。</string>
+  <string name="effect_canvas_sketch_reverse_transition">照片到素描</string>
+  <string name="effect_canvas_sketch_reverse_description">你的照片渐变为干净的线条画。</string>
+  <string name="effect_frosted_transition">清晰到模糊</string>
+  <string name="effect_frosted_description">简单均匀的磨砂玻璃模糊。</string>
+  <string name="effect_frosted_reverse_transition">模糊到清晰</string>
+  <string name="effect_frosted_reverse_description">厚重的霜花融化，露出清晰的照片。</string>
+  <string name="effect_halftone_transition">清晰到<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="effect_halftone_description">你的照片化作印刷网点图案。</string>
+  <string name="effect_halftone_reverse_transition"><xliff:g id="arg1">%1$s</xliff:g>到清晰</string>
+  <string name="effect_halftone_reverse_description">印刷网点重新聚成完整的照片。</string>
+  <string name="effect_vhs_transition">录像带到清晰</string>
+  <string name="effect_vhs_description">你的照片像磨损的录像带一样播放，随后磁迹稳定下来，画面变得干净。</string>
+  <string name="effect_vhs_reverse_transition">清晰到录像带</string>
+  <string name="effect_vhs_reverse_description">你的照片卷入老式录像带柔和、带噪点的质感。</string>
+  <string name="effect_zoom_transition">照片到放大</string>
+  <string name="effect_zoom_description">解锁时照片会放大，时钟保持在原位。</string>
+  <string name="effect_zoom_reverse_transition">放大到照片</string>
+  <string name="effect_zoom_reverse_description">锁屏从放大状态开始，解锁时照片缩回原样。</string>
+  <string name="effects_continue_with">使用<xliff:g id="arg1">%1$s</xliff:g>继续</string>
+  <string name="effects_title">特效</string>
+  <string name="effects_direction">方向</string>
+  <string name="effects_two_directions">双向</string>
+  <string name="effects_show_lock_screen">显示锁屏</string>
+  <string name="effects_play_transition">播放转场</string>
+  <string name="effects_show_home_screen">显示主屏幕</string>
+  <string name="main_samsung_clock_setup">三星自适应时钟设置</string>
+  <string name="main_appearance_settings">外观设置</string>
+  <string name="main_wallpaper_behavior">壁纸行为</string>
+  <string name="main_sync_colors">同步系统颜色</string>
+  <string name="main_sync_colors_theme">随每个主题播放列表匹配你的系统颜色</string>
+  <string name="main_sync_colors_playlist">随播放列表中的每张图片匹配你的系统颜色</string>
+  <string name="main_sync_colors_single">匹配这张壁纸的系统颜色</string>
+  <string name="main_fine_tune">微调</string>
+  <string name="main_wallpaper_image">壁纸图片</string>
+  <string name="samsung_status_choose_title">选择一个兼容的设置</string>
+  <string name="samsung_status_choose_message">使用单张图片，并选择从原始照片开始的特效。</string>
+  <string name="samsung_status_single_title">需要单张图片</string>
+  <string name="samsung_status_single_message">此设置暂不支持播放列表。</string>
+  <string name="samsung_status_direction_title">更改转场方向</string>
+  <string name="samsung_status_direction_message"><xliff:g id="arg1">%1$s</xliff:g> 不是从原始照片开始的。</string>
+  <string name="samsung_status_ready_title">一切就绪</string>
+  <string name="samsung_status_ready_message"><xliff:g id="arg1">%1$s</xliff:g> 从原始照片开始，且使用单张图片。</string>
+  <string name="samsung_title">自适应时钟</string>
+  <string name="samsung_subtitle">三星锁屏设置</string>
+  <string name="samsung_intro">在锁屏保留三星自适应时钟，让 Atmo Engine 为主屏幕制作动画。</string>
+  <string name="samsung_step1_title">将 Atmo 应用到主屏幕</string>
+  <string name="samsung_step1_message">当安卓显示动态壁纸预览时，仅选择主屏幕。</string>
+  <string name="samsung_step2_title">设置相同的锁屏图片</string>
+  <string name="samsung_step2_message">用三星设置或 LockStar 选择完全相同的图片。</string>
+  <string name="samsung_step3_title">启用自适应时钟</string>
+  <string name="samsung_step3_message">在三星锁屏编辑器中选择自适应时钟。</string>
+  <string name="samsung_compatible_effects">兼容的特效</string>
+  <string name="samsung_no_playlists">此设置暂不支持播放列表。</string>
+  <string name="common_got_it">知道了</string>
+  <string name="main_active_theme_playlists">生效中的主题播放列表</string>
+  <string name="main_active_playlist">生效中的播放列表</string>
+  <string name="main_active_wallpaper">生效中的壁纸</string>
+  <string name="main_chip_light_dark">浅色 + 深色</string>
+  <string name="main_chip_playlist">播放列表</string>
+  <string name="main_chip_single">单张图片</string>
+  <string name="main_always_home">主屏幕常驻特效 · 锁屏显示原图</string>
+  <string name="main_always_lock">锁屏常驻特效 · 主屏幕显示原图</string>
+  <string name="main_always_both">主屏幕和锁屏都常驻特效</string>
+  <string name="main_button_effect">特效</string>
+  <string name="main_button_image">图片</string>
+  <string name="main_create_wallpaper">创建壁纸</string>
+  <string name="main_choose_effect_image">选择特效和图片</string>
+  <string name="appearance_title">外观</string>
+  <string name="appearance_theme">主题</string>
+  <string name="appearance_theme_system">跟随系统</string>
+  <string name="appearance_theme_light">浅色</string>
+  <string name="appearance_theme_dark">深色</string>
+  <string name="appearance_pitch_black">纯黑背景</string>
+  <string name="appearance_pitch_black_subtitle">使用纯黑代替常规深灰。</string>
+  <string name="mode_title">壁纸模式</string>
+  <string name="mode_single">单张图片</string>
+  <string name="mode_single_subtitle">只用一张壁纸</string>
+  <string name="mode_new_playlist">新建播放列表</string>
+  <string name="mode_playlist">播放列表</string>
+  <string name="mode_playlist_subtitle">轮换播放多张图片</string>
+  <string name="mode_folder">文件夹播放列表</string>
+  <string name="mode_folder_subtitle">自动关注文件夹，新照片自动加入</string>
+  <string name="mode_new_theme">新建主题播放列表</string>
+  <string name="mode_theme">主题播放列表</string>
+  <string name="mode_theme_subtitle">浅色模式和深色模式各用一张壁纸</string>
+  <string name="mode_edit_theme">编辑当前主题播放列表</string>
+  <string name="mode_edit_playlist">编辑当前播放列表</string>
+  <string name="mode_edit_subtitle">更改图片及其裁剪方式</string>
+  <string name="mode_saved">已保存的播放列表</string>
+  <string name="mode_saved_subtitle">回到之前用过的播放列表</string>
+  <string name="preview_close">关闭预览</string>
+  <string name="preview_transition">转场预览</string>
+  <string name="preview_always_applied">常驻效果预览</string>
+  <string name="preview_pause">暂停预览</string>
+  <string name="preview_play">播放预览</string>
+  <string name="apply_next_transitions">接下来，在系统界面中选择主屏幕和锁屏。</string>
+  <string name="apply_next_always">接下来，选择主屏幕和锁屏。Atmo 会同时运行在两者上，具体哪边显示特效由微调决定。</string>
+  <string name="common_continue">继续</string>
+  <string name="preview_effect_always_applied"><xliff:g id="arg1">%1$s</xliff:g> 常驻效果预览</string>
+  <string name="preview_effect_transition"><xliff:g id="arg1">%1$s</xliff:g> 转场预览</string>
+  <string name="common_home_screen">主屏幕</string>
+  <string name="common_lock_screen">锁屏</string>
+  <string name="common_more_info">更多信息</string>
+  <string name="common_back">返回</string>
+  <string name="fine_tab_effect">特效</string>
+  <string name="fine_tab_timing">时机</string>
+  <string name="fine_tab_display">显示</string>
+  <string name="model_checking">正在检查模型</string>
+  <string name="model_download">下载主体识别模型</string>
+  <string name="model_installing">正在安装模型</string>
+  <string name="model_download_paused">下载已暂停</string>
+  <string name="model_downloaded">主体识别模型已下载</string>
+  <string name="model_retry_download">重新下载模型</string>
+  <string name="model_paused">谷歌模型已暂停</string>
+  <string name="model_downloading_percent">正在下载 <xliff:g id="percent">%1$s</xliff:g></string>
+  <string name="model_downloading">正在下载模型</string>
+  <string name="model_group">主体模型</string>
+  <string name="timing_playlist_group">播放列表</string>
+  <string name="timing_switch_delay">切换延迟（毫秒）</string>
+  <string name="timing_switch_delay_helper">在此时间内重新点亮屏幕会保持同一张图片，快速锁屏再解锁不会换图。设为零则立即切换。最大 <xliff:g id="arg1">%1$d</xliff:g>。</string>
+  <string name="wake_group">屏幕点亮时</string>
+  <string name="wake_animate">锁屏动画</string>
+  <string name="wake_animate_on">从息屏显示或熄屏状态唤醒时，锁屏会渐入出现。</string>
+  <string name="wake_animate_off">锁屏直接原样显示。</string>
+  <string name="wake_zoom">缩放</string>
+  <string name="wake_color_fill">色彩填充</string>
+  <string name="wake_blur">模糊</string>
+  <string name="wake_zoom_hint">照片从缩放状态落定，时钟保持不动；带景深的时钟会呈现主体缓缓归位的效果。</string>
+  <string name="wake_color_fill_hint">色彩从屏幕中心向外扩散。在黑白锁屏（如 <xliff:g id="arg1">%1$s</xliff:g>）上，会从彩色转为黑白。</string>
+  <string name="wake_blur_hint">锁屏从轻微模糊中逐渐变清晰。</string>
+  <string name="wake_style">样式</string>
+  <string name="wake_stretch">四角拉伸</string>
+  <string name="wake_shake">抖动</string>
+  <string name="wake_random">随机</string>
+  <string name="wake_random_hint">每次点亮使用不同样式，洗牌播放，所有样式轮完才会重复。四角拉伸、抖动、百叶窗和布料波浪的方向也会随机。</string>
+  <string name="wake_random_customize">分别自定义样式</string>
+  <string name="wake_random_customize_on">每种样式使用下方各自的设置，与单独选中该样式时的设置互不影响。</string>
+  <string name="wake_random_customize_off">所有样式都使用默认设置。</string>
+  <string name="wake_stretch_hint">四角被拉出屏幕边缘或拉向中心，然后弹回原位，时钟随照片一起移动。</string>
+  <string name="wake_shake_hint">整个屏幕震动一下后归位，时钟随照片一起移动。</string>
+  <string name="wake_stretch_outward">向外</string>
+  <string name="wake_stretch_inward">向内</string>
+  <string name="wake_shake_sideways">左右</string>
+  <string name="wake_shake_vertical">上下</string>
+  <string name="wake_shake_twist">扭转</string>
+  <string name="wake_strength">强度</string>
+  <string name="wake_shake_count">抖动次数</string>
+  <string name="wake_ripple">涟漪</string>
+  <string name="wake_glitch">故障</string>
+  <string name="wake_blinds">百叶窗</string>
+  <string name="wake_breathe">呼吸</string>
+  <string name="wake_ripple_hint">涟漪从屏幕中心扩散开来，像石子落入水中，时钟随照片一起移动。</string>
+  <string name="wake_glitch_hint">碎裂像素与色彩分离迸发后，收敛成锁屏画面。</string>
+  <string name="wake_blinds_hint">锁屏像百叶窗一样，一条接一条地展开。</string>
+  <string name="wake_breathe_hint">锁屏从暗处缓缓亮起，略微超过正常亮度后再稳定下来。</string>
+  <string name="wake_blinds_rows">行数</string>
+  <string name="wake_blinds_columns">列数</string>
+  <string name="wake_blinds_count">条数</string>
+  <string name="wake_breathe_swell">膨胀幅度</string>
+  <string name="wake_twirl">漩涡</string>
+  <string name="wake_fabric">布料波浪</string>
+  <string name="wake_bubbles">气泡上涌</string>
+  <string name="wake_twirl_hint">照片从中心开始扭成漩涡，边缘保持不动，随后展开复原。</string>
+  <string name="wake_fabric_hint">像被两对边拽住的布：波浪从中间涌起，扩散到两侧后平息。</string>
+  <string name="wake_scale">放大展开</string>
+  <string name="wake_scale_hint">锁屏从屏幕中央的小卡片逐渐放大铺满屏幕，带一点回弹，底层是自身的柔和模糊。起始尺寸超过 100%% 时则反过来：从放大状态缩回。</string>
+  <string name="wake_scale_start">起始尺寸</string>
+  <string name="wake_bubbles_hint">一股细密气泡从屏幕底部涌上，经过时让照片产生折射，随后消散。</string>
+  <string name="wake_twirl_twist">扭转程度</string>
+  <string name="wake_fabric_sides">左右两侧</string>
+  <string name="wake_fabric_ends">上下两端</string>
+  <string name="wake_fabric_depth">深度</string>
+  <string name="wake_zoom_level">缩放程度</string>
+  <string name="wake_length">时长</string>
+  <string name="wake_length_ms"><xliff:g id="arg1">%1$d</xliff:g> 毫秒</string>
+  <string name="model_required">需要主体识别模型。请到顶部的「主体模型」下载。</string>
+  <string name="model_status_bundled">内置于应用，开源，在本机运行，可离线使用。</string>
+  <string name="model_status_checking">正在通过 Google Play 服务检查，尚未下载任何内容。</string>
+  <string name="model_status_optional">景深效果、仅背景及其他主体功能需要此模型。只有点击按钮后，Google Play 服务才会下载它。</string>
+  <string name="model_status_downloading">Google Play 服务正在下载。</string>
+  <string name="model_status_installing">马上就好，正在完成安装。</string>
+  <string name="model_status_paused">已暂停，恢复联网后会继续。</string>
+  <string name="model_status_ready">已安装就绪，在本机运行，离线也可用。</string>
+  <string name="model_status_failed">无法检查模型，等 Google Play 服务恢复后重试。</string>
+  <string name="model_status_broken">已安装，但在这台手机上会导致应用崩溃，所以已暂停。去时钟界面点重试可再试一次，或等 Play 服务更新后会自动恢复使用。</string>
+  <string name="fine_title">微调</string>
+  <string name="common_reset">重置</string>
+  <string name="common_save">保存</string>
+  <string name="common_done">完成</string>
+  <string name="info_poll_title">解锁检测间隔</string>
+  <string name="info_poll_message">数值越小，解锁时壁纸反应越快，但检测更频繁，会多耗一点电。三星手机请用 30000 毫秒。如果动画启动慢，试试 50 毫秒。</string>
+  <string name="info_delay_title">锁屏延迟</string>
+  <string name="info_delay_message">只有在屏幕熄灭前能看到壁纸重置时才调高。三星用 0 毫秒，其他手机按需用 500 至 800 毫秒。</string>
+  <string name="common_about">关于<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="glass_add">添加<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="glass_on_sharp"><xliff:g id="arg1">%1$s</xliff:g> 的清晰一侧呈现玻璃质感。</string>
+  <string name="glass_off_sharp"><xliff:g id="arg1">%1$s</xliff:g> 的清晰一侧显示原始照片。</string>
+  <string name="glass_lines">线条数量</string>
+  <string name="common_line_thickness">线条粗细</string>
+  <string name="glass_transition_style">转场样式</string>
+  <string name="glass_left_to_right">从左向右</string>
+  <string name="glass_fade_out">淡出</string>
+  <string name="glass_right_to_left">从右向左</string>
+  <string name="glass_fade_in">淡入</string>
+  <string name="common_background_only">仅背景</string>
+  <string name="glass_forced_background">在时钟的景深效果或适配主体开启时始终启用，这样玻璃就不会盖住时钟前面的主体。</string>
+  <string name="glass_inactive">在整张壁纸上铺满玻璃线条。</string>
+  <string name="glass_active">主体保持清晰，只有背景变为玻璃质感。</string>
+  <string name="common_waiting_model">主体识别模型就绪前，壁纸保持原样。</string>
+  <string name="clock_group">时钟</string>
+  <string name="clock_playlist_only_single">时钟目前只支持单张图片。播放列表中照片会不断切换，适合一张照片的位置不一定适合下一张。</string>
+  <string name="clock_show">在壁纸上显示时钟</string>
+  <string name="clock_show_on_hint">关闭手机自带的锁屏时钟，以免出现两个时钟。</string>
+  <string name="clock_show_off_hint">直接把时钟画进壁纸里。</string>
+  <string name="clock_show_on">显示于</string>
+  <string name="common_both">两者</string>
+  <string name="clock_adapt">适配主体</string>
+  <string name="clock_depth">景深效果</string>
+  <string name="clock_adapt_on">数字向下延伸到主体上方，并显示在主体前面。</string>
+  <string name="clock_adapt_off">关闭，数字完整显示，不理会主体。</string>
+  <string name="clock_depth_hint">把主体放到时钟前面，看起来就像时钟在主体身后。主体清晰时效果最好。</string>
+  <string name="clock_choose_style">选择样式、位置和大小</string>
+  <string name="halftone_dot_size">网点大小</string>
+  <string name="halftone_bw">黑白</string>
+  <string name="halftone_inactive">整张壁纸呈现<xliff:g id="arg1">%1$s</xliff:g>效果。</string>
+  <string name="halftone_active">主体保持清晰，只有背景呈现半调印刷。</string>
+  <string name="origin_group">色彩原点</string>
+  <string name="origin_horizontal">水平位置</string>
+  <string name="origin_vertical">垂直位置</string>
+  <string name="canvas_segmentation">主体分割</string>
+  <string name="canvas_inactive">整张壁纸呈现素描效果。</string>
+  <string name="canvas_active">素描围绕主体的轮廓生成。</string>
+  <string name="canvas_waiting">模型就绪前，整张壁纸呈现素描效果。</string>
+  <string name="canvas_detail">素描细节</string>
+  <string name="atmos_color_group"><xliff:g id="arg1">%1$s</xliff:g>色彩</string>
+  <string name="atmos_saturation">饱和度</string>
+  <string name="atmos_contrast">对比度</string>
+  <string name="grain_group">胶片颗粒</string>
+  <string name="grain_add">添加颗粒</string>
+  <string name="grain_hint">在模糊的壁纸上叠加一层淡淡的胶片质感。</string>
+  <string name="grain_size">颗粒大小</string>
+  <string name="grain_strength">颗粒强度</string>
+  <string name="model_uses_bundled">使用应用内置的模型。<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="model_uses_installed">使用手机上已安装的模型。<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="timing_always_home">特效常驻主屏幕，锁屏显示原始照片。</string>
+  <string name="timing_always_lock">特效常驻锁屏，主屏幕显示原始照片。</string>
+  <string name="timing_always_both">特效常驻两个屏幕。</string>
+  <string name="timing_behavior_group">特效行为</string>
+  <string name="timing_animate">播放转场动画</string>
+  <string name="timing_animate_on">锁屏或解锁手机时播放特效。</string>
+  <string name="timing_animate_off">在你选择的屏幕上始终显示完整特效。</string>
+  <string name="timing_unlock_group">解锁响应</string>
+  <string name="timing_poll">解锁检测间隔（毫秒）</string>
+  <string name="timing_poll_helper">标准：50 | 三星：30000</string>
+  <string name="timing_delay">锁屏延迟（毫秒）</string>
+  <string name="timing_delay_helper">标准：800 | 三星：0</string>
+  <string name="timing_animation_group">动画</string>
+  <string name="timing_duration">时长（毫秒）</string>
+  <string name="timing_duration_helper"><xliff:g id="arg1">%1$s</xliff:g> 推荐：<xliff:g id="arg2">%2$d</xliff:g> 毫秒</string>
+  <string name="timing_keep_group">特效常驻于</string>
+  <string name="timing_still_live"><xliff:g id="arg1">%1$s</xliff:g>，它仍然是动态壁纸。</string>
+  <string name="display_appearance_group">壁纸外观</string>
+  <string name="display_dimness">暗度</string>
+  <string name="display_blur">模糊强度</string>
+  <string name="display_scrolling">壁纸滚动</string>
+  <string name="display_playlist_group">播放列表</string>
+  <string name="display_rotation">轮换模式</string>
+  <string name="rotation_every_lock">每次锁屏（立即）</string>
+  <string name="settings_saved">设置已保存</string>
+  <plurals name="rotation_minutes">
+    <item quantity="other">%1$d 分钟</item>
+  </plurals>
+  <plurals name="rotation_hours">
+    <item quantity="other">%1$d 小时</item>
+  </plurals>
+  <string name="clock_style_liquid_glass">玻璃</string>
+  <string name="clock_style_liquid_glass_description">玻璃质感数字，单行排列</string>
+  <string name="clock_style_liquid_glass_stacked">玻璃（上下排列）</string>
+  <string name="clock_style_liquid_glass_stacked_description">玻璃质感数字，小时在上、分钟在下</string>
+  <string name="clock_style_translucent">半透明</string>
+  <string name="clock_style_translucent_description">一整块玻璃，小时和分钟单行排列</string>
+  <string name="clock_style_translucent_stacked">半透明（上下排列）</string>
+  <string name="clock_style_translucent_stacked_description">一整块玻璃，小时在上、分钟在下</string>
+  <string name="clock_style_adaptive">自适应</string>
+  <string name="clock_style_adaptive_description">数字环绕主体排布</string>
+  <string name="clock_style_adaptive_stacked">自适应（上下排列）</string>
+  <string name="clock_style_adaptive_stacked_description">小时在上、分钟在下，环绕主体排布</string>
+  <string name="clock_style_normal">常规</string>
+  <string name="clock_style_normal_description">单行实心数字，可搭配任意字体</string>
+  <string name="clock_style_normal_stacked">常规（上下排列）</string>
+  <string name="clock_style_normal_stacked_description">实心数字，小时在上、分钟在下，可搭配任意字体</string>
+  <string name="clock_layout">布局</string>
+  <string name="clock_layout_row">单行</string>
+  <string name="clock_layout_stacked">上下排列</string>
+  <string name="clock_font">字体</string>
+  <string name="clock_font_variant">字重变体</string>
+  <string name="clock_show_colon">显示冒号</string>
+  <string name="clock_show_colon_hint">小时与分钟之间的两个点</string>
+  <string name="clock_font_default">经典</string>
+  <string name="clock_font_tower">高塔</string>
+  <string name="clock_font_heavy">特粗</string>
+  <string name="clock_font_narrow">窄体</string>
+  <string name="clock_font_geometric">几何</string>
+  <string name="clock_font_soft">柔和</string>
+  <string name="clock_font_chunky">厚块</string>
+  <string name="clock_font_bubble">气泡</string>
+  <string name="clock_font_techno">科技</string>
+  <string name="clock_font_block">方块</string>
+  <string name="clock_font_wireframe">线框</string>
+  <string name="clock_font_dots">点阵</string>
+  <string name="clock_font_neon">霓虹线条</string>
+  <string name="clock_font_brush">毛笔</string>
+  <string name="clock_font_didone">现代衬线</string>
+  <string name="clock_font_serif">衬线</string>
+  <string name="clock_font_poster">海报</string>
+  <string name="clock_font_hanzi">中文数字</string>
+  <string name="clock_variant_tall">高</string>
+  <string name="clock_variant_short">矮</string>
+  <string name="clock_variant_regular">常规</string>
+  <string name="clock_variant_bold">粗体</string>
+  <string name="clock_variant_light">细体</string>
+  <string name="clock_variant_heavy">特粗</string>
+  <string name="clock_colour_white">白色</string>
+  <string name="clock_colour_warm_white">暖白</string>
+  <string name="clock_colour_cool_white">冷白</string>
+  <string name="clock_colour_sand">沙色</string>
+  <string name="clock_colour_blush">腮红粉</string>
+  <string name="clock_colour_coral">珊瑚色</string>
+  <string name="clock_colour_amber">琥珀色</string>
+  <string name="clock_colour_mint">薄荷色</string>
+  <string name="clock_colour_sky">天空蓝</string>
+  <string name="clock_colour_periwinkle">长春花蓝</string>
+  <string name="clock_colour_lilac">淡紫色</string>
+  <string name="clock_colour_slate">岩石灰</string>
+  <string name="clock_tab_clock">时钟</string>
+  <string name="clock_tab_date">日期</string>
+  <string name="clock_pick_colour">选择颜色</string>
+  <string name="clock_hint_eyedropper">轻触照片取色</string>
+  <string name="clock_hint_gestures">拖动移动 · 双指缩放 · 拉角变形</string>
+  <string name="common_cancel">取消</string>
+  <string name="clock_panel_style">样式</string>
+  <string name="clock_panel_colour">颜色</string>
+  <string name="clock_panel_adjust">调整</string>
+  <string name="clock_panel_more">更多</string>
+  <string name="clock_colour_adaptive">自适应</string>
+  <string name="clock_colour_auto">自动</string>
+  <string name="clock_hide_wheel">隐藏色轮</string>
+  <string name="clock_colour_wheel">色轮</string>
+  <string name="clock_from_photo">从照片取色</string>
+  <string name="clock_colour_solid_hint">数字将以此颜色绘制。</string>
+  <string name="clock_colour_glass_hint">玻璃数字会染上此颜色，高光保持白色。</string>
+  <string name="clock_centre">居中</string>
+  <string name="clock_fit_to_clock">适配时钟</string>
+  <string name="clock_reset_size">重置大小</string>
+  <string name="clock_date_above">日期置顶</string>
+  <string name="clock_opacity">不透明度</string>
+  <string name="clock_frost">磨砂度</string>
+  <string name="clock_weight">字重</string>
+  <string name="clock_weight_thin">细</string>
+  <string name="clock_weight_bold">粗</string>
+  <string name="clock_show_date">显示日期</string>
+  <string name="clock_show_date_hint">以相称的大小显示在时钟上方，可像时钟一样移动和缩放。</string>
+  <string name="clock_animate_digits">数字变化动画</string>
+  <string name="clock_animate_digits_hint">时间变化时数字会滑动切换。</string>
+  <string name="clock_hour_format">小时制</string>
+  <string name="clock_hour_system">跟随系统</string>
+  <string name="clock_hour_12">12 小时制</string>
+  <string name="clock_hour_24">24 小时制</string>
+  <string name="clock_reset">重置时钟</string>
+  <string name="common_try_again">重试</string>
+  <string name="clock_detection_off">主体检测一直崩溃，已暂时关闭。点重试可再试一次。</string>
+  <string name="clock_cant_fit">数字暂时无法环绕主体排布。<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="clock_no_depth">暂无景深效果。<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="clock_brightness">亮度</string>
+  <string name="guide_pixel_summary">Pixel 手机没有隐藏锁屏时钟的设置，可以把它调小，少遮挡一点壁纸时钟。</string>
+  <string name="guide_pixel_step1">在主屏幕空白处长按，然后点壁纸和样式。</string>
+  <string name="guide_pixel_step2">打开锁屏标签页，选择最小的时钟样式。</string>
+  <string name="guide_pixel_step3">安卓 16 及更高版本，关闭时钟的大尺寸选项。</string>
+  <string name="guide_oppo_summary">OxygenOS、ColorOS 和 realme UI 可以重设锁屏时钟样式，但目前还没找到隐藏它的方法。</string>
+  <string name="guide_oppo_step1">长按锁屏（或打开设置 &gt; 壁纸和样式）进行编辑。</string>
+  <string name="guide_oppo_step2">点时钟，选择最小或最细的样式。</string>
+  <string name="guide_oppo_step3">如果你的版本提供时钟颜色或不透明度，试试调到最低。</string>
+  <string name="guide_xiaomi_summary">HyperOS 和 MIUI 可以更换锁屏时钟样式，但目前还没找到隐藏它的方法。</string>
+  <string name="guide_xiaomi_step1">打开设置，搜索息屏与锁屏。</string>
+  <string name="guide_xiaomi_step2">点锁屏时钟格式，选择最不显眼的样式。</string>
+  <string name="guide_xiaomi_step3">主题 App 里有时有带小尺寸时钟的锁屏样式。</string>
+  <string name="guide_nothing_summary">Nothing OS 3 及更高版本可以自定义锁屏时钟，能否移除取决于你的版本。</string>
+  <string name="guide_nothing_step1">长按锁屏，点自定义锁屏。</string>
+  <string name="guide_nothing_step2">点时钟，找最小的样式，或看看有没有移除选项。</string>
+  <string name="guide_motorola_summary">摩托罗拉手机没有隐藏锁屏时钟的设置，可以换样式或调小。</string>
+  <string name="guide_motorola_step1">打开设置 &gt; 显示 &gt; 锁屏。</string>
+  <string name="guide_motorola_step2">选择小一点的时钟样式。</string>
+  <string name="guide_unknown_summary">还没有这个品牌的说明。</string>
+  <string name="guide_brand_samsung_new">三星（One UI 7 或更高）</string>
+  <string name="guide_samsung_new_summary">One UI 7 移除了 LockStar 关闭时钟的选项。据用户反馈，仍可将其设为不可见：</string>
+  <string name="guide_samsung_new_step1">长按锁屏，点编辑。</string>
+  <string name="guide_samsung_new_step2">点时钟，选择纯色单色样式。</string>
+  <string name="guide_samsung_new_step3">打开自定义颜色选择器（彩虹圆圈），把透明度滑块拖到 0%。</string>
+  <string name="guide_samsung_new_step4">也可以把时钟调到最小，移到角落。</string>
+  <string name="guide_brand_samsung_old">三星（One UI 6 或更早）</string>
+  <string name="guide_samsung_old_summary">这个版本可以用三星 Good Lock 应用移除锁屏时钟。</string>
+  <string name="guide_samsung_old_step1">从 Galaxy Store 安装 Good Lock，打开 LockStar 模块。</string>
+  <string name="guide_samsung_old_step2">开启 LockStar，点锁屏预览。</string>
+  <string name="guide_samsung_old_step3">点时钟，用减号（–）图标移除，然后保存。</string>
+  <string name="help_title">壁纸时钟</string>
+  <string name="help_subtitle">单独使用效果最佳</string>
+  <string name="help_intro">能隐藏手机自带锁屏时钟时效果最好。藏不了的话，锁屏上会出现两个时钟。</string>
+  <string name="help_your_device">你的设备</string>
+  <string name="help_on_brand"><xliff:g id="arg1">%1$s</xliff:g> 机型</string>
+  <string name="help_on_your_device">你的设备</string>
+  <string name="help_search_hint">上网搜一下，看看你的手机能不能隐藏锁屏时钟。</string>
+  <string name="help_search_button">上网搜索你的机型</string>
+  <string name="help_disclaimer">这些步骤可能与你的机型或系统版本不完全一致，各厂商会在更新中调整位置。如果行不通，搜一下你的机型就能找到办法。</string>
+  <string name="playlist_edit_title">编辑播放列表</string>
+  <string name="playlist_new_title">新建播放列表</string>
+  <string name="playlist_apply_title">应用壁纸</string>
+  <string name="playlist_apply_message">在下一个界面中，轻触：\n\n设置壁纸 › 主屏幕和锁屏。\n\n这样锁屏特效才能正常工作。</string>
+  <string name="playlist_set_wallpaper">设置壁纸</string>
+  <string name="playlist_processing">正在处理第 <xliff:g id="arg1">%1$d</xliff:g> 张，共 <xliff:g id="arg2">%2$d</xliff:g> 张…</string>
+  <string name="playlist_getting_ready">正在准备播放列表…</string>
+  <string name="playlist_error_storage">播放列表保存失败，检查一下剩余空间再试。</string>
+  <string name="playlist_error_permission">Atmo Engine 打不开其中一张图片了，重新添加试试。</string>
+  <string name="playlist_error_metadata">保存播放列表时出错，请重试。</string>
+  <string name="playlist_error_folder_image">部分照片无法打开，是不是文件夹被移动或重命名了？</string>
+  <string name="playlist_image_unavailable">无法打开这张照片，文件夹可能已被移动或重命名。</string>
+  <string name="playlist_error_unexpected">播放列表准备失败，请重试。</string>
+  <string name="playlist_applied">搞定，现在选择主屏幕和锁屏。</string>
+  <string name="playlist_no_picker">你的手机好像没有动态壁纸选择器。</string>
+  <string name="playlist_saved_missing">这个已保存的播放列表找不到了。</string>
+  <string name="playlist_crops_not_restored">部分裁剪没能恢复。</string>
+  <string name="playlist_empty">播放列表是空的</string>
+  <plurals name="playlist_images_added">
+    <item quantity="other">已添加 %1$d 张图片</item>
+  </plurals>
+  <plurals name="playlist_deleted_removed">
+    <item quantity="other">已移除 %1$d 张已删除的图片</item>
+  </plurals>
+  <plurals name="playlist_folder_images_added">
+    <item quantity="other">从文件夹添加了 %1$d 张图片</item>
+  </plurals>
+  <string name="theme_playlists_title">主题播放列表</string>
+  <string name="theme_tab_light">浅色</string>
+  <string name="theme_tab_dark">深色</string>
+  <string name="theme_set_playlists">设置播放列表</string>
+  <string name="theme_apply_title">应用主题播放列表</string>
+  <string name="theme_apply_message">在下一个界面中，轻触：\n\n设置壁纸 › 主屏幕和锁屏。</string>
+  <string name="theme_getting_ready">正在准备主题播放列表…</string>
+  <string name="theme_need_both">每个播放列表至少添加一张图片</string>
+  <string name="theme_error_storage">播放列表保存失败，检查一下剩余空间再试。</string>
+  <string name="theme_error_metadata">保存播放列表时出错，请重试。</string>
+  <string name="theme_error_unexpected">播放列表准备失败，请重试。</string>
+  <string name="theme_ready">主题播放列表已就绪</string>
+  <plurals name="theme_light_images_added">
+    <item quantity="other">浅色播放列表已添加 %1$d 张图片</item>
+  </plurals>
+  <plurals name="theme_dark_images_added">
+    <item quantity="other">深色播放列表已添加 %1$d 张图片</item>
+  </plurals>
+  <string name="playlist_apply">应用播放列表</string>
+  <string name="playlist_rename">重命名播放列表</string>
+  <string name="crop_default_options">默认裁剪选项</string>
+  <string name="theme_light_wallpapers">浅色主题壁纸</string>
+  <string name="theme_dark_wallpapers">深色主题壁纸</string>
+  <string name="playlist_empty_hint">点添加为这个播放列表挑选照片。</string>
+  <string name="playlist_empty_hint_light">点添加为浅色播放列表挑选照片。</string>
+  <string name="playlist_empty_hint_dark">点添加为深色播放列表挑选照片。</string>
+  <string name="playlist_page_of">第 <xliff:g id="arg1">%1$d</xliff:g> 张，共 <xliff:g id="arg2">%2$d</xliff:g> 张</string>
+  <string name="glass_add_subtitle">保留<xliff:g id="arg1">%1$s</xliff:g>动画，最终定格为条纹玻璃。</string>
+  <string name="playlist_add">添加</string>
+  <string name="playlist_follow_hint">关注文件夹，新照片会自动加入</string>
+  <string name="playlist_following_hint">打开应用时，这些文件夹中的新照片会自动加入</string>
+  <string name="playlist_stop_following">取消关注<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="playlist_follow_folder">跟随文件夹</string>
+  <string name="playlist_folders">文件夹</string>
+  <string name="playlist_edited">已编辑</string>
+  <string name="playlist_remove_image">移除图片</string>
+  <string name="playlist_no_images">还没有图片</string>
+  <string name="fit_fill">全屏填充（裁剪）</string>
+  <string name="fit_show_all">完整显示图片</string>
+  <string name="fit_stretch">拉伸</string>
+  <string name="fit_rotate">旋转适配（横屏）</string>
+  <string name="fill_black">黑边</string>
+  <string name="fill_repeat">平铺图案</string>
+  <string name="fill_mirror">镜像图案</string>
+  <string name="crop_fill_space_with">空白处填充方式：</string>
+  <string name="crop_title">构图壁纸</string>
+  <string name="crop_image_fit">图片适配</string>
+  <string name="crop_empty_fill">空白填充</string>
+  <string name="saved_title">已保存的播放列表</string>
+  <string name="saved_empty">每次应用的播放列表都会保存在这里，用单张图片一段时间后可以回来接着用。</string>
+  <string name="saved_delete_title">删除播放列表？</string>
+  <string name="saved_delete_active"><xliff:g id="arg1">%1$s</xliff:g>正用作你的壁纸。它会继续播放，但切换到其他壁纸后就不会保存在这里了。</string>
+  <string name="common_delete">删除</string>
+  <string name="saved_current">当前壁纸</string>
+  <string name="common_more_options">更多选项</string>
+  <string name="common_rename">重命名</string>
+  <string name="saved_name_title">播放列表名称</string>
+  <plurals name="saved_delete_message">
+    <item quantity="other">这将删除%1$s及其 %2$d 张图片。</item>
+  </plurals>
+  <plurals name="common_image_count">
+    <item quantity="other">%1$d 张图片</item>
+  </plurals>
+  <plurals name="saved_watches_folders">
+    <item quantity="other">关注 %1$d 个文件夹</item>
+  </plurals>
+  <string name="folders_unreadable">无法打开该文件夹，请选择手机存储中的文件夹。</string>
+  <string name="folders_unavailable">这台手机没有文件夹选择器，无法使用文件夹播放列表。</string>
+  <string name="saved_rename_failed">播放列表重命名失败，请重试。</string>
+  <string name="saved_delete_failed">播放列表删除失败，请重试。</string>
+  <string name="crop_no_image">没有收到图片，请重新选一张。</string>
+  <string name="crop_preview_transition">预览转场</string>
+  <string name="crop_saving">正在保存壁纸…</string>
+  <string name="crop_error_decode">打不开这张图片，换一张试试。</string>
+  <string name="crop_error_permission">Atmo Engine 打不开这张图片了，请重新选一张。</string>
+  <string name="crop_error_unexpected">图片准备失败，请重试。</string>
+  <string name="crop_applying">正在应用…</string>
+  <string name="crop_error_storage">壁纸保存失败，检查一下剩余空间再试。</string>
+  <string name="crop_error_storage_blocked">存储访问被阻止，壁纸保存失败。</string>
+  <string name="crop_error_apply">壁纸设置失败，请重试。</string>
+  <string name="crop_error_open">打不开这张图片，换一张试试。</string>
+  <string name="crop_error_prepare">图片准备失败，请重试。</string>
+  <string name="crop_error_save">裁剪图片保存失败，检查一下剩余空间再试。</string>
+  <string name="crop_error_save_blocked">存储访问被阻止，裁剪图片保存失败。</string>
+  <string name="crop_error_save_prepare">裁剪图片准备失败，请重试。</string>
+  <string name="effects_change_title">更换特效</string>
+  <string name="effects_choose_title">选择特效</string>
+  <string name="folders_updated">文件夹已更新。<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="status_live">壁纸已生效，可以在下面继续调整。</string>
+  <plurals name="folders_added">
+    <item quantity="other">已添加 %1$d 张新图片。</item>
+  </plurals>
+  <plurals name="folders_removed">
+    <item quantity="other">已移除 %1$d 张已删除的图片。</item>
+  </plurals>
+  <string name="palette_title">调色板诊断</string>
+  <string name="palette_pipeline"><xliff:g id="arg1">%1$s</xliff:g> 颜色管线</string>
+  <string name="palette_reading">正在读取当前数值</string>
+  <string name="palette_comparison">壁纸与系统颜色对比</string>
+  <string name="palette_sync_on">同步已开</string>
+  <string name="palette_sync_off">同步已关</string>
+  <string name="palette_extracted">提取的颜色</string>
+  <string name="palette_api_colors">壁纸 API 颜色</string>
+  <string name="palette_system">系统调色板</string>
+  <string name="palette_theme_state">系统主题状态</string>
+  <string name="palette_source">来源：<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="palette_seed">种子：<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="palette_unknown">未知</string>
+  <string name="palette_unavailable">不可用</string>
+  <string name="palette_applying">正在应用调色板…</string>
+  <string name="palette_force_apply">强制应用调色板</string>
+  <string name="palette_sync_needed">先在主界面打开同步系统颜色再运行此测试。</string>
+  <string name="palette_not_available">不适用</string>
+  <string name="palette_force_requested">Atmo 已请求生效中的壁纸在 <xliff:g id="arg1">%1$s</xliff:g> 刷新颜色</string>
+  <string name="palette_force_request_failed">Atmo 未能请求壁纸在 <xliff:g id="arg1">%1$s</xliff:g> 刷新颜色</string>
+  <string name="palette_decode_failed">无法解码壁纸图片</string>
+  <string name="palette_extraction_failed">颜色提取失败</string>
+  <string name="palette_api_read_failed">无法读取壁纸 API 颜色</string>
+  <string name="palette_system_read_failed">无法读取系统调色板</string>
+  <string name="palette_theme_read_failed">无法读取系统主题状态</string>
+  <string name="palette_no_errors">应用报错：无</string>
+  <string name="palette_no_errors_detail">颜色提取和安卓壁纸颜色回调都在 <xliff:g id="arg1">%1$s</xliff:g> 完成了。</string>
+  <string name="palette_api_empty">壁纸 API 还没有颜色</string>
+  <string name="palette_api_empty_detail">安卓尚未从生效中的壁纸存下调色板。</string>
+  <string name="palette_api_accepted">安卓已接受 Atmo 的调色板</string>
+  <string name="palette_api_accepted_detail">WallpaperManager 返回的三个颜色与 Atmo 提取的一致。</string>
+  <string name="palette_api_differs">壁纸 API 颜色不一致</string>
+  <string name="palette_api_differs_detail">生效中的壁纸和安卓目前公布的颜色对不上。</string>
+  <string name="palette_system_differs"><xliff:g id="arg1">%1$s</xliff:g> 上的系统调色板不一致</string>
+  <string name="palette_system_differs_detail">安卓已接受 Atmo 的壁纸颜色，但 <xliff:g id="arg1">%1$s</xliff:g> 上的强调色仍在用另一套调色板。</string>
+  <string name="palette_seed_unavailable">种子不可用</string>
+  <string name="palette_preset_source"><xliff:g id="arg1">%1$s</xliff:g> 上的颜色来源是预设</string>
+  <string name="palette_preset_source_detail"><xliff:g id="arg1">%1$s</xliff:g> 上报 <xliff:g id="arg2">%2$s</xliff:g> 为固定主题种子，未使用动态壁纸。</string>
+  <string name="palette_force_unchanged">强制结果：<xliff:g id="arg1">%1$s</xliff:g> 没有变化</string>
+  <string name="palette_force_unchanged_detail">壁纸已公布颜色，但 <xliff:g id="arg1">%1$s</xliff:g> 上的系统主题没有更新。</string>
+  <string name="palette_force_changed">强制结果：系统调色板已变化</string>
+  <string name="palette_force_changed_detail">Atmo 公布颜色后，<xliff:g id="arg1">%1$s</xliff:g> 上的强调色变了。</string>
+  <string name="palette_stage_waiting">等待壁纸</string>
+  <string name="palette_stage_queued">壁纸刷新已排队</string>
+  <string name="palette_stage_extracting">壁纸正在提取颜色</string>
+  <string name="palette_stage_published">壁纸已公布颜色</string>
+  <string name="palette_stage_disabled">壁纸颜色同步已关</string>
+  <string name="palette_stage_missing">壁纸图片丢失</string>
+  <string name="palette_stage_extraction_failed">壁纸颜色提取失败</string>
+  <string name="palette_stage_publish_failed">壁纸颜色回调失败</string>
+  <string name="palette_stage_force_failed">强制调色板请求失败</string>
+  <string name="palette_stage_other">壁纸状态：<xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="palette_device">设备</string>
+  <string name="palette_trace_queued"><xliff:g id="arg1">%1$s</xliff:g> 排队刷新调色板</string>
+  <string name="palette_trace_disabled">系统颜色同步已关</string>
+  <string name="palette_trace_missing">生效中的壁纸文件丢失或无法读取</string>
+  <string name="palette_trace_extracting"><xliff:g id="arg1">%1$s</xliff:g> 正在提取颜色</string>
+  <string name="palette_trace_published"><xliff:g id="arg1">%1$s</xliff:g> 已完成 notifyColorsChanged()</string>
+  <string name="palette_trace_rejected">安卓拒绝了壁纸颜色回调</string>
+  <string name="palette_trace_failed">壁纸未能公布颜色</string>
+  <string name="palette_trace_unknown_failure">未知的提取失败</string>
+  <string name="palette_trace_rejected_empty">安卓拒绝了空的壁纸颜色回调</string>
+  <string name="grain_size_very_fine">极细</string>
+  <string name="grain_size_fine">细</string>
+  <string name="grain_size_medium">中等</string>
+  <string name="grain_size_coarse">粗</string>
+  <string name="grain_size_very_coarse">极粗</string>
+  <string name="grain_strength_barely">若隐若现</string>
+  <string name="grain_strength_subtle">轻微</string>
+  <string name="grain_strength_medium">中等</string>
+  <string name="grain_strength_strong">强</string>
+  <string name="grain_strength_heavy">很强</string>
+  <string name="subject_failure">出问题了（<xliff:g id="arg1">%1$s</xliff:g>，<xliff:g id="arg2">%2$s</xliff:g>）</string>
+  <string name="subject_failure_detail">出问题了（<xliff:g id="arg1">%1$s</xliff:g>，<xliff:g id="arg2">%2$s</xliff:g>：<xliff:g id="arg3">%3$s</xliff:g>）</string>
+  <string name="subject_model_paused">谷歌的主体识别在这台手机上导致应用崩溃，所以已暂停。这是最近 Google Play 服务更新的问题，不是你的照片问题。点重试可再试一次，或等 Play 服务更新后它会自动再试。</string>
+  <string name="subject_turned_off">主体检测一直导致应用崩溃，已关闭。可以去时钟界面重新打开。</string>
+  <string name="subject_skipping">上次主体检测导致应用崩溃，这次先跳过，稍后会再试。</string>
+  <plurals name="subject_crashed_streak">
+    <item quantity="other">主体检测已连续导致应用崩溃 %1$d 次，已关闭。可以去时钟界面重新打开。</item>
+  </plurals>
+  <string name="vulkan_reason_query_failed">无法在这台手机上检查 Vulkan</string>
+  <string name="vulkan_reason_no_11">这台手机不提供 Vulkan 1.1</string>
+  <string name="vulkan_reason_no_runtime">没找到兼容的 Vulkan 驱动</string>
+  <string name="renderer_vulkan_blocked_hint">Vulkan 之前失败后被关闭，壁纸正使用 OpenGL ES。可以再试一次：如果仍然失败，Atmo 会自动退回 OpenGL ES。</string>
+  <string name="renderer_try_vulkan_again">重试 Vulkan</string>
+  <string name="vulkan_reason_blocked">之前显卡驱动出过故障，Vulkan 已被关闭</string>
+  <string name="vulkan_reason_no_renderer">这个特效没有 Vulkan 渲染器</string>
+  <string name="vulkan_reason_driver_crash">手机显卡驱动在 Vulkan 下把壁纸搞崩溃了</string>
+  <string name="saved_default_name">播放列表</string>
+  <string name="saved_default_name_dated">播放列表 · <xliff:g id="arg1">%1$s</xliff:g></string>
+  <string name="folders_unnamed">未命名文件夹</string>
+</resources>
