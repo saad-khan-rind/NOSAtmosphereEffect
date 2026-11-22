@@ -112,7 +112,15 @@
     <string name="shuffle_direction_effect_first">Effect on the lock screen</string>
     <string name="shuffle_direction_random">Random</string>
     <string name="display_clock_scrolls">Clock scrolls with your pages</string>
-    <string name="display_clock_scrolls_hint">Swipe to another home screen page and the whole clock moves away with it, so it only shows on your first page. Wallpaper scrolling turns off while this is on.</string>
+    <string name="display_clock_scrolls_hint">Swipe to another home screen page and the whole clock moves away with it, so it only shows on your first page. Wallpaper scrolling can\'t be on at the same time.</string>
+    <string name="display_clock_scrolls_swipes">Follow my swipes</string>
+    <string name="display_clock_scrolls_swipes_off">Turn this on if the clock doesn\'t move when you change pages. Some launchers, like Samsung\'s, don\'t tell wallpapers which page you\'re on, so the clock can follow your swipes instead.</string>
+    <string name="display_clock_scrolls_swipes_on">The clock follows your swipes and counts your pages itself, starting again from the first page each time the screen turns off. If it gets out of step, for example after the Home button takes you back to your first page, locking and unlocking puts it right.</string>
+    <string name="display_clock_scrolls_pages">Home screen pages</string>
+    <string name="display_clock_scrolls_pages_hint">How many pages your home screen has, so the clock knows where your last one is.</string>
+    <string name="display_clock_scrolls_pages_too_few">Enter 2 or more. With one page, there is nowhere for the clock to scroll to.</string>
+    <string name="display_clock_scrolls_loop">Pages loop</string>
+    <string name="display_clock_scrolls_loop_hint">Turn this on if swiping past your last page takes you back to the first, as it can on Samsung phones. The clock then comes back in from the side, and swiping back from your first page goes to your last.</string>
     <string name="effects_continue_with">Continue with <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>
