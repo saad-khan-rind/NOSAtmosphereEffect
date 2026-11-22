@@ -1058,9 +1058,7 @@ private fun TimingSettings(
                         }
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(
-                            when (wakeTransition.style) {
+                    val wakeHint = when (wakeTransition.style) {
                                 WakeTransitionStyle.ZOOM -> R.string.wake_zoom_hint
                                 WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill_hint
                                 WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
@@ -1075,9 +1073,15 @@ private fun TimingSettings(
                                 WakeTransitionStyle.BUBBLES -> R.string.wake_bubbles_hint
                                 WakeTransitionStyle.SCALE -> R.string.wake_scale_hint
                                 WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
-                            },
-                            stringResource(R.string.effect_color_fill_title)
-                        ),
+                            }
+                    Text(
+                        // Only Colour Fill's hint has a placeholder. Formatting the others too turned
+                        // a percent sign in a translation ("100 % de") into one, and Fine tuning crashed.
+                        if (wakeHint == R.string.wake_color_fill_hint) {
+                            stringResource(wakeHint, stringResource(R.string.effect_color_fill_title))
+                        } else {
+                            stringResource(wakeHint)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = GroupTextInset
