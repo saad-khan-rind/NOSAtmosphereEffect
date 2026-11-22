@@ -19,6 +19,10 @@ internal class WallpaperImages(
     /** For error messages. */
     private val effect: String,
     private val previewSource: (() -> Bitmap?)?,
+    /** Loads the image for a surface of this width and height: the wallpaper, unless an effect draws another. */
+    private val loadImage: (Int, Int) -> WallpaperFitHelper.RenderImage = { width, height ->
+        WallpaperFitHelper.loadForRender(context, width, height, previewSource)
+    },
     onSubjectMaskUpdated: () -> Unit
 ) {
     var current = WallpaperTextureSet()
@@ -140,7 +144,7 @@ internal class WallpaperImages(
     private fun load() {
         fittedForWidth = surfaceWidth
         fittedForHeight = surfaceHeight
-        val render = WallpaperFitHelper.loadForRender(context, surfaceWidth, surfaceHeight, previewSource)
+        val render = loadImage(surfaceWidth, surfaceHeight)
         val bitmap = render.bitmap
         try {
             val photo = GlesTexture.upload(bitmap, "the $effect photo", mipmaps = true)

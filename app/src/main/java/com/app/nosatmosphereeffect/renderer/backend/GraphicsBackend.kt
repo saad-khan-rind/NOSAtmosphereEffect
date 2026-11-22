@@ -34,7 +34,8 @@ object GraphicsBackendSelector {
         "VHS",
         "VHS_REVERSE",
         "ZOOM",
-        "ZOOM_REVERSE"
+        "ZOOM_REVERSE",
+        "DUO"
     )
 
     fun select(

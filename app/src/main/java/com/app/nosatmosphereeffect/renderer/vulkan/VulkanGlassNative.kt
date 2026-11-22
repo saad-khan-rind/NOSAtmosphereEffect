@@ -114,7 +114,7 @@ internal object VulkanGlassBridge : VulkanSingleImageBridge<GlassRenderState> {
             dimLevel = safe.dimLevel,
             backgroundOnly = safe.backgroundOnly,
             hasSubject = safe.hasSubject,
-            clockCenterX = safe.clock.centerX,
+            clockCenterX = safe.clock.centerX + safe.clock.pageShift(safe.progress),
             clockTop = safe.clock.renderTop,
             // Per-axis stretch is folded into these two numbers rather
             // than passed separately — see ClockOverlayState.renderHeight.

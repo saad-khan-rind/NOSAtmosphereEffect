@@ -7,6 +7,10 @@ import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.wallpaper.GLWallpaperService
 import com.app.nosatmosphereeffect.subject.SubjectIsolationPolicy
 import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderController
+import com.app.nosatmosphereeffect.renderer.duo.DuoHomeImage
+import com.app.nosatmosphereeffect.renderer.duo.DuoRenderController
+import com.app.nosatmosphereeffect.renderer.duo.DuoRenderState
+import com.app.nosatmosphereeffect.renderer.duo.DuoStyle
 import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderController
 import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderer
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneProgressPolicy
@@ -16,6 +20,7 @@ import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderController
 import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
 import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderController
 import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderController
+import java.util.concurrent.Executors
 
 abstract class ColorFillWallpaperService protected constructor(
     private val reverseEffect: Boolean
@@ -320,6 +325,87 @@ abstract class VhsWallpaperService protected constructor(
 
     final override fun releaseRenderer(renderer: VhsRenderController) {
         renderer.release()
+    }
+}
+
+abstract class DuoWallpaperService : AnimatedEffectWallpaperService<DuoRenderController>() {
+
+    final override val effectId = DuoRenderController.EFFECT_ID
+    final override val lockedProgress = DuoRenderState.LOCKED_PROGRESS
+    final override val unlockedProgress = DuoRenderState.UNLOCKED_PROGRESS
+    final override val defaultAnimationDurationMs = DuoRenderState.DEFAULT_DURATION_MS
+
+    /** Copies the next home photo off the main thread. */
+    private val homeRotation = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "DuoHomeRotation").apply { isDaemon = true }
+    }
+
+    final override fun createEffectRenderer(): DuoRenderController {
+        return DuoRenderController(applicationContext)
+    }
+
+    final override fun attachEffectRenderer(
+        engine: GLWallpaperService.GLEngine,
+        renderer: DuoRenderController
+    ) {
+        renderer.attach(engine)
+    }
+
+    // No clock here: Duo's two photos have no one subject to fit it to.
+    final override fun configureRenderer(
+        renderer: DuoRenderController,
+        preferences: SharedPreferences
+    ) {
+        renderer.configure(
+            dimLevel = preferences.readFloat("dim_level", 0f),
+            style = DuoStyle.read(preferences)
+        )
+    }
+
+    final override fun onEngineVisibilityChanged(
+        renderer: DuoRenderController?,
+        visible: Boolean
+    ) {
+        renderer?.setEngineVisible(visible)
+    }
+
+    final override fun setEffectProgress(
+        renderer: DuoRenderController,
+        progress: Float
+    ) {
+        renderer.setProgress(progress)
+    }
+
+    final override fun reloadRenderer(renderer: DuoRenderController) {
+        renderer.reloadTexture()
+    }
+
+    /** The lock photo's playlist. */
+    final override fun queuePlaylistTransition(
+        renderer: DuoRenderController,
+        bitmap: Bitmap
+    ) {
+        renderer.queuePlaylistTransition(bitmap)
+    }
+
+    /** The home photo's own playlist (DuoHomeImage): another one at random on each lock. */
+    final override fun rotateOwnImages(renderer: DuoRenderController) {
+        val context = applicationContext
+        homeRotation.execute {
+            val changed = runCatching { DuoHomeImage.rotate(context) }
+                .onFailure { Log.e("DuoWallpaperService", "Unable to move to the next home photo", it) }
+                .getOrDefault(false)
+            if (changed) renderer.reloadHomeImage()
+        }
+    }
+
+    final override fun releaseRenderer(renderer: DuoRenderController) {
+        renderer.release()
+    }
+
+    override fun onDestroy() {
+        homeRotation.shutdown()
+        super.onDestroy()
     }
 }
 

@@ -230,7 +230,7 @@ class GlesClockOverlay(
         )
         GLES30.glUniform4f(
             GLES30.glGetUniformLocation(programId, "uClockRect"),
-            texture.left,
+            texture.left + current.pageShift(progress),
             texture.top,
             texture.width,
             texture.height

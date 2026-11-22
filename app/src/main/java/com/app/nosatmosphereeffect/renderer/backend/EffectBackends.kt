@@ -119,6 +119,11 @@ internal class EffectBackends<S : Any, GL : EffectOpenGlRenderer, VK : EffectVul
         synchronized(lock) { openGlRenderer }?.let(block)
     }
 
+    /** Runs [block] on the Vulkan host, if that is the one drawing. */
+    fun withVulkan(block: (VK) -> Unit) {
+        synchronized(lock) { vulkanHost }?.let(block)
+    }
+
     override fun attach(engine: GLWallpaperService.GLEngine) {
         synchronized(lock) {
             check(this.engine == null) { "The $label renderer is already attached" }

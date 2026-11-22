@@ -6,6 +6,7 @@ import com.app.nosatmosphereeffect.renderer.colorfill.ColorFillRenderState
 import com.app.nosatmosphereeffect.renderer.frosted.FrostedRenderState
 import com.app.nosatmosphereeffect.renderer.glass.GlassRenderState
 import com.app.nosatmosphereeffect.renderer.halftone.HalftoneRenderState
+import com.app.nosatmosphereeffect.renderer.duo.DuoRenderState
 import com.app.nosatmosphereeffect.renderer.vhs.VhsRenderState
 import com.app.nosatmosphereeffect.renderer.zoom.ZoomRenderState
 import com.app.nosatmosphereeffect.renderer.canvassketch.CanvasSketchRenderState
@@ -22,6 +23,8 @@ internal sealed interface EffectPreviewRenderState {
     data class Vhs(val value: VhsRenderState) : EffectPreviewRenderState
 
     data class Zoom(val value: ZoomRenderState) : EffectPreviewRenderState
+
+    data class Duo(val value: DuoRenderState) : EffectPreviewRenderState
 
     data class ColorFill(val value: ColorFillRenderState) : EffectPreviewRenderState
 
@@ -49,6 +52,9 @@ internal sealed interface EffectPreviewOpenGlFrameUpdate {
     data class Zoom(override val progress: Float) :
         EffectPreviewOpenGlFrameUpdate
 
+    data class Duo(override val progress: Float) :
+        EffectPreviewOpenGlFrameUpdate
+
     data class ColorFill(override val progress: Float) :
         EffectPreviewOpenGlFrameUpdate
 
@@ -69,6 +75,8 @@ internal object EffectPreviewStatePolicy {
             is EffectPreviewRenderState.Halftone -> state.value.clock
             is EffectPreviewRenderState.Vhs -> state.value.clock
             is EffectPreviewRenderState.Zoom -> state.value.clock
+            // Duo has no clock.
+            is EffectPreviewRenderState.Duo -> ClockOverlayState()
             is EffectPreviewRenderState.ColorFill -> state.value.clock
             is EffectPreviewRenderState.CanvasSketch -> state.value.clock
         }
@@ -112,6 +120,8 @@ internal object EffectPreviewStatePolicy {
                 EffectPreviewRenderState.Zoom(
                     state.value.copy(clock = safe).sanitized()
                 )
+            // Duo has no clock.
+            is EffectPreviewRenderState.Duo -> state
             is EffectPreviewRenderState.ColorFill ->
                 EffectPreviewRenderState.ColorFill(
                     state.value.copy(clock = safe).sanitized()
@@ -165,6 +175,11 @@ internal object EffectPreviewStatePolicy {
                     state.value.copy(progress = progress).sanitized()
                 )
             }
+            is EffectPreviewRenderState.Duo -> {
+                EffectPreviewRenderState.Duo(
+                    state.value.copy(progress = progress).sanitized()
+                )
+            }
             is EffectPreviewRenderState.ColorFill -> {
                 EffectPreviewRenderState.ColorFill(
                     state.value.copy(progress = progress).sanitized()
@@ -186,6 +201,7 @@ internal object EffectPreviewStatePolicy {
             is EffectPreviewRenderState.Halftone -> state.value.progress
             is EffectPreviewRenderState.Vhs -> state.value.progress
             is EffectPreviewRenderState.Zoom -> state.value.progress
+            is EffectPreviewRenderState.Duo -> state.value.progress
             is EffectPreviewRenderState.ColorFill -> state.value.progress
             is EffectPreviewRenderState.CanvasSketch -> state.value.progress
         }
@@ -207,6 +223,8 @@ internal object EffectPreviewStatePolicy {
                 EffectPreviewOpenGlFrameUpdate.Vhs(state.value.progress)
             is EffectPreviewRenderState.Zoom ->
                 EffectPreviewOpenGlFrameUpdate.Zoom(state.value.progress)
+            is EffectPreviewRenderState.Duo ->
+                EffectPreviewOpenGlFrameUpdate.Duo(state.value.progress)
             is EffectPreviewRenderState.ColorFill ->
                 EffectPreviewOpenGlFrameUpdate.ColorFill(state.value.progress)
             is EffectPreviewRenderState.CanvasSketch ->

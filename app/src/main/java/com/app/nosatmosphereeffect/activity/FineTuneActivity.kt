@@ -16,7 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
 import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.clock.ClockPageScroll
 import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
+import com.app.nosatmosphereeffect.effect.ShuffleEffects
 import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
 import com.app.nosatmosphereeffect.effect.CanvasSubjectSettings
 import com.app.nosatmosphereeffect.clock.ClockScreen
@@ -73,7 +75,11 @@ class FineTuneActivity : ComponentActivity() {
         // no longer an Atmosphere-only question.
         val supportsClock = AtmosphereClockPolicy.supportsEffect(activeEffect)
         // VHS draws its own tape grain and Zoom has none, so the film-grain switch would do nothing there.
-        val showNoiseSwitch = !isHalftone && !isColorFill && !isCanvasSketch && !isGlass && !isVhs && !isZoom
+        val isDuo = activeEffect == "DUO"
+        val isShuffle = activeEffect == ShuffleEffects.EFFECT_ID
+        // Nor on Duo, which draws two plain photos, or Shuffle, where each effect keeps its own.
+        val showNoiseSwitch = !isHalftone && !isColorFill && !isCanvasSketch && !isGlass && !isVhs && !isZoom &&
+            !isDuo && !isShuffle
         val showBlob = activeEffect == "ATMOSPHERE" || activeEffect == "ATMOSPHERE_REVERSE"
         // Every clock effect needs the subject for the clock's depth, Colour Fill and Frosted included.
         val usesSubjectModel = isCanvasSketch || isGlass || isHalftone || isAtmosphere ||
@@ -112,6 +118,8 @@ class FineTuneActivity : ComponentActivity() {
             activeEffectTitle = getString(EffectCatalog.find(activeEffect).title),
             recommendedDurationMs = defaultDuration,
             showHalftone = isHalftone,
+            showDuo = isDuo,
+            showShuffle = isShuffle,
             showColorFill = isColorFill,
             showCanvasSketch = isCanvasSketch,
             showFrosted = isFrosted,
@@ -170,6 +178,10 @@ class FineTuneActivity : ComponentActivity() {
             subjectSegmentationEnabled =
                 prefs.readBoolean(CanvasSubjectSettings.ENABLED_KEY, false),
             scrollEnabled = WallpaperFitHelper.isScrollEnabled(this),
+            clockScrollsWithPages = ClockPageScroll.isEnabled(this),
+            clockScrollFollowsSwipes = ClockPageScroll.followsSwipes(this),
+            clockScrollPages = ClockPageScroll.pages(this),
+            clockScrollLoops = ClockPageScroll.loops(this),
             rendererPreference = GraphicsBackendPreferences.read(this)
         )
 
@@ -343,8 +355,16 @@ class FineTuneActivity : ComponentActivity() {
         // Wallpaper scrolling lives in display_prefs (survives wallpaper changes).
         // Changing it alters the texture geometry, so the renderer must rebuild
         // its wallpaper texture — trigger the existing reload path.
-        val scrollChanged = WallpaperFitHelper.isScrollEnabled(this) != result.scrollEnabled
+        val wasScrolling = WallpaperFitHelper.isScrollEnabled(this)
+        ClockPageScroll.save(
+            this,
+            on = result.clockScrollsWithPages,
+            followSwipes = result.clockScrollFollowsSwipes,
+            pages = result.clockScrollPages,
+            loop = result.clockScrollLoops
+        )
         WallpaperFitHelper.setScrollEnabled(this, result.scrollEnabled)
+        val scrollChanged = wasScrolling != WallpaperFitHelper.isScrollEnabled(this)
         if (scrollChanged) {
             val reload = Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")
             reload.setPackage(packageName)

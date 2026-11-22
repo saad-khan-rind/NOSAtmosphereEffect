@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.ui.screens
 
+import com.app.nosatmosphereeffect.clock.ClockPageScroll
 import android.content.Intent
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
@@ -88,6 +89,10 @@ data class AdvancedConfig(
     val activeEffectTitle: String,
     val recommendedDurationMs: Long,
     val showHalftone: Boolean,
+    /** Duo's own group: its transition, and the home screen's photo and playlist. */
+    val showDuo: Boolean = false,
+    /** Shuffle's own group: the effects it picks from. */
+    val showShuffle: Boolean = false,
     val showColorFill: Boolean,
     val showCanvasSketch: Boolean,
     val showFrosted: Boolean,
@@ -141,6 +146,13 @@ data class AdvancedConfig(
     val halftoneBackgroundOnly: Boolean,
     val subjectSegmentationEnabled: Boolean,
     val scrollEnabled: Boolean,
+    /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
+    val clockScrollsWithPages: Boolean = false,
+    /** It follows the user's swipes, for launchers that don't report their pages. */
+    val clockScrollFollowsSwipes: Boolean = false,
+    val clockScrollPages: Int = ClockPageScroll.DEFAULT_PAGES,
+    /** The launcher's pages go round, from the last back to the first. */
+    val clockScrollLoops: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -177,6 +189,13 @@ data class AdvancedResult(
     val subjectSegmentationEnabled: Boolean,
     val rotationIndex: Int,
     val scrollEnabled: Boolean,
+    /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
+    val clockScrollsWithPages: Boolean = false,
+    /** It follows the user's swipes, for launchers that don't report their pages. */
+    val clockScrollFollowsSwipes: Boolean = false,
+    val clockScrollPages: Int = ClockPageScroll.DEFAULT_PAGES,
+    /** The launcher's pages go round, from the last back to the first. */
+    val clockScrollLoops: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -247,6 +266,11 @@ fun FineTuneScreen(
     var noiseScale by remember { mutableStateOf(config.noiseScale) }
     var noiseStrength by remember { mutableStateOf(config.noiseStrength) }
     var scrollEnabled by remember { mutableStateOf(config.scrollEnabled) }
+    var clockScrollsWithPages by remember { mutableStateOf(config.clockScrollsWithPages) }
+    var clockScrollFollowsSwipes by remember { mutableStateOf(config.clockScrollFollowsSwipes) }
+    // Typed, so any number of pages fits; read as a whole number when saved.
+    var clockScrollPagesText by remember { mutableStateOf(config.clockScrollPages.toString()) }
+    var clockScrollLoops by remember { mutableStateOf(config.clockScrollLoops) }
     var rendererPreference by remember { mutableStateOf(config.rendererPreference) }
     var infoDialog by remember { mutableStateOf<InfoDialog?>(null) }
 
@@ -325,6 +349,13 @@ fun FineTuneScreen(
         subjectSegmentationEnabled = subjectSegmentationEnabled,
         rotationIndex = rotationIndex,
         scrollEnabled = scrollEnabled,
+        clockScrollsWithPages = clockScrollsWithPages,
+        clockScrollFollowsSwipes = clockScrollFollowsSwipes,
+        // Fewer than two isn't saved: the last count stays, and the field says why.
+        clockScrollPages = clockScrollPagesText.trim().toIntOrNull()
+            ?.takeIf { it >= ClockPageScroll.MIN_PAGES }
+            ?.coerceAtMost(ClockPageScroll.MAX_PAGES) ?: config.clockScrollPages,
+        clockScrollLoops = clockScrollLoops,
         rendererPreference = rendererPreference
     )
 
@@ -477,6 +508,14 @@ fun FineTuneScreen(
                         onBlurStrengthChange = { blurStrength = it },
                         scrollEnabled = scrollEnabled,
                         onScrollEnabledChange = { scrollEnabled = it },
+                        clockScrollsWithPages = clockScrollsWithPages,
+                        onClockScrollsWithPagesChange = { clockScrollsWithPages = it },
+                        clockScrollFollowsSwipes = clockScrollFollowsSwipes,
+                        onClockScrollFollowsSwipesChange = { clockScrollFollowsSwipes = it },
+                        clockScrollPagesText = clockScrollPagesText,
+                        onClockScrollPagesTextChange = { text -> clockScrollPagesText = text.filter(Char::isDigit).take(2) },
+                        clockScrollLoops = clockScrollLoops,
+                        onClockScrollLoopsChange = { clockScrollLoops = it },
                         rendererPreference = rendererPreference,
                         onRendererPreferenceChange = { rendererPreference = it },
                         rotationIndex = rotationIndex,
@@ -803,6 +842,9 @@ private fun EffectSettings(
             }
         }
 
+        if (config.showDuo) DuoSettingsGroup()
+        if (config.showShuffle) ShuffleSettingsGroup()
+
         if (config.showHalftone) {
             SettingsGroup(stringResource(R.string.halftone_group)) {
                 LabeledSlider(
@@ -1051,9 +1093,7 @@ private fun TimingSettings(
                         }
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(
-                            when (wakeTransition.style) {
+                    val wakeHint = when (wakeTransition.style) {
                                 WakeTransitionStyle.ZOOM -> R.string.wake_zoom_hint
                                 WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill_hint
                                 WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
@@ -1068,9 +1108,15 @@ private fun TimingSettings(
                                 WakeTransitionStyle.BUBBLES -> R.string.wake_bubbles_hint
                                 WakeTransitionStyle.SCALE -> R.string.wake_scale_hint
                                 WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
-                            },
-                            stringResource(R.string.effect_color_fill_title)
-                        ),
+                            }
+                    Text(
+                        // Only Colour Fill's hint has a placeholder. Formatting the others too turned
+                        // a percent sign in a translation ("100 % de") into one, and Fine tuning crashed.
+                        if (wakeHint == R.string.wake_color_fill_hint) {
+                            stringResource(wakeHint, stringResource(R.string.effect_color_fill_title))
+                        } else {
+                            stringResource(wakeHint)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = GroupTextInset
@@ -1204,6 +1250,14 @@ private fun DisplaySettings(
     onBlurStrengthChange: (Float) -> Unit,
     scrollEnabled: Boolean,
     onScrollEnabledChange: (Boolean) -> Unit,
+    clockScrollsWithPages: Boolean,
+    onClockScrollsWithPagesChange: (Boolean) -> Unit,
+    clockScrollFollowsSwipes: Boolean,
+    onClockScrollFollowsSwipesChange: (Boolean) -> Unit,
+    clockScrollPagesText: String,
+    onClockScrollPagesTextChange: (String) -> Unit,
+    clockScrollLoops: Boolean,
+    onClockScrollLoopsChange: (Boolean) -> Unit,
     rendererPreference: GraphicsBackendPreference,
     onRendererPreferenceChange: (GraphicsBackendPreference) -> Unit,
     rotationIndex: Int,
@@ -1287,8 +1341,59 @@ private fun DisplaySettings(
                 title = stringResource(R.string.display_scrolling),
                 subtitle = "${stringResource(R.string.experimental)} ${stringResource(R.string.manualCroppingWillBeDisabled)}",
                 checked = scrollEnabled,
-                onCheckedChange = onScrollEnabledChange
+                onCheckedChange = onScrollEnabledChange,
+                // One or the other: the photo scrolls, or it holds still and the clock scrolls away.
+                enabled = !clockScrollsWithPages
             )
+            Spacer(Modifier.height(8.dp))
+            SettingSwitchRow(
+                title = stringResource(R.string.display_clock_scrolls),
+                subtitle = stringResource(R.string.display_clock_scrolls_hint),
+                checked = clockScrollsWithPages,
+                onCheckedChange = onClockScrollsWithPagesChange,
+                enabled = !scrollEnabled
+            )
+            AnimatedVisibility(visible = clockScrollsWithPages) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    SettingSwitchRow(
+                        title = stringResource(R.string.display_clock_scrolls_swipes),
+                        subtitle = stringResource(
+                            if (clockScrollFollowsSwipes) {
+                                R.string.display_clock_scrolls_swipes_on
+                            } else {
+                                R.string.display_clock_scrolls_swipes_off
+                            }
+                        ),
+                        checked = clockScrollFollowsSwipes,
+                        onCheckedChange = onClockScrollFollowsSwipesChange
+                    )
+                    AnimatedVisibility(visible = clockScrollFollowsSwipes) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            AtmoNumberField(
+                                label = stringResource(R.string.display_clock_scrolls_pages),
+                                value = clockScrollPagesText,
+                                onValueChange = onClockScrollPagesTextChange,
+                                helper = stringResource(
+                                    if ((clockScrollPagesText.trim().toIntOrNull() ?: 0) < ClockPageScroll.MIN_PAGES) {
+                                        R.string.display_clock_scrolls_pages_too_few
+                                    } else {
+                                        R.string.display_clock_scrolls_pages_hint
+                                    }
+                                )
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            SettingSwitchRow(
+                                title = stringResource(R.string.display_clock_scrolls_loop),
+                                subtitle = stringResource(R.string.display_clock_scrolls_loop_hint),
+                                checked = clockScrollLoops,
+                                onCheckedChange = onClockScrollLoopsChange
+                            )
+                        }
+                    }
+                }
+            }
         }
         if (config.isPlaylistMode) {
             SettingsGroup(stringResource(R.string.display_playlist_group)) {
