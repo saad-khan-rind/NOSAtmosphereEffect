@@ -111,6 +111,8 @@
     <string name="shuffle_direction_photo_first">Photo on the lock screen</string>
     <string name="shuffle_direction_effect_first">Effect on the lock screen</string>
     <string name="shuffle_direction_random">Random</string>
+    <string name="display_clock_scrolls">Clock scrolls with your pages</string>
+    <string name="display_clock_scrolls_hint">Swipe to another home screen page and the whole clock moves away with it, so it only shows on your first page. Wallpaper scrolling turns off while this is on.</string>
     <string name="effects_continue_with">Continue with <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>

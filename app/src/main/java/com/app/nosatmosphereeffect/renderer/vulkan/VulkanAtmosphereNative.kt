@@ -141,7 +141,7 @@ internal class VulkanAtmosphereBridge(
             backgroundOnly = safe.glassBackgroundOnly,
             hasSubject = safe.hasSubject,
             drawerBlur = safe.drawerBlur,
-            clockCenterX = safe.clockCenterX,
+            clockCenterX = safe.clockCenterX + safe.clockOverlay().pageShift(safe.progress),
             clockTop = safe.clockOverlay().renderTop,
             // Per-axis stretch is folded into these two numbers rather than
             // passed separately — see ClockOverlayState.renderHeight. Routed

@@ -441,7 +441,7 @@ private class CanvasSketchBridge(
             lineWidth = safe.lineWidth,
             scrollOffsetX = scrollOffsetX,
             scrollWindowX = scrollWindowX,
-            clockCenterX = safe.clock.centerX,
+            clockCenterX = safe.clock.centerX + safe.clock.pageShift(safe.progress),
             clockTop = safe.clock.renderTop,
             // Per-axis stretch is folded into these two numbers rather
             // than passed separately — see ClockOverlayState.renderHeight.

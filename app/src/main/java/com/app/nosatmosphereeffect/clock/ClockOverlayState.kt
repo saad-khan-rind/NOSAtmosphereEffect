@@ -176,6 +176,13 @@ data class ClockOverlayState(
      * user's own opacity already folded in. Both backends read this rather
      * than computing their own curve, which is what keeps them agreeing.
      */
+    /**
+     * How far the clock is moved along with the home screen's pages
+     * (ClockPageScroll) at [progress], in screen widths: none while locked.
+     */
+    fun pageShift(progress: Float): Float =
+        ClockPageScroll.shift(ClockScreenPolicy.unlockFraction(progress, lockedProgress, unlockedProgress))
+
     fun effectiveOpacity(progress: Float): Float {
         if (!enabled) return 0f
         return opacity * ClockScreenPolicy.visibility(

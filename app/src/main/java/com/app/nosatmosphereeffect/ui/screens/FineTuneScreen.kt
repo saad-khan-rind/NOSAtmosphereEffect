@@ -145,6 +145,8 @@ data class AdvancedConfig(
     val halftoneBackgroundOnly: Boolean,
     val subjectSegmentationEnabled: Boolean,
     val scrollEnabled: Boolean,
+    /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
+    val clockScrollsWithPages: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -181,6 +183,8 @@ data class AdvancedResult(
     val subjectSegmentationEnabled: Boolean,
     val rotationIndex: Int,
     val scrollEnabled: Boolean,
+    /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
+    val clockScrollsWithPages: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -251,6 +255,7 @@ fun FineTuneScreen(
     var noiseScale by remember { mutableStateOf(config.noiseScale) }
     var noiseStrength by remember { mutableStateOf(config.noiseStrength) }
     var scrollEnabled by remember { mutableStateOf(config.scrollEnabled) }
+    var clockScrollsWithPages by remember { mutableStateOf(config.clockScrollsWithPages) }
     var rendererPreference by remember { mutableStateOf(config.rendererPreference) }
     var infoDialog by remember { mutableStateOf<InfoDialog?>(null) }
 
@@ -329,6 +334,7 @@ fun FineTuneScreen(
         subjectSegmentationEnabled = subjectSegmentationEnabled,
         rotationIndex = rotationIndex,
         scrollEnabled = scrollEnabled,
+        clockScrollsWithPages = clockScrollsWithPages,
         rendererPreference = rendererPreference
     )
 
@@ -480,7 +486,16 @@ fun FineTuneScreen(
                         blurStrength = blurStrength,
                         onBlurStrengthChange = { blurStrength = it },
                         scrollEnabled = scrollEnabled,
-                        onScrollEnabledChange = { scrollEnabled = it },
+                        // One or the other: the photo scrolls, or it holds still and the clock scrolls away.
+                        onScrollEnabledChange = {
+                            scrollEnabled = it
+                            if (it) clockScrollsWithPages = false
+                        },
+                        clockScrollsWithPages = clockScrollsWithPages,
+                        onClockScrollsWithPagesChange = {
+                            clockScrollsWithPages = it
+                            if (it) scrollEnabled = false
+                        },
                         rendererPreference = rendererPreference,
                         onRendererPreferenceChange = { rendererPreference = it },
                         rotationIndex = rotationIndex,
@@ -1215,6 +1230,8 @@ private fun DisplaySettings(
     onBlurStrengthChange: (Float) -> Unit,
     scrollEnabled: Boolean,
     onScrollEnabledChange: (Boolean) -> Unit,
+    clockScrollsWithPages: Boolean,
+    onClockScrollsWithPagesChange: (Boolean) -> Unit,
     rendererPreference: GraphicsBackendPreference,
     onRendererPreferenceChange: (GraphicsBackendPreference) -> Unit,
     rotationIndex: Int,
@@ -1299,6 +1316,13 @@ private fun DisplaySettings(
                 subtitle = "${stringResource(R.string.experimental)} ${stringResource(R.string.manualCroppingWillBeDisabled)}",
                 checked = scrollEnabled,
                 onCheckedChange = onScrollEnabledChange
+            )
+            Spacer(Modifier.height(8.dp))
+            SettingSwitchRow(
+                title = stringResource(R.string.display_clock_scrolls),
+                subtitle = stringResource(R.string.display_clock_scrolls_hint),
+                checked = clockScrollsWithPages,
+                onCheckedChange = onClockScrollsWithPagesChange
             )
         }
         if (config.isPlaylistMode) {

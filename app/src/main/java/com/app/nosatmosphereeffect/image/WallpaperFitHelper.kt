@@ -11,6 +11,7 @@ import android.graphics.Paint
 import android.graphics.Shader
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
+import com.app.nosatmosphereeffect.clock.ClockPageScroll
 import com.app.nosatmosphereeffect.storage.FileTransactions
 import com.app.nosatmosphereeffect.wallpaper.WallpaperPostureCache
 import java.io.File
@@ -161,8 +162,9 @@ object WallpaperFitHelper {
     /** Modes other than plain screen-fill want the un-cropped source image. */
     fun needsSourceImage(mode: String): Boolean = mode != MODE_FILL
 
+    /** Off while the clock scrolls with the pages instead (ClockPageScroll): the photo then holds still. */
     fun isScrollEnabled(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_SCROLL_ENABLED, false)
+        prefs(context).getBoolean(KEY_SCROLL_ENABLED, false) && !ClockPageScroll.isEnabled(context)
 
     fun setScrollEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_SCROLL_ENABLED, enabled).apply()
