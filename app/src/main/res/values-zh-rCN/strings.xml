@@ -196,7 +196,7 @@
   <string name="wake_twirl_hint">照片从中心开始扭成漩涡，边缘保持不动，随后展开复原。</string>
   <string name="wake_fabric_hint">像被两对边拽住的布：波浪从中间涌起，扩散到两侧后平息。</string>
   <string name="wake_scale">放大展开</string>
-  <string name="wake_scale_hint">锁屏从屏幕中央的小卡片逐渐放大铺满屏幕，带一点回弹，底层是自身的柔和模糊。起始尺寸超过 100%% 时则反过来：从放大状态缩回。</string>
+  <string name="wake_scale_hint" formatted="false">锁屏从屏幕中央的小卡片逐渐放大铺满屏幕，带一点回弹，底层是自身的柔和模糊。起始尺寸超过 100% 时则反过来：从放大状态缩回。</string>
   <string name="wake_scale_start">起始尺寸</string>
   <string name="wake_bubbles_hint">一股细密气泡从屏幕底部涌上，经过时让照片产生折射，随后消散。</string>
   <string name="wake_twirl_twist">扭转程度</string>
@@ -657,4 +657,48 @@
   <string name="saved_default_name">播放列表</string>
   <string name="saved_default_name_dated">播放列表 · <xliff:g id="arg1">%1$s</xliff:g></string>
   <string name="folders_unnamed">未命名文件夹</string>
+<!-- Added after 7.4.6. -->
+  <string name="app_logo_desc">应用图标</string>
+  <string name="action_select_effect">选择特效</string>
+  <string name="action_change_effect">更换或更新特效</string>
+  <string name="image_alignment_instructions">双指缩放，拖动调整位置</string>
+  <string name="dimness_level">暗度</string>
+  <string name="update_wallpaper_dimness">更新壁纸暗度</string>
+  <string name="fine_tune">微调</string>
+  <string name="effect_duo_transition">一张照片变成另一张</string>
+  <string name="effect_duo_description">锁屏和主屏幕各用一张照片，解锁时从锁屏的照片变成主屏幕的照片。</string>
+  <string name="duo_style">转场</string>
+  <string name="duo_style_crossfade">淡入淡出</string>
+  <string name="duo_style_wipe">向上擦除</string>
+  <string name="duo_style_circle">圆形展开</string>
+  <string name="duo_style_dissolve">溶解</string>
+  <string name="duo_home_photo">主屏幕照片</string>
+  <string name="duo_home_hint">锁屏照常显示你设置的壁纸照片。在这里选择主屏幕要显示的照片。</string>
+  <string name="duo_home_none">还没有选择，所以两个屏幕都显示锁屏的照片。</string>
+  <string name="duo_home_pick">选择照片</string>
+  <string name="duo_home_change">更换照片</string>
+  <string name="duo_home_playlist">主屏幕播放列表</string>
+  <string name="duo_home_playlist_hint">添加多张照片后，每次锁屏时主屏幕都会随机换一张。</string>
+  <string name="duo_home_add">添加照片</string>
+  <string name="duo_home_clear">全部移除</string>
+  <string name="duo_home_failed">无法打开这张照片。</string>
+  <plurals name="duo_home_count">
+    <item quantity="other">播放列表中有 %d 张照片</item>
+  </plurals>
+  <string name="effect_shuffle_transition">每次换一种特效</string>
+  <string name="effect_shuffle_description">每次锁屏后，壁纸都会换上另一种特效，并沿用你为每种特效做的设置。</string>
+  <string name="shuffle_hint">Shuffle 会从这些特效中挑选。每种特效都保留它自己的微调设置。</string>
+  <string name="shuffle_direction_photo_first">锁屏显示照片</string>
+  <string name="shuffle_direction_effect_first">锁屏显示特效</string>
+  <string name="shuffle_direction_random">随机</string>
+  <string name="display_clock_scrolls">时钟随页面滚动</string>
+  <string name="display_clock_scrolls_hint">滑到主屏幕的其他页面时，整个时钟会随页面移走，只在第一页显示。开启后壁纸滚动会关闭。</string>
+  <string name="subject_unusable_answer">谷歌的主体识别模型对这张照片给出了无法使用的结果（把整张图都标成了主体）。这是模型的问题，不是你的照片的问题。点重试，或换一张照片试试。</string>
+  <string name="subject_model_missing">这台手机上还没有谷歌的主体识别模型。可以在微调中点“下载主体识别模型”按钮下载。</string>
+  <string name="subject_no_result">模型没有返回结果</string>
+  <string name="subject_unexpected_result">模型返回了意料之外的结果</string>
+  <string name="subject_too_large">主体占了照片的太大部分（<xliff:g id="percent" example="80%">%1$s</xliff:g>）。换一张露出更多背景的照片试试。</string>
+  <string name="subject_not_found">在这张照片里找不到清晰的主体</string>
+  <string name="subject_unclear">找到了一些东西，但不够清晰，无法使用</string>
+  <string name="subject_too_small">主体太小或太细，无法使用</string>
 </resources>
