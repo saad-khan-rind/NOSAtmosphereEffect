@@ -13,6 +13,7 @@ import com.app.nosatmosphereeffect.clock.ClockBoxPlacement
 import com.app.nosatmosphereeffect.clock.ClockFont
 import com.app.nosatmosphereeffect.clock.ClockOverlayState
 import com.app.nosatmosphereeffect.clock.ClockScreen
+import com.app.nosatmosphereeffect.clock.ClockPageScroll
 import com.app.nosatmosphereeffect.clock.ClockScreenPolicy
 import com.app.nosatmosphereeffect.clock.ClockStyle
 import com.app.nosatmosphereeffect.clock.ClockTextureProvider
@@ -860,7 +861,9 @@ class AtmosphereRenderer(
         )
         GLES30.glUniform4f(
             GLES30.glGetUniformLocation(programId, "uClockRect"),
-            texture.left,
+            texture.left + ClockPageScroll.shift(
+                ClockScreenPolicy.unlockFraction(blurStrength, clockLockedProgress, clockUnlockedProgress)
+            ),
             texture.top,
             texture.width,
             texture.height

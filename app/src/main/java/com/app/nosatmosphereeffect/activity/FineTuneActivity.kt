@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
 import com.app.nosatmosphereeffect.R
+import com.app.nosatmosphereeffect.clock.ClockPageScroll
 import com.app.nosatmosphereeffect.clock.AtmosphereClockPolicy
 import com.app.nosatmosphereeffect.effect.ShuffleEffects
 import com.app.nosatmosphereeffect.effect.AtmosphereGlassPolicy
@@ -177,6 +178,7 @@ class FineTuneActivity : ComponentActivity() {
             subjectSegmentationEnabled =
                 prefs.readBoolean(CanvasSubjectSettings.ENABLED_KEY, false),
             scrollEnabled = WallpaperFitHelper.isScrollEnabled(this),
+            clockScrollsWithPages = ClockPageScroll.isEnabled(this),
             rendererPreference = GraphicsBackendPreferences.read(this)
         )
 
@@ -350,8 +352,10 @@ class FineTuneActivity : ComponentActivity() {
         // Wallpaper scrolling lives in display_prefs (survives wallpaper changes).
         // Changing it alters the texture geometry, so the renderer must rebuild
         // its wallpaper texture — trigger the existing reload path.
-        val scrollChanged = WallpaperFitHelper.isScrollEnabled(this) != result.scrollEnabled
+        val wasScrolling = WallpaperFitHelper.isScrollEnabled(this)
+        ClockPageScroll.setEnabled(this, result.clockScrollsWithPages)
         WallpaperFitHelper.setScrollEnabled(this, result.scrollEnabled)
+        val scrollChanged = wasScrolling != WallpaperFitHelper.isScrollEnabled(this)
         if (scrollChanged) {
             val reload = Intent("com.app.nosatmosphereeffect.RELOAD_WALLPAPER")
             reload.setPackage(packageName)

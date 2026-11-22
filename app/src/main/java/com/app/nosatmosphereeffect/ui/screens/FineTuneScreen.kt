@@ -145,6 +145,8 @@ data class AdvancedConfig(
     val halftoneBackgroundOnly: Boolean,
     val subjectSegmentationEnabled: Boolean,
     val scrollEnabled: Boolean,
+    /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
+    val clockScrollsWithPages: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -181,6 +183,8 @@ data class AdvancedResult(
     val subjectSegmentationEnabled: Boolean,
     val rotationIndex: Int,
     val scrollEnabled: Boolean,
+    /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
+    val clockScrollsWithPages: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -251,6 +255,7 @@ fun FineTuneScreen(
     var noiseScale by remember { mutableStateOf(config.noiseScale) }
     var noiseStrength by remember { mutableStateOf(config.noiseStrength) }
     var scrollEnabled by remember { mutableStateOf(config.scrollEnabled) }
+    var clockScrollsWithPages by remember { mutableStateOf(config.clockScrollsWithPages) }
     var rendererPreference by remember { mutableStateOf(config.rendererPreference) }
     var infoDialog by remember { mutableStateOf<InfoDialog?>(null) }
 
@@ -329,6 +334,7 @@ fun FineTuneScreen(
         subjectSegmentationEnabled = subjectSegmentationEnabled,
         rotationIndex = rotationIndex,
         scrollEnabled = scrollEnabled,
+        clockScrollsWithPages = clockScrollsWithPages,
         rendererPreference = rendererPreference
     )
 
@@ -480,7 +486,16 @@ fun FineTuneScreen(
                         blurStrength = blurStrength,
                         onBlurStrengthChange = { blurStrength = it },
                         scrollEnabled = scrollEnabled,
-                        onScrollEnabledChange = { scrollEnabled = it },
+                        // One or the other: the photo scrolls, or it holds still and the clock scrolls away.
+                        onScrollEnabledChange = {
+                            scrollEnabled = it
+                            if (it) clockScrollsWithPages = false
+                        },
+                        clockScrollsWithPages = clockScrollsWithPages,
+                        onClockScrollsWithPagesChange = {
+                            clockScrollsWithPages = it
+                            if (it) scrollEnabled = false
+                        },
                         rendererPreference = rendererPreference,
                         onRendererPreferenceChange = { rendererPreference = it },
                         rotationIndex = rotationIndex,
@@ -1058,9 +1073,7 @@ private fun TimingSettings(
                         }
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(
-                            when (wakeTransition.style) {
+                    val wakeHint = when (wakeTransition.style) {
                                 WakeTransitionStyle.ZOOM -> R.string.wake_zoom_hint
                                 WakeTransitionStyle.COLOR_FILL -> R.string.wake_color_fill_hint
                                 WakeTransitionStyle.BLUR -> R.string.wake_blur_hint
@@ -1075,9 +1088,15 @@ private fun TimingSettings(
                                 WakeTransitionStyle.BUBBLES -> R.string.wake_bubbles_hint
                                 WakeTransitionStyle.SCALE -> R.string.wake_scale_hint
                                 WakeTransitionStyle.RANDOM -> R.string.wake_random_hint
-                            },
-                            stringResource(R.string.effect_color_fill_title)
-                        ),
+                            }
+                    Text(
+                        // Only Colour Fill's hint has a placeholder. Formatting the others too turned
+                        // a percent sign in a translation ("100 % de") into one, and Fine tuning crashed.
+                        if (wakeHint == R.string.wake_color_fill_hint) {
+                            stringResource(wakeHint, stringResource(R.string.effect_color_fill_title))
+                        } else {
+                            stringResource(wakeHint)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = GroupTextInset
@@ -1211,6 +1230,8 @@ private fun DisplaySettings(
     onBlurStrengthChange: (Float) -> Unit,
     scrollEnabled: Boolean,
     onScrollEnabledChange: (Boolean) -> Unit,
+    clockScrollsWithPages: Boolean,
+    onClockScrollsWithPagesChange: (Boolean) -> Unit,
     rendererPreference: GraphicsBackendPreference,
     onRendererPreferenceChange: (GraphicsBackendPreference) -> Unit,
     rotationIndex: Int,
@@ -1295,6 +1316,13 @@ private fun DisplaySettings(
                 subtitle = "${stringResource(R.string.experimental)} ${stringResource(R.string.manualCroppingWillBeDisabled)}",
                 checked = scrollEnabled,
                 onCheckedChange = onScrollEnabledChange
+            )
+            Spacer(Modifier.height(8.dp))
+            SettingSwitchRow(
+                title = stringResource(R.string.display_clock_scrolls),
+                subtitle = stringResource(R.string.display_clock_scrolls_hint),
+                checked = clockScrollsWithPages,
+                onCheckedChange = onClockScrollsWithPagesChange
             )
         }
         if (config.isPlaylistMode) {

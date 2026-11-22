@@ -111,6 +111,8 @@
     <string name="shuffle_direction_photo_first">Photo on the lock screen</string>
     <string name="shuffle_direction_effect_first">Effect on the lock screen</string>
     <string name="shuffle_direction_random">Random</string>
+    <string name="display_clock_scrolls">Clock scrolls with your pages</string>
+    <string name="display_clock_scrolls_hint">Swipe to another home screen page and the whole clock moves away with it, so it only shows on your first page. Wallpaper scrolling turns off while this is on.</string>
     <string name="effects_continue_with">Continue with <xliff:g id="arg1">%1$s</xliff:g></string>
     <string name="effects_title">Effects</string>
     <string name="effects_direction">Direction</string>
@@ -260,7 +262,7 @@
     <string name="wake_twirl_hint">The photo starts twisted into a swirl from the centre, with the edges held in place, and unwinds flat.</string>
     <string name="wake_fabric_hint">Like a cloth snapped by two opposite edges: a wave starts in the middle, runs out to both edges and settles.</string>
     <string name="wake_scale">Scale up</string>
-    <string name="wake_scale_hint">The lock screen grows out of a small card in the middle of the screen until it fills it, with a slight bounce, over a soft blur of itself. A start size above 100%% starts zoomed in and settles back instead.</string>
+    <string name="wake_scale_hint" formatted="false">The lock screen grows out of a small card in the middle of the screen until it fills it, with a slight bounce, over a soft blur of itself. A start size above 100% starts zoomed in and settles back instead.</string>
     <string name="wake_scale_start">Start size</string>
     <string name="wake_bubbles_hint">A rush of tiny fizzing bubbles surges up from the bottom of the screen, bending the photo as it passes, and then is gone.</string>
     <string name="wake_twirl_twist">Twist</string>

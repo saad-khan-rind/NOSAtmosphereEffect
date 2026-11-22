@@ -15,6 +15,7 @@ import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.color.PaletteSyncDiagnostics
 import com.app.nosatmosphereeffect.color.SystemColorSyncPreferences
 import com.app.nosatmosphereeffect.color.WallpaperColorExtractor
+import com.app.nosatmosphereeffect.clock.ClockPageScroll
 import com.app.nosatmosphereeffect.image.WallpaperFitHelper
 import com.app.nosatmosphereeffect.transition.WakePostRenderer
 import java.io.File
@@ -82,6 +83,7 @@ abstract class GLWallpaperService : WallpaperService() {
         private var visibilityKnown = false
         private var engineVisible = false
         private var wallpaperOffset = 0.5f
+        private var wallpaperOffsetStep = 0f
         private val publishSystemColors = Runnable {
             requestSystemColorExtraction(invalidateCache = true)
         }
@@ -423,6 +425,8 @@ abstract class GLWallpaperService : WallpaperService() {
         ) {
             super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixelOffset, yPixelOffset)
             wallpaperOffset = xOffset.coerceIn(0f, 1f)
+            wallpaperOffsetStep = xOffsetStep
+            if (!isPreview) ClockPageScroll.onOffsets(this@GLWallpaperService, xOffset, xOffsetStep, isVisible)
             dispatchToHost("updating the wallpaper offset") {
                 it.setWallpaperOffset(wallpaperOffset)
             }
@@ -430,6 +434,9 @@ abstract class GLWallpaperService : WallpaperService() {
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
+            if (!isPreview) {
+                ClockPageScroll.onOffsets(this@GLWallpaperService, wallpaperOffset, wallpaperOffsetStep, visible)
+            }
             super.onVisibilityChanged(visible)
             visibilityKnown = true
             engineVisible = visible
