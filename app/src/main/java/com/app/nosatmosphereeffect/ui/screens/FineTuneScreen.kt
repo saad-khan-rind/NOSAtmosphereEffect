@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.ui.screens
 
+import com.app.nosatmosphereeffect.clock.ClockPageScroll
 import android.content.Intent
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
@@ -147,6 +148,9 @@ data class AdvancedConfig(
     val scrollEnabled: Boolean,
     /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
     val clockScrollsWithPages: Boolean = false,
+    /** It follows the user's swipes, for launchers that don't report their pages. */
+    val clockScrollFollowsSwipes: Boolean = false,
+    val clockScrollPages: Int = ClockPageScroll.DEFAULT_PAGES,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -185,6 +189,9 @@ data class AdvancedResult(
     val scrollEnabled: Boolean,
     /** The clock scrolling away with the home screen's pages (ClockPageScroll). */
     val clockScrollsWithPages: Boolean = false,
+    /** It follows the user's swipes, for launchers that don't report their pages. */
+    val clockScrollFollowsSwipes: Boolean = false,
+    val clockScrollPages: Int = ClockPageScroll.DEFAULT_PAGES,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -256,6 +263,8 @@ fun FineTuneScreen(
     var noiseStrength by remember { mutableStateOf(config.noiseStrength) }
     var scrollEnabled by remember { mutableStateOf(config.scrollEnabled) }
     var clockScrollsWithPages by remember { mutableStateOf(config.clockScrollsWithPages) }
+    var clockScrollFollowsSwipes by remember { mutableStateOf(config.clockScrollFollowsSwipes) }
+    var clockScrollPages by remember { mutableIntStateOf(config.clockScrollPages) }
     var rendererPreference by remember { mutableStateOf(config.rendererPreference) }
     var infoDialog by remember { mutableStateOf<InfoDialog?>(null) }
 
@@ -335,6 +344,8 @@ fun FineTuneScreen(
         rotationIndex = rotationIndex,
         scrollEnabled = scrollEnabled,
         clockScrollsWithPages = clockScrollsWithPages,
+        clockScrollFollowsSwipes = clockScrollFollowsSwipes,
+        clockScrollPages = clockScrollPages,
         rendererPreference = rendererPreference
     )
 
@@ -486,16 +497,13 @@ fun FineTuneScreen(
                         blurStrength = blurStrength,
                         onBlurStrengthChange = { blurStrength = it },
                         scrollEnabled = scrollEnabled,
-                        // One or the other: the photo scrolls, or it holds still and the clock scrolls away.
-                        onScrollEnabledChange = {
-                            scrollEnabled = it
-                            if (it) clockScrollsWithPages = false
-                        },
+                        onScrollEnabledChange = { scrollEnabled = it },
                         clockScrollsWithPages = clockScrollsWithPages,
-                        onClockScrollsWithPagesChange = {
-                            clockScrollsWithPages = it
-                            if (it) scrollEnabled = false
-                        },
+                        onClockScrollsWithPagesChange = { clockScrollsWithPages = it },
+                        clockScrollFollowsSwipes = clockScrollFollowsSwipes,
+                        onClockScrollFollowsSwipesChange = { clockScrollFollowsSwipes = it },
+                        clockScrollPages = clockScrollPages,
+                        onClockScrollPagesChange = { clockScrollPages = it },
                         rendererPreference = rendererPreference,
                         onRendererPreferenceChange = { rendererPreference = it },
                         rotationIndex = rotationIndex,
@@ -1232,6 +1240,10 @@ private fun DisplaySettings(
     onScrollEnabledChange: (Boolean) -> Unit,
     clockScrollsWithPages: Boolean,
     onClockScrollsWithPagesChange: (Boolean) -> Unit,
+    clockScrollFollowsSwipes: Boolean,
+    onClockScrollFollowsSwipesChange: (Boolean) -> Unit,
+    clockScrollPages: Int,
+    onClockScrollPagesChange: (Int) -> Unit,
     rendererPreference: GraphicsBackendPreference,
     onRendererPreferenceChange: (GraphicsBackendPreference) -> Unit,
     rotationIndex: Int,
@@ -1315,15 +1327,48 @@ private fun DisplaySettings(
                 title = stringResource(R.string.display_scrolling),
                 subtitle = "${stringResource(R.string.experimental)} ${stringResource(R.string.manualCroppingWillBeDisabled)}",
                 checked = scrollEnabled,
-                onCheckedChange = onScrollEnabledChange
+                onCheckedChange = onScrollEnabledChange,
+                // One or the other: the photo scrolls, or it holds still and the clock scrolls away.
+                enabled = !clockScrollsWithPages
             )
             Spacer(Modifier.height(8.dp))
             SettingSwitchRow(
                 title = stringResource(R.string.display_clock_scrolls),
                 subtitle = stringResource(R.string.display_clock_scrolls_hint),
                 checked = clockScrollsWithPages,
-                onCheckedChange = onClockScrollsWithPagesChange
+                onCheckedChange = onClockScrollsWithPagesChange,
+                enabled = !scrollEnabled
             )
+            AnimatedVisibility(visible = clockScrollsWithPages) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    SettingSwitchRow(
+                        title = stringResource(R.string.display_clock_scrolls_swipes),
+                        subtitle = stringResource(
+                            if (clockScrollFollowsSwipes) {
+                                R.string.display_clock_scrolls_swipes_on
+                            } else {
+                                R.string.display_clock_scrolls_swipes_off
+                            }
+                        ),
+                        checked = clockScrollFollowsSwipes,
+                        onCheckedChange = onClockScrollFollowsSwipesChange
+                    )
+                    AnimatedVisibility(visible = clockScrollFollowsSwipes) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            LabeledSlider(
+                                label = stringResource(R.string.display_clock_scrolls_pages),
+                                value = clockScrollPages.toFloat(),
+                                onValueChange = { onClockScrollPagesChange(it.roundToInt()) },
+                                valueRange = 2f..ClockPageScroll.MAX_PAGES.toFloat(),
+                                step = 1f,
+                                valueText = { it.roundToInt().toString() }
+                            )
+                        }
+                    }
+                }
+            }
         }
         if (config.isPlaylistMode) {
             SettingsGroup(stringResource(R.string.display_playlist_group)) {

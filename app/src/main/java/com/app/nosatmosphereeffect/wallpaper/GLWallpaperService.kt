@@ -1,5 +1,6 @@
 package com.app.nosatmosphereeffect.wallpaper
 
+import android.app.KeyguardManager
 import android.app.WallpaperColors
 import android.content.ComponentCallbacks2
 import android.content.Context
@@ -8,9 +9,13 @@ import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.service.wallpaper.WallpaperService
 import android.util.Log
+import android.view.Choreographer
+import android.view.MotionEvent
 import android.view.SurfaceHolder
+import android.view.ViewConfiguration
 import com.app.nosatmosphereeffect.R
 import com.app.nosatmosphereeffect.color.PaletteSyncDiagnostics
 import com.app.nosatmosphereeffect.color.SystemColorSyncPreferences
@@ -94,6 +99,8 @@ abstract class GLWallpaperService : WallpaperService() {
             rendererLifecycle.reset()
             surfaceHolder.setFormat(PixelFormat.OPAQUE)
             setOffsetNotificationsEnabled(true)
+            // The home screen's swipes, for a clock that follows them (ClockPageScroll).
+            if (!isPreview) setTouchEventsEnabled(true)
             requestSystemColorExtraction(invalidateCache = true)
         }
 
@@ -415,6 +422,91 @@ abstract class GLWallpaperService : WallpaperService() {
             }
         }
 
+        // A sideways swipe on the home screen, for a clock that follows swipes (ClockPageScroll).
+        private var swipeTracking = false
+        private var swipeSideways = false
+        private var swipeDownX = 0f
+        private var swipeDownY = 0f
+        private var swipeDownTime = 0L
+
+        override fun onTouchEvent(event: MotionEvent) {
+            super.onTouchEvent(event)
+            if (isPreview) return
+            val context = this@GLWallpaperService
+            if (!ClockPageScroll.isEnabled(context) || !ClockPageScroll.followsSwipes(context)) return
+            val width = surfaceWidth
+            val pages = ClockPageScroll.pages(context)
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    // Swipes on the lock screen (its widgets, unlocking) aren't the home screen's pages.
+                    swipeTracking = width > 0 && !isKeyguardLocked()
+                    swipeSideways = false
+                    swipeDownX = event.x
+                    swipeDownY = event.y
+                    swipeDownTime = event.eventTime
+                }
+                MotionEvent.ACTION_MOVE -> if (swipeTracking) {
+                    val dx = event.x - swipeDownX
+                    val dy = event.y - swipeDownY
+                    if (!swipeSideways) {
+                        val slop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+                        if (ClockPageScroll.isSideways(dx, dy, slop)) {
+                            swipeSideways = true
+                        } else if (kotlin.math.abs(dy) > slop) {
+                            // Up or down first: the app drawer or the shade, not a page.
+                            swipeTracking = false
+                        }
+                    }
+                    if (swipeSideways) {
+                        ClockPageScroll.onSwipeDrag(dx / width)
+                        requestRender()
+                    }
+                }
+                MotionEvent.ACTION_UP -> if (swipeTracking) {
+                    swipeTracking = false
+                    val delta = ClockPageScroll.pageDelta(
+                        dx = event.x - swipeDownX,
+                        dy = event.y - swipeDownY,
+                        durationMs = event.eventTime - swipeDownTime,
+                        width = width
+                    )
+                    if (swipeSideways || delta != 0) {
+                        ClockPageScroll.onSwipeEnd(delta, pages)
+                        settleFrames()
+                    }
+                }
+                // A second finger (the overview pinch) or a cancelled touch: no page turned.
+                MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> if (swipeTracking) {
+                    swipeTracking = false
+                    if (swipeSideways) {
+                        ClockPageScroll.onSwipeEnd(0, pages)
+                        settleFrames()
+                    }
+                }
+            }
+        }
+
+        private val settleFrame = object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                requestRender()
+                if (ClockPageScroll.settling()) Choreographer.getInstance().postFrameCallback(this)
+            }
+        }
+
+        /** Draws the clock settling onto its page, frame by frame. */
+        private fun settleFrames() {
+            Choreographer.getInstance().removeFrameCallback(settleFrame)
+            Choreographer.getInstance().postFrameCallback(settleFrame)
+        }
+
+        private fun isKeyguardLocked(): Boolean = runCatching {
+            getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        }.getOrDefault(false)
+
+        private fun isInteractive(): Boolean = runCatching {
+            getSystemService(PowerManager::class.java).isInteractive
+        }.getOrDefault(true)
+
         override fun onOffsetsChanged(
             xOffset: Float,
             yOffset: Float,
@@ -436,6 +528,8 @@ abstract class GLWallpaperService : WallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             if (!isPreview) {
                 ClockPageScroll.onOffsets(this@GLWallpaperService, wallpaperOffset, wallpaperOffsetStep, visible)
+                // Hidden by the screen turning off: the next home screen is counted from the first page.
+                if (!visible && !isInteractive()) ClockPageScroll.resetToFirstPage()
             }
             super.onVisibilityChanged(visible)
             visibilityKnown = true

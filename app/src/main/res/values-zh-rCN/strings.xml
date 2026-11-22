@@ -692,7 +692,11 @@
   <string name="shuffle_direction_effect_first">锁屏显示特效</string>
   <string name="shuffle_direction_random">随机</string>
   <string name="display_clock_scrolls">时钟随页面滚动</string>
-  <string name="display_clock_scrolls_hint">滑到主屏幕的其他页面时，整个时钟会随页面移走，只在第一页显示。开启后壁纸滚动会关闭。</string>
+  <string name="display_clock_scrolls_hint">滑到主屏幕的其他页面时，整个时钟会随页面移走，只在第一页显示。不能与壁纸滚动同时开启。</string>
+  <string name="display_clock_scrolls_swipes">跟随我的滑动</string>
+  <string name="display_clock_scrolls_swipes_off">如果切换页面时时钟不动，请开启此项。有些启动器（比如三星的）不会告诉壁纸你在哪一页，开启后时钟会改为跟随你的滑动。</string>
+  <string name="display_clock_scrolls_swipes_on">时钟会跟随你的滑动并自己计算页数，每次屏幕关闭后都会从第一页重新开始。如果对不上了（比如按主页键回到第一页之后），锁屏再解锁一次就会恢复。</string>
+  <string name="display_clock_scrolls_pages">主屏幕页数</string>
   <string name="subject_unusable_answer">谷歌的主体识别模型对这张照片给出了无法使用的结果（把整张图都标成了主体）。这是模型的问题，不是你的照片的问题。点重试，或换一张照片试试。</string>
   <string name="subject_model_missing">这台手机上还没有谷歌的主体识别模型。可以在微调中点“下载主体识别模型”按钮下载。</string>
   <string name="subject_no_result">模型没有返回结果</string>
