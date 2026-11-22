@@ -436,6 +436,7 @@ abstract class GLWallpaperService : WallpaperService() {
             if (!ClockPageScroll.isEnabled(context) || !ClockPageScroll.followsSwipes(context)) return
             val width = surfaceWidth
             val pages = ClockPageScroll.pages(context)
+            val loop = ClockPageScroll.loops(context)
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     // Swipes on the lock screen (its widgets, unlocking) aren't the home screen's pages.
@@ -471,7 +472,7 @@ abstract class GLWallpaperService : WallpaperService() {
                         width = width
                     )
                     if (swipeSideways || delta != 0) {
-                        ClockPageScroll.onSwipeEnd(delta, pages)
+                        ClockPageScroll.onSwipeEnd(delta, pages, loop)
                         settleFrames()
                     }
                 }
@@ -479,7 +480,7 @@ abstract class GLWallpaperService : WallpaperService() {
                 MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> if (swipeTracking) {
                     swipeTracking = false
                     if (swipeSideways) {
-                        ClockPageScroll.onSwipeEnd(0, pages)
+                        ClockPageScroll.onSwipeEnd(0, pages, loop)
                         settleFrames()
                     }
                 }

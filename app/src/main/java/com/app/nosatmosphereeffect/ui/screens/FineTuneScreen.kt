@@ -151,6 +151,8 @@ data class AdvancedConfig(
     /** It follows the user's swipes, for launchers that don't report their pages. */
     val clockScrollFollowsSwipes: Boolean = false,
     val clockScrollPages: Int = ClockPageScroll.DEFAULT_PAGES,
+    /** The launcher's pages go round, from the last back to the first. */
+    val clockScrollLoops: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -192,6 +194,8 @@ data class AdvancedResult(
     /** It follows the user's swipes, for launchers that don't report their pages. */
     val clockScrollFollowsSwipes: Boolean = false,
     val clockScrollPages: Int = ClockPageScroll.DEFAULT_PAGES,
+    /** The launcher's pages go round, from the last back to the first. */
+    val clockScrollLoops: Boolean = false,
     val rendererPreference: GraphicsBackendPreference
 )
 
@@ -264,7 +268,9 @@ fun FineTuneScreen(
     var scrollEnabled by remember { mutableStateOf(config.scrollEnabled) }
     var clockScrollsWithPages by remember { mutableStateOf(config.clockScrollsWithPages) }
     var clockScrollFollowsSwipes by remember { mutableStateOf(config.clockScrollFollowsSwipes) }
-    var clockScrollPages by remember { mutableIntStateOf(config.clockScrollPages) }
+    // Typed, so any number of pages fits; read as a whole number when saved.
+    var clockScrollPagesText by remember { mutableStateOf(config.clockScrollPages.toString()) }
+    var clockScrollLoops by remember { mutableStateOf(config.clockScrollLoops) }
     var rendererPreference by remember { mutableStateOf(config.rendererPreference) }
     var infoDialog by remember { mutableStateOf<InfoDialog?>(null) }
 
@@ -345,7 +351,11 @@ fun FineTuneScreen(
         scrollEnabled = scrollEnabled,
         clockScrollsWithPages = clockScrollsWithPages,
         clockScrollFollowsSwipes = clockScrollFollowsSwipes,
-        clockScrollPages = clockScrollPages,
+        // Fewer than two isn't saved: the last count stays, and the field says why.
+        clockScrollPages = clockScrollPagesText.trim().toIntOrNull()
+            ?.takeIf { it >= ClockPageScroll.MIN_PAGES }
+            ?.coerceAtMost(ClockPageScroll.MAX_PAGES) ?: config.clockScrollPages,
+        clockScrollLoops = clockScrollLoops,
         rendererPreference = rendererPreference
     )
 
@@ -502,8 +512,10 @@ fun FineTuneScreen(
                         onClockScrollsWithPagesChange = { clockScrollsWithPages = it },
                         clockScrollFollowsSwipes = clockScrollFollowsSwipes,
                         onClockScrollFollowsSwipesChange = { clockScrollFollowsSwipes = it },
-                        clockScrollPages = clockScrollPages,
-                        onClockScrollPagesChange = { clockScrollPages = it },
+                        clockScrollPagesText = clockScrollPagesText,
+                        onClockScrollPagesTextChange = { text -> clockScrollPagesText = text.filter(Char::isDigit).take(2) },
+                        clockScrollLoops = clockScrollLoops,
+                        onClockScrollLoopsChange = { clockScrollLoops = it },
                         rendererPreference = rendererPreference,
                         onRendererPreferenceChange = { rendererPreference = it },
                         rotationIndex = rotationIndex,
@@ -1242,8 +1254,10 @@ private fun DisplaySettings(
     onClockScrollsWithPagesChange: (Boolean) -> Unit,
     clockScrollFollowsSwipes: Boolean,
     onClockScrollFollowsSwipesChange: (Boolean) -> Unit,
-    clockScrollPages: Int,
-    onClockScrollPagesChange: (Int) -> Unit,
+    clockScrollPagesText: String,
+    onClockScrollPagesTextChange: (String) -> Unit,
+    clockScrollLoops: Boolean,
+    onClockScrollLoopsChange: (Boolean) -> Unit,
     rendererPreference: GraphicsBackendPreference,
     onRendererPreferenceChange: (GraphicsBackendPreference) -> Unit,
     rotationIndex: Int,
@@ -1357,13 +1371,24 @@ private fun DisplaySettings(
                     AnimatedVisibility(visible = clockScrollFollowsSwipes) {
                         Column {
                             Spacer(Modifier.height(8.dp))
-                            LabeledSlider(
+                            AtmoNumberField(
                                 label = stringResource(R.string.display_clock_scrolls_pages),
-                                value = clockScrollPages.toFloat(),
-                                onValueChange = { onClockScrollPagesChange(it.roundToInt()) },
-                                valueRange = 2f..ClockPageScroll.MAX_PAGES.toFloat(),
-                                step = 1f,
-                                valueText = { it.roundToInt().toString() }
+                                value = clockScrollPagesText,
+                                onValueChange = onClockScrollPagesTextChange,
+                                helper = stringResource(
+                                    if ((clockScrollPagesText.trim().toIntOrNull() ?: 0) < ClockPageScroll.MIN_PAGES) {
+                                        R.string.display_clock_scrolls_pages_too_few
+                                    } else {
+                                        R.string.display_clock_scrolls_pages_hint
+                                    }
+                                )
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            SettingSwitchRow(
+                                title = stringResource(R.string.display_clock_scrolls_loop),
+                                subtitle = stringResource(R.string.display_clock_scrolls_loop_hint),
+                                checked = clockScrollLoops,
+                                onCheckedChange = onClockScrollLoopsChange
                             )
                         }
                     }

@@ -181,6 +181,7 @@ class FineTuneActivity : ComponentActivity() {
             clockScrollsWithPages = ClockPageScroll.isEnabled(this),
             clockScrollFollowsSwipes = ClockPageScroll.followsSwipes(this),
             clockScrollPages = ClockPageScroll.pages(this),
+            clockScrollLoops = ClockPageScroll.loops(this),
             rendererPreference = GraphicsBackendPreferences.read(this)
         )
 
@@ -359,7 +360,8 @@ class FineTuneActivity : ComponentActivity() {
             this,
             on = result.clockScrollsWithPages,
             followSwipes = result.clockScrollFollowsSwipes,
-            pages = result.clockScrollPages
+            pages = result.clockScrollPages,
+            loop = result.clockScrollLoops
         )
         WallpaperFitHelper.setScrollEnabled(this, result.scrollEnabled)
         val scrollChanged = wasScrolling != WallpaperFitHelper.isScrollEnabled(this)

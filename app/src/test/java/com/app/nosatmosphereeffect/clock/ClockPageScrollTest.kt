@@ -48,10 +48,22 @@ class ClockPageScrollTest {
 
     @Test
     fun `the clock follows the finger but not past the first or last page`() {
-        // On the first page, dragging right moves nothing: the launcher doesn't either.
-        assertEquals(0f, ClockPageScroll.swipeShift(page = 0, drag = 0.3f, pages = 3), 1e-6f)
-        assertEquals(-0.3f, ClockPageScroll.swipeShift(page = 0, drag = -0.3f, pages = 3), 1e-6f)
-        assertEquals(-2f, ClockPageScroll.swipeShift(page = 2, drag = -0.5f, pages = 3), 1e-6f)
+        // Dragging right on the first page (position below 0) moves nothing: the launcher doesn't either.
+        assertEquals(0f, ClockPageScroll.shiftAt(-0.3f, pages = 3, loop = false), 1e-6f)
+        assertEquals(-0.3f, ClockPageScroll.shiftAt(0.3f, pages = 3, loop = false), 1e-6f)
+        assertEquals(-2f, ClockPageScroll.shiftAt(2.5f, pages = 3, loop = false), 1e-6f)
+    }
+
+    @Test
+    fun `when the pages loop, the clock comes back in from the right past the last page`() {
+        // Three pages: half way from the last page round to the first.
+        assertEquals(0.5f, ClockPageScroll.shiftAt(2.5f, pages = 3, loop = true), 1e-6f)
+        // Arrived back on the first page, a full turn round.
+        assertEquals(0f, ClockPageScroll.shiftAt(3f, pages = 3, loop = true), 1e-6f)
+        // Dragging right from the first page shows the last coming in: the clock leaves to the right.
+        assertEquals(0.4f, ClockPageScroll.shiftAt(-0.4f, pages = 3, loop = true), 1e-6f)
+        // On the second page the clock is a width to the left, as without looping.
+        assertEquals(-1f, ClockPageScroll.shiftAt(1f, pages = 3, loop = true), 1e-6f)
     }
 
     @Test
@@ -59,5 +71,11 @@ class ClockPageScrollTest {
         assertEquals(true, ClockPageScroll.isSideways(dx = 40f, dy = 10f, slop = 20f))
         assertEquals(false, ClockPageScroll.isSideways(dx = 40f, dy = 40f, slop = 20f))
         assertEquals(false, ClockPageScroll.isSideways(dx = 10f, dy = 0f, slop = 20f))
+    }
+
+    @Test
+    fun `one page never moves the clock, looping or not`() {
+        assertEquals(0f, ClockPageScroll.shiftAt(0f, pages = 1, loop = false), 1e-6f)
+        assertEquals(0f, ClockPageScroll.shiftAt(1f, pages = 1, loop = true), 1e-6f)
     }
 }

@@ -15,8 +15,9 @@ import kotlin.math.abs
  *  - the launcher's page offsets ([onOffsets]), exact, but only from
  *    launchers that report them (Samsung's doesn't);
  *  - the user's own swipes on the home screen ([onSwipeDrag], [onSwipeEnd]),
- *    when [followsSwipes] is on: counted here, from the first page up to
- *    [pages], and back to the first page whenever the screen turns off.
+ *    when [followsSwipes] is on: counted here over [pages] pages, round
+ *    again from the last to the first if the launcher's pages [loop], and
+ *    back to the first page whenever the screen turns off.
  *
  * The renderers move the clock by [shift] only as far as the screen has
  * unlocked, so on the lock screen it stays where it is.
@@ -25,19 +26,28 @@ object ClockPageScroll {
     private const val KEY = "clock_scrolls_with_pages"
     private const val KEY_FOLLOW_SWIPES = "clock_scroll_follows_swipes"
     private const val KEY_PAGES = "clock_scroll_pages"
+    private const val KEY_LOOP = "clock_scroll_pages_loop"
     const val DEFAULT_PAGES = 2
-    const val MAX_PAGES = 8
+    /** One page has nowhere to scroll to. */
+    const val MIN_PAGES = 2
+    /** Only a guard against a typing slip: any real home screen has fewer. */
+    const val MAX_PAGES = 99
     /** How long the clock takes to settle on a page after a swipe, like a launcher's snap. */
     const val SETTLE_MS = 280L
 
     @Volatile private var enabled: Boolean? = null
     @Volatile private var swipes: Boolean? = null
     @Volatile private var pageCount: Int? = null
+    @Volatile private var looping: Boolean? = null
 
     /** From the launcher's offsets. */
     @Volatile private var offsetShift = 0f
 
-    /** From swipes: the page counted, the finger's drag now (screen widths), and the settle after it. */
+    /**
+     * From swipes: the page counted (past the last or before the first while
+     * a looping swipe settles), the finger's drag now (screen widths, positive
+     * to the right), and the settle after it, from the page position [settleFrom].
+     */
     @Volatile private var page = 0
     @Volatile private var drag = 0f
     @Volatile private var settleFrom = 0f
@@ -50,18 +60,24 @@ object ClockPageScroll {
         swipes ?: prefs(context).getBoolean(KEY_FOLLOW_SWIPES, false).also { swipes = it }
 
     fun pages(context: Context): Int =
-        pageCount ?: prefs(context).getInt(KEY_PAGES, DEFAULT_PAGES).coerceIn(2, MAX_PAGES).also { pageCount = it }
+        pageCount ?: prefs(context).getInt(KEY_PAGES, DEFAULT_PAGES).coerceIn(MIN_PAGES, MAX_PAGES).also { pageCount = it }
 
-    fun save(context: Context, on: Boolean, followSwipes: Boolean, pages: Int) {
-        val safePages = pages.coerceIn(2, MAX_PAGES)
+    /** Whether the launcher's pages go round: past the last is the first again. */
+    fun loops(context: Context): Boolean =
+        looping ?: prefs(context).getBoolean(KEY_LOOP, false).also { looping = it }
+
+    fun save(context: Context, on: Boolean, followSwipes: Boolean, pages: Int, loop: Boolean) {
+        val safePages = pages.coerceIn(MIN_PAGES, MAX_PAGES)
         prefs(context).edit()
             .putBoolean(KEY, on)
             .putBoolean(KEY_FOLLOW_SWIPES, followSwipes)
             .putInt(KEY_PAGES, safePages)
+            .putBoolean(KEY_LOOP, loop)
             .apply()
         enabled = on
         swipes = followSwipes
         pageCount = safePages
+        looping = loop
         offsetShift = 0f
         resetToFirstPage()
     }
@@ -86,12 +102,18 @@ object ClockPageScroll {
         drag = screenWidths
     }
 
-    /** The swipe ended, moving [pageDelta] pages (1 to the next, -1 back, 0 none), within [pageCount]. */
-    fun onSwipeEnd(pageDelta: Int, pageCount: Int) {
-        val from = swipeShift(page, drag, pageCount)
-        page = (page + pageDelta).coerceIn(0, pageCount - 1)
+    /**
+     * The swipe ended, moving [pageDelta] pages (1 to the next, -1 back, 0
+     * none) over [pageCount] pages, round again at the ends if they [loop].
+     */
+    fun onSwipeEnd(pageDelta: Int, pageCount: Int, loop: Boolean) {
+        val from = position(pageCount, loop)
+        // The page settled on last time, back within the pages before moving on.
+        val start = if (loop) Math.floorMod(page, pageCount) else page.coerceIn(0, pageCount - 1)
+        val unwrapped = from - page + start
+        page = if (loop) start + pageDelta else (start + pageDelta).coerceIn(0, pageCount - 1)
         drag = 0f
-        settleFrom = from
+        settleFrom = unwrapped
         settleStart = SystemClock.uptimeMillis()
     }
 
@@ -121,12 +143,23 @@ object ClockPageScroll {
 
     private fun settledSwipeShift(): Float {
         val pages = pageCount ?: DEFAULT_PAGES
-        val target = swipeShift(page, drag, pages)
+        val loop = looping == true
+        return shiftAt(position(pages, loop), pages, loop)
+    }
+
+    /**
+     * Where the screen is among the pages now, in pages: the page with the
+     * finger's drag, or part way through the settle after a swipe.
+     */
+    private fun position(pages: Int, loop: Boolean): Float {
         val start = settleStart
-        if (start == 0L) return target
+        if (start == 0L) {
+            val dragged = page - drag
+            return if (loop) dragged else dragged.coerceIn(0f, (pages - 1).toFloat())
+        }
         val t = ((SystemClock.uptimeMillis() - start).toFloat() / SETTLE_MS).coerceIn(0f, 1f)
         val eased = 1f - (1f - t) * (1f - t) * (1f - t)
-        return settleFrom + (target - settleFrom) * eased
+        return settleFrom + (page - settleFrom) * eased
     }
 
     /**
@@ -141,12 +174,17 @@ object ClockPageScroll {
     }
 
     /**
-     * The clock's move on [page] with the finger dragged [drag] screen widths
-     * (positive to the right): it follows the finger, but never past the
-     * first page or the last of [pages], where the launcher doesn't move either.
+     * The clock's move, in screen widths, with the screen at [position] pages
+     * among [pages]: the clock is on the first page, so it is a width to the
+     * left per page along. If the pages [loop], the first page is also just
+     * past the last, so from there the clock comes back in from the right.
      */
-    internal fun swipeShift(page: Int, drag: Float, pages: Int): Float =
-        (-page + drag).coerceIn(-(pages - 1).toFloat(), 0f)
+    internal fun shiftAt(position: Float, pages: Int, loop: Boolean): Float {
+        if (!position.isFinite() || pages < 1) return 0f
+        if (!loop) return -position.coerceIn(0f, (pages - 1).toFloat())
+        val along = ((position % pages) + pages) % pages
+        return if (along > pages / 2f) pages - along else -along
+    }
 
     /**
      * What a swipe that moved [dx] by [dy] pixels in [durationMs] on a screen
